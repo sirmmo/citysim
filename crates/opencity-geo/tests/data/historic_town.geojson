@@ -1,0 +1,29 @@
+{
+  "type": "FeatureCollection",
+  "name": "Historic town (OpenHistoryMap-style test data, invented)",
+  "features": [
+    {"type": "Feature", "properties": {"highway": "primary", "name": "Via Emilia", "start_date": "1800"},
+     "geometry": {"type": "LineString", "coordinates": [[11.3400, 44.4940], [11.3460, 44.4940]]}},
+    {"type": "Feature", "properties": {"highway": "residential", "start_date": "1890"},
+     "geometry": {"type": "LineString", "coordinates": [[11.3430, 44.4925], [11.3430, 44.4955]]}},
+    {"type": "Feature", "properties": {"highway": "tertiary", "start_date": "1960"},
+     "geometry": {"type": "LineString", "coordinates": [[11.3400, 44.4930], [11.3460, 44.4930]]}},
+    {"type": "Feature", "properties": {"landuse": "residential", "start_date": "1850"},
+     "geometry": {"type": "Polygon", "coordinates": [[[11.3402, 44.4942], [11.3428, 44.4942], [11.3428, 44.4954], [11.3402, 44.4954], [11.3402, 44.4942]]]}},
+    {"type": "Feature", "properties": {"building": "apartments", "building:levels": "4", "start_date": "1900"},
+     "geometry": {"type": "Polygon", "coordinates": [[[11.3405, 44.4945], [11.3407, 44.4945], [11.3407, 44.4946], [11.3405, 44.4946], [11.3405, 44.4945]]]}},
+    {"type": "Feature", "properties": {"landuse": "commercial", "start_date": "1880"},
+     "geometry": {"type": "Polygon", "coordinates": [[[11.3432, 44.4942], [11.3445, 44.4942], [11.3445, 44.4950], [11.3432, 44.4950], [11.3432, 44.4942]]]}},
+    {"type": "Feature", "properties": {"landuse": "industrial", "start_date": "1870", "end_date": "1950"},
+     "geometry": {"type": "Polygon", "coordinates": [[[11.3447, 44.4942], [11.3458, 44.4942], [11.3458, 44.4952], [11.3447, 44.4952], [11.3447, 44.4942]]]}},
+    {"type": "Feature", "properties": {"power": "plant", "plant:source": "coal", "start_date": "1905", "end_date": "1970"},
+     "geometry": {"type": "Polygon", "coordinates": [[[11.3440, 44.4955], [11.3450, 44.4955], [11.3450, 44.4960], [11.3440, 44.4960], [11.3440, 44.4955]]]}},
+    {"type": "Feature", "properties": {"amenity": "school", "start_date": "1910"},
+     "geometry": {"type": "Point", "coordinates": [11.3415, 44.4935]}},
+    {"type": "Feature", "properties": {"natural": "water", "name": "Canale"},
+     "geometry": {"type": "Polygon", "coordinates": [[[11.3400, 44.4920], [11.3460, 44.4920], [11.3460, 44.4923], [11.3400, 44.4923], [11.3400, 44.4920]]]}},
+    {"type": "Feature", "properties": {"ele": "54"}, "geometry": {"type": "Point", "coordinates": [11.3400, 44.4960]}},
+    {"type": "Feature", "properties": {"ele": "30"}, "geometry": {"type": "Point", "coordinates": [11.3460, 44.4920]}},
+    {"type": "Feature", "properties": {"amenity": "bench"}, "geometry": {"type": "Point", "coordinates": [11.3420, 44.4941]}}
+  ]
+}

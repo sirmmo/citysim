@@ -1,0 +1,22 @@
+# Example rules for a custom (fantasy) vocabulary.
+[[rule]]
+when = { kind = "road" }
+build = "road"
+[[rule]]
+when = { kind = ["cottages", "farmstead"] }
+build = "residential"
+[[rule]]
+when = { kind = ["market", "tavern"] }
+build = "commercial"
+[[rule]]
+when = { kind = ["smithy", "mill"] }
+build = "industrial"
+[[rule]]
+when = { kind = "mage_tower" }
+build = "coal_plant"
+[[rule]]
+when = { kind = "ley_line" }
+build = "power_line"
+[[rule]]
+when = { kind = "enchanted_forest" }
+build = "trees"

@@ -1,0 +1,15 @@
+[package]
+name = "opencity-mapgen"
+description = "OpenCity terrain generator (diamond-square + filters) and heightmap loader"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[dependencies]
+image.workspace = true
+rand.workspace = true
+rand_pcg.workspace = true
+serde.workspace = true
+thiserror.workspace = true

@@ -1,0 +1,45 @@
+[workspace]
+resolver = "3"
+members = [
+    "crates/opencity-core",
+    "crates/opencity-mapgen",
+    "crates/opencity-assets",
+    "crates/opencity-geo",
+    "crates/opencity-cli",
+    "crates/opencity",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88"
+license = "GPL-2.0-or-later"
+authors = ["citysim contributors", "OpenCity authors (see AUTHORS and NOTICE.md)"]
+repository = "https://github.com/sirmmo/citysim"
+homepage = "https://github.com/sirmmo/citysim"
+
+[workspace.dependencies]
+opencity-core = { path = "crates/opencity-core" }
+opencity-mapgen = { path = "crates/opencity-mapgen" }
+opencity-assets = { path = "crates/opencity-assets" }
+opencity-geo = { path = "crates/opencity-geo" }
+
+anyhow = "=1.0.98"
+clap = { version = "=4.5.40", features = ["derive", "env"] }
+image = { version = "=0.25.6", default-features = false, features = ["png"] }
+log = "=0.4.27"
+env_logger = { version = "=0.11.8", default-features = false, features = ["auto-color", "humantime"] }
+macroquad = { version = "=0.4.14", default-features = false, features = ["audio"] }
+rand = "=0.8.5"
+rand_pcg = { version = "=0.3.1", features = ["serde1"] }
+roxmltree = "=0.20.0"
+serde = { version = "=1.0.219", features = ["derive"] }
+serde_json = "=1.0.140"
+thiserror = "=2.0.12"
+toml = "=0.8.23"
+
+[profile.dev.package."*"]
+opt-level = 2
+
+[profile.release]
+lto = "thin"

@@ -1,0 +1,21 @@
+{
+  "type": "FeatureCollection",
+  "name": "Fantasy village (OpenFantasyMap-style test data, planar map units)",
+  "crs": {"type": "name", "properties": {"name": "urn:ofm:world:test"}},
+  "features": [
+    {"type": "Feature", "properties": {"kind": "road", "name": "King's Road"},
+     "geometry": {"type": "LineString", "coordinates": [[1000, 2000], [1600, 2000], [1600, 1600]]}},
+    {"type": "Feature", "properties": {"kind": "cottages"},
+     "geometry": {"type": "Polygon", "coordinates": [[[1050, 2020], [1300, 2020], [1300, 2150], [1050, 2150], [1050, 2020]]]}},
+    {"type": "Feature", "properties": {"kind": "market"},
+     "geometry": {"type": "Polygon", "coordinates": [[[1320, 2020], [1450, 2020], [1450, 2120], [1320, 2120], [1320, 2020]]]}},
+    {"type": "Feature", "properties": {"kind": "smithy"},
+     "geometry": {"type": "Polygon", "coordinates": [[[1460, 2020], [1580, 2020], [1580, 2100], [1460, 2100], [1460, 2020]]]}},
+    {"type": "Feature", "properties": {"kind": "mage_tower"},
+     "geometry": {"type": "Point", "coordinates": [1650, 1700]}},
+    {"type": "Feature", "properties": {"kind": "enchanted_forest"},
+     "geometry": {"type": "Polygon", "coordinates": [[[1000, 1600], [1300, 1600], [1300, 1900], [1000, 1900], [1000, 1600]]]}},
+    {"type": "Feature", "properties": {"kind": "ley_line"},
+     "geometry": {"type": "LineString", "coordinates": [[1625, 1700], [1625, 1990]]}}
+  ]
+}

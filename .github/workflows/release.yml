@@ -1,0 +1,103 @@
+name: release
+
+# Native builds for every desktop OS. Each push/PR uploads the packages as
+# workflow artifacts; pushing a tag vX.Y.Z also publishes a GitHub release.
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    name: ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # 22.04 keeps the Linux binary compatible with older glibc versions.
+          - { os: ubuntu-22.04, target: x86_64-unknown-linux-gnu, archive: tar.gz }
+          - { os: macos-14, target: aarch64-apple-darwin, archive: tar.gz }
+          - { os: macos-13, target: x86_64-apple-darwin, archive: tar.gz }
+          - { os: windows-2022, target: x86_64-pc-windows-msvc, archive: zip }
+    steps:
+      - uses: actions/checkout@v4.2.2
+
+      - name: Linux system libraries
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends pkg-config libx11-dev libxi-dev libgl1-mesa-dev libasound2-dev
+
+      # rust-toolchain.toml pins the compiler (1.88.0); rustup installs it here.
+      - name: Rust toolchain
+        shell: bash
+        run: |
+          rustup show active-toolchain || rustup toolchain install
+          rustup target add ${{ matrix.target }}
+          rustc --version
+
+      - uses: Swatinem/rust-cache@v2.7.8
+        with:
+          key: ${{ matrix.target }}
+
+      - name: Test
+        shell: bash
+        run: cargo test --locked --workspace --exclude opencity --target ${{ matrix.target }}
+
+      - name: Build
+        shell: bash
+        run: cargo build --locked --release --target ${{ matrix.target }} -p opencity -p opencity-cli
+
+      - name: Package
+        id: package
+        shell: bash
+        run: |
+          version="${GITHUB_REF_NAME//\//-}"
+          name="citysim-${version}-${{ matrix.target }}"
+          mkdir -p "dist/$name"
+          ext=""; [[ "${{ runner.os }}" == "Windows" ]] && ext=".exe"
+          cp "target/${{ matrix.target }}/release/opencity$ext" "target/${{ matrix.target }}/release/opencity-cli$ext" "dist/$name/"
+          cp -r assets "dist/$name/assets"
+          mkdir -p "dist/$name/docs"
+          cp README.md NOTICE.md COPYING AUTHORS "dist/$name/"
+          cp docs/*.md docs/settings.example.toml docs/OPENCITY-COPYRIGHT.txt "dist/$name/docs/"
+          cp crates/opencity-geo/src/default_rules.toml "dist/$name/docs/geojson-rules.example.toml"
+          cd dist
+          if [[ "${{ matrix.archive }}" == "zip" ]]; then
+            7z a -tzip "$name.zip" "$name" > /dev/null
+            echo "file=dist/$name.zip" >> "$GITHUB_OUTPUT"
+          else
+            tar czf "$name.tar.gz" "$name"
+            echo "file=dist/$name.tar.gz" >> "$GITHUB_OUTPUT"
+          fi
+          echo "name=$name" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/upload-artifact@v4.6.2
+        with:
+          name: ${{ steps.package.outputs.name }}
+          path: ${{ steps.package.outputs.file }}
+          if-no-files-found: error
+
+  publish:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@v4.3.0
+        with:
+          path: dist
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v2.2.2
+        with:
+          files: dist/*
+          generate_release_notes: true

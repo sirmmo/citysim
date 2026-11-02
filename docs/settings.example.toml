@@ -1,0 +1,22 @@
+# ~/.config/opencity/settings.toml — every key is optional.
+
+[window]
+width = 1280
+height = 800
+fullscreen = false
+msaa = 4
+
+[audio]
+enabled = true
+volume = 0.6
+
+# Map for new cities (menu > New, or start without --load/--geojson).
+[map]
+width = 64
+length = 64
+relief = "plain"     # plain | hill | mountain
+water = "lake"       # dry | lake | coast
+shape = "none"       # none | island | volcano | crater
+trees = "sparse"     # sparse | normal | dense
+seed = 0
+# heightmap = "Palermo-51x51.png"   # a file in assets/heightmap, or any path

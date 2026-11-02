@@ -1,0 +1,24 @@
+[package]
+name = "opencity-cli"
+description = "Headless OpenCity: create, simulate, inspect and convert cities without a window"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[[bin]]
+name = "opencity-cli"
+path = "src/main.rs"
+
+[dependencies]
+opencity-core.workspace = true
+opencity-mapgen.workspace = true
+opencity-assets.workspace = true
+opencity-geo.workspace = true
+serde_json.workspace = true
+anyhow.workspace = true
+clap.workspace = true
+env_logger.workspace = true
+image.workspace = true
+log.workspace = true

@@ -1,0 +1,119 @@
+# OpenCity GeoJSON import rules.
+#
+# Each feature's properties are matched against the rules in order; the first
+# matching rule decides what the feature becomes. A rule matches when every
+# key in `when` is present and has one of the listed values ("*" = any value).
+#
+# build = residential | commercial | industrial | road | power_line
+#       | coal_plant | nuclear_plant | park | trees | water
+#       | fire_station | police | hospital | school | ignore
+#
+# Copy this file, edit it and pass it with `--rules` to map other tag
+# vocabularies (for example a fantasy map with custom keys).
+
+# Properties holding a terrain elevation in metres (points, contour lines).
+elevation = ["ele", "elevation", "opencity:ele"]
+# Lifespan properties for historical data (OpenHistoryMap / OpenHistoricalMap).
+start_date = ["start_date", "opencity:start_date"]
+end_date = ["end_date", "opencity:end_date"]
+# Property giving building floors, used to pick an initial zone level.
+levels = ["building:levels", "levels"]
+
+# --- Round trip of OpenCity's own export -----------------------------------
+[[rule]]
+when = { "opencity:build" = "*" }
+build = "from:opencity:build"
+
+# --- Water --------------------------------------------------------------------
+[[rule]]
+when = { natural = ["water", "bay", "strait", "coastline_area"] }
+build = "water"
+[[rule]]
+when = { waterway = ["riverbank", "river", "canal", "dock"] }
+build = "water"
+[[rule]]
+when = { landuse = ["reservoir", "basin"] }
+build = "water"
+
+# --- Power --------------------------------------------------------------------
+[[rule]]
+when = { power = ["plant", "generator"], "plant:source" = "nuclear" }
+build = "nuclear_plant"
+[[rule]]
+when = { power = ["plant", "generator"], "generator:source" = "nuclear" }
+build = "nuclear_plant"
+[[rule]]
+when = { power = ["plant", "generator"] }
+build = "coal_plant"
+[[rule]]
+when = { power = ["line", "minor_line", "cable"] }
+build = "power_line"
+
+# --- Public services -------------------------------------------------------
+[[rule]]
+when = { amenity = "fire_station" }
+build = "fire_station"
+[[rule]]
+when = { amenity = "police" }
+build = "police"
+[[rule]]
+when = { amenity = ["hospital", "clinic"] }
+build = "hospital"
+[[rule]]
+when = { amenity = ["school", "university", "college", "kindergarten"] }
+build = "school"
+[[rule]]
+when = { building = "fire_station" }
+build = "fire_station"
+[[rule]]
+when = { building = "hospital" }
+build = "hospital"
+[[rule]]
+when = { building = ["school", "university", "college"] }
+build = "school"
+
+# --- Roads ------------------------------------------------------------------
+[[rule]]
+when = { highway = [
+    "motorway", "trunk", "primary", "secondary", "tertiary", "unclassified",
+    "residential", "service", "living_street", "road", "pedestrian",
+    "motorway_link", "trunk_link", "primary_link", "secondary_link", "tertiary_link",
+] }
+build = "road"
+
+# --- Buildings ------------------------------------------------------------
+[[rule]]
+when = { building = ["commercial", "retail", "office", "supermarket", "kiosk", "hotel", "shop"] }
+build = "commercial"
+[[rule]]
+when = { building = "*", shop = "*" }
+build = "commercial"
+[[rule]]
+when = { building = ["industrial", "warehouse", "factory", "manufacture", "storage_tank", "hangar", "barn"] }
+build = "industrial"
+[[rule]]
+when = { building = "*" }
+build = "residential"
+
+# --- Land use ----------------------------------------------------------------
+[[rule]]
+when = { landuse = "residential" }
+build = "residential"
+[[rule]]
+when = { landuse = ["commercial", "retail"] }
+build = "commercial"
+[[rule]]
+when = { landuse = "industrial" }
+build = "industrial"
+[[rule]]
+when = { leisure = ["park", "garden", "playground"] }
+build = "park"
+[[rule]]
+when = { landuse = ["recreation_ground", "village_green"] }
+build = "park"
+[[rule]]
+when = { natural = ["wood", "tree", "tree_row"] }
+build = "trees"
+[[rule]]
+when = { landuse = ["forest", "orchard"] }
+build = "trees"

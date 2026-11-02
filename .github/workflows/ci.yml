@@ -1,0 +1,20 @@
+name: ci
+on: [push, pull_request]
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test, lint and screenshot in the pinned dev image
+        run: |
+          scripts/dev.sh cargo fmt --all --check
+          scripts/dev.sh cargo clippy --workspace --all-targets -- -D warnings
+          scripts/dev.sh cargo test --workspace
+          scripts/dev.sh cargo build -p opencity
+          mkdir -p screenshots
+          scripts/dev.sh xvfb-run -a -s "-screen 0 1280x800x24" /target/debug/opencity --demo --simulate-years 5 --no-audio --screenshot screenshots/ci.png
+      - uses: actions/upload-artifact@v4
+        with:
+          name: screenshot
+          path: screenshots/ci.png

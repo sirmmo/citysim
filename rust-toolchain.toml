@@ -1,0 +1,4 @@
+# Keep in sync with docker/Dockerfile (the canonical build environment).
+[toolchain]
+channel = "1.88.0"
+components = ["clippy", "rustfmt"]

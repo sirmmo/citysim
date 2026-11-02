@@ -1,0 +1,24 @@
+[package]
+name = "opencity"
+description = "OpenCity: a 3D city simulation (Rust port)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[[bin]]
+name = "opencity"
+path = "src/main.rs"
+
+[dependencies]
+opencity-core.workspace = true
+opencity-mapgen.workspace = true
+opencity-assets.workspace = true
+opencity-geo.workspace = true
+anyhow.workspace = true
+clap.workspace = true
+env_logger.workspace = true
+image.workspace = true
+log.workspace = true
+macroquad.workspace = true
