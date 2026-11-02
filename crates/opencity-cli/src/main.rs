@@ -29,6 +29,9 @@ enum Command {
         /// Lay out the demo town.
         #[arg(long)]
         demo: bool,
+        /// GlassBox game rules (e.g. "glassbox"); default: classic OpenCity rules.
+        #[arg(long)]
+        game_rules: Option<String>,
         #[arg(short, long)]
         out: PathBuf,
     },
@@ -41,6 +44,9 @@ enum Command {
         map: MapArgs,
         #[arg(long)]
         demo: bool,
+        /// GlassBox game rules (e.g. "glassbox"); default: classic OpenCity rules.
+        #[arg(long)]
+        game_rules: Option<String>,
         #[arg(long, default_value_t = 10)]
         years: u32,
         #[arg(long)]
@@ -212,6 +218,15 @@ fn new_city(map: &MapArgs, demo: bool, fp: Footprints) -> Result<City> {
     Ok(city)
 }
 
+/// Switches a city to (or re-attaches) a GlassBox rules set.
+fn attach_rules(city: &mut City, rules: Option<&str>, data_dir: Option<&Path>) -> Result<()> {
+    if let Some(id) = rules {
+        let dir = find_data_dir(data_dir)?;
+        city.use_rules(opencity_assets::rules::load(&dir, id)?);
+    }
+    Ok(())
+}
+
 fn load_city(path: &Path, fp: Footprints) -> Result<City> {
     let f = File::open(path).with_context(|| format!("opening {}", path.display()))?;
     Ok(save::load(BufReader::new(f), fp)?)
@@ -240,16 +255,19 @@ fn main() -> Result<()> {
     let cli = Cli::parse();
     let fp = || footprints(cli.data_dir.as_deref());
     match &cli.command {
-        Command::New { map, demo, out } => {
-            let city = new_city(map, *demo, fp())?;
+        Command::New { map, demo, game_rules, out } => {
+            let mut city = new_city(map, *demo, fp())?;
+            attach_rules(&mut city, game_rules.as_deref(), cli.data_dir.as_deref())?;
             print_summary(&city);
             save_city(&city, out)?;
         }
-        Command::Simulate { load, map, demo, years, save } => {
+        Command::Simulate { load, map, demo, game_rules, years, save } => {
             let mut city = match load {
                 Some(p) => load_city(p, fp())?,
                 None => new_city(map, *demo, fp())?,
             };
+            let rules = game_rules.clone().or_else(|| city.glassbox.as_ref().map(|g| g.rules_id.clone()));
+            attach_rules(&mut city, rules.as_deref(), cli.data_dir.as_deref())?;
             println!("{:>5} {:>9} {:>7} {:>6} {:>6} {:>6} {:>13}", "year", "fund", "people", "R", "C", "I", "power");
             let target = city.date.year + years;
             while city.date.year < target {

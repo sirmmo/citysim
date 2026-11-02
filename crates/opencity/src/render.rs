@@ -449,6 +449,16 @@ impl Renderer {
         draw_plane(vec3(w / 2.0, WATER_LEVEL, l / 2.0), vec2(w / 2.0, l / 2.0), None, Color::new(c[0], c[1], c[2], c[3]));
     }
 
+    /// A data-layer tile drawn over everything (no depth test) so values
+    /// stay readable under buildings.
+    pub fn draw_data_overlay(&self, t: &Terrain, w: u32, l: u32, color: Color) {
+        let gl = unsafe { get_internal_gl() }.quad_gl;
+        gl.depth_test(false);
+        self.draw_overlay(t, Rect::tile(w, l), color);
+        let gl = unsafe { get_internal_gl() }.quad_gl;
+        gl.depth_test(true);
+    }
+
     /// Translucent overlay hugging the terrain over `r`.
     pub fn draw_overlay(&self, t: &Terrain, r: Rect, color: Color) {
         let gl = unsafe { get_internal_gl() }.quad_gl;

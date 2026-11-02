@@ -1,0 +1,2 @@
+# Rules sets offered for new cities (files in this folder, without .toml).
+rules = ["glassbox"]

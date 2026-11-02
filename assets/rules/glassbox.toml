@@ -1,0 +1,470 @@
+# GlassBox-style rules for OpenCity: everything the city simulates is data.
+#
+# Resources flow between buildings ("units"): zones need and produce them,
+# networks move them, services use them and cover the map with layers.
+# Copy this file to make your own rules; see docs/RULES.md.
+
+id = "glassbox"
+name = "GlassBox"
+description = "Resource-driven simulation: workers, shoppers and goods travel by road, power through the grid; services cover the map."
+population = "residents"
+
+[growth]
+level_up = 0.75      # satisfaction needed to grow a level
+level_down = 0.3     # below this a building shrinks, then the plot empties
+chance = 0.15        # per tick, for an eligible building
+max_new = 4          # new buildings per tick and zone type
+road_access = 3      # a road must be this close for a plot to develop
+
+# ---------------------------------------------------------------- resources
+[[resource]]
+id = "workers"
+name = "Workers"
+transport = "agents"
+network = "road"
+max_trip = 30
+
+[[resource]]
+id = "shoppers"
+name = "Shoppers"
+transport = "agents"
+network = "road"
+max_trip = 20
+
+[[resource]]
+id = "goods"
+name = "Goods"
+transport = "agents"
+network = "road"
+max_trip = 40
+
+[[resource]]
+id = "power"
+name = "Power"
+transport = "grid"
+network = "power_grid"
+
+[[resource]]
+id = "taxes"
+name = "Taxes"
+transport = "city"
+
+[[resource]]
+id = "upkeep"
+name = "Upkeep"
+transport = "city"
+
+[[resource]]
+id = "residents"
+name = "Residents"
+transport = "local"
+
+# ---------------------------------------------------------------- networks
+[[network]]
+id = "road"
+name = "Roads"
+structures = ["road"]
+
+[[network]]
+id = "power_grid"
+name = "Power grid"
+# Power runs along power lines and roads, and through connected buildings.
+structures = ["power_line", "road"]
+through_buildings = true
+
+# ---------------------------------------------------------------- map layers
+[[layer]]
+id = "pollution"
+name = "Pollution"
+diffusion = 0.15
+decay = 0.08
+colour = [0.55, 0.4, 0.15]
+max = 60.0
+
+[[layer]]
+id = "land_value"
+name = "Land value"
+diffusion = 0.1
+decay = 0.06
+colour = [0.2, 0.75, 0.3]
+max = 60.0
+
+[[layer]]
+id = "fire_safety"
+name = "Fire coverage"
+decay = 1.0
+colour = [0.95, 0.3, 0.2]
+max = 10.0
+
+[[layer]]
+id = "police_safety"
+name = "Police coverage"
+decay = 1.0
+colour = [0.3, 0.4, 0.95]
+max = 10.0
+
+[[layer]]
+id = "health"
+name = "Health coverage"
+decay = 1.0
+colour = [0.95, 0.95, 0.95]
+max = 10.0
+
+[[layer]]
+id = "education"
+name = "Education coverage"
+decay = 1.0
+colour = [0.95, 0.8, 0.2]
+max = 10.0
+
+# ---------------------------------------------------------------- zones
+[[zone]]
+id = "residential"
+name = "Residential"
+structure = "residential"
+base_demand = 3.0
+# Houses appear when jobs are left open.
+demand = [{ resource = "workers", from = "unmet", weight = 0.5 }]
+densities = [
+  { id = "low", name = "Low density", cost = 5, units = ["house_1", "house_2", "house_3"] },
+  { id = "medium", name = "Medium density", cost = 10, units = ["townhouse_1", "townhouse_2", "townhouse_3"] },
+  { id = "high", name = "High density", cost = 20, units = ["tower_1", "tower_2", "tower_3"] },
+]
+
+[[zone]]
+id = "commercial"
+name = "Commercial"
+structure = "commercial"
+# Shops appear when shoppers and goods find nowhere to go.
+demand = [
+  { resource = "shoppers", from = "undelivered", weight = 0.5 },
+  { resource = "goods", from = "undelivered", weight = 0.3 },
+]
+densities = [
+  { id = "low", name = "Low density", cost = 5, units = ["shop_1", "shop_2", "shop_3"] },
+  { id = "medium", name = "Medium density", cost = 10, units = ["store_1", "store_2", "store_3"] },
+  { id = "high", name = "High density", cost = 20, units = ["mall_1", "mall_2", "mall_3"] },
+]
+
+[[zone]]
+id = "industrial"
+name = "Industrial"
+structure = "industrial"
+base_demand = 1.0
+# Industry appears with unemployed workers and shops short of goods.
+demand = [
+  { resource = "workers", from = "undelivered", weight = 0.5 },
+  { resource = "goods", from = "unmet", weight = 0.5 },
+]
+densities = [
+  { id = "low", name = "Low density", cost = 8, units = ["workshop_1", "workshop_2", "workshop_3"] },
+  { id = "medium", name = "Medium density", cost = 15, units = ["factory_1", "factory_2", "factory_3"] },
+  { id = "high", name = "High density", cost = 25, units = ["plant_1", "plant_2", "plant_3"] },
+]
+
+# ---------------------------------------------------------------- services
+[services]
+coal_plant = "coal_plant"
+nuclear_plant = "nuclear_plant"
+fire_station = "fire_station"
+police = "police_station"
+hospital = "hospital"
+school = "school"
+park = "park"
+
+# ---------------------------------------------------------------- units
+# Residential: residents produce workers and shoppers; they need power and
+# clean air, and the bigger homes want services and land value.
+[[unit]]
+id = "house_1"
+name = "Cottage"
+graphic = 11
+produce = { residents = 4, workers = 2, shoppers = 2, taxes = 0.04 }
+needs = { power = 1 }
+sends = ["workers", "shoppers"]
+requires = { pollution = { max = 30 } }
+
+[[unit]]
+id = "house_2"
+name = "Family house"
+graphic = 12
+produce = { residents = 6, workers = 3, shoppers = 3, taxes = 0.06 }
+needs = { power = 1 }
+sends = ["workers", "shoppers"]
+requires = { pollution = { max = 25 } }
+
+[[unit]]
+id = "house_3"
+name = "Large house"
+graphic = 13
+produce = { residents = 8, workers = 4, shoppers = 4, taxes = 0.09 }
+needs = { power = 2 }
+sends = ["workers", "shoppers"]
+requires = { pollution = { max = 20 }, land_value = { min = 2 } }
+
+[[unit]]
+id = "townhouse_1"
+name = "Townhouses"
+graphic = 14
+produce = { residents = 12, workers = 6, shoppers = 5, taxes = 0.12 }
+needs = { power = 2 }
+sends = ["workers", "shoppers"]
+requires = { pollution = { max = 25 } }
+
+[[unit]]
+id = "townhouse_2"
+name = "Apartments"
+graphic = 15
+produce = { residents = 18, workers = 9, shoppers = 7, taxes = 0.18 }
+needs = { power = 3 }
+sends = ["workers", "shoppers"]
+requires = { pollution = { max = 20 }, fire_safety = { min = 1 } }
+
+[[unit]]
+id = "townhouse_3"
+name = "Apartment block"
+graphic = 17
+produce = { residents = 26, workers = 13, shoppers = 10, taxes = 0.26 }
+needs = { power = 4 }
+sends = ["workers", "shoppers"]
+requires = { pollution = { max = 15 }, fire_safety = { min = 1 }, police_safety = { min = 1 } }
+
+[[unit]]
+id = "tower_1"
+name = "Residential tower"
+graphic = 16
+produce = { residents = 40, workers = 20, shoppers = 15, taxes = 0.4 }
+needs = { power = 6 }
+sends = ["workers", "shoppers"]
+requires = { pollution = { max = 20 }, fire_safety = { min = 1 } }
+
+[[unit]]
+id = "tower_2"
+name = "High-rise"
+graphic = 18
+produce = { residents = 90, workers = 45, shoppers = 32, taxes = 0.9 }
+needs = { power = 12 }
+sends = ["workers", "shoppers"]
+requires = { pollution = { max = 15 }, fire_safety = { min = 1 }, police_safety = { min = 1 }, health = { min = 1 } }
+
+[[unit]]
+id = "tower_3"
+name = "Skyscraper"
+graphic = 19
+produce = { residents = 160, workers = 80, shoppers = 55, taxes = 1.6 }
+needs = { power = 20 }
+sends = ["workers", "shoppers"]
+requires = { pollution = { max = 10 }, fire_safety = { min = 1 }, police_safety = { min = 1 }, health = { min = 1 }, education = { min = 1 }, land_value = { min = 5 } }
+
+# Commercial: shops need workers, customers and goods.
+[[unit]]
+id = "shop_1"
+name = "Corner shop"
+graphic = 21
+produce = { taxes = 0.05 }
+needs = { workers = 1, shoppers = 3, goods = 1, power = 1 }
+emits = { land_value = { amount = 0.4, radius = 2 } }
+
+[[unit]]
+id = "shop_2"
+name = "Store"
+graphic = 22
+produce = { taxes = 0.08 }
+needs = { workers = 2, shoppers = 5, goods = 2, power = 1 }
+emits = { land_value = { amount = 0.6, radius = 2 } }
+
+[[unit]]
+id = "shop_3"
+name = "Supermarket"
+graphic = 23
+produce = { taxes = 0.12 }
+needs = { workers = 3, shoppers = 8, goods = 3, power = 2 }
+emits = { land_value = { amount = 0.8, radius = 3 } }
+
+[[unit]]
+id = "store_1"
+name = "Shopping street"
+graphic = 24
+produce = { taxes = 0.2 }
+needs = { workers = 5, shoppers = 12, goods = 5, power = 3 }
+emits = { land_value = { amount = 1.0, radius = 3 } }
+
+[[unit]]
+id = "store_2"
+name = "Department store"
+graphic = 26
+produce = { taxes = 0.35 }
+needs = { workers = 8, shoppers = 20, goods = 8, power = 4 }
+emits = { land_value = { amount = 1.2, radius = 3 } }
+requires = { fire_safety = { min = 1 } }
+
+[[unit]]
+id = "store_3"
+name = "Hotel"
+graphic = 27
+produce = { taxes = 0.5 }
+needs = { workers = 12, shoppers = 25, goods = 10, power = 6 }
+emits = { land_value = { amount = 1.5, radius = 4 } }
+requires = { fire_safety = { min = 1 }, police_safety = { min = 1 } }
+
+[[unit]]
+id = "mall_1"
+name = "Grand hotel"
+graphic = 28
+produce = { taxes = 0.7 }
+needs = { workers = 15, shoppers = 30, goods = 12, power = 8 }
+emits = { land_value = { amount = 2.0, radius = 4 } }
+requires = { fire_safety = { min = 1 } }
+
+[[unit]]
+id = "mall_2"
+name = "Shopping centre"
+graphic = 25
+produce = { taxes = 1.4 }
+needs = { workers = 30, shoppers = 60, goods = 25, power = 15 }
+emits = { land_value = { amount = 3.0, radius = 5 } }
+requires = { fire_safety = { min = 1 }, police_safety = { min = 1 } }
+
+[[unit]]
+id = "mall_3"
+name = "Office tower"
+graphic = 29
+produce = { taxes = 2.0 }
+needs = { workers = 45, shoppers = 50, goods = 20, power = 20 }
+emits = { land_value = { amount = 4.0, radius = 6 } }
+requires = { fire_safety = { min = 1 }, police_safety = { min = 1 }, education = { min = 1 } }
+
+# Industrial: workers make goods, and pollution.
+[[unit]]
+id = "workshop_1"
+name = "Workshop"
+graphic = 31
+produce = { goods = 2, taxes = 0.04 }
+needs = { workers = 2, power = 1 }
+sends = ["goods"]
+emits = { pollution = { amount = 1.0, radius = 2 } }
+
+[[unit]]
+id = "workshop_2"
+name = "Meat factory"
+graphic = 32
+produce = { goods = 3, taxes = 0.06 }
+needs = { workers = 3, power = 2 }
+sends = ["goods"]
+emits = { pollution = { amount = 1.5, radius = 2 } }
+
+[[unit]]
+id = "workshop_3"
+name = "Hangar"
+graphic = 33
+produce = { goods = 4, taxes = 0.08 }
+needs = { workers = 4, power = 2 }
+sends = ["goods"]
+emits = { pollution = { amount = 2.0, radius = 2 } }
+
+[[unit]]
+id = "factory_1"
+name = "Warehouse"
+graphic = 34
+produce = { goods = 6, taxes = 0.12 }
+needs = { workers = 6, power = 3 }
+sends = ["goods"]
+emits = { pollution = { amount = 2.5, radius = 3 } }
+
+[[unit]]
+id = "factory_2"
+name = "Container yard"
+graphic = 35
+produce = { goods = 9, taxes = 0.18 }
+needs = { workers = 8, power = 4 }
+sends = ["goods"]
+emits = { pollution = { amount = 3.0, radius = 3 } }
+
+[[unit]]
+id = "factory_3"
+name = "Tank farm"
+graphic = 36
+produce = { goods = 12, taxes = 0.24 }
+needs = { workers = 10, power = 5 }
+sends = ["goods"]
+emits = { pollution = { amount = 4.0, radius = 3 } }
+requires = { fire_safety = { min = 1 } }
+
+[[unit]]
+id = "plant_1"
+name = "Refinery"
+graphic = 37
+produce = { goods = 16, taxes = 0.3 }
+needs = { workers = 14, power = 6 }
+sends = ["goods"]
+emits = { pollution = { amount = 5.0, radius = 4 } }
+
+[[unit]]
+id = "plant_2"
+name = "Steel mill"
+graphic = 38
+produce = { goods = 30, taxes = 0.6 }
+needs = { workers = 25, power = 12 }
+sends = ["goods"]
+emits = { pollution = { amount = 8.0, radius = 5 } }
+requires = { fire_safety = { min = 1 } }
+
+[[unit]]
+id = "plant_3"
+name = "Aeronautics works"
+graphic = 39
+produce = { goods = 45, taxes = 1.0 }
+needs = { workers = 40, power = 20 }
+sends = ["goods"]
+emits = { pollution = { amount = 6.0, radius = 4 } }
+requires = { fire_safety = { min = 1 }, education = { min = 1 } }
+
+# Services: they use workers, power and money, and cover the map.
+[[unit]]
+id = "coal_plant"
+name = "Coal power plant"
+graphic = 300
+produce = { power = 400 }
+needs = { workers = 10, upkeep = 0.4 }
+emits = { pollution = { amount = 8.0, radius = 5 } }
+
+[[unit]]
+id = "nuclear_plant"
+name = "Nuclear power plant"
+graphic = 303
+produce = { power = 1200 }
+needs = { workers = 25, upkeep = 1.6 }
+
+[[unit]]
+id = "fire_station"
+name = "Fire station"
+graphic = 350
+needs = { workers = 4, power = 2, upkeep = 0.3 }
+emits = { fire_safety = { amount = 10.0, radius = 12 } }
+
+[[unit]]
+id = "police_station"
+name = "Police station"
+graphic = 360
+needs = { workers = 4, power = 2, upkeep = 0.3 }
+emits = { police_safety = { amount = 10.0, radius = 12 } }
+
+[[unit]]
+id = "hospital"
+name = "Hospital"
+graphic = 370
+needs = { workers = 10, power = 6, upkeep = 0.6 }
+emits = { health = { amount = 10.0, radius = 16 } }
+
+[[unit]]
+id = "school"
+name = "School"
+graphic = 390
+needs = { workers = 6, power = 3, upkeep = 0.4 }
+emits = { education = { amount = 10.0, radius = 14 } }
+
+[[unit]]
+id = "park"
+name = "Park"
+graphic = 320
+emits = { land_value = { amount = 2.0, radius = 3 } }

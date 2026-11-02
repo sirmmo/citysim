@@ -1,15 +1,31 @@
-# Which 0 A.D. art dresses which OpenCity model in the "antiquity" skin.
-# Baked by scripts/bake-0ad.sh from the art Ovian prepares
-# (/srv/ovian: tools/zeroad/bake.sh, 0 A.D. commit cedd5e89a0eb).
+# Which 0 A.D. art dresses which OpenCity model in the antiquity skins.
+# Baked by scripts/bake-0ad.sh straight from the original 0 A.D. repository
+# (only the actors, meshes and textures listed here are downloaded).
 #
 # Keys are OpenCity graphic codes (see assets/graphism.conf). Values pick:
 #   structure = "<name>"  a structure of `civ` (house, storehouse, farmstead,
 #                         barracks, stable, fortress, wall_tower, field, civil_centre)
 #   actor = "<path>"      any actor from the manifest
-#   gaia = "<kind>"       a gaia list (wood, stone, metal, food, decor), with `index`
+#   gaia = "<kind>"       an entry of the [gaia] lists below, with `index`
 #   look = N              which variant (default: the code, modulo the variants)
 # Each model is scaled to the OpenCity footprint of the code it replaces.
 
+[source]
+repo = "https://gitea.wildfiregames.com/0ad/0ad.git"
+commit = "cedd5e89a0ebdaec42ea938a51ef7c89d6ad7645"
+
+# Largest texture side, in pixels.
+max_texture = 1024
+
+# Gaia (nature) actors, by kind.
+[gaia]
+wood = ["flora/trees/european_beech", "flora/trees/oak_new", "flora/trees/pine", "flora/trees/poplar", "flora/trees/fir_tree"]
+stone = ["geology/stonemine_temperate_quarry", "geology/stonemine_temperate_small", "geology/stone_granite_med"]
+metal = ["geology/metalmine_temperate_slabs", "geology/metal_temperate_round", "geology/metal_temperate_small"]
+food = ["props/flora/farming_barley_harvest_a", "props/flora/farming_barley_harvest_b"]
+decor = ["flora/trees/european_beech", "flora/trees/oak_new", "flora/trees/poplar_lombardy"]
+
+[bake]
 # One skin is baked per culture: assets/skins/antiquity-<civ>/.
 # `colour` is painted where 0 A.D. textures mark the player colour.
 # The first culture is the one chosen automatically for ancient dates.

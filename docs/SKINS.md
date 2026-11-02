@@ -58,33 +58,40 @@ are a mood change, not a full reskin.
 
 ## 0 A.D. art (antiquity skins)
 
-The 0 A.D. models are CC BY-SA 3.0, so they are not committed. Install them with:
+The 0 A.D. models are CC BY-SA 3.0, so they are not committed. They are
+converted from the **original 0 A.D. repository**
+(`gitea.wildfiregames.com/0ad/0ad`, pinned commit in
+[`tools/zeroad/antiquity.toml`](../tools/zeroad/antiquity.toml)):
 
 ```sh
-scripts/bake-0ad.sh [ART_DIR]
+scripts/bake-0ad.sh
 ```
 
-`ART_DIR` is the folder Ovian's `tools/zeroad/bake.sh` produces, by default
-`/srv/ovian/web/projects/diorama/public/art`. That folder holds 0 A.D. actors
-at a pinned commit, with variants, props, textures and footprints resolved.
-[`tools/zeroad/antiquity.toml`](../tools/zeroad/antiquity.toml) maps OpenCity
-graphic codes to 0 A.D. structures or gaia actors, and lists the cultures to
-bake (six by default; 0 A.D. has fifteen).
-[`bake_0ad.py`](../tools/zeroad/bake_0ad.py) runs in a pinned
-`python:3.12.7-slim` container with pycollada 0.8, NumPy 1.26.4 and Pillow 11.0.0. It:
+From a source checkout with Docker, the game runs it automatically, in the
+background, on first launch. Then the cultures appear in **File > New city…**.
+`--bake-0ad` forces a new run and `--no-auto-bake` disables it. The attempt
+is recorded in `assets/skins/.bake-0ad-attempted`.
 
-* reads the COLLADA meshes and converts them from Z-up to Y-up;
-* attaches props such as tree crowns at their prop points;
-* applies the civilisation's player colour where the texture's alpha marks it;
-* scales each model to the footprint of the code it replaces;
-* writes, per culture, AC3D models, PNG textures, `models.toml`, `skin.toml`
-  and `ATTRIBUTION.txt` into `assets/skins/antiquity-<civ>/`, and lists them
-  in `assets/skins/generated.toml`.
+The bake runs in a pinned image ([`docker/zeroad.Dockerfile`](../docker/zeroad.Dockerfile):
+Python 3.12, git-lfs, pycollada 0.8, NumPy 1.26.4, Pillow 11.0.0):
 
-Without the baked art, the plain antiquity skin still applies its colours,
-names and rules.
+1. A shallow, sparse checkout of the pinned commit fetches only text: simulation
+   templates, civilisation data, actors and variants. It is cached in the Docker
+   volume `citysim-0ad`.
+2. [`zeroad.py`](../tools/zeroad/zeroad.py) resolves each structure's template
+   (inheritance and mixins) to its actor, footprint and specific name. It
+   resolves each actor's variants and props to meshes and textures.
+3. Only those meshes and textures (about 380 Git LFS files) are checked out.
+4. [`bake_0ad.py`](../tools/zeroad/bake_0ad.py) converts the COLLADA meshes to
+   Y-up AC3D with props attached at their prop points, applies each culture's
+   player colour, scales every model to the footprint of the OpenCity model it
+   replaces, and writes per culture `models.toml`, `skin.toml` (named after the
+   culture's own buildings) and `ATTRIBUTION.txt` into
+   `assets/skins/antiquity-<civ>/`. The list goes into `assets/skins/generated.toml`.
 
-![A Roman town with 0 A.D. art](antiquity.png)
+The first run downloads roughly 300 MB. Later runs reuse the cache and take
+about a minute and a half. Without the baked art, the plain antiquity skin
+still applies its colours, names and rules.
 
 ## Assessment: what a full reskin needs
 

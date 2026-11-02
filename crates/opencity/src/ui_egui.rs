@@ -7,7 +7,9 @@ use std::path::PathBuf;
 
 use egui_macroquad::egui::{self, Color32, RichText, TextureHandle, Vec2 as EVec2};
 use opencity_assets::{Catalog, Skin};
-use opencity_core::{City, Speed, Status, Tool};
+use std::sync::Arc;
+
+use opencity_core::{rules::Ruleset, City, Speed, Status, Tool};
 use opencity_mapgen::{MapParams, Relief, Shape, TreeDensity, Water};
 
 use crate::ui::Action;
@@ -18,7 +20,11 @@ pub enum Command {
     Act(Action),
     SetSpeed(Speed),
     /// New map, with the skin to dress it in (`None`: classic modern look).
-    NewCity(MapParams, Option<String>),
+    NewCity(MapParams, Option<String>, Option<String>),
+    /// Zone density for the zone tools (GlassBox rules).
+    SetDensity(u8),
+    /// Map layer drawn over the city (GlassBox rules).
+    SetOverlay(Option<usize>),
     Save(PathBuf),
     Load(PathBuf),
     ImportGeojson {
@@ -46,6 +52,8 @@ pub struct View<'a> {
     pub skin: Option<&'a Skin>,
     pub skins: &'a [Skin],
     pub skin_choice: &'a Option<Option<String>>,
+    pub rulesets: &'a [Arc<Ruleset>],
+    pub overlay: Option<usize>,
 }
 
 #[derive(Default)]
@@ -66,6 +74,8 @@ pub struct EguiUi {
     /// Era picked in the new-city dialog (`None`: modern) and the culture's skin id.
     new_era: Option<String>,
     new_skin: Option<String>,
+    /// Rules set for the new city (`None`: classic OpenCity rules).
+    new_rules: Option<String>,
     path: String,
     import_date: String,
     import_rules: String,
@@ -132,6 +142,7 @@ impl EguiUi {
             new_map: settings_map.clone(),
             new_era: None,
             new_skin: None,
+            new_rules: Some("glassbox".into()),
             path: String::new(),
             import_date: String::new(),
             import_rules: String::new(),
@@ -243,6 +254,20 @@ impl EguiUi {
                 });
                 ui.menu_button("View", |ui| {
                     ui.checkbox(&mut self.show_city, "City panel");
+                    if let Some(rules) = view.city.rules() {
+                        ui.menu_button("Data layer", |ui| {
+                            if ui.radio(view.overlay.is_none(), "None").clicked() {
+                                out.push(Command::SetOverlay(None));
+                                ui.close_menu();
+                            }
+                            for (i, layer) in rules.layers.iter().enumerate() {
+                                if ui.radio(view.overlay == Some(i), &layer.name).clicked() {
+                                    out.push(Command::SetOverlay(Some(i)));
+                                    ui.close_menu();
+                                }
+                            }
+                        });
+                    }
                     ui.menu_button("Skin", |ui| {
                         if ui.radio(view.skin_choice.is_none(), "Automatic (era / world)").clicked() {
                             out.push(Command::SetSkin(None));
@@ -306,7 +331,14 @@ impl EguiUi {
                         let label = view.skin.map_or(label, |s| s.label(id, label));
                         let selected = view.active == Some(action);
                         let tex = self.icon(ctx, view.catalog, view.skin, icon);
-                        let text = match tool_cost(action) {
+                        let cost = match (action, view.city.rules()) {
+                            (Action::Tool(Some(t)), Some(rules)) if t.structure().is_some_and(|c| c.is_zone()) => rules
+                                .zone_for(t.structure().unwrap())
+                                .and_then(|z| rules.zones[z].densities.get(view.city.zone_density as usize))
+                                .map(|d| d.cost),
+                            _ => tool_cost(action),
+                        };
+                        let text = match cost {
                             Some(c) => format!("{label}  ${c}"),
                             None => label.to_string(),
                         };
@@ -318,6 +350,19 @@ impl EguiUi {
                         let resp = if key.is_empty() { resp } else { resp.on_hover_text(format!("Shortcut: {key}")) };
                         if resp.clicked() {
                             out.push(Command::Act(if selected { Action::Tool(None) } else { action }));
+                        }
+                    }
+                    if *group == "Zones" {
+                        if let Some(rules) = view.city.rules() {
+                            let names: Vec<&str> = rules.zones.first().map(|z| z.densities.iter().map(|d| d.name.as_str()).collect()).unwrap_or_default();
+                            ui.horizontal_wrapped(|ui| {
+                                for (i, name) in names.iter().enumerate() {
+                                    let short = name.split_whitespace().next().unwrap_or(name);
+                                    if ui.selectable_label(view.city.zone_density == i as u8, short).on_hover_text(*name).clicked() {
+                                        out.push(Command::SetDensity(i as u8));
+                                    }
+                                }
+                            });
                         }
                     }
                 }
@@ -344,6 +389,40 @@ impl EguiUi {
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| ui.label(RichText::new(value).monospace()));
                 });
                 ui.add(egui::ProgressBar::new(fraction).fill(color).desired_height(6.0));
+            }
+            if let (Some(gb), Some(rules)) = (&city.glassbox, city.rules()) {
+                ui.separator();
+                ui.label(RichText::new("Demand").small().color(Color32::GRAY));
+                let max = gb.demand.iter().cloned().fold(1.0f32, f32::max);
+                for (z, d) in rules.zones.iter().zip(&gb.demand) {
+                    ui.horizontal(|ui| {
+                        ui.label(&z.name);
+                        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| ui.label(RichText::new(format!("{d:.0}")).monospace()));
+                    });
+                    ui.add(egui::ProgressBar::new((d / max).clamp(0.0, 1.0)).desired_height(6.0));
+                }
+                ui.separator();
+                ui.label(RichText::new("Resources per tick: delivered / wanted").small().color(Color32::GRAY));
+                egui::Grid::new("balances").num_columns(2).show(ui, |ui| {
+                    let b = &gb.balances;
+                    for (i, r) in rules.resources.iter().enumerate() {
+                        let (got, missing) = (b.delivered.get(i).copied().unwrap_or(0.0), b.unmet.get(i).copied().unwrap_or(0.0));
+                        let made = b.produced.get(i).copied().unwrap_or(0.0);
+                        if got + missing + made <= 0.0 {
+                            continue;
+                        }
+                        ui.label(&r.name);
+                        let text = match r.transport {
+                            opencity_core::rules::Transport::Local => format!("{made:.0}"),
+                            opencity_core::rules::Transport::City if made > 0.0 => format!("+{made:.1}"),
+                            opencity_core::rules::Transport::City => format!("-{got:.1}"),
+                            _ => format!("{got:.0} / {:.0}", got + missing),
+                        };
+                        let short = missing > (got + missing) * 0.1;
+                        ui.label(RichText::new(text).monospace().color(if short { Color32::from_rgb(240, 150, 90) } else { Color32::LIGHT_GRAY }));
+                        ui.end_row();
+                    }
+                });
             }
             ui.separator();
             ui.label(RichText::new("Last 20 years").small().color(Color32::GRAY));
@@ -407,6 +486,10 @@ impl EguiUi {
                         ui.label(RichText::new(desc).italics().small());
                     }
                     ui.label(format!("Level {}   Traffic {}", info.level, info.traffic));
+                    if let (Some(gb), Some(rules), Some(u)) = (&view.city.glassbox, view.city.rules(), s.unit) {
+                        unit_details(ui, view.city, gb, rules, u as usize, view.city.layer.origin_of(w, l).unwrap_or((w, l)));
+                        return;
+                    }
                     ui.horizontal(|ui| {
                         for (label, bit) in [
                             ("Residents", Status::RESIDENTIAL),
@@ -426,6 +509,11 @@ impl EguiUi {
                 }
             }
             ui.label(format!("Ground height {}", view.city.terrain.tile_min(w, l)));
+            if let (Some(gb), Some(rules)) = (&view.city.glassbox, view.city.rules()) {
+                let values: Vec<String> =
+                    rules.layers.iter().enumerate().map(|(i, layer)| format!("{} {:.1}", layer.name, gb.layer_value(i, w, l, view.city.width()))).collect();
+                ui.label(RichText::new(values.join(" · ")).small());
+            }
         });
         if !open {
             out.push(Command::CloseQuery);
@@ -439,6 +527,7 @@ impl EguiUi {
             Dialog::NewCity => {
                 egui::Window::new("New city").collapsible(false).resizable(false).anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0]).show(ctx, |ui| {
                     era_culture_picker(ui, view.skins, &mut self.new_era, &mut self.new_skin);
+                    rules_picker(ui, view.rulesets, &mut self.new_rules);
                     ui.separator();
                     let m = &mut self.new_map;
                     egui::Grid::new("newcity").num_columns(2).show(ui, |ui| {
@@ -487,7 +576,7 @@ impl EguiUi {
                     });
                     ui.horizontal(|ui| {
                         if ui.button("Create").clicked() {
-                            out.push(Command::NewCity(self.new_map.clone(), self.new_skin.clone()));
+                            out.push(Command::NewCity(self.new_map.clone(), self.new_skin.clone(), self.new_rules.clone()));
                             close = true;
                         }
                         if ui.button("Cancel").clicked() {
@@ -551,6 +640,65 @@ impl EguiUi {
         }
         let _ = view;
     }
+}
+
+/// A GlassBox unit's needs, deliveries and satisfaction.
+fn unit_details(ui: &mut egui::Ui, city: &City, gb: &opencity_core::glassbox::GlassBox, rules: &Ruleset, unit: usize, origin: (u32, u32)) {
+    let def = &rules.units[unit];
+    ui.label(RichText::new(&def.name).strong());
+    let Some(st) = gb.unit_state(origin.0, origin.1, city.width()) else { return };
+    ui.add(egui::ProgressBar::new(st.satisfaction).text(format!("Satisfaction {:.0}%", st.satisfaction * 100.0)));
+    egui::Grid::new("unit").num_columns(2).show(ui, |ui| {
+        for (r, need) in &def.needs {
+            let i = rules.resource(r).unwrap();
+            let got = st.received.get(i).copied().unwrap_or(0.0);
+            ui.label(format!("needs {}", rules.resources[i].name));
+            let ok = got >= need * 0.95;
+            ui.label(RichText::new(format!("{got:.1} / {need:.1}")).monospace().color(if ok {
+                Color32::from_rgb(110, 210, 110)
+            } else {
+                Color32::from_rgb(230, 120, 100)
+            }));
+            ui.end_row();
+        }
+        for (r, amount) in &def.produce {
+            let i = rules.resource(r).unwrap();
+            ui.label(format!("makes {}", rules.resources[i].name));
+            ui.label(RichText::new(format!("{amount:.1}")).monospace());
+            ui.end_row();
+        }
+        for (l, b) in &def.requires {
+            let li = rules.layer(l).unwrap();
+            let v = gb.layer_value(li, origin.0, origin.1, city.width());
+            let ok = !(b.min.is_some_and(|m| v < m) || b.max.is_some_and(|m| v > m));
+            let bound = match (b.min, b.max) {
+                (Some(a), _) => format!("≥ {a}"),
+                (_, Some(a)) => format!("≤ {a}"),
+                _ => String::new(),
+            };
+            ui.label(format!("{} {bound}", rules.layers[li].name));
+            ui.label(RichText::new(format!("{v:.1}")).monospace().color(if ok { Color32::from_rgb(110, 210, 110) } else { Color32::from_rgb(230, 120, 100) }));
+            ui.end_row();
+        }
+    });
+}
+
+fn rules_picker(ui: &mut egui::Ui, rulesets: &[Arc<Ruleset>], chosen: &mut Option<String>) {
+    egui::Grid::new("rules").num_columns(2).show(ui, |ui| {
+        ui.label("Rules");
+        let text = chosen.as_ref().and_then(|id| rulesets.iter().find(|r| &r.id == id)).map_or("Classic OpenCity".to_string(), |r| r.name.clone());
+        egui::ComboBox::from_id_salt("rules_combo").selected_text(text).width(220.0).show_ui(ui, |ui| {
+            if ui.selectable_label(chosen.is_none(), "Classic OpenCity").on_hover_text("The original OpenCity growth rules").clicked() {
+                *chosen = None;
+            }
+            for r in rulesets {
+                if ui.selectable_label(chosen.as_ref() == Some(&r.id), &r.name).on_hover_text(&r.description).clicked() {
+                    *chosen = Some(r.id.clone());
+                }
+            }
+        });
+        ui.end_row();
+    });
 }
 
 /// Era and culture choice for a new city. Cultures are the skins of the era.

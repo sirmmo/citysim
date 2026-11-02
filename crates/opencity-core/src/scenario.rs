@@ -40,6 +40,8 @@ pub fn demo_town(city: &mut City) {
     if l0 >= 5 {
         try_tool(Tool::CoalPlant, (w1.saturating_sub(5), l0 - 4), (0, 0));
         try_tool(Tool::PowerLine, (w1, l0 - 4), (w1, l0 - 1));
+        // A road too, so workers can reach the plant (needed by GlassBox rules).
+        try_tool(Tool::Road, (w1.saturating_sub(5), l0 - 1), (w1 - 1, l0 - 1));
     }
     try_tool(Tool::Park, (w0 + 1, l1.saturating_sub(1)), (w0 + 3, l1.saturating_sub(1)));
 }

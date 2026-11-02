@@ -111,7 +111,15 @@ pub fn zone_step(layer: &mut BuildingLayer, terrain: &Terrain, footprints: &Foot
 
 /// Whether the zone at `(w, l)` has room to switch to model `next`
 /// (legacy `CheckLevelUp` / `CheckLevelDown`).
-fn can_take_shape(layer: &BuildingLayer, terrain: &Terrain, footprints: &Footprints, w: u32, l: u32, s: &Structure, next: crate::GraphicCode) -> bool {
+pub(crate) fn can_take_shape(
+    layer: &BuildingLayer,
+    terrain: &Terrain,
+    footprints: &Footprints,
+    w: u32,
+    l: u32,
+    s: &Structure,
+    next: crate::GraphicCode,
+) -> bool {
     if next == s.graphic {
         return true;
     }

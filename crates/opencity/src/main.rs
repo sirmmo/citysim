@@ -1,6 +1,8 @@
 //! OpenCity: the game.
 
 mod audio;
+#[cfg(not(target_os = "android"))]
+mod bake;
 mod camera;
 mod gpu;
 mod render;
@@ -62,6 +64,12 @@ struct Args {
     /// Render a few frames, save a PNG screenshot and exit.
     #[arg(long)]
     screenshot: Option<PathBuf>,
+    /// GlassBox game rules for a new city (e.g. "glassbox"); default: classic OpenCity rules.
+    #[arg(long)]
+    game_rules: Option<String>,
+    /// Draw this GlassBox map layer over the city (screenshots).
+    #[arg(long, hide = true)]
+    overlay: Option<String>,
     /// Skin to use (default: chosen from the city's era or world).
     #[arg(long)]
     skin: Option<String>,
@@ -74,6 +82,12 @@ struct Args {
     /// Open the new-city dialog with this skin preselected (screenshots, docs).
     #[arg(long, hide = true)]
     show_new_city: Option<String>,
+    /// Run scripts/bake-0ad.sh now, even if it ran before.
+    #[arg(long)]
+    bake_0ad: bool,
+    /// Do not install the 0 A.D. art automatically on first launch.
+    #[arg(long, conflicts_with = "bake_0ad")]
+    no_auto_bake: bool,
     /// Use the classic interface made of the original OpenCity artwork.
     #[arg(long)]
     classic_ui: bool,
@@ -210,6 +224,18 @@ fn import_geojson(path: &Path, date: Option<&str>, rules: Option<&Path>, units_p
     Ok(city)
 }
 
+/// Saves made with GlassBox rules store only the rules id; attach the rules again.
+fn attach_saved_rules(city: &mut City, rulesets: &[std::sync::Arc<opencity_core::rules::Ruleset>]) {
+    if city.rules().is_none() {
+        if let Some(id) = city.glassbox.as_ref().map(|g| g.rules_id.clone()) {
+            match rulesets.iter().find(|r| r.id == id) {
+                Some(r) => city.use_rules(r.clone()),
+                None => log::warn!("rules {id} not found; the city will not simulate"),
+            }
+        }
+    }
+}
+
 fn load_city(path: &Path, catalog: &Catalog) -> Result<City> {
     let f = std::fs::File::open(path).with_context(|| format!("opening {}", path.display()))?;
     Ok(save::load(std::io::BufReader::new(f), catalog.footprints())?)
@@ -248,6 +274,9 @@ struct Game {
     base_catalog: Catalog,
     skins: Vec<Skin>,
     skin: Option<Skin>,
+    rulesets: Vec<std::sync::Arc<opencity_core::rules::Ruleset>>,
+    /// GlassBox map layer drawn over the city.
+    overlay: Option<usize>,
     /// `None`: pick automatically; `Some(None)`: no skin; `Some(Some(id))`: forced.
     skin_choice: Option<Option<String>>,
     renderer: Renderer,
@@ -263,6 +292,9 @@ struct Game {
     hover: Option<(u32, u32)>,
     #[cfg(not(target_os = "android"))]
     egui: Option<ui_egui::EguiUi>,
+    /// Background 0 A.D. art installation, if running.
+    #[cfg(not(target_os = "android"))]
+    bake: Option<std::sync::mpsc::Receiver<bake::Outcome>>,
 }
 
 impl Game {
@@ -270,7 +302,8 @@ impl Game {
         self.message = Some((m.into(), get_time() + 3.0));
     }
 
-    fn set_city(&mut self, city: City) {
+    fn set_city(&mut self, mut city: City) {
+        attach_saved_rules(&mut city, &self.rulesets);
         self.camera = OrbitCamera::new(city.width(), city.length());
         self.city = city;
         self.drag_start = None;
@@ -352,8 +385,12 @@ impl Game {
         match cmd {
             Command::Act(a) => return self.handle_action(a),
             Command::SetSpeed(s) => self.city.speed = s,
-            Command::NewCity(params, skin) => match new_city_with(params, &self.base_catalog) {
-                Ok(c) => {
+            Command::NewCity(params, skin, rules) => match new_city_with(params, &self.base_catalog) {
+                Ok(mut c) => {
+                    if let Some(r) = rules.and_then(|id| self.rulesets.iter().find(|r| r.id == id).cloned()) {
+                        c.use_rules(r);
+                    }
+                    self.overlay = None;
                     // The chosen era/culture dresses the new city (None: modern look).
                     self.skin_choice = Some(skin);
                     self.set_city(c);
@@ -393,6 +430,8 @@ impl Game {
                 self.skin_choice = choice;
                 self.apply_skin();
             }
+            Command::SetDensity(d) => self.city.zone_density = d,
+            Command::SetOverlay(o) => self.overlay = o,
             Command::ResetCamera => self.camera = OrbitCamera::new(self.city.width(), self.city.length()),
             Command::CloseQuery => self.query = None,
             Command::Quit => return false,
@@ -400,7 +439,36 @@ impl Game {
         true
     }
 
+    /// Picks up the result of the first-run art installation.
+    #[cfg(not(target_os = "android"))]
+    fn poll_bake(&mut self) {
+        let Some(rx) = &self.bake else { return };
+        match rx.try_recv() {
+            Ok(outcome) => {
+                self.bake = None;
+                match outcome {
+                    Ok(msg) => {
+                        self.skins = Skin::load_all(&self.base_catalog.data_dir);
+                        self.apply_skin();
+                        let cultures = self.skins.iter().filter(|s| s.era == "Antiquity" && !s.models.is_empty()).count();
+                        self.message = Some((format!("{msg}: {cultures} cultures in File > New city"), get_time() + 10.0));
+                    }
+                    Err(msg) => self.message = Some((msg, get_time() + 10.0)),
+                }
+            }
+            Err(std::sync::mpsc::TryRecvError::Empty) => {
+                let until = self.message.as_ref().map_or(0.0, |m| m.1);
+                if until < get_time() + 1.0 {
+                    self.message = Some(("Installing 0 A.D. art in the background (first run)…".into(), get_time() + 2.0));
+                }
+            }
+            Err(std::sync::mpsc::TryRecvError::Disconnected) => self.bake = None,
+        }
+    }
+
     fn frame(&mut self) -> bool {
+        #[cfg(not(target_os = "android"))]
+        self.poll_bake();
         let mouse: Vec2 = mouse_position().into();
         let mouse_delta = mouse - self.last_mouse;
         self.last_mouse = mouse;
@@ -423,6 +491,8 @@ impl Game {
                 skin: self.skin.as_ref(),
                 skins: &self.skins,
                 skin_choice: &self.skin_choice,
+                rulesets: &self.rulesets,
+                overlay: self.overlay,
             };
             let mut commands = Vec::new();
             egui_macroquad::ui(|ctx| {
@@ -516,6 +586,20 @@ impl Game {
         set_camera(&cam);
         self.renderer.draw_city(&self.city, &cam);
         phase(2, t);
+        if let (Some(li), Some(gb), Some(rules)) = (self.overlay, &self.city.glassbox, self.city.rules()) {
+            if let Some(def) = rules.layers.get(li) {
+                let w = self.city.width();
+                for l in 0..self.city.length() {
+                    for x in 0..w {
+                        let v = gb.layer_value(li, x, l, w) / def.max;
+                        if v > 0.03 {
+                            let c = def.colour;
+                            self.renderer.draw_data_overlay(&self.city.terrain, x, l, Color::new(c[0], c[1], c[2], (v * 0.75).min(0.75)));
+                        }
+                    }
+                }
+            }
+        }
         if let Some(Action::Tool(Some(tool))) = self.active {
             if let (Some(start), Some(cur)) = (self.drag_start, hover) {
                 let code = tool.structure();
@@ -585,6 +669,14 @@ async fn main() -> Result<()> {
         (None, Some(g)) => import_geojson(g, s.args.date.as_deref(), s.args.rules.as_deref(), s.args.units_per_tile, s.args.world.as_deref(), &catalog)?,
         (None, None) => new_city(&s.settings, s.args.seed.unwrap_or(s.settings.map.seed), &catalog)?,
     };
+    let rulesets = opencity_assets::rules::load_all(&data_dir);
+    if let Some(id) = &s.args.game_rules {
+        match rulesets.iter().find(|r| &r.id == id) {
+            Some(r) => city.use_rules(r.clone()),
+            None => log::warn!("unknown rules {id}"),
+        }
+    }
+    attach_saved_rules(&mut city, &rulesets);
     if s.args.demo {
         scenario::demo_town(&mut city);
     }
@@ -610,6 +702,8 @@ async fn main() -> Result<()> {
         catalog,
         skins,
         skin: None,
+        rulesets,
+        overlay: None,
         skin_choice: s.args.skin.as_ref().map(|id| if id == "none" { None } else { Some(id.clone()) }),
         renderer,
         ui,
@@ -623,8 +717,14 @@ async fn main() -> Result<()> {
         hover: None,
         #[cfg(not(target_os = "android"))]
         egui: (!s.args.classic_ui).then(|| ui_egui::EguiUi::new(&s.settings.map)),
+        // Never in automated runs (screenshots, benchmarks, CI).
+        #[cfg(not(target_os = "android"))]
+        bake: if s.args.no_auto_bake || s.args.screenshot.is_some() || s.args.bench_frames.is_some() { None } else { bake::start(&data_dir, s.args.bake_0ad) },
     };
     game.apply_skin();
+    if let (Some(name), Some(rules)) = (&s.args.overlay, game.city.rules()) {
+        game.overlay = rules.layer(name);
+    }
     #[cfg(not(target_os = "android"))]
     if let (Some(id), Some(ui)) = (&s.args.show_new_city, game.egui.as_mut()) {
         ui.open_new_city(&game.skins, id);

@@ -55,6 +55,12 @@ pub struct Structure {
     /// Road traffic load computed by the traffic simulator.
     #[serde(default, skip_serializing_if = "is_zero")]
     pub traffic: u8,
+    /// Zone density (GlassBox rules): 0 low, 1 medium, 2 high.
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub density: u8,
+    /// Unit type (index in the GlassBox ruleset) of a developed building.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub unit: Option<u16>,
 }
 
 fn is_zero(v: &u8) -> bool {
@@ -63,7 +69,7 @@ fn is_zero(v: &u8) -> bool {
 
 impl Structure {
     pub fn new(code: StructureCode) -> Self {
-        Self { code, graphic: code.base_graphic(), level: 0, connections: 0, traffic: 0 }
+        Self { code, graphic: code.base_graphic(), level: 0, connections: 0, traffic: 0, density: 0, unit: None }
     }
 
     /// Graphic code a zone shows at the given level.

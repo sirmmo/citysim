@@ -7,6 +7,7 @@
 
 pub mod ac3d;
 pub mod catalog;
+pub mod rules;
 pub mod settings;
 pub mod skin;
 

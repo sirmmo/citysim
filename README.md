@@ -112,6 +112,20 @@ inspector. Android and `--classic-ui` use the original OpenCity artwork.
 Settings live in `~/.config/opencity/settings.toml`; see
 [docs/settings.example.toml](docs/settings.example.toml).
 
+## Game rules (GlassBox)
+
+Besides OpenCity's classic rules, cities can run on a **data-driven rules
+set** in the spirit of SimCity's GlassBox engine:
+
+* Zones (with low, medium and high densities) need and produce resources.
+* Networks move resources: workers, shoppers and goods by road, power through the grid.
+* Services use resources and cover the map with layers.
+
+Everything is defined in [`assets/rules/glassbox.toml`](assets/rules/glassbox.toml).
+Choose it under **File > New city… > Rules**. See [docs/RULES.md](docs/RULES.md).
+
+![A GlassBox town with the pollution layer](docs/glassbox.png)
+
 ## Skins
 
 Skins re-dress the game for the **era** of a historical import or the
@@ -123,8 +137,11 @@ per-era or per-world reskin needs.
 
 **File > New city…** lets you pick an era and a culture. The antiquity
 cultures (Romans, Athenians, Gauls, Ptolemies, Han, Mauryas) use
-[0 A.D.](https://play0ad.com) art (CC BY-SA 3.0, installed with
-`scripts/bake-0ad.sh`, not committed).
+[0 A.D.](https://play0ad.com) art (CC BY-SA 3.0, not committed).
+`scripts/bake-0ad.sh` converts it straight from the official 0 A.D.
+repository, at a pinned commit, downloading only the files it needs. From a
+source checkout with Docker, the game runs it in the background on first
+launch. Use `--bake-0ad` to run it again, or `--no-auto-bake` to skip it.
 
 ![A Roman town with 0 A.D. art](docs/antiquity.png)
 

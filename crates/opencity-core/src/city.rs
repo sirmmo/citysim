@@ -7,7 +7,9 @@ use rand_pcg::Pcg32;
 use serde::{Deserialize, Serialize};
 
 use crate::{
+    glassbox::GlassBox,
     layer::{BuildError, BuildingLayer, Query, Rect, Status},
+    rules::Ruleset,
     sim::{self, SimValues},
     traffic::{find_path, Vehicle, VehicleKind, MAX_VEHICLES},
     Footprints, Sound, StructureCode, Terrain, Tool,
@@ -142,6 +144,12 @@ pub struct City {
     sim_clock_ms: f64,
     #[serde(skip, default = "Footprints::builtin")]
     footprints: Footprints,
+    /// Data-driven GlassBox engine; `None` runs the classic OpenCity rules.
+    #[serde(default)]
+    pub glassbox: Option<GlassBox>,
+    /// Density used by the zone tools (GlassBox rules): 0 low, 1 medium, 2 high.
+    #[serde(default)]
+    pub zone_density: u8,
 }
 
 impl City {
@@ -165,6 +173,8 @@ impl City {
             day_clock_ms: 0.0,
             sim_clock_ms: 0.0,
             footprints,
+            glassbox: None,
+            zone_density: 0,
         };
         if let Some(density) = tree_density {
             assert_eq!(density.len(), (width * length) as usize, "tree density size");
@@ -184,6 +194,49 @@ impl City {
 
     pub fn length(&self) -> u32 {
         self.terrain.length()
+    }
+
+    /// Switches this city to a GlassBox ruleset (new cities), or re-attaches
+    /// the rules after loading a save that uses them.
+    pub fn use_rules(&mut self, rules: std::sync::Arc<Ruleset>) {
+        let (w, l) = (self.width(), self.length());
+        match &mut self.glassbox {
+            Some(g) => g.attach(rules, w, l),
+            None => {
+                self.convert_to_rules(&rules);
+                self.glassbox = Some(GlassBox::new(rules, w, l));
+            }
+        }
+    }
+
+    /// Existing buildings under new rules: services become their units, and
+    /// grown zones go back to plots that develop under the new rules.
+    fn convert_to_rules(&mut self, rules: &Ruleset) {
+        let origins: Vec<((u32, u32), StructureCode)> = self.layer.structures().filter(|(_, s)| s.unit.is_none()).map(|(p, s)| (p, s.code)).collect();
+        for ((w, l), code) in origins {
+            if code.is_zone() {
+                let Some(s) = self.layer.structure_mut(w, l) else { continue };
+                if s.level > 0 {
+                    let old = s.graphic;
+                    s.level = 0;
+                    s.graphic = code.base_graphic();
+                    self.layer.resize(w, l, old, &self.terrain, &self.footprints, &mut self.rng);
+                }
+                continue;
+            }
+            let tool = Tool::ALL.into_iter().find(|t| t.structure() == Some(code));
+            if let Some(unit) = tool.and_then(|t| rules.services.get(t.id())).and_then(|u| rules.unit(u)) {
+                if let Some(s) = self.layer.structure_mut(w, l) {
+                    s.unit = Some(unit as u16);
+                    s.level = 1;
+                }
+            }
+        }
+    }
+
+    /// The GlassBox ruleset in use, if any.
+    pub fn rules(&self) -> Option<&std::sync::Arc<Ruleset>> {
+        self.glassbox.as_ref().and_then(|g| g.rules())
     }
 
     pub fn footprints(&self) -> &Footprints {
@@ -231,11 +284,49 @@ impl City {
             _ => {
                 let code = tool.structure().expect("building tool");
                 let rect = if code.is_block() { Rect::tile(a.0, a.1) } else { rect };
-                self.layer.build(rect, code, &self.terrain, &self.footprints, &mut self.rng)?
+                let mut cost = self.layer.build(rect, code, &self.terrain, &self.footprints, &mut self.rng)?;
+                if let Some(per_tile) = self.zone_cost(code) {
+                    cost = cost / code.build_cost().max(1) * per_tile;
+                }
+                self.after_build(tool, code, rect);
+                cost
             }
         };
         self.fund -= cost as i64;
         Ok(ToolOutcome { cost, sound: tool.sound() })
+    }
+
+    /// Zoning cost per tile at the current density, under GlassBox rules.
+    fn zone_cost(&self, code: StructureCode) -> Option<u32> {
+        let rules = self.rules()?;
+        let z = rules.zone_for(code)?;
+        rules.zones[z].densities.get(self.zone_density as usize).map(|d| d.cost)
+    }
+
+    /// GlassBox bookkeeping after a build: zone density, service units.
+    fn after_build(&mut self, tool: Tool, code: StructureCode, rect: Rect) {
+        let Some(rules) = self.rules().cloned() else { return };
+        if code.is_zone() {
+            let density = self.zone_density;
+            for (w, l) in rect.tiles() {
+                if let Some(s) = self.layer.structure_mut(w, l) {
+                    if s.code == code && s.unit.is_none() {
+                        s.density = density;
+                    }
+                }
+            }
+        } else if let Some(unit) = rules.services.get(tool.id()).and_then(|u| rules.unit(u)) {
+            // Blocks have one origin; area tools (parks) make every new tile a unit.
+            let tiles: Vec<(u32, u32)> = if code.is_block() { vec![(rect.w1, rect.l1)] } else { rect.tiles().collect() };
+            for (w, l) in tiles {
+                if let Some(s) = self.layer.structure_mut(w, l) {
+                    if s.code == code && s.unit.is_none() {
+                        s.unit = Some(unit as u16);
+                        s.level = 1;
+                    }
+                }
+            }
+        }
     }
 
     pub fn query(&self, w: u32, l: u32) -> Option<TileInfo> {
@@ -273,6 +364,9 @@ impl City {
 
     /// One round of every micro-simulator.
     pub fn simulate_round(&mut self) {
+        if self.glassbox.is_some() {
+            return self.simulate_glassbox();
+        }
         for code in [StructureCode::Residential, StructureCode::Commercial, StructureCode::Industrial] {
             sim::zone_step(&mut self.layer, &self.terrain, &self.footprints, code, &mut self.rng);
         }
@@ -281,6 +375,42 @@ impl City {
             self.spawn_vehicle(start);
         }
         self.values = sim::refresh_values(&self.layer);
+    }
+
+    fn simulate_glassbox(&mut self) {
+        let mut gb = self.glassbox.take().unwrap();
+        let trips = gb.tick(&mut self.layer, &self.terrain, &self.footprints, &mut self.fund, &mut self.rng);
+        // Road traffic loads still come from the classic traffic simulator.
+        let _ = sim::traffic_step(&mut self.layer, &self.terrain, &mut self.rng);
+        // A sample of the trips becomes visible vehicles.
+        for t in trips.iter().filter(|t| t.amount >= 1.0).take(64) {
+            if self.vehicles.len() >= MAX_VEHICLES || self.rng.gen_range(0..100) >= 15 {
+                continue;
+            }
+            let (Some(a), Some(b)) = (self.nearest_road(t.from), self.nearest_road(t.to)) else { continue };
+            let kind = [VehicleKind::Car, VehicleKind::Pickup, VehicleKind::Sports][t.resource % 3];
+            if let Some(path) = find_path(&self.layer, &self.terrain, a, b, kind.path_cost()) {
+                if path.len() > 1 {
+                    self.vehicles.push(Vehicle::new(kind, &path, &self.layer, &self.terrain));
+                }
+            }
+        }
+        self.values = gb.values(&self.layer);
+        if let Some(pop) = gb.rules().and_then(|r| r.population.as_deref().and_then(|p| r.resource(p))) {
+            self.population = gb.local_total(pop) as u32;
+        }
+        self.glassbox = Some(gb);
+    }
+
+    /// A road tile next to (or near) `p`.
+    fn nearest_road(&self, p: (u32, u32)) -> Option<(u32, u32)> {
+        for r in 1..=3 {
+            let (w1, l1, w2, l2) = self.terrain.around(p.0, p.1, r);
+            if let Some(t) = (Rect { w1, l1, w2, l2 }).tiles().find(|&(w, l)| self.layer.code_at(w, l) == Some(StructureCode::Road)) {
+                return Some(t);
+            }
+        }
+        None
     }
 
     /// Recomputes power and the aggregated values without advancing time
@@ -315,7 +445,9 @@ impl City {
         }
         self.date.day = 1;
         let v = self.values;
-        self.population = v.residential + v.commercial / 2 + v.industrial / 3;
+        if self.glassbox.is_none() {
+            self.population = v.residential + v.commercial / 2 + v.industrial / 3;
+        }
         self.date.month += 1;
         if self.date.month > 12 {
             self.date.month = 1;
@@ -336,6 +468,10 @@ impl City {
 
     /// Monthly upkeep and taxes; taxes are paid out once a year (legacy `_DoBill`).
     fn pay_bills(&mut self, new_year: bool) {
+        if self.glassbox.is_some() {
+            // Money flows through the rules (taxes and upkeep resources).
+            return;
+        }
         let maintenance: u32 = self.layer.tiles().map(|(_, t)| t.code().maintenance_cost()).sum();
         self.fund -= maintenance as i64;
         let v = self.values;

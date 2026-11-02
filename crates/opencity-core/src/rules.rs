@@ -1,0 +1,353 @@
+//! Data-driven city rules, in the spirit of SimCity's GlassBox engine.
+//!
+//! Everything the simulation knows is declared here and loaded from a rules
+//! file (`assets/rules/*.toml`):
+//!
+//! * **Resources**: what flows through the city (workers, goods, power…), and
+//!   how it travels: carried by agents along a network, propagated through a
+//!   grid, paid into the city treasury, or kept by the building.
+//! * **Map layers**: fields over the map (pollution, land value, coverage of
+//!   services) with diffusion and decay.
+//! * **Networks**: which structures form them and which resources they move.
+//! * **Units**: buildings. Each produces some resources, needs others, sends
+//!   its stock to buildings that need it, emits into map layers, and may
+//!   require layer values to thrive.
+//! * **Zones**: zone types with density subtypes; each density lists the
+//!   units that grow on it, level by level. Zone demand is computed from
+//!   resource balances.
+//! * **Services**: which unit a service tool builds.
+
+use std::collections::BTreeMap;
+
+use serde::{Deserialize, Serialize};
+
+use crate::StructureCode;
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Transport {
+    /// Carried by agents along a network (workers, shoppers, goods).
+    Agents,
+    /// Shared instantly by everything connected to a network (power, water).
+    Grid,
+    /// Paid into or out of the city treasury (taxes, upkeep).
+    City,
+    /// Stays in the building (residents, statistics).
+    Local,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ResourceDef {
+    pub id: String,
+    pub name: String,
+    pub transport: Transport,
+    /// Network carrying it (for agents and grid transport).
+    #[serde(default)]
+    pub network: Option<String>,
+    /// Longest trip in tiles for agent transport.
+    #[serde(default = "default_trip")]
+    pub max_trip: u32,
+}
+
+fn default_trip() -> u32 {
+    40
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct LayerDef {
+    pub id: String,
+    pub name: String,
+    /// Share of a tile's value spread to its neighbours per tick (0..1).
+    #[serde(default)]
+    pub diffusion: f32,
+    /// Share of the value lost per tick (0..1).
+    #[serde(default)]
+    pub decay: f32,
+    /// Overlay colour for high values (RGB 0..1).
+    #[serde(default = "default_layer_colour")]
+    pub colour: [f32; 3],
+    /// Value shown as full intensity in the overlay.
+    #[serde(default = "default_layer_max")]
+    pub max: f32,
+}
+
+fn default_layer_colour() -> [f32; 3] {
+    [1.0, 0.3, 0.2]
+}
+fn default_layer_max() -> f32 {
+    100.0
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct NetworkDef {
+    pub id: String,
+    pub name: String,
+    /// Structure codes forming the network ("road", "power_line").
+    pub structures: Vec<String>,
+    /// Whether adjacent buildings also conduct (like OpenCity's power).
+    #[serde(default)]
+    pub through_buildings: bool,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Bound {
+    #[serde(default)]
+    pub min: Option<f32>,
+    #[serde(default)]
+    pub max: Option<f32>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Emission {
+    pub amount: f32,
+    /// Tiles around the building reached, with linear falloff.
+    #[serde(default)]
+    pub radius: u32,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct UnitDef {
+    pub id: String,
+    pub name: String,
+    /// Model shown (OpenCity graphic code); its footprint is the unit's size.
+    pub graphic: u16,
+    /// Produced per tick, scaled by how well the unit's needs are met.
+    #[serde(default)]
+    pub produce: BTreeMap<String, f32>,
+    /// Needed per tick; delivered by networks, agents or the treasury.
+    #[serde(default)]
+    pub needs: BTreeMap<String, f32>,
+    /// Produced resources pushed to buildings that need them.
+    #[serde(default)]
+    pub sends: Vec<String>,
+    /// Added to map layers per tick.
+    #[serde(default)]
+    pub emits: BTreeMap<String, Emission>,
+    /// Layer conditions at the unit's tile; each unmet one halves satisfaction.
+    #[serde(default)]
+    pub requires: BTreeMap<String, Bound>,
+    /// Cost when placed with a service tool (0: the tool's own cost).
+    #[serde(default)]
+    pub build_cost: u32,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DensityDef {
+    pub id: String,
+    pub name: String,
+    /// Zoning cost per tile.
+    #[serde(default = "default_zone_cost")]
+    pub cost: u32,
+    /// Units growing on this density, from level 1 upwards.
+    pub units: Vec<String>,
+}
+
+fn default_zone_cost() -> u32 {
+    5
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DemandSource {
+    /// Needed by buildings but not delivered (e.g. open jobs).
+    Unmet,
+    /// Produced but not delivered anywhere (e.g. unemployed workers).
+    Undelivered,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DemandTerm {
+    pub resource: String,
+    pub from: DemandSource,
+    #[serde(default = "one")]
+    pub weight: f32,
+}
+
+fn one() -> f32 {
+    1.0
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ZoneDef {
+    pub id: String,
+    pub name: String,
+    /// "residential", "commercial" or "industrial": the OpenCity zone it uses.
+    pub structure: String,
+    pub densities: Vec<DensityDef>,
+    /// Zone demand: positive terms make it grow.
+    #[serde(default)]
+    pub demand: Vec<DemandTerm>,
+    /// Demand always present (immigration, start-up).
+    #[serde(default)]
+    pub base_demand: f32,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct GrowthDef {
+    /// Satisfaction above which units may level up.
+    pub level_up: f32,
+    /// Satisfaction below which units level down (and plots empty at level 1).
+    pub level_down: f32,
+    /// Chance per tick that an eligible unit changes level.
+    pub chance: f32,
+    /// New buildings per tick at most, per zone type.
+    pub max_new: u32,
+    /// Road tiles must be this close to a plot for it to develop.
+    pub road_access: u32,
+}
+
+impl Default for GrowthDef {
+    fn default() -> Self {
+        Self { level_up: 0.8, level_down: 0.3, chance: 0.2, max_new: 3, road_access: 3 }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Ruleset {
+    pub id: String,
+    pub name: String,
+    #[serde(default)]
+    pub description: String,
+    #[serde(default, rename = "resource")]
+    pub resources: Vec<ResourceDef>,
+    #[serde(default, rename = "layer")]
+    pub layers: Vec<LayerDef>,
+    #[serde(default, rename = "network")]
+    pub networks: Vec<NetworkDef>,
+    #[serde(default, rename = "unit")]
+    pub units: Vec<UnitDef>,
+    #[serde(default, rename = "zone")]
+    pub zones: Vec<ZoneDef>,
+    /// Service tool id ("coal_plant", "fire_station"…) -> unit id.
+    #[serde(default)]
+    pub services: BTreeMap<String, String>,
+    /// Resource counted as the city's population.
+    #[serde(default)]
+    pub population: Option<String>,
+    #[serde(default)]
+    pub growth: GrowthDef,
+}
+
+#[derive(Debug, thiserror::Error)]
+#[error("rules {rules:?}: {message}")]
+pub struct RulesError {
+    pub rules: String,
+    pub message: String,
+}
+
+impl Ruleset {
+    pub fn resource(&self, id: &str) -> Option<usize> {
+        self.resources.iter().position(|r| r.id == id)
+    }
+    pub fn layer(&self, id: &str) -> Option<usize> {
+        self.layers.iter().position(|l| l.id == id)
+    }
+    pub fn unit(&self, id: &str) -> Option<usize> {
+        self.units.iter().position(|u| u.id == id)
+    }
+    pub fn network(&self, id: &str) -> Option<usize> {
+        self.networks.iter().position(|n| n.id == id)
+    }
+
+    /// Zone using an OpenCity zone structure.
+    pub fn zone_for(&self, code: StructureCode) -> Option<usize> {
+        self.zones.iter().position(|z| structure_code(&z.structure) == Some(code))
+    }
+
+    /// Checks every cross-reference.
+    pub fn validate(&self) -> Result<(), RulesError> {
+        let err = |message: String| Err(RulesError { rules: self.id.clone(), message });
+        for r in &self.resources {
+            match (r.transport, &r.network) {
+                (Transport::Agents | Transport::Grid, None) => return err(format!("resource {}: {:?} transport needs a network", r.id, r.transport)),
+                (_, Some(n)) if self.network(n).is_none() => return err(format!("resource {}: unknown network {n}", r.id)),
+                _ => {}
+            }
+        }
+        for n in &self.networks {
+            for s in &n.structures {
+                if structure_code(s).is_none() {
+                    return err(format!("network {}: unknown structure {s}", n.id));
+                }
+            }
+        }
+        for u in &self.units {
+            for r in u.produce.keys().chain(u.needs.keys()).chain(u.sends.iter()) {
+                if self.resource(r).is_none() {
+                    return err(format!("unit {}: unknown resource {r}", u.id));
+                }
+            }
+            for l in u.emits.keys().chain(u.requires.keys()) {
+                if self.layer(l).is_none() {
+                    return err(format!("unit {}: unknown layer {l}", u.id));
+                }
+            }
+        }
+        for z in &self.zones {
+            match structure_code(&z.structure) {
+                Some(c) if c.is_zone() => {}
+                _ => return err(format!("zone {}: structure must be residential, commercial or industrial", z.id)),
+            }
+            if z.densities.is_empty() || z.densities.len() > 3 {
+                return err(format!("zone {}: 1 to 3 densities", z.id));
+            }
+            for d in &z.densities {
+                if d.units.is_empty() {
+                    return err(format!("zone {} density {}: no units", z.id, d.id));
+                }
+                for u in &d.units {
+                    if self.unit(u).is_none() {
+                        return err(format!("zone {} density {}: unknown unit {u}", z.id, d.id));
+                    }
+                }
+            }
+            for t in &z.demand {
+                if self.resource(&t.resource).is_none() {
+                    return err(format!("zone {}: unknown resource {}", z.id, t.resource));
+                }
+            }
+        }
+        for (tool, unit) in &self.services {
+            if self.unit(unit).is_none() {
+                return err(format!("service {tool}: unknown unit {unit}"));
+            }
+        }
+        if let Some(p) = &self.population {
+            if self.resource(p).is_none() {
+                return err(format!("population: unknown resource {p}"));
+            }
+        }
+        Ok(())
+    }
+}
+
+/// Structure code from a rules-file name.
+pub fn structure_code(name: &str) -> Option<StructureCode> {
+    use StructureCode::*;
+    Some(match name {
+        "residential" => Residential,
+        "commercial" => Commercial,
+        "industrial" => Industrial,
+        "road" => Road,
+        "power_line" => PowerLine,
+        "coal_plant" => CoalPlant,
+        "nuclear_plant" => NuclearPlant,
+        "park" => Park,
+        "fire_station" => FireDept,
+        "police" => PoliceDept,
+        "hospital" => Hospital,
+        "school" => School,
+        _ => return None,
+    })
+}

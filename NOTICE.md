@@ -26,15 +26,16 @@ The original authors and contributors are listed in [AUTHORS](AUTHORS) and
 ## What is new
 
 The Rust code base: crate layout, deterministic single-threaded simulation,
+the data-driven GlassBox rules engine,
 macroquad renderer, TOML settings, headless CLI, GeoJSON import/export
 (OpenFantasyMap, OpenHistoryMap / OpenHistoricalMap) and the Docker-based
 build.
 
 ## Third-party art (optional)
 
-The optional **antiquity** skin uses art from [0 A.D.](https://play0ad.com) by
-Wildfire Games (CC BY-SA 3.0), converted by `scripts/bake-0ad.sh`. That art
-is not part of this repository. The bake writes its own `ATTRIBUTION.txt`
+The optional **antiquity** skins use art from [0 A.D.](https://play0ad.com) by
+Wildfire Games (CC BY-SA 3.0), converted from the official 0 A.D. repository
+by `scripts/bake-0ad.sh`. That art is not part of this repository. The bake writes its own `ATTRIBUTION.txt`
 next to the converted files, and they keep the CC BY-SA 3.0 licence.
 
 ## License
