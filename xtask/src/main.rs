@@ -72,6 +72,8 @@ fn android_shim(out: &Path) -> Result<()> {
         // Lets the MSRV-aware resolver pick dependency versions that predate
         // edition 2024 (which Cargo 1.61 cannot parse). rustc 1.88 still compiles.
         package.insert("rust-version".into(), SHIM_RUST_VERSION.into());
+        // Tests are not built for Android.
+        manifest.remove("dev-dependencies");
         if let Some(deps) = manifest.get_mut("dependencies").and_then(Value::as_table_mut) {
             deps.retain(|dep, _| !DROP_ON_ANDROID.contains(&dep));
             for (dep, value) in deps.iter_mut() {
