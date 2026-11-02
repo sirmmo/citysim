@@ -1,0 +1,63 @@
+# Which 0 A.D. art dresses which OpenCity model in the "antiquity" skin.
+# Baked by scripts/bake-0ad.sh from the art Ovian prepares
+# (/srv/ovian: tools/zeroad/bake.sh, 0 A.D. commit cedd5e89a0eb).
+#
+# Keys are OpenCity graphic codes (see assets/graphism.conf). Values pick:
+#   structure = "<name>"  a structure of `civ` (house, storehouse, farmstead,
+#                         barracks, stable, fortress, wall_tower, field, civil_centre)
+#   actor = "<path>"      any actor from the manifest
+#   gaia = "<kind>"       a gaia list (wood, stone, metal, food, decor), with `index`
+#   look = N              which variant (default: the code, modulo the variants)
+# Each model is scaled to the OpenCity footprint of the code it replaces.
+
+civ = "rome"
+# Colour painted where 0 A.D. textures mark the player colour.
+player_colour = [160, 45, 35]
+
+[models]
+# Residential: empty plot, then houses of growing size.
+10 = { actor = "structures/plot" }
+11 = { structure = "house", look = 0 }
+12 = { structure = "house", look = 1 }
+13 = { structure = "house", look = 2 }
+14 = { structure = "house", look = 3 }
+15 = { structure = "house", look = 1 }
+16 = { structure = "house", look = 2 }
+17 = { structure = "house", look = 3 }
+18 = { structure = "farmstead" }
+19 = { structure = "barracks" }
+# Commercial: market buildings.
+20 = { actor = "structures/plot" }
+21 = { structure = "storehouse" }
+22 = { structure = "storehouse" }
+23 = { structure = "storehouse" }
+24 = { structure = "farmstead" }
+25 = { structure = "civil_centre" }
+26 = { structure = "storehouse" }
+27 = { structure = "stable" }
+28 = { structure = "stable" }
+29 = { structure = "civil_centre" }
+# Industrial: fields, workshops, quarries and mines.
+30 = { actor = "structures/plot" }
+31 = { gaia = "food", index = 0 }
+32 = { gaia = "food", index = 1 }
+33 = { gaia = "stone", index = 1 }
+34 = { gaia = "metal", index = 2 }
+35 = { structure = "farmstead" }
+36 = { gaia = "stone", index = 0 }
+37 = { gaia = "metal", index = 0 }
+38 = { structure = "stable" }
+39 = { structure = "barracks" }
+# "Power": the foundry is a fortress; services.
+300 = { structure = "fortress" }
+350 = { structure = "wall_tower" }
+360 = { structure = "barracks" }
+370 = { structure = "civil_centre" }
+390 = { structure = "civil_centre" }
+# Nature.
+320 = { gaia = "decor", index = 2 }
+330 = { gaia = "wood", index = 0 }
+331 = { gaia = "wood", index = 1 }
+332 = { gaia = "wood", index = 2 }
+333 = { gaia = "wood", index = 3 }
+334 = { gaia = "wood", index = 4 }

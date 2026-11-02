@@ -111,7 +111,10 @@ GeoJSON `world`, or set with `--skin` and **View > Skin**. See
 [docs/SKINS.md](docs/SKINS.md), which also assesses what a complete
 per-era or per-world reskin needs.
 
-![Bologna in 1600 with the Renaissance skin](docs/skin-renaissance.png)
+The **antiquity** skin dresses towns with [0 A.D.](https://play0ad.com) art
+(CC BY-SA 3.0, installed with `scripts/bake-0ad.sh`, not committed).
+
+![A Roman town with 0 A.D. art](docs/antiquity.png)
 
 ## Maps from GeoJSON
 
@@ -125,6 +128,8 @@ scripts/dev.sh /target/debug/opencity-cli export-geojson bologna.ocsave.json -o 
 ```
 
 The game opens the same inputs directly with `--geojson FILE [--date YEAR] [--rules FILE]`.
+Diagonal streets rasterise to zig-zags of tiles. The renderer draws such
+staircases as straight diagonal streets on the same tiles.
 See [docs/GEOJSON.md](docs/GEOJSON.md).
 
 ## License

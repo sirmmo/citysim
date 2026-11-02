@@ -4,7 +4,7 @@ description = "Cities before the industrial revolution: warm, faded colours, no 
 disabled_tools = ["nuclear_plant"]
 
 [applies]
-years = [-3000, 1799]
+years = [501, 1799]
 
 [look]
 sky = [0.86, 0.78, 0.62]

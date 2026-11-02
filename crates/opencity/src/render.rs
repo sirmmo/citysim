@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 use macroquad::models::{draw_mesh, Mesh, Vertex};
 use macroquad::prelude::*;
 use opencity_assets::{ac3d, Catalog, Look};
-use opencity_core::{layer::TileKind, terrain::HEIGHT_MAX, City, Direction, GraphicCode, Rect, Terrain};
+use opencity_core::{codes::connect, layer::TileKind, terrain::HEIGHT_MAX, City, Direction, GraphicCode, Rect, StructureCode, Terrain};
 
 /// Direction of the sun used to bake shading into vertex colours.
 const LIGHT: Vec3 = Vec3::new(-0.45, 0.85, -0.3);
@@ -211,10 +211,15 @@ impl Renderer {
         for m in &self.terrain {
             draw_mesh(m);
         }
+        let mut diagonals = Vec::new();
         let items: Vec<(u32, u32, GraphicCode)> = city
             .layer
             .tiles()
             .filter_map(|((w, l), t)| match &t.kind {
+                TileKind::Main(s) if s.code == StructureCode::Road && is_staircase(city, w, l, s.connections) => {
+                    diagonals.push((w, l, s.connections));
+                    None
+                }
                 TileKind::Main(s) => Some((w, l, s.graphic)),
                 TileKind::Part { .. } => None,
             })
@@ -222,6 +227,7 @@ impl Renderer {
         for (w, l, gc) in items {
             self.draw_model(gc, Self::tile_matrix(&city.terrain, w, l));
         }
+        self.draw_diagonal_roads(&city.terrain, &diagonals);
         let vehicles: &[opencity_core::traffic::Vehicle] = if self.look.vehicles { &city.vehicles } else { &[] };
         for v in vehicles {
             let p = v.pose();
@@ -241,6 +247,58 @@ impl Renderer {
         draw_plane(vec3(w / 2.0, WATER_LEVEL, l / 2.0), vec2(w / 2.0, l / 2.0), None, Color::new(c[0], c[1], c[2], c[3]));
     }
 
+    /// Zig-zag streets drawn as diagonals: each corner tile of a staircase gets
+    /// the half-tile triangle between its two connected edges, plus a dashed
+    /// centre line from edge midpoint to edge midpoint. Purely visual: the
+    /// street still occupies the same tiles in the simulation.
+    fn draw_diagonal_roads(&self, t: &Terrain, tiles: &[(u32, u32, u8)]) {
+        if tiles.is_empty() {
+            return;
+        }
+        let gl = unsafe { get_internal_gl() }.quad_gl;
+        gl.texture(None);
+        gl.draw_mode(DrawMode::Triangles);
+        let asphalt: [u8; 4] = rgba(self.look.apply([0.27, 0.27, 0.29, 1.0]), 1.0);
+        let paint: [u8; 4] = rgba(self.look.apply([0.92, 0.92, 0.88, 1.0]), 1.0);
+        let lift = 0.03;
+        for &(w, l, mask) in tiles {
+            let (x0, z0) = (w as f32, l as f32);
+            let at = |x: f32, z: f32, lift: f32, color: [u8; 4]| Vertex {
+                position: vec3(x0 + x, height_at(t, x0 + x, z0 + z) + lift, z0 + z),
+                uv: Vec2::ZERO,
+                color,
+                normal: Vec4::ZERO,
+            };
+            // Edges: the corner shared by the two connected edges, and the two far corners.
+            let (n, e, s_, w_) = (mask & connect::NORTH != 0, mask & connect::EAST != 0, mask & connect::SOUTH != 0, mask & connect::WEST != 0);
+            type P = (f32, f32);
+            let (shared, a, b, mid_a, mid_b): (P, P, P, P, P) = match (n, e, s_, w_) {
+                (true, true, _, _) => ((1.0, 0.0), (0.0, 0.0), (1.0, 1.0), (0.5, 0.0), (1.0, 0.5)),
+                (true, _, _, true) => ((0.0, 0.0), (1.0, 0.0), (0.0, 1.0), (0.5, 0.0), (0.0, 0.5)),
+                (_, true, true, _) => ((1.0, 1.0), (1.0, 0.0), (0.0, 1.0), (1.0, 0.5), (0.5, 1.0)),
+                _ => ((0.0, 1.0), (0.0, 0.0), (1.0, 1.0), (0.0, 0.5), (0.5, 1.0)),
+            };
+            gl.geometry(&[at(shared.0, shared.1, lift, asphalt), at(a.0, a.1, lift, asphalt), at(b.0, b.1, lift, asphalt)], &[0, 1, 2]);
+            // Dashed centre line, two dashes per tile.
+            let (dx, dz) = (mid_b.0 - mid_a.0, mid_b.1 - mid_a.1);
+            let len = (dx * dx + dz * dz).sqrt();
+            let (nx, nz) = (-dz / len * 0.025, dx / len * 0.025);
+            for (t0, t1) in [(0.1, 0.4), (0.6, 0.9)] {
+                let p = |k: f32| (mid_a.0 + dx * k, mid_a.1 + dz * k);
+                let (p0, p1) = (p(t0), p(t1));
+                gl.geometry(
+                    &[
+                        at(p0.0 - nx, p0.1 - nz, lift + 0.005, paint),
+                        at(p0.0 + nx, p0.1 + nz, lift + 0.005, paint),
+                        at(p1.0 + nx, p1.1 + nz, lift + 0.005, paint),
+                        at(p1.0 - nx, p1.1 - nz, lift + 0.005, paint),
+                    ],
+                    &[0, 1, 2, 0, 2, 3],
+                );
+            }
+        }
+    }
+
     /// Translucent overlay hugging the terrain over `r`.
     pub fn draw_overlay(&self, t: &Terrain, r: Rect, color: Color) {
         let gl = unsafe { get_internal_gl() }.quad_gl;
@@ -258,6 +316,22 @@ impl Renderer {
             gl.geometry(&[v(x, c[0], z), v(x, c[1], z + 1.0), v(x + 1.0, c[2], z + 1.0), v(x + 1.0, c[3], z)], &[0, 1, 2, 0, 2, 3]);
         }
     }
+}
+
+const CORNERS: [u8; 4] = [connect::NORTH | connect::EAST, connect::NORTH | connect::WEST, connect::SOUTH | connect::EAST, connect::SOUTH | connect::WEST];
+
+/// A road corner piece whose connected neighbours include another corner:
+/// part of a zig-zag (typically a rasterised diagonal street).
+fn is_staircase(city: &City, w: u32, l: u32, mask: u8) -> bool {
+    if !CORNERS.contains(&mask) {
+        return false;
+    }
+    Direction::ALL.iter().filter(|d| mask & d.mask() != 0).any(|d| {
+        city.terrain
+            .neighbour(w, l, *d)
+            .and_then(|(nw, nl)| city.layer.structure_at(nw, nl))
+            .is_some_and(|s| s.code == StructureCode::Road && CORNERS.contains(&s.connections))
+    })
 }
 
 /// Bilinear terrain height at a map position (tile units).

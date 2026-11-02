@@ -30,6 +30,13 @@ macroquad renderer, TOML settings, headless CLI, GeoJSON import/export
 (OpenFantasyMap, OpenHistoryMap / OpenHistoricalMap) and the Docker-based
 build.
 
+## Third-party art (optional)
+
+The optional **antiquity** skin uses art from [0 A.D.](https://play0ad.com) by
+Wildfire Games (CC BY-SA 3.0), converted by `scripts/bake-0ad.sh`. That art
+is not part of this repository. The bake writes its own `ATTRIBUTION.txt`
+next to the converted files, and they keep the CC BY-SA 3.0 licence.
+
 ## License
 
 OpenCity is GPL version 2 or later, and so is this derivative work

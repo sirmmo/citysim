@@ -120,8 +120,19 @@ impl Skin {
         let dir = data_dir.join("skins").join(id);
         let path = dir.join("skin.toml");
         let raw: RawSkin = toml::from_str(&read_text(&path)?).map_err(|source| AssetError::Settings { path: path.clone(), source })?;
+        let mut raw_models = raw.models;
+        // Optional generated list (e.g. by tools/zeroad/bake_0ad.py).
+        if let Ok(text) = read_text(&dir.join("models.toml")) {
+            let generated: BTreeMap<String, String> = toml::from_str(&text).map_err(|source| AssetError::Settings { path: dir.join("models.toml"), source })?;
+            raw_models.extend(generated);
+        }
         let mut models = BTreeMap::new();
-        for (code, file) in raw.models {
+        for (code, file) in raw_models {
+            // Art that is not baked/installed is simply not used.
+            if read_bytes(&dir.join(&file)).is_err() {
+                log::debug!("skin {id}: missing model {file}");
+                continue;
+            }
             let code = code.parse::<u16>().map_err(|_| AssetError::Parse { path: path.clone(), line: 0, message: format!("bad graphic code {code:?}") })?;
             models.insert(code, dir.join(file));
         }

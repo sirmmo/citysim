@@ -2,3 +2,8 @@
 *.ocsave.json
 /screenshots/
 /dist/
+# 0 A.D. art baked by scripts/bake-0ad.sh (CC BY-SA 3.0, not committed)
+/assets/skins/antiquity/models/
+/assets/skins/antiquity/textures/
+/assets/skins/antiquity/models.toml
+/assets/skins/antiquity/ATTRIBUTION.txt
