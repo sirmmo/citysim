@@ -1,6 +1,6 @@
 name: pages
 
-# Publishes site/ to GitHub Pages (https://sirmmo.github.io/citysim/).
+# Publishes site/ to GitHub Pages (http://ingmmo.com/citysim/).
 on:
   push:
     branches: [main]
