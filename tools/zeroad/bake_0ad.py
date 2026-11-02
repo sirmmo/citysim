@@ -286,7 +286,8 @@ def main():
     args = ap.parse_args()
     cfg = tomllib.loads(args.config.read_text())
     src = cfg["source"]
-    fetch = [str(HERE / "fetch.sh"), str(args.cache), src["repo"], src["commit"]]
+    # Through `sh`: the executable bit can be lost on Windows bind mounts.
+    fetch = ["sh", str(HERE / "fetch.sh"), str(args.cache), src["repo"], src["commit"]]
     subprocess.run(fetch, check=True)
     z = ZeroAD(args.cache)
     cultures = [c for c in cfg["bake"]["cultures"] if z.has_template(f"structures/{c['civ']}/house") or print(f"{c['civ']}: unknown civilisation, skipped")]

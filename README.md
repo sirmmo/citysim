@@ -35,7 +35,10 @@ Every push builds Linux (x86_64), macOS (Apple Silicon and Intel),
 Windows (x86_64) and Android (arm64, armv7) packages; they appear as artifacts of the **release**
 workflow run. Pushing a tag `vX.Y.Z` publishes them as a GitHub release.
 Unpack the archive and run `opencity` (`opencity.exe` on Windows) from
-inside the folder, next to `assets/`.
+inside the folder, next to `assets/`. To add the 0 A.D. buildings for the
+ancient cultures, run `download-0ad-art.sh` (Linux), `download-0ad-art.command`
+(macOS) or `download-0ad-art.cmd` (Windows) in the same folder. It needs Docker.
+The game also tries this once on first launch.
 
 ## Building
 

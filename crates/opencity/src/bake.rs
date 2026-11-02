@@ -4,8 +4,9 @@
 //! background. It needs Docker, and converts art from the original 0 A.D.
 //! repository. The attempt is
 //! recorded in `<data>/skins/.bake-0ad-attempted`, so a missing prerequisite is
-//! reported once instead of on every launch. Packaged releases have no
-//! `scripts/` folder and skip this entirely.
+//! reported once instead of on every launch. Release packages ship the script
+//! (and `download-0ad-art.*` launchers) too; without Docker the attempt fails
+//! once with a message.
 
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -17,8 +18,21 @@ const MARKER: &str = ".bake-0ad-attempted";
 pub type Outcome = Result<String, String>;
 
 fn script(data_dir: &Path) -> Option<PathBuf> {
-    let s = data_dir.join("..").join("scripts").join("bake-0ad.sh");
+    let name = if cfg!(windows) { "bake-0ad.cmd" } else { "bake-0ad.sh" };
+    let s = data_dir.join("..").join("scripts").join(name);
     s.is_file().then_some(s)
+}
+
+fn command(script: &Path) -> Command {
+    if cfg!(windows) {
+        let mut c = Command::new("cmd");
+        c.arg("/C").arg(script);
+        c
+    } else {
+        let mut c = Command::new("bash");
+        c.arg(script);
+        c
+    }
 }
 
 fn already_baked(data_dir: &Path) -> bool {
@@ -38,7 +52,7 @@ pub fn start(data_dir: &Path, force: bool) -> Option<Receiver<Outcome>> {
     let (tx, rx) = mpsc::channel();
     std::thread::spawn(move || {
         log::info!("first run: installing 0 A.D. art with {}", script.display());
-        let result = Command::new("bash").arg(&script).current_dir(&root).output();
+        let result = command(&script).current_dir(&root).output();
         let outcome = match result {
             Ok(out) if out.status.success() => {
                 log::info!("bake-0ad finished:\n{}", String::from_utf8_lossy(&out.stdout));
@@ -50,7 +64,7 @@ pub fn start(data_dir: &Path, force: bool) -> Option<Receiver<Outcome>> {
                 log::warn!("bake-0ad failed:\n{err}");
                 Err(format!("0 A.D. art not installed: {reason}"))
             }
-            Err(e) => Err(format!("0 A.D. art not installed: cannot run bash ({e})")),
+            Err(e) => Err(format!("0 A.D. art not installed: cannot run {} ({e})", script.display())),
         };
         let _ = tx.send(outcome);
     });

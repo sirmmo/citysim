@@ -1,0 +1,9 @@
+# Scripts run inside Linux containers must keep LF endings on every platform.
+*.sh text eol=lf
+*.command text eol=lf
+*.py text eol=lf
+*.toml text eol=lf
+*.Dockerfile text eol=lf
+Dockerfile text eol=lf
+# Windows batch files need CRLF.
+*.cmd text eol=crlf

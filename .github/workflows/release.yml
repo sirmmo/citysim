@@ -78,6 +78,18 @@ jobs:
           cp README.md NOTICE.md COPYING AUTHORS "dist/$name/"
           cp docs/*.md docs/settings.example.toml docs/OPENCITY-COPYRIGHT.txt "dist/$name/docs/"
           cp crates/opencity-geo/src/default_rules.toml "dist/$name/docs/geojson-rules.example.toml"
+          # 0 A.D. art downloader: launchers, the bake script and its tools.
+          mkdir -p "dist/$name/scripts" "dist/$name/tools/zeroad" "dist/$name/docker"
+          cp scripts/bake-0ad.sh scripts/bake-0ad.cmd "dist/$name/scripts/"
+          cp tools/zeroad/antiquity.toml tools/zeroad/bake_0ad.py tools/zeroad/zeroad.py tools/zeroad/fetch.sh "dist/$name/tools/zeroad/"
+          cp docker/zeroad.Dockerfile "dist/$name/docker/"
+          if [[ "${{ runner.os }}" == "Windows" ]]; then
+            cp packaging/download-0ad-art.cmd "dist/$name/"
+          elif [[ "${{ runner.os }}" == "macOS" ]]; then
+            cp packaging/download-0ad-art.command "dist/$name/"
+          else
+            cp packaging/download-0ad-art.sh "dist/$name/"
+          fi
           cd dist
           if [[ "${{ matrix.archive }}" == "zip" ]]; then
             7z a -tzip "$name.zip" "$name" > /dev/null

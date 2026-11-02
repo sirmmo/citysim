@@ -64,10 +64,12 @@ converted from the **original 0 A.D. repository**
 [`tools/zeroad/antiquity.toml`](../tools/zeroad/antiquity.toml)):
 
 ```sh
-scripts/bake-0ad.sh
+scripts/bake-0ad.sh            # source checkout (Linux, macOS)
+./download-0ad-art.sh          # release package: .sh on Linux, .command on macOS
+download-0ad-art.cmd           # release package on Windows (scripts\bake-0ad.cmd)
 ```
 
-From a source checkout with Docker, the game runs it automatically, in the
+With Docker installed, the game runs it automatically, in the
 background, on first launch. Then the cultures appear in **File > New city…**.
 `--bake-0ad` forces a new run and `--no-auto-bake` disables it. The attempt
 is recorded in `assets/skins/.bake-0ad-attempted`.
