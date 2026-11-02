@@ -95,3 +95,40 @@ fn without_power_nothing_thrives() {
     let gb = c.glassbox.as_ref().unwrap();
     assert!(gb.units.values().all(|u| u.satisfaction < 0.5));
 }
+
+/// High-density zones grow multi-tile buildings that swallow their
+/// neighbours during a growth pass; this used to panic in `set_unit`.
+#[test]
+fn dense_growth_over_neighbours_does_not_panic() {
+    for seed in 0..6 {
+        let mut c = City::new(Terrain::flat(40, 40), None, Footprints::builtin(), seed);
+        c.use_rules(rules());
+        c.fund = 1_000_000;
+        c.apply_tool(Tool::CoalPlant, (2, 2), (2, 2)).unwrap();
+        c.apply_tool(Tool::NuclearPlant, (30, 0), (30, 0)).unwrap();
+        for l in [9, 15, 21, 27] {
+            c.apply_tool(Tool::Road, (2, l), (38, l)).unwrap();
+        }
+        c.apply_tool(Tool::Road, (2, 7), (38, 7)).unwrap();
+        c.apply_tool(Tool::Road, (20, 7), (20, 27)).unwrap();
+        c.apply_tool(Tool::FireDept, (10, 28), (10, 28)).unwrap();
+        c.apply_tool(Tool::PoliceDept, (14, 28), (14, 28)).unwrap();
+        c.apply_tool(Tool::Hospital, (24, 28), (24, 28)).unwrap();
+        c.zone_density = 2;
+        c.apply_tool(Tool::ZoneResidential, (2, 10), (19, 14)).unwrap();
+        c.apply_tool(Tool::ZoneCommercial, (21, 10), (38, 14)).unwrap();
+        c.zone_density = 1;
+        c.apply_tool(Tool::ZoneIndustrial, (2, 22), (38, 26)).unwrap();
+        c.apply_tool(Tool::ZoneResidential, (2, 16), (38, 20)).unwrap();
+        c.fund = 1_000_000;
+        for _ in 0..800 {
+            c.simulate_round();
+        }
+        // Every unit is on an origin tile.
+        for ((w, l), s) in c.layer.structures() {
+            if s.unit.is_some() {
+                assert_eq!(c.layer.origin_of(w, l), Some((w, l)));
+            }
+        }
+    }
+}

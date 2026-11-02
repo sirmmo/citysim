@@ -524,6 +524,9 @@ impl GlassBox {
             plots.shuffle(rng);
             let unit = rules.unit(&zr.create).unwrap();
             for (w, l) in plots.into_iter().take(zr.sample as usize) {
+                if !layer.tile(w, l).and_then(|t| t.structure()).is_some_and(|s| s.unit.is_none() && s.level == 0) {
+                    continue;
+                }
                 let ok = zr.tests.iter().all(|t| {
                     let v = match t.scope {
                         crate::rules::Scope::Map => rules.layer(&t.id).map_or(0.0, |li| self.layers[li][(l * width + w) as usize]),
@@ -560,7 +563,8 @@ impl GlassBox {
                     if placed >= g.max_new {
                         break;
                     }
-                    if !road_near(layer, w, l) {
+                    let still_plot = layer.tile(w, l).and_then(|t| t.structure()).is_some_and(|s| s.code == code && s.unit.is_none() && s.level == 0);
+                    if !still_plot || !road_near(layer, w, l) {
                         continue;
                     }
                     let density = layer.structure_at(w, l).map_or(0, |s| s.density as usize).min(z.densities.len() - 1);
@@ -574,6 +578,9 @@ impl GlassBox {
             let units: Vec<((u32, u32), u16, u8)> =
                 layer.structures().filter(|(_, s)| s.code == code).filter_map(|(p, s)| Some((p, s.unit?, s.density))).collect();
             for (p, u, density) in units {
+                if layer.tile(p.0, p.1).and_then(|t| t.structure()).and_then(|s| s.unit) != Some(u) {
+                    continue; // swallowed or changed earlier in this pass
+                }
                 let Some(st) = self.units.get(&(p.1 * width + p.0)) else { continue };
                 let sat = st.satisfaction;
                 let d = &z.densities[(density as usize).min(z.densities.len() - 1)];
@@ -621,7 +628,9 @@ fn set_unit(
     level: u8,
     rules: &Ruleset,
 ) -> bool {
-    let Some(s) = layer.structure_at(w, l).cloned() else { return false };
+    // Only a building's origin tile carries it; a tile swallowed by a growing
+    // neighbour earlier in the same pass is a part and is left alone.
+    let Some(s) = layer.tile(w, l).and_then(|t| t.structure()).cloned() else { return false };
     let graphic = match unit {
         Some(u) => GraphicCode(rules.units[u].graphic),
         None => s.code.base_graphic(),
