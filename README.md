@@ -37,8 +37,9 @@ workflow run. Pushing a tag `vX.Y.Z` publishes them as a GitHub release.
 Unpack the archive and run `opencity` (`opencity.exe` on Windows) from
 inside the folder, next to `assets/`. To add the 0 A.D. buildings for the
 ancient cultures, run `download-0ad-art.sh` (Linux), `download-0ad-art.command`
-(macOS) or `download-0ad-art.cmd` (Windows) in the same folder. It needs Docker.
-The game also tries this once on first launch.
+(macOS) or `download-0ad-art.cmd` (Windows) in the same folder. It downloads
+about 115 MB from the official 0 A.D. repository and needs no Docker. The game
+also does this once on first launch.
 
 ## Building
 
@@ -147,10 +148,10 @@ per-era or per-world reskin needs.
 **File > New city…** lets you pick an era and a culture. The antiquity
 cultures (Romans, Athenians, Gauls, Ptolemies, Han, Mauryas) use
 [0 A.D.](https://play0ad.com) art (CC BY-SA 3.0, not committed).
-`scripts/bake-0ad.sh` converts it straight from the official 0 A.D.
-repository, at a pinned commit, downloading only the files it needs. From a
-source checkout with Docker, the game runs it in the background on first
-launch. Use `--bake-0ad` to run it again, or `--no-auto-bake` to skip it.
+`opencity-cli bake-0ad` converts it straight from the official 0 A.D.
+repository at a pinned commit. It downloads only the files it needs, with no
+Docker, git or Python. The game runs it in the background on first launch.
+Use `--bake-0ad` to run it again, or `--no-auto-bake` to skip it.
 
 ![A Roman town with 0 A.D. art](docs/antiquity.png)
 

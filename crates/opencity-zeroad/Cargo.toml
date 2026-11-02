@@ -1,0 +1,17 @@
+[package]
+name = "opencity-zeroad"
+description = "Downloads 0 A.D. art from its official repository and converts it into citysim skins (no Docker, git or Python needed)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[dependencies]
+image = { workspace = true, features = ["dds"] }
+log.workspace = true
+roxmltree.workspace = true
+serde.workspace = true
+thiserror.workspace = true
+toml.workspace = true
+ureq.workspace = true

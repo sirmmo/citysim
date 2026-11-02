@@ -1,6 +1,7 @@
 # Which 0 A.D. art dresses which OpenCity model in the antiquity skins.
-# Baked by scripts/bake-0ad.sh straight from the original 0 A.D. repository
-# (only the actors, meshes and textures listed here are downloaded).
+# Used by `opencity-cli bake-0ad` (and the game on first launch), which
+# downloads only the actors, meshes and textures listed here from the
+# original 0 A.D. repository and converts them.
 #
 # Keys are OpenCity graphic codes (see assets/graphism.conf). Values pick:
 #   structure = "<name>"  a structure of `civ` (house, storehouse, farmstead,

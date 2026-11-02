@@ -11,7 +11,7 @@ use anyhow::{bail, Context, Result};
 use toml::{Table, Value};
 
 /// Dependencies unused on Android whose manifests Cargo 1.61 cannot resolve.
-const DROP_ON_ANDROID: &[&str] = &["env_logger", "egui-macroquad"];
+const DROP_ON_ANDROID: &[&str] = &["env_logger", "egui-macroquad", "opencity-zeroad"];
 
 /// Declared MSRV of the shim crates; see `android_shim`.
 const SHIM_RUST_VERSION: &str = "1.79";

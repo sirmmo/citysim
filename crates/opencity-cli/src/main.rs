@@ -79,6 +79,17 @@ enum Command {
         #[arg(short, long)]
         out: PathBuf,
     },
+    /// Download 0 A.D. art from its official repository and convert it into
+    /// the ancient culture skins (no Docker needed).
+    #[command(name = "bake-0ad")]
+    Bake0ad {
+        /// Read a local 0 A.D. checkout instead of downloading.
+        #[arg(long)]
+        from: Option<PathBuf>,
+        /// Download cache (default: the user cache directory).
+        #[arg(long)]
+        cache: Option<PathBuf>,
+    },
     /// Render a top-down PNG of a city (or of a freshly generated map).
     Render {
         #[arg(long)]
@@ -336,6 +347,16 @@ fn main() -> Result<()> {
             let json = opencity_geo::export(&city, &opts);
             std::fs::write(out, serde_json::to_string(&json)?).with_context(|| format!("writing {}", out.display()))?;
             println!("wrote {} ({} features)", out.display(), json["features"].as_array().map_or(0, Vec::len));
+        }
+        Command::Bake0ad { from, cache } => {
+            let dir = find_data_dir(cli.data_dir.as_deref())?;
+            let opts = opencity_zeroad::Options { cache_dir: cache.clone(), local_repo: from.clone() };
+            let report = opencity_zeroad::bake(&dir, &opts, &|m| eprintln!("{m}"))?;
+            for (name, models, textures) in &report.cultures {
+                println!("{name:<12} {models:>3} models {textures:>3} textures");
+            }
+            println!("downloaded {} MB; 0 A.D. art installed in {}", report.downloaded_bytes >> 20, dir.join("skins").display());
+            println!("Start citysim and pick an ancient culture in File > New city. The art is CC BY-SA 3.0 (0 A.D., Wildfire Games).");
         }
         Command::Render { load, map, scale, out } => {
             let city = match load {

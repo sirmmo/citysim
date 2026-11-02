@@ -35,7 +35,7 @@ build.
 
 The optional **antiquity** skins use art from [0 A.D.](https://play0ad.com) by
 Wildfire Games (CC BY-SA 3.0), converted from the official 0 A.D. repository
-by `scripts/bake-0ad.sh`. That art is not part of this repository. The bake writes its own `ATTRIBUTION.txt`
+by `opencity-cli bake-0ad`. That art is not part of this repository. The bake writes its own `ATTRIBUTION.txt`
 next to the converted files, and they keep the CC BY-SA 3.0 licence.
 
 ## License

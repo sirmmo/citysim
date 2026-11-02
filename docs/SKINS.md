@@ -58,42 +58,45 @@ are a mood change, not a full reskin.
 
 ## 0 A.D. art (antiquity skins)
 
-The 0 A.D. models are CC BY-SA 3.0, so they are not committed. They are
-converted from the **original 0 A.D. repository**
+The 0 A.D. models are CC BY-SA 3.0, so they are not committed or packaged.
+They are converted from the **original 0 A.D. repository**
 (`gitea.wildfiregames.com/0ad/0ad`, pinned commit in
-[`tools/zeroad/antiquity.toml`](../tools/zeroad/antiquity.toml)):
+[`assets/zeroad/antiquity.toml`](../assets/zeroad/antiquity.toml)) by citysim
+itself. No Docker, git or Python is needed:
 
 ```sh
-scripts/bake-0ad.sh            # source checkout (Linux, macOS)
+opencity-cli bake-0ad          # any install; --from <0 A.D. checkout> works offline
 ./download-0ad-art.sh          # release package: .sh on Linux, .command on macOS
-download-0ad-art.cmd           # release package on Windows (scripts\bake-0ad.cmd)
+download-0ad-art.cmd           # release package on Windows
+scripts/bake-0ad.sh            # source checkout (cargo run)
 ```
 
-With Docker installed, the game runs it automatically, in the
-background, on first launch. Then the cultures appear in **File > New city…**.
-`--bake-0ad` forces a new run and `--no-auto-bake` disables it. The attempt
-is recorded in `assets/skins/.bake-0ad-attempted`.
+The game also runs it in the background on first launch, then the cultures
+appear in **File > New city…**. `--bake-0ad` forces a new run and
+`--no-auto-bake` disables it. The attempt is recorded in
+`assets/skins/.bake-0ad-attempted`.
 
-The bake runs in a pinned image ([`docker/zeroad.Dockerfile`](../docker/zeroad.Dockerfile):
-Python 3.12, git-lfs, pycollada 0.8, NumPy 1.26.4, Pillow 11.0.0):
+The bake ([`crates/opencity-zeroad`](../crates/opencity-zeroad)) runs in four steps:
 
-1. A shallow, sparse checkout of the pinned commit fetches only text: simulation
-   templates, civilisation data, actors and variants. It is cached in the Docker
-   volume `citysim-0ad`.
-2. [`zeroad.py`](../tools/zeroad/zeroad.py) resolves each structure's template
-   (inheritance and mixins) to its actor, footprint and specific name. It
-   resolves each actor's variants and props to meshes and textures.
-3. Only those meshes and textures (about 380 Git LFS files) are checked out.
-4. [`bake_0ad.py`](../tools/zeroad/bake_0ad.py) converts the COLLADA meshes to
-   Y-up AC3D with props attached at their prop points, applies each culture's
-   player colour, scales every model to the footprint of the OpenCity model it
-   replaces, and writes per culture `models.toml`, `skin.toml` (named after the
-   culture's own buildings) and `ATTRIBUTION.txt` into
-   `assets/skins/antiquity-<civ>/`. The list goes into `assets/skins/generated.toml`.
+1. **Read the data.** It reads simulation templates (with inheritance and
+   mixins), civilisation names, actors and variants. The XML files come one
+   by one from the repository's `raw` endpoint.
+2. **List the needs.** It collects the meshes and textures that the mapped
+   structures, trees and props use.
+3. **Download.** It fetches only those, about 380 Git LFS files or 115 MB,
+   from the `media` endpoint, eight at a time. Downloads are cached in
+   `~/.cache/citysim/0ad` (`%LOCALAPPDATA%\citysim\0ad` on Windows), so a
+   second run is fast.
+4. **Convert.**
+   * COLLADA meshes become Y-up AC3D with props attached at their prop
+     points, scaled to the footprint of the OpenCity model they replace.
+   * PNG/DDS textures get the culture's player colour.
+   * Per culture it writes `models.toml`, `skin.toml` (tools named after the
+     culture's own buildings) and `ATTRIBUTION.txt` into
+     `assets/skins/antiquity-<civ>/`, and lists them in `assets/skins/generated.toml`.
 
-The first run downloads roughly 300 MB. Later runs reuse the cache and take
-about a minute and a half. Without the baked art, the plain antiquity skin
-still applies its colours, names and rules.
+Without the baked art, the plain antiquity skin still applies its colours,
+names and rules.
 
 ## Assessment: what a full reskin needs
 
@@ -108,7 +111,7 @@ The rest of the pipeline (selection, overrides, colour, names, rules) is in
 place. Ways to get there, roughly by effort:
 
 1. **More 0 A.D. cultures.** Adding a culture is one line in
-   `tools/zeroad/antiquity.toml`. Medieval and
+   `assets/zeroad/antiquity.toml`. Medieval and
    later eras need other sources.
 2. **glTF loading plus CC0 kits.** Add a glTF loader next to the AC3D one
    (the `gltf` crate) and map existing CC0 low-poly kits onto the graphic
