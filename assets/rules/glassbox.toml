@@ -17,6 +17,9 @@ level_down = 0.3     # below this a building shrinks, then the plot empties
 chance = 0.15        # per tick, for an eligible building
 max_new = 4          # new buildings per tick and zone type
 road_access = 3      # a road must be this close for a plot to develop
+grace = 40           # ticks a building stays as built (or as levelled) before changing again
+patience = 15        # ticks in a row past a threshold before levelling up/down or abandoning
+saturation = 0.1     # a zone stops spreading while this share of its settled buildings fail
 
 # ---------------------------------------------------------------- resources
 [[resource]]

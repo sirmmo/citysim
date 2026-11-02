@@ -26,6 +26,7 @@ log.workspace = true
 macroquad.workspace = true
 # Desktop UI and the 0 A.D. bake (not built on Android, see xtask android-shim).
 egui-macroquad.workspace = true
+egui_plot.workspace = true
 opencity-zeroad.workspace = true
 
 # Android packaging (cargo-quad-apk, see scripts/android.sh).

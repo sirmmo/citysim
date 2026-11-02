@@ -123,9 +123,11 @@ created automatically:
 
 ## Metrics
 
-Metrics are kept per tick with their timestamp (the tick number, last 1000 ticks):
-* **Game:** the City panel shows the latest values.
-* **CLI:** export them to compare a simulation with measured data, the validation
+Metrics are kept per tick with their timestamp (the tick number), along with
+every other engine series (last 2000 ticks):
+* **Game:** the City panel shows the latest values, and **GlassBox graphs** (`G`)
+  plots and analyses them (see [RULES.md](RULES.md#playing)).
+* **CLI:** export all series (metrics as `Metric/<name>` columns) to compare a simulation with measured data, the validation
   loop the Extended GlassBox paper proposes:
 
 ```sh

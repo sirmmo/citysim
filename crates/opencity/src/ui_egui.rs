@@ -3,7 +3,7 @@
 //! is used on Android or with `--classic-ui`.)
 
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use egui_macroquad::egui::{self, Color32, RichText, TextureHandle, Vec2 as EVec2};
 use opencity_assets::{Catalog, Skin};
@@ -80,6 +80,7 @@ pub struct EguiUi {
     import_date: String,
     import_rules: String,
     show_city: bool,
+    graphs: crate::graphs::Graphs,
     /// Skin the current style and icons were built for.
     styled_for: Option<Option<String>>,
 }
@@ -147,6 +148,7 @@ impl EguiUi {
             import_date: String::new(),
             import_rules: String::new(),
             show_city: true,
+            graphs: Default::default(),
             styled_for: None,
         }
     }
@@ -198,6 +200,11 @@ impl EguiUi {
         Some(tex)
     }
 
+    /// Opens the GlassBox graphs on a preset (by name, e.g. "Growth churn").
+    pub fn open_graphs(&mut self, preset: &str) {
+        self.graphs.open_on(preset);
+    }
+
     /// Builds the UI; returns the commands issued this frame.
     pub fn show(&mut self, ctx: &egui::Context, view: &View) -> Vec<Command> {
         self.style(ctx, view.skin);
@@ -209,6 +216,8 @@ impl EguiUi {
         }
         self.status_bar(ctx, view);
         self.query_window(ctx, view, &mut out);
+        let export_dir = view.save_path.parent().map(Path::to_path_buf).unwrap_or_default();
+        self.graphs.show(ctx, view.city.glassbox.as_ref(), &export_dir);
         self.dialogs(ctx, view, &mut out);
         out
     }
@@ -254,6 +263,9 @@ impl EguiUi {
                 });
                 ui.menu_button("View", |ui| {
                     ui.checkbox(&mut self.show_city, "City panel");
+                    if view.city.glassbox.is_some() {
+                        ui.checkbox(&mut self.graphs.open, "GlassBox graphs (G)");
+                    }
                     if let Some(rules) = view.city.rules() {
                         ui.menu_button("Data layer", |ui| {
                             if ui.radio(view.overlay.is_none(), "None").clicked() {
@@ -392,6 +404,9 @@ impl EguiUi {
             }
             if let (Some(gb), Some(rules)) = (&city.glassbox, city.rules()) {
                 ui.separator();
+                if ui.button("📈 Graphs (G)").on_hover_text("Plot and analyse every GlassBox series").clicked() {
+                    self.graphs.open = !self.graphs.open;
+                }
                 ui.label(RichText::new("Demand").small().color(Color32::GRAY));
                 let max = gb.demand.iter().cloned().fold(1.0f32, f32::max);
                 for (z, d) in rules.zones.iter().zip(&gb.demand) {

@@ -14,6 +14,7 @@ pub mod layer;
 pub mod rules;
 pub mod save;
 pub mod scenario;
+pub mod series;
 pub mod sim;
 pub mod terrain;
 pub mod traffic;

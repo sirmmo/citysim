@@ -41,6 +41,21 @@ When demand is positive, empty plots near roads develop into the density's
 first unit. Units with high satisfaction grow to the next unit; unhappy ones
 shrink, and empty their plot at the first level (`[growth]` sets the thresholds).
 
+Growth is damped so that buildings do not flicker between states:
+
+| `[growth]` key | Default | Effect |
+|---|---|---|
+| `grace` | 40 | ticks a building stays as built (or as levelled) before it may change again |
+| `patience` | 15 | ticks in a row satisfaction must stay past `level_up`/`level_down` before acting |
+| `saturation` | 0.1 | a zone stops developing new plots while this share of its settled buildings fail |
+
+An abandoned plot rests for `grace` ticks before it develops again, twice as
+long after each further failure there, until a building on it settles.
+Agents (workers, shoppers, goods) reach a building from roads up to
+`road_access` tiles away, the same distance that lets a plot develop, and
+established buildings are served first, so scarce resources do not hop
+between buildings at random every tick.
+
 **Services** map a tool to a unit: power plants produce `grid` power, and
 fire, police, hospital and school use workers, power and upkeep to emit
 coverage layers that bigger buildings require.
@@ -70,6 +85,21 @@ short of goods.
 * **Inspect** (`/`) a building to see its satisfaction, needs, production and
   layer requirements.
 * **View > Data layer** draws pollution, land value or a service's coverage over the map.
+* **GlassBox graphs** (`G`, **View > GlassBox graphs** or the button in the City panel)
+  plot every series the engine samples each tick, for the last 2000 ticks:
+  demand; produced, delivered, unmet and undelivered resources; buildings and
+  average satisfaction per zone; layer mean and maximum; logged metrics; funds;
+  and growth churn (buildings built, abandoned, levelled up or down).
+  * Tick series on and off in the list (with a filter), or pick a preset.
+  * Zoom with the wheel, pan by dragging, double-click to reset. Hover to read
+    values, and click legend entries to hide lines.
+  * Choose the time range, **Normalise** each series to its maximum to compare
+    shapes, and smooth with a moving average.
+  * The table gives last, min, max, mean, standard deviation and trend per 100
+    ticks for each shown series. **Reversals** counts how often a series changed
+    direction, and is orange when it oscillates.
+  * **Export CSV** writes the shown series (all of them when none is shown)
+    next to the save file.
 
 ## GlassBox rule scripts
 

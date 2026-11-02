@@ -132,3 +132,36 @@ fn dense_growth_over_neighbours_does_not_panic() {
         }
     }
 }
+
+/// Buildings must not flicker: once the town has grown, plots stop being
+/// built and abandoned over and over.
+#[test]
+fn growth_settles_without_flicker() {
+    let mut c = City::new(Terrain::flat(48, 48), None, Footprints::builtin(), 7);
+    c.use_rules(rules());
+    c.apply_tool(Tool::CoalPlant, (2, 2), (2, 2)).unwrap();
+    for l in [8, 12, 16, 20, 24] {
+        c.apply_tool(Tool::Road, (2, l), (44, l)).unwrap();
+    }
+    c.apply_tool(Tool::Road, (7, 2), (7, 8)).unwrap();
+    c.apply_tool(Tool::ZoneResidential, (2, 9), (44, 11)).unwrap();
+    c.apply_tool(Tool::ZoneIndustrial, (2, 13), (44, 15)).unwrap();
+    c.zone_density = 1;
+    c.apply_tool(Tool::ZoneResidential, (2, 17), (20, 19)).unwrap();
+    c.zone_density = 0;
+    c.apply_tool(Tool::ZoneCommercial, (21, 17), (44, 19)).unwrap();
+    let snapshot = |c: &City| c.layer.structures().filter_map(|(p, s)| Some((p, s.unit?))).collect::<std::collections::BTreeMap<_, _>>();
+    for _ in 0..1200 {
+        c.simulate_round();
+    }
+    let mut before = snapshot(&c);
+    let mut changes = 0;
+    for _ in 0..300 {
+        c.simulate_round();
+        let now = snapshot(&c);
+        changes += now.iter().filter(|(p, u)| before.get(p) != Some(u)).count() + before.keys().filter(|p| !now.contains_key(p)).count();
+        before = now;
+    }
+    assert!(before.len() > 300, "the town shrank to {}", before.len());
+    assert!(changes < 15, "{changes} building changes in 300 settled ticks");
+}

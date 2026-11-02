@@ -5,6 +5,8 @@ mod audio;
 mod bake;
 mod camera;
 mod gpu;
+#[cfg(not(target_os = "android"))]
+mod graphs;
 mod render;
 mod roads;
 mod ui;
@@ -82,6 +84,9 @@ struct Args {
     /// Open the new-city dialog with this skin preselected (screenshots, docs).
     #[arg(long, hide = true)]
     show_new_city: Option<String>,
+    /// Open the GlassBox graphs on this preset (screenshots, docs).
+    #[arg(long, hide = true)]
+    show_graphs: Option<String>,
     /// Run scripts/bake-0ad.sh now, even if it ran before.
     #[arg(long)]
     bake_0ad: bool,
@@ -728,6 +733,10 @@ async fn main() -> Result<()> {
     #[cfg(not(target_os = "android"))]
     if let (Some(id), Some(ui)) = (&s.args.show_new_city, game.egui.as_mut()) {
         ui.open_new_city(&game.skins, id);
+    }
+    #[cfg(not(target_os = "android"))]
+    if let (Some(preset), Some(ui)) = (&s.args.show_graphs, game.egui.as_mut()) {
+        ui.open_graphs(preset);
     }
     if s.args.screenshot.is_some() {
         game.camera.distance *= 0.75;

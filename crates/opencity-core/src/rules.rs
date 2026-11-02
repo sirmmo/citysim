@@ -207,11 +207,43 @@ pub struct GrowthDef {
     pub max_new: u32,
     /// Road tiles must be this close to a plot for it to develop.
     pub road_access: u32,
+    /// Ticks a unit stays as it is after being built or changing level.
+    #[serde(default = "default_grace")]
+    pub grace: u32,
+    /// Ticks in a row satisfaction must stay past a threshold before a unit
+    /// levels up, levels down or is abandoned.
+    #[serde(default = "default_patience")]
+    pub patience: u32,
+    /// A zone stops developing new plots while more than this share of its
+    /// established units (older than `patience`) are failing.
+    #[serde(default = "default_saturation")]
+    pub saturation: f32,
+}
+
+fn default_saturation() -> f32 {
+    0.1
+}
+
+fn default_grace() -> u32 {
+    40
+}
+
+fn default_patience() -> u32 {
+    15
 }
 
 impl Default for GrowthDef {
     fn default() -> Self {
-        Self { level_up: 0.8, level_down: 0.3, chance: 0.2, max_new: 3, road_access: 3 }
+        Self {
+            level_up: 0.8,
+            level_down: 0.3,
+            chance: 0.2,
+            max_new: 3,
+            road_access: 3,
+            grace: default_grace(),
+            patience: default_patience(),
+            saturation: default_saturation(),
+        }
     }
 }
 

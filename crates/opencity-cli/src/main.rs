@@ -235,22 +235,8 @@ fn new_city(map: &MapArgs, demo: bool, fp: Footprints) -> Result<City> {
 /// GlassBox metric history as CSV: `tick,<metric>,...`.
 fn write_metrics(city: &City, path: &Path) -> Result<()> {
     let gb = city.glassbox.as_ref().context("--metrics needs GlassBox rules (--game-rules)")?;
-    let names: std::collections::BTreeSet<&String> = gb.metric_history.iter().flat_map(|(_, m)| m.keys()).collect();
-    let mut out = String::from("tick");
-    for n in &names {
-        out.push(',');
-        out.push_str(n);
-    }
-    out.push('\n');
-    for (tick, m) in &gb.metric_history {
-        out.push_str(&tick.to_string());
-        for n in &names {
-            out.push_str(&format!(",{:.3}", m.get(*n).copied().unwrap_or(0.0)));
-        }
-        out.push('\n');
-    }
-    std::fs::write(path, out).with_context(|| format!("writing {}", path.display()))?;
-    println!("wrote {} ({} ticks)", path.display(), gb.metric_history.len());
+    std::fs::write(path, gb.series.to_csv(&[])).with_context(|| format!("writing {}", path.display()))?;
+    println!("wrote {} ({} ticks, {} series)", path.display(), gb.series.len(), gb.series.names.len());
     Ok(())
 }
 

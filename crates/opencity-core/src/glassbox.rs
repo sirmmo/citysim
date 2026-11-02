@@ -36,6 +36,29 @@ pub struct UnitState {
     pub received: Vec<f32>,
     /// 0..1, smoothed.
     pub satisfaction: f32,
+    /// Ticks since the unit was built or last changed level.
+    #[serde(default)]
+    pub age: u32,
+    /// Consecutive ticks above the level-up threshold.
+    #[serde(default)]
+    pub thriving: u32,
+    /// Consecutive ticks below the level-down threshold.
+    #[serde(default)]
+    pub struggling: u32,
+}
+
+/// A plot whose building was abandoned rests before developing again:
+/// `growth.grace` ticks, doubling with each failure there.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Serialize, Deserialize)]
+pub struct Vacancy {
+    pub since: u64,
+    pub strikes: u8,
+}
+
+impl Vacancy {
+    fn until(&self, grace: u32) -> u64 {
+        self.since + ((grace as u64) << self.strikes.min(6))
+    }
 }
 
 /// City-wide balances of the last tick, by resource index.
@@ -77,6 +100,15 @@ pub struct GlassBox {
     /// Timestamped metric snapshots, most recent last.
     #[serde(default)]
     pub metric_history: VecDeque<(u64, BTreeMap<String, f32>)>,
+    /// Plots whose building was abandoned, by origin tile.
+    #[serde(default)]
+    pub vacated: BTreeMap<u32, Vacancy>,
+    /// Everything above, sampled every tick, for graphs and analysis.
+    #[serde(default)]
+    pub series: crate::series::Series,
+    /// Building changes this tick: built, abandoned, levelled up, levelled down.
+    #[serde(skip)]
+    churn: [u32; 4],
     #[serde(skip)]
     rules: Option<Arc<Ruleset>>,
     #[serde(skip)]
@@ -99,6 +131,9 @@ impl GlassBox {
             tick: 0,
             metrics: BTreeMap::new(),
             metric_history: VecDeque::new(),
+            vacated: BTreeMap::new(),
+            series: Default::default(),
+            churn: [0; 4],
             rules: Some(rules),
             grid_cache: None,
         }
@@ -214,7 +249,7 @@ impl GlassBox {
                 continue;
             }
             let net = rules.network(res.network.as_deref().unwrap_or_default()).unwrap();
-            let comp_of = |rect: &Rect| unit_component(&comps[net], rect, width, length, terrain);
+            let comp_of = |rect: &Rect| unit_component(&comps[net], rect, width, length, 1);
             let mut supply: HashMap<u32, f32> = HashMap::new();
             let mut demand: HashMap<u32, f32> = HashMap::new();
             for (p, u, r) in &units {
@@ -255,7 +290,9 @@ impl GlassBox {
                 continue;
             }
             let net = rules.network(res.network.as_deref().unwrap_or_default()).unwrap();
-            let access = |r: &Rect| unit_component(&comps[net], r, width, length, terrain);
+            // Agents walk from the road to any plot that was allowed to develop.
+            let reach = rules.growth.road_access.max(1);
+            let access = |r: &Rect| unit_component(&comps[net], r, width, length, reach);
             // Senders bucketed by (component, cell).
             let mut buckets: HashMap<(u32, u32, u32), Vec<usize>> = HashMap::new();
             for (i, (p, u, r)) in units.iter().enumerate() {
@@ -267,7 +304,10 @@ impl GlassBox {
                 }
             }
             let mut receivers: Vec<usize> = (0..units.len()).filter(|&i| rules.units[units[i].1].needs.contains_key(&res.id)).collect();
-            receivers.shuffle(rng);
+            // Established units are served first, in a stable order: who gets
+            // the scarce workers or shoppers must not change at random every
+            // tick, or buildings flicker between thriving and failing.
+            receivers.sort_by_key(|&i| (std::cmp::Reverse(self.units[&idx(units[i].0 .0, units[i].0 .1)].age), i));
             let reach = res.max_trip.div_ceil(BUCKET) as i64;
             for i in receivers {
                 let (p, u, r) = units[i];
@@ -432,8 +472,12 @@ impl GlassBox {
                     s *= 0.5;
                 }
             }
+            let g = &rules.growth;
             let st = self.units.get_mut(&i).unwrap();
             st.satisfaction = st.satisfaction * 0.7 + s * 0.3;
+            st.age = st.age.saturating_add(1);
+            st.thriving = if st.satisfaction > g.level_up { st.thriving.saturating_add(1) } else { 0 };
+            st.struggling = if st.satisfaction < g.level_down { st.struggling.saturating_add(1) } else { 0 };
         }
 
         // 7. Demand and growth.
@@ -455,9 +499,61 @@ impl GlassBox {
             self.metric_history.pop_front();
         }
         self.metrics = metrics;
+        self.churn = [0; 4];
         self.grow(&rules, layer, terrain, footprints, rng);
         self.zone_rules(&rules, layer, terrain, footprints, rng);
+        self.record(&rules, layer, *fund);
         trips
+    }
+
+    /// Samples this tick into [`Self::series`].
+    fn record(&mut self, rules: &Ruleset, layer: &BuildingLayer, fund: i64) {
+        let mut v: Vec<(String, f32)> = Vec::new();
+        for (z, d) in rules.zones.iter().zip(&self.demand) {
+            v.push((format!("Demand/{}", z.name), *d));
+        }
+        let b = &self.balances;
+        for (i, r) in rules.resources.iter().enumerate() {
+            for (group, x) in [("Produced", &b.produced), ("Delivered", &b.delivered), ("Unmet", &b.unmet), ("Undelivered", &b.undelivered)] {
+                v.push((format!("{group}/{}", r.name), x[i]));
+            }
+        }
+        let width = layer.width();
+        let mut per_zone = vec![(0u32, 0f32); rules.zones.len()];
+        let mut services = 0u32;
+        for (p, s) in layer.structures() {
+            if s.unit.is_none() {
+                continue;
+            }
+            let sat = self.units.get(&(p.1 * width + p.0)).map_or(0.0, |st| st.satisfaction);
+            match rules.zones.iter().position(|z| structure_code(&z.structure) == Some(s.code)) {
+                Some(zi) => {
+                    per_zone[zi].0 += 1;
+                    per_zone[zi].1 += sat;
+                }
+                None => services += 1,
+            }
+        }
+        v.push(("Buildings/Services".into(), services as f32));
+        for (z, (n, sat)) in rules.zones.iter().zip(&per_zone) {
+            v.push((format!("Buildings/{}", z.name), *n as f32));
+            if *n > 0 {
+                v.push((format!("Satisfaction/{}", z.name), sat / *n as f32));
+            }
+        }
+        for (def, values) in rules.layers.iter().zip(&self.layers) {
+            let n = values.len().max(1) as f32;
+            v.push((format!("Layer mean/{}", def.name), values.iter().sum::<f32>() / n));
+            v.push((format!("Layer max/{}", def.name), values.iter().cloned().fold(0.0, f32::max)));
+        }
+        for (name, m) in &self.metrics {
+            v.push((format!("Metric/{name}"), *m));
+        }
+        v.push(("City/Funds".into(), fund as f32));
+        for (label, n) in ["Built", "Abandoned", "Levelled up", "Levelled down"].iter().zip(self.churn) {
+            v.push((format!("Growth/{label}"), n as f32));
+        }
+        self.series.push(self.tick, v.iter().map(|(k, x)| (k.as_str(), *x)));
     }
 
     /// Network components: per network, a component id per tile.
@@ -536,8 +632,8 @@ impl GlassBox {
                     };
                     t.cmp.holds(v, t.value)
                 });
-                if ok {
-                    set_unit(layer, terrain, footprints, rng, w, l, Some(unit), 1, rules);
+                if ok && set_unit(layer, terrain, footprints, rng, w, l, Some(unit), 1, rules) {
+                    self.churn[0] += 1;
                 }
             }
         }
@@ -553,8 +649,21 @@ impl GlassBox {
         };
         for (zi, z) in rules.zones.iter().enumerate() {
             let Some(code) = structure_code(&z.structure) else { continue };
+            // Oversupply: while many established units of this zone are failing,
+            // more of them would only be abandoned in turn.
+            let (mut settled, mut failing) = (0u32, 0u32);
+            for (p, s) in layer.structures() {
+                if s.code != code || s.unit.is_none() {
+                    continue;
+                }
+                if let Some(u) = self.units.get(&(p.1 * width + p.0)).filter(|u| u.age >= g.patience) {
+                    settled += 1;
+                    failing += (u.struggling > 0) as u32;
+                }
+            }
+            let saturated = failing as f32 > settled as f32 * g.saturation;
             // New buildings on empty plots.
-            if self.demand[zi] > 0.5 {
+            if self.demand[zi] > 0.5 && !saturated {
                 let mut plots: Vec<(u32, u32)> =
                     layer.structures().filter(|(_, s)| s.code == code && s.unit.is_none() && s.level == 0).map(|(p, _)| p).collect();
                 plots.shuffle(rng);
@@ -564,13 +673,15 @@ impl GlassBox {
                         break;
                     }
                     let still_plot = layer.tile(w, l).and_then(|t| t.structure()).is_some_and(|s| s.code == code && s.unit.is_none() && s.level == 0);
-                    if !still_plot || !road_near(layer, w, l) {
+                    let resting = self.vacated.get(&(l * width + w)).is_some_and(|v| self.tick < v.until(g.grace));
+                    if !still_plot || resting || !road_near(layer, w, l) {
                         continue;
                     }
                     let density = layer.structure_at(w, l).map_or(0, |s| s.density as usize).min(z.densities.len() - 1);
                     let unit = rules.unit(&z.densities[density].units[0]).unwrap();
                     if set_unit(layer, terrain, footprints, rng, w, l, Some(unit), 1, rules) {
                         placed += 1;
+                        self.churn[0] += 1;
                     }
                 }
             }
@@ -581,20 +692,45 @@ impl GlassBox {
                 if layer.tile(p.0, p.1).and_then(|t| t.structure()).and_then(|s| s.unit) != Some(u) {
                     continue; // swallowed or changed earlier in this pass
                 }
-                let Some(st) = self.units.get(&(p.1 * width + p.0)) else { continue };
-                let sat = st.satisfaction;
+                let key = p.1 * width + p.0;
+                let Some(st) = self.units.get(&key) else { continue };
+                if st.age < g.grace {
+                    continue;
+                }
+                if st.age > 2 * g.grace && st.struggling == 0 {
+                    self.vacated.remove(&key); // the plot works now
+                }
+                let (up, down) = (st.thriving >= g.patience, st.struggling >= g.patience);
                 let d = &z.densities[(density as usize).min(z.densities.len() - 1)];
                 let Some(k) = d.units.iter().position(|id| rules.unit(id) == Some(u as usize)) else { continue };
-                if sat > g.level_up && k + 1 < d.units.len() && rng.r#gen::<f32>() < g.chance {
+                let changed = if up && k + 1 < d.units.len() && rng.r#gen::<f32>() < g.chance {
                     let next = rules.unit(&d.units[k + 1]).unwrap();
-                    set_unit(layer, terrain, footprints, rng, p.0, p.1, Some(next), k as u8 + 2, rules);
-                } else if sat < g.level_down && rng.r#gen::<f32>() < g.chance {
+                    let ok = set_unit(layer, terrain, footprints, rng, p.0, p.1, Some(next), k as u8 + 2, rules);
+                    self.churn[2] += ok as u32;
+                    ok
+                } else if down && rng.r#gen::<f32>() < g.chance {
                     if k > 0 {
                         let prev = rules.unit(&d.units[k - 1]).unwrap();
-                        set_unit(layer, terrain, footprints, rng, p.0, p.1, Some(prev), k as u8, rules);
+                        let ok = set_unit(layer, terrain, footprints, rng, p.0, p.1, Some(prev), k as u8, rules);
+                        self.churn[3] += ok as u32;
+                        ok
                     } else {
                         set_unit(layer, terrain, footprints, rng, p.0, p.1, None, 0, rules);
-                        self.units.remove(&(p.1 * width + p.0));
+                        self.units.remove(&key);
+                        let strikes = self.vacated.get(&key).map_or(0, |v| v.strikes.saturating_add(1));
+                        self.vacated.insert(key, Vacancy { since: self.tick, strikes });
+                        self.churn[1] += 1;
+                        false
+                    }
+                } else {
+                    false
+                };
+                if changed {
+                    // A new level starts afresh: no flip-flopping straight back.
+                    if let Some(st) = self.units.get_mut(&key) {
+                        st.age = 0;
+                        st.thriving = 0;
+                        st.struggling = 0;
                     }
                 }
             }
@@ -649,14 +785,16 @@ fn set_unit(
     true
 }
 
-/// Network component a unit connects to: any of its tiles or the tiles around it.
-fn unit_component(comp: &[u32], r: &Rect, width: u32, length: u32, terrain: &Terrain) -> Option<u32> {
-    let _ = terrain;
-    let w1 = r.w1.saturating_sub(1);
-    let l1 = r.l1.saturating_sub(1);
-    let w2 = (r.w2 + 1).min(width - 1);
-    let l2 = (r.l2 + 1).min(length - 1);
-    (l1..=l2).flat_map(|l| (w1..=w2).map(move |w| (w, l))).map(|(w, l)| comp[(l * width + w) as usize]).find(|&c| c != NO_COMPONENT)
+/// Network component a unit connects to: any of its tiles or the tiles up
+/// to `reach` around it, nearest rings first.
+fn unit_component(comp: &[u32], r: &Rect, width: u32, length: u32, reach: u32) -> Option<u32> {
+    (0..=reach).find_map(|d| {
+        let w1 = r.w1.saturating_sub(d);
+        let l1 = r.l1.saturating_sub(d);
+        let w2 = (r.w2 + d).min(width - 1);
+        let l2 = (r.l2 + d).min(length - 1);
+        (l1..=l2).flat_map(|l| (w1..=w2).map(move |w| (w, l))).map(|(w, l)| comp[(l * width + w) as usize]).find(|&c| c != NO_COMPONENT)
+    })
 }
 
 impl Structure {
