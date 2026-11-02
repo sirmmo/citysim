@@ -10,9 +10,17 @@
 #   look = N              which variant (default: the code, modulo the variants)
 # Each model is scaled to the OpenCity footprint of the code it replaces.
 
-civ = "rome"
-# Colour painted where 0 A.D. textures mark the player colour.
-player_colour = [160, 45, 35]
+# One skin is baked per culture: assets/skins/antiquity-<civ>/.
+# `colour` is painted where 0 A.D. textures mark the player colour.
+# The first culture is the one chosen automatically for ancient dates.
+cultures = [
+  { civ = "rome",  colour = [160, 45, 35] },
+  { civ = "athen", colour = [40, 90, 170] },
+  { civ = "gaul",  colour = [60, 120, 50] },
+  { civ = "ptol",  colour = [200, 160, 40] },
+  { civ = "han",   colour = [170, 30, 40] },
+  { civ = "maur",  colour = [210, 110, 30] },
+]
 
 [models]
 # Residential: empty plot, then houses of growing size.

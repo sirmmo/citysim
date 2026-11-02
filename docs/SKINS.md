@@ -5,6 +5,9 @@ changes the simulation, so any skin works with any city or save file.
 
 ## Selection
 
+0. **File > New city…** offers an **era** and, where several skins share it, a
+   **culture** (for example Antiquity: Romans, Athenians, Gauls, Ptolemies, Han,
+   Mauryas). The chosen skin dresses the new city.
 1. `--skin <id>` (or **View > Skin** in the game) forces a skin; `--skin none` disables skins.
 2. Otherwise the city's **world** is matched against each skin's `applies.worlds`.
    The world comes from the GeoJSON's top-level `world` (or `ofm:world`) member,
@@ -13,7 +16,9 @@ changes the simulation, so any skin works with any city or save file.
    is the `--date` of a historical import (OpenHistoryMap / OpenHistoricalMap).
 4. Otherwise no skin is used: the classic OpenCity look.
 
-Skins are tried in the order listed in `assets/skins/index.toml`.
+Skins are tried in the order listed in `assets/skins/generated.toml` (written
+by art bakes) and then `assets/skins/index.toml`. A skin's `era` and `culture`
+keys group it in the new-city dialog.
 
 ## What a skin can change today
 
@@ -37,9 +42,11 @@ simulation uses the base catalog's sizes.
 
 ## Shipped examples
 
-* **antiquity**: years -1000 to 500. Roman towns built from **0 A.D. art**:
-  houses, storehouses, farmsteads, civic centres, barracks, fortress, wall
-  towers, fields, mines and five tree species. See below for installing the art.
+* **antiquity-<civ>** (baked, see below): years -1000 to 500, one per culture.
+  Towns built from **0 A.D. art**: houses, storehouses, farmsteads, civic
+  centres, barracks, fortress, wall towers, fields, mines and five tree species.
+  Tools are named after the culture's own buildings (Domus, Oikos, Tegia, Mín Jū…).
+* **antiquity**: the same era without 3D art, used when nothing is baked.
 * **renaissance**: years 501 to 1799. Faded warm palette, no vehicles, no
   nuclear plant. The coal plant becomes a "Watermill" and power lines become a "Mill race".
 * **industrial**: 1800-1945. Grey skies, coal age names, no nuclear plant.
@@ -49,7 +56,7 @@ simulation uses the base catalog's sizes.
 Except for antiquity, these reuse OpenCity's modern-looking models, so they
 are a mood change, not a full reskin.
 
-## 0 A.D. art (antiquity skin)
+## 0 A.D. art (antiquity skins)
 
 The 0 A.D. models are CC BY-SA 3.0, so they are not committed. Install them with:
 
@@ -61,7 +68,8 @@ scripts/bake-0ad.sh [ART_DIR]
 `/srv/ovian/web/projects/diorama/public/art`. That folder holds 0 A.D. actors
 at a pinned commit, with variants, props, textures and footprints resolved.
 [`tools/zeroad/antiquity.toml`](../tools/zeroad/antiquity.toml) maps OpenCity
-graphic codes to 0 A.D. structures or gaia actors for one civilisation.
+graphic codes to 0 A.D. structures or gaia actors, and lists the cultures to
+bake (six by default; 0 A.D. has fifteen).
 [`bake_0ad.py`](../tools/zeroad/bake_0ad.py) runs in a pinned
 `python:3.12.7-slim` container with pycollada 0.8, NumPy 1.26.4 and Pillow 11.0.0. It:
 
@@ -69,12 +77,12 @@ graphic codes to 0 A.D. structures or gaia actors for one civilisation.
 * attaches props such as tree crowns at their prop points;
 * applies the civilisation's player colour where the texture's alpha marks it;
 * scales each model to the footprint of the code it replaces;
-* writes AC3D models, PNG textures, `models.toml` and `ATTRIBUTION.txt` into
-  `assets/skins/antiquity/`.
+* writes, per culture, AC3D models, PNG textures, `models.toml`, `skin.toml`
+  and `ATTRIBUTION.txt` into `assets/skins/antiquity-<civ>/`, and lists them
+  in `assets/skins/generated.toml`.
 
-Without the baked art, the antiquity skin still applies its colours, names
-and rules. Switching `civ` (e.g. `athen`, `gaul`, `han`) in the mapping
-dresses the town as another civilisation.
+Without the baked art, the plain antiquity skin still applies its colours,
+names and rules.
 
 ![A Roman town with 0 A.D. art](antiquity.png)
 
@@ -90,8 +98,8 @@ needs about 60 models:
 The rest of the pipeline (selection, overrides, colour, names, rules) is in
 place. Ways to get there, roughly by effort:
 
-1. **More 0 A.D. mappings.** The bake covers 15 civilisations, so more era
-   skins (Greek, Celtic, Han, Mauryan) are a mapping file each. Medieval and
+1. **More 0 A.D. cultures.** Adding a culture is one line in
+   `tools/zeroad/antiquity.toml`. Medieval and
    later eras need other sources.
 2. **glTF loading plus CC0 kits.** Add a glTF loader next to the AC3D one
    (the `gltf` crate) and map existing CC0 low-poly kits onto the graphic

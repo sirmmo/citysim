@@ -177,16 +177,38 @@ pub enum BuildError {
     Nothing,
 }
 
+/// Change counter for renderers; never serialised and ignored by equality.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct Revision(pub u64);
+
+impl PartialEq for Revision {
+    fn eq(&self, _: &Self) -> bool {
+        true
+    }
+}
+impl Eq for Revision {}
+
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct BuildingLayer {
     width: u32,
     length: u32,
     tiles: Vec<Option<Tile>>,
+    #[serde(skip)]
+    revision: Revision,
 }
 
 impl BuildingLayer {
     pub fn new(width: u32, length: u32) -> Self {
-        Self { width, length, tiles: vec![None; (width * length) as usize] }
+        Self { width, length, tiles: vec![None; (width * length) as usize], revision: Revision(1) }
+    }
+
+    /// Increases whenever a structure, its graphic or its level changes.
+    pub fn revision(&self) -> u64 {
+        self.revision.0
+    }
+
+    fn touch(&mut self) {
+        self.revision.0 += 1;
     }
 
     pub fn width(&self) -> u32 {
@@ -235,6 +257,7 @@ impl BuildingLayer {
     }
 
     pub fn structure_mut(&mut self, w: u32, l: u32) -> Option<&mut Structure> {
+        self.touch();
         match &mut self.tile_mut(w, l)?.kind {
             TileKind::Main(s) => Some(s),
             TileKind::Part { .. } => None,
@@ -317,6 +340,7 @@ impl BuildingLayer {
         if !self.in_bounds(r) {
             return Err(BuildError::OutOfBounds);
         }
+        self.touch();
         match code {
             StructureCode::Part => Err(BuildError::Nothing),
             c if c.is_path() => self.build_path(r, c, terrain),
@@ -368,6 +392,7 @@ impl BuildingLayer {
 
     /// Puts `s` at the origin of `r` and part tiles on the rest.
     pub(crate) fn place_block(&mut self, r: Rect, s: Structure) {
+        self.touch();
         let origin = (r.w1, r.l1);
         for (w, l) in r.tiles() {
             let i = self.idx(w, l);
@@ -430,6 +455,7 @@ impl BuildingLayer {
     /// Recomputes every road/power-line connection from the grid
     /// (used after loading legacy saves).
     pub fn rebuild_connections(&mut self) {
+        self.touch();
         let mut updates = Vec::new();
         for ((w, l), s) in self.structures() {
             if !s.code.is_path() {
@@ -475,6 +501,7 @@ impl BuildingLayer {
 
     /// Removes the structure covering `(w, l)`; returns its cost.
     pub fn destroy_tile(&mut self, w: u32, l: u32) -> Option<u32> {
+        self.touch();
         let tile = self.tile(w, l)?;
         let level = self.structure_at(w, l).map_or(0, |s| s.level);
         let cost = tile.code().destroy_cost(level);
@@ -514,6 +541,7 @@ impl BuildingLayer {
     /// neighbouring zones of the same kind; shrinking hands the freed tiles
     /// back as fresh level-0 zones.
     pub fn resize(&mut self, w: u32, l: u32, old_graphic: GraphicCode, terrain: &Terrain, footprints: &Footprints, rng: &mut impl Rng) {
+        self.touch();
         let Some(s) = self.tile(w, l).and_then(Tile::structure) else { return };
         if s.graphic == old_graphic {
             return;

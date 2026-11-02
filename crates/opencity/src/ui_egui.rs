@@ -17,7 +17,8 @@ use crate::ui::Action;
 pub enum Command {
     Act(Action),
     SetSpeed(Speed),
-    NewCity(MapParams),
+    /// New map, with the skin to dress it in (`None`: classic modern look).
+    NewCity(MapParams, Option<String>),
     Save(PathBuf),
     Load(PathBuf),
     ImportGeojson {
@@ -62,6 +63,9 @@ pub struct EguiUi {
     icons: HashMap<&'static str, TextureHandle>,
     dialog: Dialog,
     new_map: MapParams,
+    /// Era picked in the new-city dialog (`None`: modern) and the culture's skin id.
+    new_era: Option<String>,
+    new_skin: Option<String>,
     path: String,
     import_date: String,
     import_rules: String,
@@ -126,11 +130,22 @@ impl EguiUi {
             icons: HashMap::new(),
             dialog: Dialog::None,
             new_map: settings_map.clone(),
+            new_era: None,
+            new_skin: None,
             path: String::new(),
             import_date: String::new(),
             import_rules: String::new(),
             show_city: true,
             styled_for: None,
+        }
+    }
+
+    /// Opens the new-city dialog with a skin preselected.
+    pub fn open_new_city(&mut self, skins: &[Skin], skin_id: &str) {
+        self.dialog = Dialog::NewCity;
+        if let Some(s) = skins.iter().find(|s| s.id == skin_id) {
+            self.new_era = Some(s.era.clone());
+            self.new_skin = Some(s.id.clone());
         }
     }
 
@@ -423,6 +438,8 @@ impl EguiUi {
             Dialog::None => {}
             Dialog::NewCity => {
                 egui::Window::new("New city").collapsible(false).resizable(false).anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0]).show(ctx, |ui| {
+                    era_culture_picker(ui, view.skins, &mut self.new_era, &mut self.new_skin);
+                    ui.separator();
                     let m = &mut self.new_map;
                     egui::Grid::new("newcity").num_columns(2).show(ui, |ui| {
                         ui.label("Width");
@@ -470,7 +487,7 @@ impl EguiUi {
                     });
                     ui.horizontal(|ui| {
                         if ui.button("Create").clicked() {
-                            out.push(Command::NewCity(self.new_map.clone()));
+                            out.push(Command::NewCity(self.new_map.clone(), self.new_skin.clone()));
                             close = true;
                         }
                         if ui.button("Cancel").clicked() {
@@ -533,6 +550,45 @@ impl EguiUi {
             self.dialog = Dialog::None;
         }
         let _ = view;
+    }
+}
+
+/// Era and culture choice for a new city. Cultures are the skins of the era.
+fn era_culture_picker(ui: &mut egui::Ui, skins: &[Skin], era: &mut Option<String>, skin: &mut Option<String>) {
+    egui::Grid::new("era").num_columns(2).show(ui, |ui| {
+        ui.label("Era");
+        let era_text = era.clone().unwrap_or_else(|| "Modern".into());
+        egui::ComboBox::from_id_salt("era_combo").selected_text(era_text).width(220.0).show_ui(ui, |ui| {
+            if ui.selectable_label(era.is_none(), "Modern").clicked() {
+                *era = None;
+                *skin = None;
+            }
+            for e in Skin::eras(skins) {
+                if ui.selectable_label(era.as_deref() == Some(e), e).clicked() {
+                    *era = Some(e.to_string());
+                    *skin = skins.iter().find(|s| s.era == e).map(|s| s.id.clone());
+                }
+            }
+        });
+        ui.end_row();
+        if let Some(e) = era.clone() {
+            let cultures: Vec<&Skin> = skins.iter().filter(|s| s.era == e).collect();
+            ui.label("Culture");
+            let current =
+                cultures.iter().find(|s| Some(&s.id) == skin.as_ref()).map(|s| s.culture.clone().unwrap_or_else(|| s.name.clone())).unwrap_or_default();
+            egui::ComboBox::from_id_salt("culture_combo").selected_text(current).width(220.0).show_ui(ui, |ui| {
+                for s in &cultures {
+                    let label = s.culture.clone().unwrap_or_else(|| s.name.clone());
+                    if ui.selectable_label(skin.as_ref() == Some(&s.id), label).on_hover_text(&s.description).clicked() {
+                        *skin = Some(s.id.clone());
+                    }
+                }
+            });
+            ui.end_row();
+        }
+    });
+    if let Some(s) = skin.as_ref().and_then(|id| skins.iter().find(|s| &s.id == id)) {
+        ui.label(RichText::new(&s.description).small().italics());
     }
 }
 

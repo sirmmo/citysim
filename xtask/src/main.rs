@@ -122,6 +122,18 @@ fn android_shim(out: &Path) -> Result<()> {
     fs::write(out.join("Cargo.toml"), toml::to_string(&root_manifest)?)?;
 
     copy_dir(&root.join("assets"), &out.join("assets"))?;
+    // Baked art skins (e.g. 0 A.D.) are large and locally installed; leave them
+    // out of the APK unless CITYSIM_ANDROID_BAKED_ART=1.
+    if std::env::var("CITYSIM_ANDROID_BAKED_ART").as_deref() != Ok("1") {
+        let skins = out.join("assets").join("skins");
+        if let Ok(text) = fs::read_to_string(skins.join("generated.toml")) {
+            let generated: Table = text.parse()?;
+            for id in generated.get("skins").and_then(Value::as_array).into_iter().flatten().filter_map(Value::as_str) {
+                let _ = fs::remove_dir_all(skins.join(id));
+            }
+            fs::remove_file(skins.join("generated.toml"))?;
+        }
+    }
     // Fresh lockfile: dependency versions compatible with Rust 1.79, written in
     // lockfile format v3 (chosen by Cargo from that MSRV).
     let status = std::process::Command::new(std::env::var("CARGO").unwrap_or_else(|_| "cargo".into()))

@@ -80,6 +80,14 @@ On touch screens, drag with one finger to pan when no tool is selected. Use
 two fingers to pan, pinch to zoom and twist to rotate. The menu is the
 button under the speed control.
 
+## Performance
+
+Terrain, roads and buildings live in GPU buffers and are rebuilt only when
+the city changes. Buildings are drawn with instancing: one draw call per
+model, whatever the number of buildings. GPUs without instancing (some
+Android devices) fall back to the simpler renderer. Measure with
+`--bench-frames 120`, which prints the average frame time and a breakdown.
+
 ## Playing
 
 | Input | Action |
@@ -113,8 +121,10 @@ GeoJSON `world`, or set with `--skin` and **View > Skin**. See
 [docs/SKINS.md](docs/SKINS.md), which also assesses what a complete
 per-era or per-world reskin needs.
 
-The **antiquity** skin dresses towns with [0 A.D.](https://play0ad.com) art
-(CC BY-SA 3.0, installed with `scripts/bake-0ad.sh`, not committed).
+**File > New city…** lets you pick an era and a culture. The antiquity
+cultures (Romans, Athenians, Gauls, Ptolemies, Han, Mauryas) use
+[0 A.D.](https://play0ad.com) art (CC BY-SA 3.0, installed with
+`scripts/bake-0ad.sh`, not committed).
 
 ![A Roman town with 0 A.D. art](docs/antiquity.png)
 
@@ -130,8 +140,9 @@ scripts/dev.sh /target/debug/opencity-cli export-geojson bologna.ocsave.json -o 
 ```
 
 The game opens the same inputs directly with `--geojson FILE [--date YEAR] [--rules FILE]`.
-Diagonal streets rasterise to zig-zags of tiles. The renderer draws such
-staircases as straight diagonal streets on the same tiles.
+Roads are drawn as smooth ribbons along their tiles: L-turns become curves
+and the zig-zags that diagonal streets rasterise to become flowing diagonals.
+Junctions keep the original crossing models.
 See [docs/GEOJSON.md](docs/GEOJSON.md).
 
 ## License

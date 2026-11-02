@@ -1,5 +1,7 @@
 name = "Fantasy realm"
 description = "For OpenFantasyMap worlds: vivid colours, magic instead of electricity, no cars."
+era = "Fantasy"
+culture = "Generic realm"
 
 [applies]
 # World names from the GeoJSON `world` member or --world; edit to taste.

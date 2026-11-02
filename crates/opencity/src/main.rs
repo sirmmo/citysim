@@ -2,7 +2,9 @@
 
 mod audio;
 mod camera;
+mod gpu;
 mod render;
+mod roads;
 mod ui;
 #[cfg(not(target_os = "android"))]
 mod ui_egui;
@@ -66,6 +68,12 @@ struct Args {
     /// With --geojson: the fantasy world the map belongs to (selects world skins).
     #[arg(long, requires = "geojson")]
     world: Option<String>,
+    /// Render this many frames, print the average frame time and exit.
+    #[arg(long)]
+    bench_frames: Option<u32>,
+    /// Open the new-city dialog with this skin preselected (screenshots, docs).
+    #[arg(long, hide = true)]
+    show_new_city: Option<String>,
     /// Use the classic interface made of the original OpenCity artwork.
     #[arg(long)]
     classic_ui: bool,
@@ -86,6 +94,18 @@ struct Startup {
 }
 
 static STARTUP: OnceLock<Startup> = OnceLock::new();
+static BENCH_T0: OnceLock<f64> = OnceLock::new();
+
+/// Seconds spent per frame phase (benchmark breakdown).
+static PHASES: std::sync::Mutex<[f64; 4]> = std::sync::Mutex::new([0.0; 4]);
+
+fn phase(i: usize, since: f64) -> f64 {
+    let now = macroquad::time::get_time();
+    if let Ok(mut p) = PHASES.lock() {
+        p[i] += now - since;
+    }
+    now
+}
 
 fn startup() -> &'static Startup {
     STARTUP.get_or_init(|| {
@@ -332,10 +352,15 @@ impl Game {
         match cmd {
             Command::Act(a) => return self.handle_action(a),
             Command::SetSpeed(s) => self.city.speed = s,
-            Command::NewCity(params) => match new_city_with(params, &self.catalog) {
+            Command::NewCity(params, skin) => match new_city_with(params, &self.base_catalog) {
                 Ok(c) => {
+                    // The chosen era/culture dresses the new city (None: modern look).
+                    self.skin_choice = Some(skin);
                     self.set_city(c);
-                    self.say("New city");
+                    self.say(match &self.skin {
+                        Some(s) => format!("New city: {}", s.name),
+                        None => "New city".to_string(),
+                    });
                 }
                 Err(e) => self.say(format!("Cannot create city: {e:#}")),
             },
@@ -457,12 +482,15 @@ impl Game {
         if self.ui.menu_open {
             self.city.speed = Speed::Paused;
         }
+        let t = get_time();
         self.city.update(get_frame_time().min(0.25) as f64 * 1000.0);
         self.city.speed = speed;
+        let t = phase(0, t);
 
         let cam = self.camera.camera();
         let hover = if ui_mouse { None } else { pick_tile(&cam, &self.city.terrain, mouse) };
         self.hover = hover;
+        let t = phase(1, t);
 
         // Map interaction.
         if !ui_mouse && is_mouse_button_pressed(MouseButton::Left) {
@@ -486,7 +514,8 @@ impl Game {
         let sky = self.renderer.look().sky;
         clear_background(Color::new(sky[0], sky[1], sky[2], 1.0));
         set_camera(&cam);
-        self.renderer.draw_city(&self.city);
+        self.renderer.draw_city(&self.city, &cam);
+        phase(2, t);
         if let Some(Action::Tool(Some(tool))) = self.active {
             if let (Some(start), Some(cur)) = (self.drag_start, hover) {
                 let code = tool.structure();
@@ -596,16 +625,40 @@ async fn main() -> Result<()> {
         egui: (!s.args.classic_ui).then(|| ui_egui::EguiUi::new(&s.settings.map)),
     };
     game.apply_skin();
+    #[cfg(not(target_os = "android"))]
+    if let (Some(id), Some(ui)) = (&s.args.show_new_city, game.egui.as_mut()) {
+        ui.open_new_city(&game.skins, id);
+    }
     if s.args.screenshot.is_some() {
         game.camera.distance *= 0.75;
         game.camera.pitch = 38f32.to_radians();
     }
     let mut frames = 0;
+    let bench_start = get_time();
     loop {
         if !game.frame() {
             break;
         }
         frames += 1;
+        if let Some(n) = s.args.bench_frames {
+            if frames == 10 {
+                BENCH_T0.set(get_time()).ok();
+            }
+            if frames == n + 10 {
+                let t0 = BENCH_T0.get().copied().unwrap_or(bench_start);
+                println!("bench: {n} frames, {:.2} ms/frame, {} structures", (get_time() - t0) * 1000.0 / n as f64, game.city.layer.structures().count());
+                if let Ok(p) = PHASES.lock() {
+                    let total = (n + 10) as f64;
+                    println!(
+                        "bench phases (ms/frame): simulate {:.2}, pick {:.2}, draw {:.2}",
+                        p[0] * 1000.0 / total,
+                        p[1] * 1000.0 / total,
+                        p[2] * 1000.0 / total
+                    );
+                }
+                break;
+            }
+        }
         if let Some(path) = &s.args.screenshot {
             if frames == 5 {
                 let img = get_screen_data();

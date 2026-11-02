@@ -71,6 +71,10 @@ struct RawSkin {
     #[serde(default)]
     description: String,
     #[serde(default)]
+    era: Option<String>,
+    #[serde(default)]
+    culture: Option<String>,
+    #[serde(default)]
     applies: Applies,
     #[serde(default)]
     look: Look,
@@ -90,6 +94,10 @@ pub struct Skin {
     pub id: String,
     pub name: String,
     pub description: String,
+    /// Era shown in the new-city dialog (e.g. "Antiquity"); defaults to the name.
+    pub era: String,
+    /// Culture within the era (e.g. "Romans"), if any.
+    pub culture: Option<String>,
     pub applies: Applies,
     pub look: Look,
     pub labels: BTreeMap<String, String>,
@@ -138,6 +146,8 @@ impl Skin {
         }
         Ok(Self {
             id: id.to_string(),
+            era: raw.era.unwrap_or_else(|| raw.name.clone()),
+            culture: raw.culture,
             name: raw.name,
             description: raw.description,
             applies: raw.applies,
@@ -149,14 +159,41 @@ impl Skin {
         })
     }
 
-    /// Every skin listed in `<data>/skins/index.toml` (none if missing).
+    /// Skins listed in `<data>/skins/generated.toml` (written by art bakes,
+    /// matched first) and `<data>/skins/index.toml`.
     pub fn load_all(data_dir: &Path) -> Vec<Self> {
-        let Ok(text) = read_text(&data_dir.join("skins").join("index.toml")) else { return Vec::new() };
-        let Ok(index) = toml::from_str::<Index>(&text) else {
-            log::warn!("invalid skins/index.toml");
-            return Vec::new();
-        };
-        index.skins.iter().filter_map(|id| Skin::load(data_dir, id).map_err(|e| log::warn!("skin {id}: {e}")).ok()).collect()
+        let mut out: Vec<Skin> = Vec::new();
+        for file in ["generated.toml", "index.toml"] {
+            let Ok(text) = read_text(&data_dir.join("skins").join(file)) else { continue };
+            let Ok(index) = toml::from_str::<Index>(&text) else {
+                log::warn!("invalid skins/{file}");
+                continue;
+            };
+            for id in index.skins {
+                if out.iter().any(|s| s.id == id) {
+                    continue;
+                }
+                match Skin::load(data_dir, &id) {
+                    Ok(s) => out.push(s),
+                    Err(e) => log::warn!("skin {id}: {e}"),
+                }
+            }
+        }
+        out
+    }
+
+    /// Eras offered for new cities, oldest first (skins without dates last).
+    pub fn eras(skins: &[Skin]) -> Vec<&str> {
+        let mut eras: Vec<(&str, i64)> = Vec::new();
+        for s in skins {
+            let start = s.applies.years.map_or(i64::MAX, |y| y[0]);
+            match eras.iter_mut().find(|(e, _)| *e == s.era) {
+                Some(e) => e.1 = e.1.min(start),
+                None => eras.push((&s.era, start)),
+            }
+        }
+        eras.sort_by_key(|(_, start)| *start);
+        eras.into_iter().map(|(e, _)| e).collect()
     }
 
     /// Picks the skin for a city: an explicit id, else a world match, else an era match.
@@ -212,6 +249,16 @@ mod tests {
         let r = Skin::select(&skins, None, Some(1600), None).unwrap();
         assert_eq!(r.label("coal_plant", "Coal plant"), "Watermill");
         assert!(!r.allows("nuclear_plant"));
+    }
+
+    #[test]
+    fn eras_are_ordered_by_date() {
+        let skins = Skin::load_all(&data_dir());
+        let eras = Skin::eras(&skins);
+        let pos = |e: &str| eras.iter().position(|x| *x == e).unwrap();
+        assert!(pos("Antiquity") < pos("Renaissance"));
+        assert!(pos("Renaissance") < pos("Industrial age"));
+        assert_eq!(eras.last(), Some(&"Fantasy"));
     }
 
     #[test]
