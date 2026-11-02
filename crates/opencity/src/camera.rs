@@ -8,12 +8,20 @@ pub struct OrbitCamera {
     pub yaw: f32,
     pub pitch: f32,
     pub distance: f32,
+    /// Previous two-finger positions, for pinch/rotate gestures.
+    pinch: Option<(Vec2, Vec2)>,
 }
 
 impl OrbitCamera {
     pub fn new(width: u32, length: u32) -> Self {
         let span = width.max(length) as f32;
-        Self { target: vec3(width as f32 / 2.0, 0.0, length as f32 / 2.0), yaw: 45f32.to_radians(), pitch: 45f32.to_radians(), distance: span * 0.6 }
+        Self {
+            target: vec3(width as f32 / 2.0, 0.0, length as f32 / 2.0),
+            yaw: 45f32.to_radians(),
+            pitch: 45f32.to_radians(),
+            distance: span * 0.6,
+            pinch: None,
+        }
     }
 
     pub fn camera(&self) -> Camera3D {
@@ -38,6 +46,36 @@ impl OrbitCamera {
 
     pub fn zoom(&mut self, factor: f32) {
         self.distance = (self.distance * factor).clamp(4.0, 300.0);
+    }
+
+    /// Two-finger gestures: drag pans, pinch zooms, twist rotates.
+    /// Returns true while a gesture is in progress.
+    pub fn handle_touch(&mut self, bounds: Vec2) -> bool {
+        let t = touches();
+        if t.len() != 2 {
+            self.pinch = None;
+            return false;
+        }
+        let (a, b) = (t[0].position, t[1].position);
+        if let Some((pa, pb)) = self.pinch {
+            let (mid, pmid) = ((a + b) / 2.0, (pa + pb) / 2.0);
+            let d = mid - pmid;
+            self.pan(-d.x * 0.08, d.y * 0.08, bounds);
+            let (len, plen) = ((b - a).length(), (pb - pa).length());
+            if len > 1.0 && plen > 1.0 {
+                self.zoom(plen / len);
+            }
+            let (ang, pang) = ((b - a).to_angle(), (pb - pa).to_angle());
+            let mut turn = ang - pang;
+            if turn > std::f32::consts::PI {
+                turn -= std::f32::consts::TAU;
+            } else if turn < -std::f32::consts::PI {
+                turn += std::f32::consts::TAU;
+            }
+            self.rotate(-turn, 0.0);
+        }
+        self.pinch = Some((a, b));
+        true
     }
 
     /// Keyboard and mouse navigation. Returns true when the view moved.

@@ -88,9 +88,27 @@ jobs:
           path: ${{ steps.package.outputs.file }}
           if-no-files-found: error
 
+  android:
+    name: android (arm64-v8a, armeabi-v7a)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4.2.2
+      # Pinned Docker images: docker/Dockerfile and docker/android.Dockerfile.
+      - name: Build APK
+        run: scripts/android.sh
+      - name: Name artifact
+        id: name
+        run: echo "name=citysim-${GITHUB_REF_NAME//\//-}-android" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v4.6.2
+        with:
+          name: ${{ steps.name.outputs.name }}
+          path: dist/android/*.apk
+          if-no-files-found: error
+
   publish:
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: build
+    needs: [build, android]
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/download-artifact@v4.3.0

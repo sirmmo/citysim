@@ -6,7 +6,7 @@
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
-use crate::{AssetError, read_text};
+use crate::{read_text, AssetError};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Material {
@@ -267,7 +267,11 @@ fn polygon_normal(points: impl Iterator<Item = [f32; 3]> + Clone) -> [f32; 3] {
         n[2] += (a[0] - b[0]) * (a[1] + b[1]);
     }
     let len = (n[0] * n[0] + n[1] * n[1] + n[2] * n[2]).sqrt();
-    if len > 0.0 { [n[0] / len, n[1] / len, n[2] / len] } else { [0.0, 1.0, 0.0] }
+    if len > 0.0 {
+        [n[0] / len, n[1] / len, n[2] / len]
+    } else {
+        [0.0, 1.0, 0.0]
+    }
 }
 
 pub fn parse(text: &str, path: &Path) -> Result<Model, AssetError> {

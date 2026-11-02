@@ -2,7 +2,7 @@
 
 use std::collections::HashMap;
 
-use macroquad::audio::{PlaySoundParams, Sound as Clip, load_sound_from_bytes, play_sound};
+use macroquad::audio::{load_sound_from_bytes, play_sound, PlaySoundParams, Sound as Clip};
 use opencity_assets::Catalog;
 use opencity_core::Sound;
 
@@ -28,7 +28,7 @@ impl Audio {
             (Sound::Terrain, "terrain.wav"),
         ] {
             let path = catalog.path("sound").join(file);
-            match std::fs::read(&path) {
+            match opencity_assets::read_bytes(&path) {
                 Ok(bytes) => match load_sound_from_bytes(&bytes).await {
                     Ok(c) => {
                         clips.insert(sound, c);

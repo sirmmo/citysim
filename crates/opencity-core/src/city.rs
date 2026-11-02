@@ -7,10 +7,10 @@ use rand_pcg::Pcg32;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    Footprints, Sound, StructureCode, Terrain, Tool,
     layer::{BuildError, BuildingLayer, Query, Rect, Status},
     sim::{self, SimValues},
-    traffic::{MAX_VEHICLES, Vehicle, VehicleKind, find_path},
+    traffic::{find_path, Vehicle, VehicleKind, MAX_VEHICLES},
+    Footprints, Sound, StructureCode, Terrain, Tool,
 };
 
 pub const FUND_START: i64 = 15_000;

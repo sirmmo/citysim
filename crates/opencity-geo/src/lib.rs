@@ -20,8 +20,8 @@ pub mod import;
 pub mod rules;
 pub mod source;
 
-pub use export::{ExportOptions, export};
-pub use import::{CrsMode, HistDate, ImportOptions, ImportReport, import};
+pub use export::{export, ExportOptions};
+pub use import::{import, CrsMode, HistDate, ImportOptions, ImportReport};
 pub use rules::{Build, Rules};
 
 #[derive(Debug, thiserror::Error)]

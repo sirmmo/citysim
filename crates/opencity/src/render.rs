@@ -4,10 +4,10 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
-use macroquad::models::{Mesh, Vertex, draw_mesh};
+use macroquad::models::{draw_mesh, Mesh, Vertex};
 use macroquad::prelude::*;
-use opencity_assets::{Catalog, ac3d};
-use opencity_core::{City, Direction, GraphicCode, Rect, Terrain, layer::TileKind, terrain::HEIGHT_MAX};
+use opencity_assets::{ac3d, Catalog};
+use opencity_core::{layer::TileKind, terrain::HEIGHT_MAX, City, Direction, GraphicCode, Rect, Terrain};
 
 /// Direction of the sun used to bake shading into vertex colours.
 const LIGHT: Vec3 = Vec3::new(-0.45, 0.85, -0.3);
@@ -38,7 +38,8 @@ pub struct Renderer {
 }
 
 pub fn load_texture_file(path: &Path) -> Option<Texture2D> {
-    let img = image::open(path).map_err(|e| log::warn!("texture {}: {e}", path.display())).ok()?.to_rgba8();
+    let bytes = opencity_assets::read_bytes(path).map_err(|e| log::warn!("texture {}: {e}", path.display())).ok()?;
+    let img = image::load_from_memory(&bytes).map_err(|e| log::warn!("texture {}: {e}", path.display())).ok()?.to_rgba8();
     let tex = Texture2D::from_rgba8(img.width() as u16, img.height() as u16, img.as_raw());
     tex.set_filter(FilterMode::Linear);
     Some(tex)
@@ -55,7 +56,7 @@ impl Renderer {
     /// stacked vertically, indexed by height. We keep the mean colour of each slice.
     fn terrain_palette(path: &Path) -> Vec<[f32; 3]> {
         let fallback = || (0..64).map(|i| if i < 9 { [0.2, 0.3, 0.6] } else { [0.3 + i as f32 / 200.0, 0.5, 0.25] }).collect();
-        let Ok(img) = image::open(path) else { return fallback() };
+        let Some(img) = opencity_assets::read_bytes(path).ok().and_then(|b| image::load_from_memory(&b).ok()) else { return fallback() };
         let img = img.to_rgb8();
         let slice = img.width();
         let slices = img.height() / slice;

@@ -1,5 +1,5 @@
 use opencity_core::{Footprints, StructureCode};
-use opencity_geo::{HistDate, ImportOptions, Rules, import};
+use opencity_geo::{import, HistDate, ImportOptions, Rules};
 
 fn data(name: &str) -> String {
     std::fs::read_to_string(format!("{}/tests/data/{name}", env!("CARGO_MANIFEST_DIR"))).unwrap()

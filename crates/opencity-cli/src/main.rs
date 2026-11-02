@@ -6,8 +6,8 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
 use clap::{Args, Parser, Subcommand};
-use opencity_assets::{Catalog, find_data_dir};
-use opencity_core::{City, Footprints, StructureCode, Terrain, save, scenario};
+use opencity_assets::{find_data_dir, Catalog};
+use opencity_core::{save, scenario, City, Footprints, StructureCode, Terrain};
 use opencity_mapgen::{MapParams, Relief, Shape, TreeDensity, Water};
 
 #[derive(Parser)]

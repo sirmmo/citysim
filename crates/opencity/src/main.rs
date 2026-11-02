@@ -11,12 +11,12 @@ use std::sync::OnceLock;
 use anyhow::{Context, Result};
 use clap::Parser;
 use macroquad::prelude::*;
-use opencity_assets::{Catalog, Settings, find_data_dir};
-use opencity_core::{BuildingLayer, City, Speed, Terrain, Tool, save, scenario};
+use opencity_assets::{find_data_dir, Catalog, Settings};
+use opencity_core::{save, scenario, BuildingLayer, City, Speed, Terrain, Tool};
 
 use crate::audio::Audio;
 use crate::camera::OrbitCamera;
-use crate::render::{Renderer, pick_tile};
+use crate::render::{pick_tile, Renderer};
 use crate::ui::{Action, MenuItem, Ui};
 
 #[derive(Parser, Debug, Clone)]
@@ -94,6 +94,7 @@ fn startup() -> &'static Startup {
 }
 
 fn window_conf() -> macroquad::conf::Conf {
+    #[cfg(not(target_os = "android"))]
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
     let s = startup();
     let (w, h) = s.args.size.unwrap_or((s.settings.window.width, s.settings.window.height));
@@ -101,7 +102,7 @@ fn window_conf() -> macroquad::conf::Conf {
         window_title: "OpenCity".to_owned(),
         window_width: w as i32,
         window_height: h as i32,
-        fullscreen: s.settings.window.fullscreen && s.args.screenshot.is_none(),
+        fullscreen: cfg!(target_os = "android") || (s.settings.window.fullscreen && s.args.screenshot.is_none()),
         sample_count: s.settings.window.msaa as i32,
         window_resizable: true,
         high_dpi: true,
@@ -111,6 +112,28 @@ fn window_conf() -> macroquad::conf::Conf {
     macroquad::conf::Conf { miniquad_conf: window, draw_call_vertex_capacity: 65_000, draw_call_index_capacity: 120_000, ..Default::default() }
 }
 
+/// Android: reads files packed in the APK (miniquad loads them synchronously there).
+#[cfg(target_os = "android")]
+fn apk_reader(path: &Path) -> std::io::Result<Vec<u8>> {
+    use std::cell::RefCell;
+    use std::rc::Rc;
+    let out: Rc<RefCell<Option<std::io::Result<Vec<u8>>>>> = Rc::new(RefCell::new(None));
+    let slot = out.clone();
+    let name = path.to_string_lossy().replace('\\', "/");
+    macroquad::miniquad::fs::load_file(name.trim_start_matches("./"), move |r| {
+        *slot.borrow_mut() = Some(r.map_err(|e| std::io::Error::new(std::io::ErrorKind::NotFound, e.to_string())));
+    });
+    let result = out.borrow_mut().take();
+    result.unwrap_or_else(|| Err(std::io::Error::other("asset load did not complete")))
+}
+
+/// Android apps can only write to their private data directory.
+#[cfg(target_os = "android")]
+fn save_path() -> PathBuf {
+    PathBuf::from("/data/data/io.github.sirmmo.citysim/files/city.ocsave.json")
+}
+
+#[cfg(not(target_os = "android"))]
 fn save_path() -> PathBuf {
     let base = std::env::var_os("XDG_DATA_HOME")
         .map(PathBuf::from)
@@ -221,6 +244,7 @@ impl Game {
                     self.city.speed = Speed::Paused;
                 }
             }
+            Action::OpenMenu => self.ui.menu_open = true,
             Action::ToggleFast => self.city.speed = if self.city.speed == Speed::Fast { Speed::Normal } else { Speed::Fast },
             Action::Menu(item) => {
                 self.ui.menu_open = false;
@@ -280,8 +304,16 @@ impl Game {
 
         let ui_mouse = self.ui.has_mouse();
         let bounds = vec2(self.city.width() as f32, self.city.length() as f32);
-        if !self.ui.menu_open {
+        let gesture = !self.ui.menu_open && self.camera.handle_touch(bounds);
+        if gesture {
+            // A second finger cancels any tool drag.
+            self.drag_start = None;
+        } else if !self.ui.menu_open {
             self.camera.handle_input(bounds, mouse_delta, ui_mouse);
+            // Without a tool, dragging with the left button / one finger pans.
+            if self.active.is_none() && !ui_mouse && is_mouse_button_down(MouseButton::Left) && !is_mouse_button_pressed(MouseButton::Left) {
+                self.camera.pan(-mouse_delta.x * 0.08, mouse_delta.y * 0.08, bounds);
+            }
         }
         let speed = self.city.speed;
         if self.ui.menu_open {
@@ -369,6 +401,8 @@ impl Game {
 
 #[macroquad::main(window_conf)]
 async fn main() -> Result<()> {
+    #[cfg(target_os = "android")]
+    opencity_assets::set_file_reader(apk_reader);
     let s = startup();
     let data_dir = find_data_dir(s.args.data_dir.as_deref())?;
     let catalog = Catalog::load(&data_dir)?;

@@ -1,5 +1,5 @@
 [workspace]
-resolver = "3"
+resolver = "2"
 members = [
     "crates/opencity-core",
     "crates/opencity-mapgen",
@@ -7,11 +7,12 @@ members = [
     "crates/opencity-geo",
     "crates/opencity-cli",
     "crates/opencity",
+    "xtask",
 ]
 
 [workspace.package]
 version = "0.1.0"
-edition = "2024"
+edition = "2021"
 rust-version = "1.88"
 license = "GPL-2.0-or-later"
 authors = ["citysim contributors", "OpenCity authors (see AUTHORS and NOTICE.md)"]

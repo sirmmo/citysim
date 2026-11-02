@@ -11,8 +11,8 @@ use rand::Rng;
 use serde::{Deserialize, Serialize};
 
 use crate::{
+    layer::{BuildingLayer, Query, Rect, Status, Structure, LEVEL_MAX},
     Direction, Footprints, StructureCode, Terrain,
-    layer::{BuildingLayer, LEVEL_MAX, Query, Rect, Status, Structure},
 };
 
 /// Chance (in %) that a satisfied zone grows during one step.

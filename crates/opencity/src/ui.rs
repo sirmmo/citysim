@@ -14,6 +14,7 @@ pub enum Action {
     Query,
     TogglePause,
     ToggleFast,
+    OpenMenu,
     Menu(MenuItem),
 }
 
@@ -101,7 +102,9 @@ impl Ui {
     pub fn has_mouse(&self) -> bool {
         let (x, y) = mouse_position();
         let last = Self::toolbar_rect(self.tools.len() - 1);
-        self.menu_open || (x < last.x + BUTTON + PAD * 2.0 && y < last.y + BUTTON + PAD) || y < 72.0
+        let sw = screen_width();
+        let status = x > (sw - 512.0) / 2.0 && x < (sw + 512.0) / 2.0 + 130.0 && y < 80.0;
+        self.menu_open || (x < last.x + BUTTON + PAD * 2.0 && y < last.y + BUTTON + PAD) || status
     }
 
     pub fn draw(&self, city: &City, active: Option<Action>, message: Option<&str>) -> Option<Action> {
@@ -143,6 +146,16 @@ impl Ui {
             tooltip = Some("Space: pause, F: fast");
             if clicked {
                 action = Some(Action::TogglePause);
+            }
+        }
+        // Menu button (needed on touch screens without an Esc key).
+        let menu = Rect::new(speed.x, speed.y + speed.h + 6.0, speed.w, speed.h);
+        draw_rectangle(menu.x, menu.y, menu.w, menu.h, Color::new(0.0, 0.0, 0.0, 0.6));
+        draw_text("= menu", menu.x + 8.0, menu.y + 21.0, 22.0, WHITE);
+        if menu.contains(mouse) {
+            tooltip = Some("Esc: menu");
+            if clicked && !self.menu_open {
+                action = Some(Action::OpenMenu);
             }
         }
 

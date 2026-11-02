@@ -2,12 +2,12 @@
 
 use std::collections::BTreeMap;
 
-use opencity_core::{City, CityMeta, Footprints, GeoRef, Rect, StructureCode, Terrain, layer::BuildingLayer, layer::Structure, terrain::HEIGHT_MAX};
+use opencity_core::{layer::BuildingLayer, layer::Structure, terrain::HEIGHT_MAX, City, CityMeta, Footprints, GeoRef, Rect, StructureCode, Terrain};
 
 use crate::{
-    GeoError,
     rules::{Build, Rules},
     source::{self, DeclaredCrs, Feature, Geometry, Point},
+    GeoError,
 };
 
 /// Approximate metres per degree of latitude / of longitude at the equator.
@@ -391,7 +391,11 @@ fn rasterize(g: &Geometry, proj: &Projection, width: u32, length: u32) -> Vec<(u
     match g {
         Geometry::Point(p) => {
             let [x, y] = proj.tile(*p);
-            if inside(x, y) { vec![(x as u32, y as u32)] } else { vec![] }
+            if inside(x, y) {
+                vec![(x as u32, y as u32)]
+            } else {
+                vec![]
+            }
         }
         Geometry::Line(pts) => {
             let pts: Vec<[f64; 2]> = pts.iter().map(|p| proj.tile(*p)).collect();

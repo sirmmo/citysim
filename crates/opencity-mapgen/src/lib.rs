@@ -253,7 +253,11 @@ impl Grid {
             *v = if min >= 0.0 {
                 ((*v - min) / coef).powf(power) * coef + min
             } else if *v >= 0.0 {
-                if max > 0.0 { (*v / max).powf(power) * max } else { *v }
+                if max > 0.0 {
+                    (*v / max).powf(power) * max
+                } else {
+                    *v
+                }
             } else {
                 (v.abs() / min).powf(power).abs() * min
             };

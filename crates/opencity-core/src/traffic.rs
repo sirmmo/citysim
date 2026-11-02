@@ -5,7 +5,7 @@ use std::collections::BinaryHeap;
 
 use serde::{Deserialize, Serialize};
 
-use crate::{Direction, GraphicCode, StructureCode, Terrain, layer::BuildingLayer};
+use crate::{layer::BuildingLayer, Direction, GraphicCode, StructureCode, Terrain};
 
 /// Maximum simultaneous vehicles (legacy `OC_MOVEMENT_MAX`).
 pub const MAX_VEHICLES: usize = 100;
@@ -178,7 +178,7 @@ impl Vehicle {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{Footprints, layer::Rect};
+    use crate::{layer::Rect, Footprints};
     use rand::SeedableRng;
 
     #[test]

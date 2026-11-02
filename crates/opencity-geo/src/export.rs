@@ -1,8 +1,8 @@
 //! City -> GeoJSON, with OSM-style tags so the result opens in any GIS and
 //! re-imports losslessly through the `opencity:build` rule.
 
-use opencity_core::{City, Direction, GeoRef, StructureCode, codes::connect, layer::TileKind};
-use serde_json::{Map, Value, json};
+use opencity_core::{codes::connect, layer::TileKind, City, Direction, GeoRef, StructureCode};
+use serde_json::{json, Map, Value};
 
 use crate::import::{M_PER_DEG_LAT, M_PER_DEG_LON};
 
@@ -27,7 +27,11 @@ impl Unproject {
     fn at(&self, x: f64, y: f64) -> [f64; 2] {
         let g = &self.0;
         let (dx, dy) = (x * g.units_per_tile, y * g.units_per_tile);
-        if g.wgs84 { [g.west + dx / (M_PER_DEG_LON * g.lat_scale), g.north - dy / M_PER_DEG_LAT] } else { [g.west + dx, g.north - dy] }
+        if g.wgs84 {
+            [g.west + dx / (M_PER_DEG_LON * g.lat_scale), g.north - dy / M_PER_DEG_LAT]
+        } else {
+            [g.west + dx, g.north - dy]
+        }
     }
 
     fn rect(&self, w: u32, l: u32, sw: u32, sl: u32) -> Value {
@@ -139,7 +143,7 @@ pub fn export(city: &City, opts: &ExportOptions) -> Value {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{ImportOptions, Rules, import};
+    use crate::{import, ImportOptions, Rules};
     use opencity_core::{Footprints, Terrain, Tool};
 
     #[test]

@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 
 use opencity_core::{Footprint, Footprints, GraphicCode};
 
-use crate::{AssetError, read_text};
+use crate::{read_text, AssetError};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct ModelEntry {

@@ -8,8 +8,8 @@ use std::io::{Read, Write};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    City, Date, Footprints, GraphicCode, Record, StructureCode, Terrain,
     layer::{Rect, Status, Structure},
+    City, Date, Footprints, GraphicCode, Record, StructureCode, Terrain,
 };
 
 pub const FORMAT: &str = "opencity-rs";

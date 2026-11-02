@@ -2,7 +2,7 @@
 
 use serde_json::Value;
 
-use crate::{GeoError, rules::Properties};
+use crate::{rules::Properties, GeoError};
 
 pub type Point = [f64; 2];
 
@@ -41,7 +41,11 @@ pub fn parse(text: &str) -> Result<Source, GeoError> {
     }
     let crs = v.pointer("/crs/properties/name").and_then(Value::as_str).map(|name| {
         let n = name.to_ascii_uppercase();
-        if n.contains("CRS84") || n.ends_with(":4326") || n.ends_with("::4326") { DeclaredCrs::Wgs84 } else { DeclaredCrs::Planar }
+        if n.contains("CRS84") || n.ends_with(":4326") || n.ends_with("::4326") {
+            DeclaredCrs::Wgs84
+        } else {
+            DeclaredCrs::Planar
+        }
     });
     let mut features = Vec::new();
     collect_geojson(&v, &Properties::new(), &mut features)?;

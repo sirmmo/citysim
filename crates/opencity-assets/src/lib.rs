@@ -26,8 +26,27 @@ pub enum AssetError {
     NoDataDir(String),
 }
 
+/// How data files are read. Desktop builds read the filesystem; Android
+/// installs a reader for the assets packed in the APK.
+pub type FileReader = fn(&Path) -> std::io::Result<Vec<u8>>;
+
+static READER: std::sync::OnceLock<FileReader> = std::sync::OnceLock::new();
+
+/// Replaces the filesystem reader (call once, before loading anything).
+pub fn set_file_reader(reader: FileReader) {
+    let _ = READER.set(reader);
+}
+
+/// Reads a data file through the installed reader.
+pub fn read_bytes(path: &Path) -> std::io::Result<Vec<u8>> {
+    match READER.get() {
+        Some(r) => r(path),
+        None => std::fs::read(path),
+    }
+}
+
 pub(crate) fn read_text(path: &Path) -> Result<String, AssetError> {
-    let bytes = std::fs::read(path).map_err(|source| AssetError::Io { path: path.to_owned(), source })?;
+    let bytes = read_bytes(path).map_err(|source| AssetError::Io { path: path.to_owned(), source })?;
     // Legacy files are a mix of UTF-8 and Latin-1.
     Ok(match String::from_utf8(bytes) {
         Ok(s) => s,
@@ -53,9 +72,11 @@ pub fn find_data_dir(explicit: Option<&Path>) -> Result<PathBuf, AssetError> {
         }
     }
     candidates.push(PathBuf::from("assets"));
+    // Android: assets sit at the root of the APK.
+    candidates.push(PathBuf::new());
     candidates
         .iter()
-        .find(|p| p.join("graphism.conf").is_file())
+        .find(|p| read_bytes(&p.join("graphism.conf")).is_ok())
         .cloned()
         .ok_or_else(|| AssetError::NoDataDir(candidates.iter().map(|p| p.display().to_string()).collect::<Vec<_>>().join(", ")))
 }

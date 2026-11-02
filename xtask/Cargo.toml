@@ -1,0 +1,10 @@
+[package]
+name = "xtask"
+description = "Build helpers (cargo run -p xtask -- <task>)"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+anyhow.workspace = true
+toml.workspace = true

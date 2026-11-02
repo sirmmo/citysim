@@ -9,7 +9,7 @@
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 
-use crate::{Direction, Footprints, GraphicCode, StructureCode, Terrain, codes::path_graphic};
+use crate::{codes::path_graphic, Direction, Footprints, GraphicCode, StructureCode, Terrain};
 
 /// Highest level a zone can reach (legacy `OC_STRUCTURE_LEVEL_MAX`).
 pub const LEVEL_MAX: u8 = 99;
@@ -72,11 +72,19 @@ impl Structure {
     }
 
     pub fn next_level_graphic(&self) -> GraphicCode {
-        if self.code.is_zone() && self.level < LEVEL_MAX { Self::zone_graphic(self.code, self.level + 1) } else { self.graphic }
+        if self.code.is_zone() && self.level < LEVEL_MAX {
+            Self::zone_graphic(self.code, self.level + 1)
+        } else {
+            self.graphic
+        }
     }
 
     pub fn previous_level_graphic(&self) -> GraphicCode {
-        if self.code.is_zone() && self.level > 0 { Self::zone_graphic(self.code, self.level - 1) } else { self.graphic }
+        if self.code.is_zone() && self.level > 0 {
+            Self::zone_graphic(self.code, self.level - 1)
+        } else {
+            self.graphic
+        }
     }
 
     fn update_path_graphic(&mut self) {
@@ -288,7 +296,11 @@ impl BuildingLayer {
         }
         r.tiles().all(
             |(w, l)| {
-                if code.is_path() { self.path_constructible(w, l, code, terrain) } else { self.tile(w, l).is_none() && terrain.is_tile_flat(w, l) }
+                if code.is_path() {
+                    self.path_constructible(w, l, code, terrain)
+                } else {
+                    self.tile(w, l).is_none() && terrain.is_tile_flat(w, l)
+                }
             },
         )
     }
@@ -326,7 +338,11 @@ impl BuildingLayer {
                 cost += code.build_cost();
             }
         }
-        if cost > 0 || code.build_cost() == 0 { Ok(cost) } else { Err(BuildError::Nothing) }
+        if cost > 0 || code.build_cost() == 0 {
+            Ok(cost)
+        } else {
+            Err(BuildError::Nothing)
+        }
     }
 
     /// Size of the block `code` occupies.
@@ -450,7 +466,11 @@ impl BuildingLayer {
                 removed = true;
             }
         }
-        if removed { Ok(cost) } else { Err(BuildError::Nothing) }
+        if removed {
+            Ok(cost)
+        } else {
+            Err(BuildError::Nothing)
+        }
     }
 
     /// Removes the structure covering `(w, l)`; returns its cost.
@@ -556,7 +576,8 @@ mod tests {
         assert_eq!(layer.structure_at(4, 2).unwrap().graphic, GraphicCode(155)); // W_E
         layer.destroy(Rect::tile(6, 3)).unwrap();
         assert_eq!(layer.structure_at(6, 4).unwrap().graphic, GraphicCode(150)); // isolated
-        assert_eq!(layer.structure_at(6, 2).unwrap().graphic, GraphicCode(153)); // O_W
+        assert_eq!(layer.structure_at(6, 2).unwrap().graphic, GraphicCode(153));
+        // O_W
     }
 
     #[test]

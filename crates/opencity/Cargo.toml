@@ -1,11 +1,13 @@
 [package]
 name = "opencity"
 description = "OpenCity: a 3D city simulation (Rust port)"
-version.workspace = true
-edition.workspace = true
-rust-version.workspace = true
-license.workspace = true
-authors.workspace = true
+# Package fields are spelled out (not inherited from the workspace) because
+# cargo-quad-apk embeds an older Cargo that cannot parse inheritance.
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.88"
+license = "GPL-2.0-or-later"
+authors = ["citysim contributors", "OpenCity authors (see AUTHORS and NOTICE.md)"]
 
 [[bin]]
 name = "opencity"
@@ -22,3 +24,18 @@ env_logger.workspace = true
 image.workspace = true
 log.workspace = true
 macroquad.workspace = true
+
+# Android packaging (cargo-quad-apk, see scripts/android.sh).
+[package.metadata.android]
+package_name = "io.github.sirmmo.citysim"
+label = "CitySim"
+version_code = 1
+version_name = "0.1.0"
+assets = "../../assets"
+res = "android/res"
+icon = "@mipmap/ic_launcher"
+build_targets = ["aarch64-linux-android", "armv7-linux-androideabi"]
+fullscreen = true
+
+[package.metadata.android.activity_attributes]
+"android:screenOrientation" = "userLandscape"

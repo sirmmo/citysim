@@ -29,8 +29,8 @@ and which legacy behaviours changed.
 
 ## Downloads
 
-Every push builds Linux (x86_64), macOS (Apple Silicon and Intel) and
-Windows (x86_64) packages; they appear as artifacts of the **release**
+Every push builds Linux (x86_64), macOS (Apple Silicon and Intel),
+Windows (x86_64) and Android (arm64, armv7) packages; they appear as artifacts of the **release**
 workflow run. Pushing a tag `vX.Y.Z` publishes them as a GitHub release.
 Unpack the archive and run `opencity` (`opencity.exe` on Windows) from
 inside the folder, next to `assets/`.
@@ -64,6 +64,19 @@ A headless screenshot works inside the container:
 scripts/dev.sh xvfb-run -a -s "-screen 0 1280x800x24" \
   /target/debug/opencity --demo --simulate-years 15 --no-audio --screenshot screenshots/game.png
 ```
+
+### Android
+
+```sh
+scripts/android.sh   # -> dist/android/citysim-<version>.apk
+```
+
+The APK is signed with a debug key, for sideloading. The packager
+(`cargo-quad-apk`) embeds an old Cargo, so the script first writes a
+compatible copy of the game crates (`cargo run -p xtask -- android-shim`).
+On touch screens, drag with one finger to pan when no tool is selected. Use
+two fingers to pan, pinch to zoom and twist to rotate. The menu is the
+button under the speed control.
 
 ## Playing
 
