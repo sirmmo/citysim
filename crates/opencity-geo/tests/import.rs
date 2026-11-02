@@ -41,6 +41,7 @@ fn historic_town_changes_with_the_date() {
     assert!(t.corner_heights().iter().any(|&h| h > 0));
     assert!(r1920.elevation_samples == 2);
     // Georeference kept for export.
+    assert_eq!(c1920.meta.year, Some(1920));
     let g = c1920.meta.georef.unwrap();
     assert!(g.wgs84 && (g.west - 11.34).abs() < 0.01);
 }
@@ -51,6 +52,7 @@ fn fantasy_village_with_custom_rules_and_planar_coordinates() {
     let (city, report) = import(&data("fantasy_village.geojson"), &rules, Footprints::builtin(), &ImportOptions::default()).unwrap();
     println!("{report}");
     assert!(!report.wgs84);
+    assert_eq!(city.meta.world.as_deref(), Some("Eldoria"));
     for code in [
         StructureCode::Road,
         StructureCode::Residential,

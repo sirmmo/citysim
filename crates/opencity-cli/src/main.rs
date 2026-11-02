@@ -129,6 +129,9 @@ pub struct GeoArgs {
     /// Metres of elevation per terrain step.
     #[arg(long, default_value_t = 8.0)]
     metres_per_step: f64,
+    /// Fantasy world the map belongs to (overrides the file's `world` member; selects world skins).
+    #[arg(long)]
+    world: Option<String>,
 }
 
 fn import_geojson(path: &Path, geo: &GeoArgs, fp: Footprints) -> Result<City> {
@@ -148,6 +151,7 @@ fn import_geojson(path: &Path, geo: &GeoArgs, fp: Footprints) -> Result<City> {
         date,
         bbox: geo.bbox.as_ref().map(|b| [b[0], b[1], b[2], b[3]]),
         metres_per_step: geo.metres_per_step,
+        world: geo.world.clone(),
         name: path.file_stem().map(|s| s.to_string_lossy().into_owned()),
         ..Default::default()
     };

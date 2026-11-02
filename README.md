@@ -95,8 +95,23 @@ Zones grow when they are powered, near a road, and near the two other zone
 types. Power flows from plants through any chain of adjacent buildings,
 roads and power lines. Taxes are collected monthly and paid each new year.
 
+The desktop build uses an egui interface: menus, a tool palette with costs,
+a city panel with history, open/save/import/export dialogs and a tile
+inspector. Android and `--classic-ui` use the original OpenCity artwork.
+
 Settings live in `~/.config/opencity/settings.toml`; see
 [docs/settings.example.toml](docs/settings.example.toml).
+
+## Skins
+
+Skins re-dress the game for the **era** of a historical import or the
+**world** of a fantasy map. They change colours, names, available tools,
+icons and models. They are picked automatically from `--date` / the
+GeoJSON `world`, or set with `--skin` and **View > Skin**. See
+[docs/SKINS.md](docs/SKINS.md), which also assesses what a complete
+per-era or per-world reskin needs.
+
+![Bologna in 1600 with the Renaissance skin](docs/skin-renaissance.png)
 
 ## Maps from GeoJSON
 

@@ -1,0 +1,30 @@
+name = "Fantasy realm"
+description = "For OpenFantasyMap worlds: vivid colours, magic instead of electricity, no cars."
+
+[applies]
+# World names from the GeoJSON `world` member or --world; edit to taste.
+worlds = ["Eldoria", "*fantasy*", "ofm:*"]
+
+[look]
+sky = [0.55, 0.45, 0.80]
+tint = [0.95, 0.90, 1.10]
+saturation = 1.35
+water = [0.25, 0.20, 0.70, 0.60]
+ui_accent = [140, 80, 200]
+ui_panel = [30, 22, 42]
+vehicles = false
+
+[labels]
+residential = "Cottages"
+commercial = "Market & taverns"
+industrial = "Smithies"
+road = "Road"
+power_line = "Ley line"
+coal_plant = "Mage tower"
+nuclear_plant = "Dragon forge"
+fire_station = "Water elementalists"
+police = "Guard house"
+hospital = "Temple of healing"
+school = "Academy of magic"
+park = "Sacred grove"
+trees = "Enchanted forest"

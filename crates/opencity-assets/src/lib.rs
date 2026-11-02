@@ -8,11 +8,13 @@
 pub mod ac3d;
 pub mod catalog;
 pub mod settings;
+pub mod skin;
 
 use std::path::{Path, PathBuf};
 
 pub use catalog::{Catalog, ModelEntry};
 pub use settings::Settings;
+pub use skin::{Look, Skin};
 
 #[derive(Debug, thiserror::Error)]
 pub enum AssetError {

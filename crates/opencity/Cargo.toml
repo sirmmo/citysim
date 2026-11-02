@@ -24,6 +24,8 @@ env_logger.workspace = true
 image.workspace = true
 log.workspace = true
 macroquad.workspace = true
+# Desktop UI (not built on Android, see xtask android-shim).
+egui-macroquad.workspace = true
 
 # Android packaging (cargo-quad-apk, see scripts/android.sh).
 [package.metadata.android]

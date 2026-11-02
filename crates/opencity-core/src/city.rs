@@ -114,6 +114,12 @@ pub struct CityMeta {
     /// Where the data came from (file, URL, attribution).
     pub source: Option<String>,
     pub georef: Option<GeoRef>,
+    /// Year the city represents (historical imports); drives era skins.
+    #[serde(default)]
+    pub year: Option<i64>,
+    /// World the city belongs to (fantasy maps); drives world skins.
+    #[serde(default)]
+    pub world: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

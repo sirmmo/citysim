@@ -69,11 +69,24 @@ pub struct ImportOptions {
     pub metres_per_step: f64,
     pub seed: u64,
     pub name: Option<String>,
+    /// Fantasy world name (overrides the file's `world` member).
+    pub world: Option<String>,
 }
 
 impl Default for ImportOptions {
     fn default() -> Self {
-        Self { crs: CrsMode::Auto, units_per_tile: None, max_size: 128, margin: 2, date: None, bbox: None, metres_per_step: 8.0, seed: 1, name: None }
+        Self {
+            crs: CrsMode::Auto,
+            units_per_tile: None,
+            max_size: 128,
+            margin: 2,
+            date: None,
+            bbox: None,
+            metres_per_step: 8.0,
+            seed: 1,
+            name: None,
+            world: None,
+        }
     }
 }
 
@@ -272,7 +285,13 @@ pub fn import(text: &str, rules: &Rules, footprints: Footprints, opts: &ImportOp
 
     // 4. Structures, in an order that lets networks claim their tiles first.
     let mut city = City::new(terrain, None, footprints, opts.seed);
-    city.meta = CityMeta { name: opts.name.clone(), source: None, georef: Some(proj.georef()) };
+    city.meta = CityMeta {
+        name: opts.name.clone(),
+        source: None,
+        georef: Some(proj.georef()),
+        year: opts.date.map(|d| d.year),
+        world: opts.world.clone().or_else(|| src.world.clone()),
+    };
     let mut order: Vec<usize> = (0..kept.len()).collect();
     let area = |i: usize| rasterized[i].len();
     order.sort_by_key(|&i| (priority(kept[i].build), area(i)));

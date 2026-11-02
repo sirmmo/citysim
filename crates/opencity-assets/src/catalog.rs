@@ -83,6 +83,18 @@ impl Catalog {
         self.models.get(&gc)
     }
 
+    /// Replaces model files with the skin's versions (footprints are kept so
+    /// the simulation is unaffected).
+    pub fn with_skin(&self, skin: &crate::Skin) -> Self {
+        let mut c = self.clone();
+        for (code, path) in &skin.models {
+            if let Some(e) = c.models.get_mut(&GraphicCode(*code)) {
+                e.model = path.clone();
+            }
+        }
+        c
+    }
+
     pub fn path(&self, rel: &str) -> PathBuf {
         self.data_dir.join(rel)
     }

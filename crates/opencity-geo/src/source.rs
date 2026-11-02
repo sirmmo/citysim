@@ -30,6 +30,8 @@ pub enum DeclaredCrs {
 pub struct Source {
     pub features: Vec<Feature>,
     pub crs: Option<DeclaredCrs>,
+    /// Top-level `world` (or `ofm:world`) member naming a fantasy world.
+    pub world: Option<String>,
 }
 
 /// Parses a GeoJSON document (FeatureCollection, Feature or bare geometry)
@@ -37,7 +39,7 @@ pub struct Source {
 pub fn parse(text: &str) -> Result<Source, GeoError> {
     let v: Value = serde_json::from_str(text)?;
     if v.get("elements").is_some() {
-        return Ok(Source { features: from_overpass(&v), crs: Some(DeclaredCrs::Wgs84) });
+        return Ok(Source { features: from_overpass(&v), crs: Some(DeclaredCrs::Wgs84), world: None });
     }
     let crs = v.pointer("/crs/properties/name").and_then(Value::as_str).map(|name| {
         let n = name.to_ascii_uppercase();
@@ -49,7 +51,8 @@ pub fn parse(text: &str) -> Result<Source, GeoError> {
     });
     let mut features = Vec::new();
     collect_geojson(&v, &Properties::new(), &mut features)?;
-    Ok(Source { features, crs })
+    let world = ["world", "ofm:world"].iter().find_map(|k| v.get(*k)).and_then(Value::as_str).map(str::to_string);
+    Ok(Source { features, crs, world })
 }
 
 fn properties(v: Option<&Value>) -> Properties {

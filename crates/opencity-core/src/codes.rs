@@ -306,6 +306,49 @@ pub enum Tool {
 }
 
 impl Tool {
+    pub const ALL: [Tool; 17] = [
+        Tool::Destroy,
+        Tool::ZoneResidential,
+        Tool::ZoneCommercial,
+        Tool::ZoneIndustrial,
+        Tool::RaiseTerrain,
+        Tool::LowerTerrain,
+        Tool::Road,
+        Tool::PowerLine,
+        Tool::CoalPlant,
+        Tool::NuclearPlant,
+        Tool::Park,
+        Tool::Trees,
+        Tool::FireDept,
+        Tool::PoliceDept,
+        Tool::Hospital,
+        Tool::School,
+        Tool::TestBuilding,
+    ];
+
+    /// Stable identifier, used by skins and GeoJSON rules.
+    pub const fn id(self) -> &'static str {
+        match self {
+            Tool::Destroy => "bulldozer",
+            Tool::ZoneResidential => "residential",
+            Tool::ZoneCommercial => "commercial",
+            Tool::ZoneIndustrial => "industrial",
+            Tool::RaiseTerrain => "raise",
+            Tool::LowerTerrain => "lower",
+            Tool::Road => "road",
+            Tool::PowerLine => "power_line",
+            Tool::CoalPlant => "coal_plant",
+            Tool::NuclearPlant => "nuclear_plant",
+            Tool::Park => "park",
+            Tool::Trees => "trees",
+            Tool::FireDept => "fire_station",
+            Tool::PoliceDept => "police",
+            Tool::Hospital => "hospital",
+            Tool::School => "school",
+            Tool::TestBuilding => "test_building",
+        }
+    }
+
     /// Structure this tool builds, if any.
     pub const fn structure(self) -> Option<StructureCode> {
         use StructureCode as S;

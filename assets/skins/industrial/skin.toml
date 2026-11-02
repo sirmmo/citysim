@@ -1,0 +1,22 @@
+name = "Industrial age"
+description = "1800-1945: soot-grey skies, steam and coal."
+
+disabled_tools = ["nuclear_plant"]
+
+[applies]
+years = [1800, 1945]
+
+[look]
+sky = [0.62, 0.64, 0.66]
+tint = [0.98, 0.95, 0.90]
+saturation = 0.7
+water = [0.20, 0.30, 0.38, 0.65]
+ui_accent = [120, 120, 130]
+ui_panel = [28, 28, 30]
+vehicles = true
+
+[labels]
+coal_plant = "Coal power station"
+power_line = "Telegraph & power line"
+industrial = "Factories"
+school = "Public school"

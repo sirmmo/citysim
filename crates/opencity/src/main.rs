@@ -4,6 +4,8 @@ mod audio;
 mod camera;
 mod render;
 mod ui;
+#[cfg(not(target_os = "android"))]
+mod ui_egui;
 
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
@@ -11,7 +13,7 @@ use std::sync::OnceLock;
 use anyhow::{Context, Result};
 use clap::Parser;
 use macroquad::prelude::*;
-use opencity_assets::{find_data_dir, Catalog, Settings};
+use opencity_assets::{find_data_dir, Catalog, Settings, Skin};
 use opencity_core::{save, scenario, BuildingLayer, City, Speed, Terrain, Tool};
 
 use crate::audio::Audio;
@@ -58,6 +60,15 @@ struct Args {
     /// Render a few frames, save a PNG screenshot and exit.
     #[arg(long)]
     screenshot: Option<PathBuf>,
+    /// Skin to use (default: chosen from the city's era or world).
+    #[arg(long)]
+    skin: Option<String>,
+    /// With --geojson: the fantasy world the map belongs to (selects world skins).
+    #[arg(long, requires = "geojson")]
+    world: Option<String>,
+    /// Use the classic interface made of the original OpenCity artwork.
+    #[arg(long)]
+    classic_ui: bool,
     /// Window size override, e.g. 1280x800.
     #[arg(long, value_parser = parse_size)]
     size: Option<(u32, u32)>,
@@ -146,6 +157,10 @@ fn save_path() -> PathBuf {
 fn new_city(settings: &Settings, seed: u64, catalog: &Catalog) -> Result<City> {
     let mut params = settings.map.clone();
     params.seed = seed;
+    new_city_with(params, catalog)
+}
+
+fn new_city_with(mut params: opencity_mapgen::MapParams, catalog: &Catalog) -> Result<City> {
     if let Some(h) = &params.heightmap {
         if h.is_relative() && !h.exists() {
             params.heightmap = Some(catalog.data_dir.join("heightmap").join(h));
@@ -153,18 +168,19 @@ fn new_city(settings: &Settings, seed: u64, catalog: &Catalog) -> Result<City> {
     }
     let m = opencity_mapgen::generate(&params)?;
     let terrain = Terrain::from_corner_heights(m.width, m.length, &m.corner_heights);
-    Ok(City::new(terrain, Some(&m.tree_density), catalog.footprints(), seed))
+    Ok(City::new(terrain, Some(&m.tree_density), catalog.footprints(), params.seed))
 }
 
-fn import_geojson(args: &Args, path: &Path, catalog: &Catalog) -> Result<City> {
+fn import_geojson(path: &Path, date: Option<&str>, rules: Option<&Path>, units_per_tile: Option<f64>, world: Option<&str>, catalog: &Catalog) -> Result<City> {
     let text = std::fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
-    let rules = match &args.rules {
-        Some(r) => opencity_geo::Rules::parse(&std::fs::read_to_string(r)?)?,
+    let rules = match rules {
+        Some(r) => opencity_geo::Rules::parse(&std::fs::read_to_string(r).with_context(|| format!("reading {}", r.display()))?)?,
         None => opencity_geo::Rules::builtin(),
     };
     let opts = opencity_geo::ImportOptions {
-        date: args.date.as_deref().map(|d| opencity_geo::HistDate::parse(d).with_context(|| format!("bad date {d:?}"))).transpose()?,
-        units_per_tile: args.units_per_tile,
+        date: date.map(|d| opencity_geo::HistDate::parse(d).with_context(|| format!("bad date {d:?}"))).transpose()?,
+        units_per_tile,
+        world: world.map(str::to_string),
         name: path.file_stem().map(|s| s.to_string_lossy().into_owned()),
         ..Default::default()
     };
@@ -207,7 +223,13 @@ fn tool_key() -> Option<Action> {
 
 struct Game {
     city: City,
+    /// Catalog with the active skin's models.
     catalog: Catalog,
+    base_catalog: Catalog,
+    skins: Vec<Skin>,
+    skin: Option<Skin>,
+    /// `None`: pick automatically; `Some(None)`: no skin; `Some(Some(id))`: forced.
+    skin_choice: Option<Option<String>>,
     renderer: Renderer,
     ui: Ui,
     audio: Audio,
@@ -218,6 +240,9 @@ struct Game {
     message: Option<(String, f64)>,
     last_mouse: Vec2,
     resume_speed: Speed,
+    hover: Option<(u32, u32)>,
+    #[cfg(not(target_os = "android"))]
+    egui: Option<ui_egui::EguiUi>,
 }
 
 impl Game {
@@ -230,6 +255,31 @@ impl Game {
         self.city = city;
         self.drag_start = None;
         self.query = None;
+        self.apply_skin();
+    }
+
+    /// Chooses the skin for the current city and applies it.
+    fn apply_skin(&mut self) {
+        let meta = &self.city.meta;
+        let skin = match &self.skin_choice {
+            Some(None) => None,
+            Some(Some(id)) => Skin::select(&self.skins, Some(id), None, None),
+            None => Skin::select(&self.skins, None, meta.year, meta.world.as_deref()),
+        }
+        .cloned();
+        self.catalog = match &skin {
+            Some(s) => self.base_catalog.with_skin(s),
+            None => self.base_catalog.clone(),
+        };
+        let look = skin.as_ref().map(|s| s.look.clone()).unwrap_or_default();
+        self.renderer.set_skin(self.catalog.clone(), look);
+        if let Some(s) = &skin {
+            log::info!("skin: {}", s.name);
+            if self.active.is_some_and(|a| matches!(a, Action::Tool(Some(t)) if !s.allows(t.id()))) {
+                self.active = None;
+            }
+        }
+        self.skin = skin;
     }
 
     fn handle_action(&mut self, a: Action) -> bool {
@@ -276,21 +326,103 @@ impl Game {
         true
     }
 
+    #[cfg(not(target_os = "android"))]
+    fn run_command(&mut self, cmd: ui_egui::Command) -> bool {
+        use ui_egui::Command;
+        match cmd {
+            Command::Act(a) => return self.handle_action(a),
+            Command::SetSpeed(s) => self.city.speed = s,
+            Command::NewCity(params) => match new_city_with(params, &self.catalog) {
+                Ok(c) => {
+                    self.set_city(c);
+                    self.say("New city");
+                }
+                Err(e) => self.say(format!("Cannot create city: {e:#}")),
+            },
+            Command::Save(p) => match save_city(&self.city, &p) {
+                Ok(()) => self.say(format!("Saved to {}", p.display())),
+                Err(e) => self.say(format!("Save failed: {e:#}")),
+            },
+            Command::Load(p) => match load_city(&p, &self.catalog) {
+                Ok(c) => {
+                    self.set_city(c);
+                    self.say(format!("Opened {}", p.display()));
+                }
+                Err(e) => self.say(format!("Open failed: {e:#}")),
+            },
+            Command::ImportGeojson { path, date, rules } => match import_geojson(&path, date.as_deref(), rules.as_deref(), None, None, &self.base_catalog) {
+                Ok(c) => {
+                    self.set_city(c);
+                    self.say(format!("Imported {}", path.display()));
+                }
+                Err(e) => self.say(format!("Import failed: {e:#}")),
+            },
+            Command::ExportGeojson(p) => {
+                let json = opencity_geo::export(&self.city, &opencity_geo::ExportOptions::default());
+                match std::fs::write(&p, json.to_string()) {
+                    Ok(()) => self.say(format!("Exported {}", p.display())),
+                    Err(e) => self.say(format!("Export failed: {e}")),
+                }
+            }
+            Command::SetSkin(choice) => {
+                self.skin_choice = choice;
+                self.apply_skin();
+            }
+            Command::ResetCamera => self.camera = OrbitCamera::new(self.city.width(), self.city.length()),
+            Command::CloseQuery => self.query = None,
+            Command::Quit => return false,
+        }
+        true
+    }
+
     fn frame(&mut self) -> bool {
         let mouse: Vec2 = mouse_position().into();
         let mouse_delta = mouse - self.last_mouse;
         self.last_mouse = mouse;
 
-        if is_key_pressed(KeyCode::Escape) {
+        // The egui UI runs first so the map knows whether the pointer/keyboard are taken.
+        #[allow(unused_mut)]
+        let (mut egui_pointer, mut egui_keyboard, mut egui_on) = (false, false, false);
+        #[cfg(not(target_os = "android"))]
+        if let Some(mut ui) = self.egui.take() {
+            egui_on = true;
+            let message = self.message.as_ref().filter(|(_, until)| get_time() < *until).map(|(m, _)| m.clone());
+            let view = ui_egui::View {
+                city: &self.city,
+                catalog: &self.catalog,
+                active: self.active,
+                hover: self.hover,
+                query: self.query.map(|(_, t)| t),
+                message: message.as_deref(),
+                save_path: save_path(),
+                skin: self.skin.as_ref(),
+                skins: &self.skins,
+                skin_choice: &self.skin_choice,
+            };
+            let mut commands = Vec::new();
+            egui_macroquad::ui(|ctx| {
+                commands = ui.show(ctx, &view);
+                egui_pointer = ctx.wants_pointer_input() || ctx.is_pointer_over_area();
+                egui_keyboard = ctx.wants_keyboard_input();
+            });
+            self.egui = Some(ui);
+            for c in commands {
+                if !self.run_command(c) {
+                    return false;
+                }
+            }
+        }
+
+        if is_key_pressed(KeyCode::Escape) && !egui_keyboard {
             if self.active.is_some() || self.query.is_some() {
                 self.active = None;
                 self.query = None;
                 self.drag_start = None;
-            } else {
+            } else if !egui_on {
                 self.ui.menu_open = !self.ui.menu_open;
             }
         }
-        if !self.ui.menu_open {
+        if !self.ui.menu_open && !egui_keyboard {
             if is_key_pressed(KeyCode::Space) {
                 self.handle_action(Action::TogglePause);
             }
@@ -298,11 +430,17 @@ impl Game {
                 self.handle_action(Action::ToggleFast);
             }
             if let Some(a) = tool_key() {
-                self.handle_action(a);
+                let allowed = match (a, &self.skin) {
+                    (Action::Tool(Some(t)), Some(s)) => s.allows(t.id()),
+                    _ => true,
+                };
+                if allowed {
+                    self.handle_action(a);
+                }
             }
         }
 
-        let ui_mouse = self.ui.has_mouse();
+        let ui_mouse = if egui_on { egui_pointer } else { self.ui.has_mouse() };
         let bounds = vec2(self.city.width() as f32, self.city.length() as f32);
         let gesture = !self.ui.menu_open && self.camera.handle_touch(bounds);
         if gesture {
@@ -324,6 +462,7 @@ impl Game {
 
         let cam = self.camera.camera();
         let hover = if ui_mouse { None } else { pick_tile(&cam, &self.city.terrain, mouse) };
+        self.hover = hover;
 
         // Map interaction.
         if !ui_mouse && is_mouse_button_pressed(MouseButton::Left) {
@@ -344,7 +483,8 @@ impl Game {
         }
 
         // 3D scene.
-        clear_background(Color::new(0.45, 0.62, 0.85, 1.0));
+        let sky = self.renderer.look().sky;
+        clear_background(Color::new(sky[0], sky[1], sky[2], 1.0));
         set_camera(&cam);
         self.renderer.draw_city(&self.city);
         if let Some(Action::Tool(Some(tool))) = self.active {
@@ -373,6 +513,11 @@ impl Game {
 
         // 2D overlay.
         set_default_camera();
+        if egui_on {
+            #[cfg(not(target_os = "android"))]
+            egui_macroquad::draw();
+            return true;
+        }
         let message = self.message.as_ref().filter(|(_, until)| get_time() < *until).map(|(m, _)| m.clone());
         if let Some((at, (w, l))) = self.query {
             let info = self.city.query(w, l).map(|i| {
@@ -408,7 +553,7 @@ async fn main() -> Result<()> {
     let catalog = Catalog::load(&data_dir)?;
     let mut city = match (&s.args.load, &s.args.geojson) {
         (Some(p), _) => load_city(p, &catalog)?,
-        (None, Some(g)) => import_geojson(&s.args, g, &catalog)?,
+        (None, Some(g)) => import_geojson(g, s.args.date.as_deref(), s.args.rules.as_deref(), s.args.units_per_tile, s.args.world.as_deref(), &catalog)?,
         (None, None) => new_city(&s.settings, s.args.seed.unwrap_or(s.settings.map.seed), &catalog)?,
     };
     if s.args.demo {
@@ -428,10 +573,15 @@ async fn main() -> Result<()> {
     };
     let mut renderer = Renderer::new(catalog.clone());
     let ui = Ui::new(&mut renderer);
+    let skins = Skin::load_all(&data_dir);
     let mut game = Game {
         camera: OrbitCamera::new(city.width(), city.length()),
         city,
+        base_catalog: catalog.clone(),
         catalog,
+        skins,
+        skin: None,
+        skin_choice: s.args.skin.as_ref().map(|id| if id == "none" { None } else { Some(id.clone()) }),
         renderer,
         ui,
         audio,
@@ -441,7 +591,11 @@ async fn main() -> Result<()> {
         message: None,
         last_mouse: mouse_position().into(),
         resume_speed: Speed::Normal,
+        hover: None,
+        #[cfg(not(target_os = "android"))]
+        egui: (!s.args.classic_ui).then(|| ui_egui::EguiUi::new(&s.settings.map)),
     };
+    game.apply_skin();
     if s.args.screenshot.is_some() {
         game.camera.distance *= 0.75;
         game.camera.pitch = 38f32.to_radians();

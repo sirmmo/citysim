@@ -1,6 +1,7 @@
 {
   "type": "FeatureCollection",
   "name": "Fantasy village (OpenFantasyMap-style test data, planar map units)",
+  "world": "Eldoria",
   "crs": {"type": "name", "properties": {"name": "urn:ofm:world:test"}},
   "features": [
     {"type": "Feature", "properties": {"kind": "road", "name": "King's Road"},

@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 
 use macroquad::models::{draw_mesh, Mesh, Vertex};
 use macroquad::prelude::*;
-use opencity_assets::{ac3d, Catalog};
+use opencity_assets::{ac3d, Catalog, Look};
 use opencity_core::{layer::TileKind, terrain::HEIGHT_MAX, City, Direction, GraphicCode, Rect, Terrain};
 
 /// Direction of the sun used to bake shading into vertex colours.
@@ -35,6 +35,7 @@ pub struct Renderer {
     /// Ground colour per height step, sampled from the legacy terrain texture.
     palette: Vec<[f32; 3]>,
     white: Texture2D,
+    look: Look,
 }
 
 pub fn load_texture_file(path: &Path) -> Option<Texture2D> {
@@ -49,7 +50,19 @@ impl Renderer {
     pub fn new(catalog: Catalog) -> Self {
         let palette = Self::terrain_palette(&catalog.path("graphism/texture/terrain_64x4096_texture.png"));
         let white = Texture2D::from_rgba8(1, 1, &[255, 255, 255, 255]);
-        Self { catalog, models: HashMap::new(), textures: HashMap::new(), terrain: Vec::new(), terrain_key: None, palette, white }
+        Self { catalog, models: HashMap::new(), textures: HashMap::new(), terrain: Vec::new(), terrain_key: None, palette, white, look: Look::default() }
+    }
+
+    /// Switches skin: new model files and colour treatment; caches are rebuilt lazily.
+    pub fn set_skin(&mut self, catalog: Catalog, look: Look) {
+        self.catalog = catalog;
+        self.look = look;
+        self.models.clear();
+        self.terrain_key = None;
+    }
+
+    pub fn look(&self) -> &Look {
+        &self.look
     }
 
     /// The legacy terrain texture is a 3D texture: 64 slices of 64x64 texels
@@ -124,7 +137,7 @@ impl Renderer {
                         vertices.push(Vertex {
                             position: Vec3::from(m.positions[i]),
                             uv: Vec2::from(m.uvs[i]),
-                            color: rgba(m.colors[i], shade(n)),
+                            color: rgba(self.look.apply(m.colors[i]), shade(n)),
                             normal: n.extend(0.0),
                         });
                         (vertices.len() - 1) as u16
@@ -159,7 +172,8 @@ impl Renderer {
                 let base = vertices.len() as u16;
                 for (i, v) in p.iter().enumerate() {
                     let g = self.ground_color(c[i] as f32);
-                    vertices.push(Vertex { position: *v, uv: vec2(0.0, 0.0), color: rgba([g[0], g[1], g[2], 1.0], k), normal: n.extend(0.0) });
+                    let g = self.look.apply([g[0], g[1], g[2], 1.0]);
+                    vertices.push(Vertex { position: *v, uv: vec2(0.0, 0.0), color: rgba(g, k), normal: n.extend(0.0) });
                 }
                 indices.extend([base, base + 1, base + 2, base, base + 2, base + 3]);
                 if vertices.len() > 60_000 {
@@ -208,7 +222,8 @@ impl Renderer {
         for (w, l, gc) in items {
             self.draw_model(gc, Self::tile_matrix(&city.terrain, w, l));
         }
-        for v in &city.vehicles {
+        let vehicles: &[opencity_core::traffic::Vehicle] = if self.look.vehicles { &city.vehicles } else { &[] };
+        for v in vehicles {
             let p = v.pose();
             let angle = match p.heading {
                 Direction::South => 0.0f32,
@@ -222,7 +237,8 @@ impl Renderer {
         }
         // Translucent water plane, drawn last.
         let (w, l) = (city.width() as f32, city.length() as f32);
-        draw_plane(vec3(w / 2.0, WATER_LEVEL, l / 2.0), vec2(w / 2.0, l / 2.0), None, Color::new(0.15, 0.35, 0.75, 0.55));
+        let c = self.look.water;
+        draw_plane(vec3(w / 2.0, WATER_LEVEL, l / 2.0), vec2(w / 2.0, l / 2.0), None, Color::new(c[0], c[1], c[2], c[3]));
     }
 
     /// Translucent overlay hugging the terrain over `r`.
