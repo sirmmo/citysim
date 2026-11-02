@@ -73,7 +73,7 @@ fn android_shim(out: &Path) -> Result<()> {
         // edition 2024 (which Cargo 1.61 cannot parse). rustc 1.88 still compiles.
         package.insert("rust-version".into(), SHIM_RUST_VERSION.into());
         if let Some(deps) = manifest.get_mut("dependencies").and_then(Value::as_table_mut) {
-            deps.retain(|dep, _| !DROP_ON_ANDROID.iter().any(|d| *d == dep));
+            deps.retain(|dep, _| !DROP_ON_ANDROID.contains(&dep.as_ref()));
             for (dep, value) in deps.iter_mut() {
                 if !is_inherited(value) {
                     continue;
