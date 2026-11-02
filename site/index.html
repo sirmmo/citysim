@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>citysim: a 3D city simulation in Rust</title>
+<meta name="description" content="citysim is a free 3D city simulation in Rust, derived from OpenCity. Build cities on generated terrain, or from OpenFantasyMap and OpenHistoryMap data, with era and world skins.">
+<meta property="og:title" content="citysim">
+<meta property="og:description" content="A free 3D city simulation in Rust, derived from OpenCity. Build from map data, in any era or world.">
+<meta property="og:image" content="https://sirmmo.github.io/citysim/img/antiquity.webp">
+<link rel="icon" href="img/icon.png">
+<style>
+:root {
+  --bg: #f6f1e9; --bg2: #ece4d6; --ink: #1f1d1a; --muted: #5d5850; --line: #d8cdbb;
+  --accent: #b0412e; --accent2: #2f6f9f; --card: #fffaf2; --code: #2a2622; --codeink: #f3ead9;
+  --radius: 14px; --max: 1120px;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #15171c; --bg2: #1d2027; --ink: #ece7de; --muted: #a8a196; --line: #2e323b;
+          --accent: #e0775f; --accent2: #6aaedf; --card: #1b1e24; --code: #0f1115; --codeink: #e8e2d6; }
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; background: var(--bg); color: var(--ink);
+  font: 17px/1.6 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+a { color: var(--accent2); }
+.wrap { max-width: var(--max); margin: 0 auto; padding: 0 20px; }
+header.top { position: sticky; top: 0; z-index: 5; background: color-mix(in srgb, var(--bg) 88%, transparent);
+  backdrop-filter: blur(8px); border-bottom: 1px solid var(--line); }
+header.top .wrap { display: flex; align-items: center; gap: 18px; height: 58px; }
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 750; font-size: 19px; color: var(--ink); text-decoration: none; letter-spacing: -0.01em; }
+.brand img { width: 26px; height: 26px; image-rendering: auto; }
+nav { margin-left: auto; display: flex; gap: 18px; font-size: 15px; }
+nav a { color: var(--muted); text-decoration: none; }
+nav a:hover { color: var(--ink); }
+@media (max-width: 640px) { nav a.opt { display: none; } }
+
+.hero { padding: 64px 0 28px; }
+.hero h1 { font-size: clamp(36px, 6vw, 64px); line-height: 1.04; margin: 0 0 18px; letter-spacing: -0.03em; max-width: 15ch; }
+.hero h1 em { font-style: normal; color: var(--accent); }
+.hero p.lede { font-size: clamp(18px, 2.2vw, 21px); color: var(--muted); max-width: 62ch; margin: 0 0 28px; }
+.ctas { display: flex; flex-wrap: wrap; gap: 12px; }
+.btn { display: inline-flex; align-items: center; gap: 8px; padding: 12px 20px; border-radius: 999px;
+  font-weight: 650; text-decoration: none; border: 1px solid var(--line); color: var(--ink); background: var(--card); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.btn:hover { filter: brightness(1.06); }
+.shot { margin: 40px 0 0; border-radius: var(--radius); overflow: hidden; border: 1px solid var(--line);
+  box-shadow: 0 30px 60px -30px rgba(0,0,0,.45); background: var(--bg2); }
+.shot img { display: block; width: 100%; height: auto; }
+figcaption { font-size: 13px; color: var(--muted); padding: 10px 14px; border-top: 1px solid var(--line); background: var(--card); }
+
+section { padding: 64px 0; border-top: 1px solid var(--line); }
+section h2 { font-size: clamp(26px, 3.4vw, 36px); letter-spacing: -0.02em; margin: 0 0 10px; }
+section p.sub { color: var(--muted); margin: 0 0 32px; max-width: 64ch; }
+.grid { display: grid; gap: 18px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 22px; }
+.card h3 { margin: 0 0 6px; font-size: 18px; }
+.card p { margin: 0; color: var(--muted); font-size: 15.5px; }
+.tag { display: inline-block; font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--accent); margin-bottom: 8px; }
+
+.split { display: grid; gap: 28px; grid-template-columns: 1fr 1fr; align-items: center; }
+@media (max-width: 860px) { .split { grid-template-columns: 1fr; } }
+.split .shot { margin: 0; }
+ul.ticks { padding: 0; list-style: none; margin: 0; }
+ul.ticks li { padding-left: 26px; position: relative; margin: 8px 0; }
+ul.ticks li::before { content: ""; position: absolute; left: 4px; top: .62em; width: 9px; height: 9px; border-radius: 2px; background: var(--accent); transform: rotate(45deg); }
+
+.gallery { display: grid; gap: 18px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+.gallery figure { margin: 0; border-radius: var(--radius); overflow: hidden; border: 1px solid var(--line); background: var(--card); }
+.gallery img { display: block; width: 100%; aspect-ratio: 16/10; object-fit: cover; }
+
+pre { background: var(--code); color: var(--codeink); padding: 18px 20px; border-radius: 12px; overflow-x: auto; font-size: 14.5px; line-height: 1.55; margin: 0; }
+code { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+p code, li code { background: var(--bg2); padding: 1px 6px; border-radius: 6px; font-size: .9em; }
+
+.downloads { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); margin-bottom: 26px; }
+.dl { display: block; text-decoration: none; color: var(--ink); background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px 20px; }
+.dl:hover { border-color: var(--accent); }
+.dl strong { display: block; font-size: 17px; }
+.dl span { color: var(--muted); font-size: 14px; }
+
+footer { padding: 40px 0 60px; border-top: 1px solid var(--line); color: var(--muted); font-size: 14.5px; }
+footer .wrap { display: flex; flex-wrap: wrap; gap: 14px 32px; justify-content: space-between; }
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="#"><img src="img/icon.png" alt="">citysim</a>
+    <nav>
+      <a class="opt" href="#features">Features</a>
+      <a class="opt" href="#maps">Maps</a>
+      <a class="opt" href="#skins">Skins</a>
+      <a href="#download">Download</a>
+      <a href="https://github.com/sirmmo/citysim">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+<div class="wrap hero">
+  <h1>Build a city <em>anywhere</em>, in <em>any age</em>.</h1>
+  <p class="lede">citysim is a free 3D city simulation written in Rust, derived from the classic
+    <a href="https://sourceforge.net/projects/opencity/">OpenCity</a>. Zone, wire and grow towns on
+    generated terrain, or rebuild real and imagined places from OpenHistoryMap and OpenFantasyMap data,
+    dressed for their era or world.</p>
+  <div class="ctas">
+    <a class="btn primary" href="#download">Download 0.1.0</a>
+    <a class="btn" href="https://github.com/sirmmo/citysim">Source on GitHub</a>
+  </div>
+  <figure class="shot">
+    <img src="img/town.webp" alt="A grown town with houses, markets and factories in the citysim desktop interface" width="1440" height="900">
+    <figcaption>A demo town after fifteen simulated years, in the desktop interface.</figcaption>
+  </figure>
+</div>
+
+<section id="features">
+  <div class="wrap">
+    <h2>A city builder you can take apart</h2>
+    <p class="sub">The rules of OpenCity, rebuilt as small, tested Rust crates. The simulation runs
+      without a window, so the same city works in the game, the command line and your own tools.</p>
+    <div class="grid">
+      <div class="card"><div class="tag">Simulation</div><h3>Zones that need each other</h3>
+        <p>Residential, commercial and industrial zones grow when they have power, a road and the other two
+          zone types nearby. Power flows from plants through connected buildings. Traffic picks quieter streets.</p></div>
+      <div class="card"><div class="tag">Deterministic</div><h3>Same seed, same city</h3>
+        <p>No threads and no globals. Every run with the same seed evolves identically, which makes cities
+          testable, shareable and easy to replay.</p></div>
+      <div class="card"><div class="tag">Terrain</div><h3>Generated or loaded</h3>
+        <p>Plains, hills, mountains, islands and volcanoes from a seeded generator, or any greyscale
+          heightmap. Raise and lower the ground yourself.</p></div>
+      <div class="card"><div class="tag">Everywhere</div><h3>Desktop and Android</h3>
+        <p>Linux, Windows, macOS (Apple Silicon and Intel) and Android, with touch controls. A headless
+          CLI creates, simulates, renders, imports and exports cities.</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="maps">
+  <div class="wrap split">
+    <div>
+      <h2>Your map is the level</h2>
+      <p class="sub">Feed it GeoJSON or Overpass JSON and get a playable city: roads, power lines, zones,
+        parks, services, water and elevation.</p>
+      <ul class="ticks">
+        <li><strong>OpenHistoryMap / OpenHistoricalMap</strong>: pick a date with <code>--date 1600</code>
+          and only what existed then is built.</li>
+        <li><strong>OpenFantasyMap</strong>: planar worlds with no Earth coordinates, mapped through your own
+          tag vocabulary.</li>
+        <li><strong>Declarative rules</strong>: a TOML file says which properties become which buildings.</li>
+        <li><strong>Round trip</strong>: export the city back to GeoJSON in its source coordinates.</li>
+        <li><strong>Diagonal streets</strong>: zig-zags of tiles are drawn as straight diagonals.</li>
+      </ul>
+    </div>
+    <figure class="shot">
+      <img src="img/diagonal.webp" alt="Central Bologna in 1600, imported from OpenHistoricalMap, with diagonal streets" width="1440" height="900" loading="lazy">
+      <figcaption>Central Bologna in 1600, from OpenHistoricalMap (CC0).</figcaption>
+    </figure>
+  </div>
+</section>
+
+<section id="skins">
+  <div class="wrap">
+    <h2>One simulation, many worlds</h2>
+    <p class="sub">Skins re-dress the game for the era of a historical map or the world of a fantasy one:
+      colours, names, available tools, icons and 3D models. They are picked automatically from the date or
+      the world, or chosen by hand.</p>
+    <div class="gallery">
+      <figure><img src="img/antiquity.webp" alt="A Roman town built from 0 A.D. models" loading="lazy">
+        <figcaption><strong>Antiquity</strong>: Roman towns with art from 0 A.D. by Wildfire Games
+          (CC BY-SA 3.0), installed separately.</figcaption></figure>
+      <figure><img src="img/renaissance.webp" alt="Renaissance skin with warm colours and period names" loading="lazy">
+        <figcaption><strong>Renaissance</strong>: faded palette, no cars, a watermill instead of a power plant.</figcaption></figure>
+      <figure><img src="img/fantasy.webp" alt="Fantasy skin with mage towers and ley lines" loading="lazy">
+        <figcaption><strong>Fantasy realm</strong>: mage towers, ley lines and dragon forges for OpenFantasyMap worlds.</figcaption></figure>
+    </div>
+  </div>
+</section>
+
+<section id="download">
+  <div class="wrap">
+    <h2>Download</h2>
+    <p class="sub">Unpack the archive and run <code>opencity</code> from inside the folder, next to
+      <code>assets/</code>. The Android APK is debug-signed, for sideloading.</p>
+    <div class="downloads">
+      <a class="dl" href="https://github.com/sirmmo/citysim/releases/download/v0.1.0/citysim-v0.1.0-x86_64-unknown-linux-gnu.tar.gz"><strong>Linux</strong><span>x86_64 · tar.gz</span></a>
+      <a class="dl" href="https://github.com/sirmmo/citysim/releases/download/v0.1.0/citysim-v0.1.0-x86_64-pc-windows-msvc.zip"><strong>Windows</strong><span>x86_64 · zip</span></a>
+      <a class="dl" href="https://github.com/sirmmo/citysim/releases/download/v0.1.0/citysim-v0.1.0-aarch64-apple-darwin.tar.gz"><strong>macOS</strong><span>Apple Silicon · tar.gz</span></a>
+      <a class="dl" href="https://github.com/sirmmo/citysim/releases/download/v0.1.0/citysim-v0.1.0-x86_64-apple-darwin.tar.gz"><strong>macOS</strong><span>Intel · tar.gz</span></a>
+      <a class="dl" href="https://github.com/sirmmo/citysim/releases/download/v0.1.0/citysim-0.1.0.apk"><strong>Android</strong><span>arm64 · armv7 · apk</span></a>
+    </div>
+    <p>All files and notes are on the <a href="https://github.com/sirmmo/citysim/releases">releases page</a>.
+      On macOS the binaries are unsigned: right-click and choose Open the first time.</p>
+    <h3>Or build it</h3>
+    <pre><code># everything runs in a pinned Docker image (Rust 1.88.0)
+git clone https://github.com/sirmmo/citysim && cd citysim
+scripts/dev.sh cargo test --workspace
+cargo run --release -p opencity -- --demo --simulate-years 10
+
+# a city from OpenHistoricalMap, as it was in 1600
+cargo run --release -p opencity -- --geojson data/ohm-bologna-center.json --date 1600</code></pre>
+  </div>
+</section>
+
+<section id="origins">
+  <div class="wrap split">
+    <div>
+      <h2>Standing on OpenCity</h2>
+      <p class="sub">citysim began as a port of OpenCity's SVN trunk (revision 480), the GPL city
+        simulation by Duong Khang NGUYEN, Frédéric RODRIGO and contributors (2003–2015).</p>
+      <ul class="ticks">
+        <li>The growth rules, power, traffic, budget and terrain generator are ported from the C++ sources.</li>
+        <li>All of OpenCity's models, textures, interface art and sounds ship unchanged.</li>
+        <li>Old OpenCity save files can still be imported.</li>
+      </ul>
+      <p>Read the <a href="https://github.com/sirmmo/citysim/blob/main/NOTICE.md">credits</a> and the
+        <a href="https://github.com/sirmmo/citysim/blob/main/docs/PORTING.md">porting notes</a>.</p>
+    </div>
+    <div class="grid" style="grid-template-columns: 1fr;">
+      <div class="card"><div class="tag">Docs</div>
+        <p><a href="https://github.com/sirmmo/citysim/blob/main/README.md">README</a> ·
+          <a href="https://github.com/sirmmo/citysim/blob/main/docs/GEOJSON.md">GeoJSON import</a> ·
+          <a href="https://github.com/sirmmo/citysim/blob/main/docs/SKINS.md">Skins</a> ·
+          <a href="https://github.com/sirmmo/citysim/blob/main/docs/settings.example.toml">Settings</a></p></div>
+      <div class="card"><div class="tag">License</div>
+        <p>GPL-2.0-or-later, like OpenCity. 0 A.D. art is CC BY-SA 3.0 and is not part of the repository.</p></div>
+    </div>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>citysim 0.1.0 · derived from <a href="https://sourceforge.net/projects/opencity/">OpenCity</a></span>
+    <span><a href="https://github.com/sirmmo/citysim">github.com/sirmmo/citysim</a></span>
+  </div>
+</footer>
+</body>
+</html>
