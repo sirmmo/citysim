@@ -1,0 +1,65 @@
+# GlassBox rule script, compiled into rules/glassbox.toml (see docs/GLASSBOX.md).
+#
+# The syntax follows the GlassBox rules Maxis showed for SimCity (GDC 2012)
+# and the Extended GlassBox model for urban digital twins (Costagliola,
+# Montanari, Bellavista: metrics with `log`, agent rules with `area`).
+
+# --- Metrics: what the city records each tick (Extended GlassBox) --------
+unitRule homeMetrics
+    appliesTo house_1
+    log -timestamp=Time Households 1
+    log -timestamp=Time Commuters 2
+end
+
+unitRule apartmentMetrics
+    appliesTo townhouse_2
+    log -timestamp=Time Households 6
+    log -timestamp=Time Commuters 9
+end
+
+unitRule plantMetrics
+    appliesTo coal_plant
+    log -timestamp=Time PowerOutput 400
+    log -timestamp=Time Emissions 8
+end
+
+# --- Agents: traffic pollutes along its routes ----------------------------
+agentRule commuterTraffic
+    condition resource=workers
+    repeatAfter 4
+    area -timestamp=Time -map=AirQuality pm10 0.6 1
+    area -timestamp=Time -map=Noise level 0.8 1
+end
+
+agentRule freightTraffic
+    condition resource=goods
+    repeatAfter 3
+    area -timestamp=Time -map=AirQuality pm10 1.2 1
+    area -timestamp=Time -map=Noise level 1.5 2
+end
+
+# --- Maps: clean air slowly raises land value -----------------------------
+mapRule cleanAirValue
+    rate 10
+    map pollution atMost 2
+    map AirQuality.pm10 atMost 5
+    map land_value out 0.3
+end
+
+# --- Units: the biggest homes want quiet, clean streets -------------------
+unitRule skyscraperComfort
+    appliesTo tower_3
+    map AirQuality.pm10 atMost 15
+    map Noise.level atMost 20
+end
+
+# --- Zones: clean neighbourhoods attract family houses directly -----------
+zoneRule familyNeighbourhood
+    appliesTo residential
+    rate 20
+    sample random -count 2
+    test global residents greater 200
+    test map pollution less 3
+    test map land_value greater 4
+    createUnit -id house_2
+end

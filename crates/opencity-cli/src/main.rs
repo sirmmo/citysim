@@ -51,6 +51,9 @@ enum Command {
         years: u32,
         #[arg(long)]
         save: Option<PathBuf>,
+        /// Write the GlassBox metrics (one row per tick) to this CSV file.
+        #[arg(long)]
+        metrics: Option<PathBuf>,
     },
     /// Print a summary of a saved city.
     Info { file: PathBuf },
@@ -218,6 +221,28 @@ fn new_city(map: &MapArgs, demo: bool, fp: Footprints) -> Result<City> {
     Ok(city)
 }
 
+/// GlassBox metric history as CSV: `tick,<metric>,...`.
+fn write_metrics(city: &City, path: &Path) -> Result<()> {
+    let gb = city.glassbox.as_ref().context("--metrics needs GlassBox rules (--game-rules)")?;
+    let names: std::collections::BTreeSet<&String> = gb.metric_history.iter().flat_map(|(_, m)| m.keys()).collect();
+    let mut out = String::from("tick");
+    for n in &names {
+        out.push(',');
+        out.push_str(n);
+    }
+    out.push('\n');
+    for (tick, m) in &gb.metric_history {
+        out.push_str(&tick.to_string());
+        for n in &names {
+            out.push_str(&format!(",{:.3}", m.get(*n).copied().unwrap_or(0.0)));
+        }
+        out.push('\n');
+    }
+    std::fs::write(path, out).with_context(|| format!("writing {}", path.display()))?;
+    println!("wrote {} ({} ticks)", path.display(), gb.metric_history.len());
+    Ok(())
+}
+
 /// Switches a city to (or re-attaches) a GlassBox rules set.
 fn attach_rules(city: &mut City, rules: Option<&str>, data_dir: Option<&Path>) -> Result<()> {
     if let Some(id) = rules {
@@ -261,7 +286,7 @@ fn main() -> Result<()> {
             print_summary(&city);
             save_city(&city, out)?;
         }
-        Command::Simulate { load, map, demo, game_rules, years, save } => {
+        Command::Simulate { load, map, demo, game_rules, years, save, metrics } => {
             let mut city = match load {
                 Some(p) => load_city(p, fp())?,
                 None => new_city(map, *demo, fp())?,
@@ -284,6 +309,9 @@ fn main() -> Result<()> {
             }
             if let Some(p) = save {
                 save_city(&city, p)?;
+            }
+            if let Some(p) = metrics {
+                write_metrics(&city, p)?;
             }
         }
         Command::Info { file } => print_summary(&load_city(file, fp())?),

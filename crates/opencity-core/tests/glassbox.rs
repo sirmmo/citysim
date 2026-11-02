@@ -5,8 +5,11 @@ use std::sync::Arc;
 use opencity_core::{rules::Ruleset, City, Footprints, StructureCode, Terrain, Tool};
 
 fn rules() -> Arc<Ruleset> {
-    let path = format!("{}/../../assets/rules/glassbox.toml", env!("CARGO_MANIFEST_DIR"));
-    let r: Ruleset = toml::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
+    let dir = format!("{}/../../assets/rules", env!("CARGO_MANIFEST_DIR"));
+    let mut r: Ruleset = toml::from_str(&std::fs::read_to_string(format!("{dir}/glassbox.toml")).unwrap()).unwrap();
+    for script in r.scripts.clone() {
+        opencity_core::gbx::compile(&mut r, &script, &std::fs::read_to_string(format!("{dir}/{script}")).unwrap()).unwrap();
+    }
     r.validate().unwrap();
     Arc::new(r)
 }
@@ -64,6 +67,12 @@ fn a_town_develops_from_resource_flows() {
     let w = c.width();
     assert!(gb.layer_value(r.layer("pollution").unwrap(), 20, 14, w) > 0.5);
     assert!(gb.layer_value(r.layer("fire_safety").unwrap(), 10, 21, w) > 1.0);
+    // GlassBox script: metrics are logged with timestamps, traffic dirties the air.
+    assert!(gb.metrics.get("Households").copied().unwrap_or(0.0) > 1.0, "{:?}", gb.metrics);
+    assert!(gb.metric_history.len() > 100 && gb.metric_history.back().unwrap().0 == gb.tick);
+    let air = r.layer("AirQuality.pm10").unwrap();
+    assert!((0..48).flat_map(|l| (0..48).map(move |x| (x, l))).any(|(x, l)| gb.layer_value(air, x, l, w) > 0.5));
+    assert!(!r.agent_rules.is_empty() && !r.map_rules.is_empty() && !r.zone_rules.is_empty());
     // A save keeps the engine state; rules are re-attached on load.
     let mut buf = Vec::new();
     opencity_core::save::save(&c, &mut buf).unwrap();

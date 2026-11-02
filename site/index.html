@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>citysim: a 3D city simulation in Rust</title>
-<meta name="description" content="citysim is a free 3D city simulation in Rust, derived from OpenCity. Build cities on generated terrain, or from OpenFantasyMap and OpenHistoryMap data, with era and world skins.">
+<meta name="description" content="citysim is a free 3D city simulation in Rust, derived from OpenCity, with a data-driven GlassBox engine. Build cities on generated terrain, or from OpenFantasyMap and OpenHistoryMap data, with era and world skins.">
 <meta property="og:title" content="citysim">
 <meta property="og:description" content="A free 3D city simulation in Rust, derived from OpenCity. Build from map data, in any era or world.">
 <meta property="og:image" content="http://ingmmo.com/citysim/img/antiquity.webp">
@@ -89,6 +89,7 @@ footer .wrap { display: flex; flex-wrap: wrap; gap: 14px 32px; justify-content: 
     <a class="brand" href="#"><img src="img/icon.png" alt="">citysim</a>
     <nav>
       <a class="opt" href="#features">Features</a>
+      <a class="opt" href="#glassbox">GlassBox</a>
       <a class="opt" href="#maps">Maps</a>
       <a class="opt" href="#skins">Skins</a>
       <a href="#download">Download</a>
@@ -120,9 +121,9 @@ footer .wrap { display: flex; flex-wrap: wrap; gap: 14px 32px; justify-content: 
     <p class="sub">The rules of OpenCity, rebuilt as small, tested Rust crates. The simulation runs
       without a window, so the same city works in the game, the command line and your own tools.</p>
     <div class="grid">
-      <div class="card"><div class="tag">Simulation</div><h3>Zones that need each other</h3>
-        <p>Residential, commercial and industrial zones grow when they have power, a road and the other two
-          zone types nearby. Power flows from plants through connected buildings. Traffic picks quieter streets.</p></div>
+      <div class="card"><div class="tag">Simulation</div><h3>Classic or GlassBox</h3>
+        <p>Play by OpenCity's original growth rules, or by a data-driven GlassBox engine where every
+          building needs and produces resources that roads and grids carry across the city.</p></div>
       <div class="card"><div class="tag">Deterministic</div><h3>Same seed, same city</h3>
         <p>No threads and no globals. Every run with the same seed evolves identically, which makes cities
           testable, shareable and easy to replay.</p></div>
@@ -133,6 +134,57 @@ footer .wrap { display: flex; flex-wrap: wrap; gap: 14px 32px; justify-content: 
         <p>Linux, Windows, macOS (Apple Silicon and Intel) and Android, with touch controls. A headless
           CLI creates, simulates, renders, imports and exports cities.</p></div>
     </div>
+  </div>
+</section>
+
+<section id="glassbox">
+  <div class="wrap">
+    <h2>A GlassBox city, written as rules</h2>
+    <p class="sub">The simulation can run on rules in the spirit of GlassBox, the engine Maxis built for
+      SimCity. Zones, with low, medium and high densities, need and produce resources. Networks move them:
+      workers, shoppers and goods by road, power through the grid. Services use them and cover the map with
+      fire, police, health and education. Demand comes from what is left unmet or undelivered.</p>
+    <div class="split">
+      <figure class="shot">
+        <img src="img/glassbox.webp" alt="A GlassBox town with the pollution layer, demand bars and resource balances" width="1440" height="900" loading="lazy">
+        <figcaption>Deliveries become traffic; the city panel shows demand and what each resource delivered against what was wanted.</figcaption>
+      </figure>
+      <div>
+        <ul class="ticks">
+          <li><strong>Everything is data</strong>: resources, networks, map layers, zones, densities, buildings and
+            services live in a rules file you can copy and change.</li>
+          <li><strong>The GlassBox rule language</strong>: <code>unitRule</code>, <code>mapRule</code>,
+            <code>zoneRule</code> and <code>agentRule</code> scripts compile into the engine.</li>
+          <li><strong>Extended GlassBox</strong>: timestamped metrics (<code>log</code>) and agents that change
+            maps along their routes (<code>area</code>), exportable as CSV to compare with measured data.</li>
+          <li><strong>Overlays</strong>: pollution, land value, air quality, noise and service coverage.</li>
+        </ul>
+      </div>
+    </div>
+    <pre style="margin-top:28px"><code>unitRule plantMetrics
+    appliesTo coal_plant
+    log -timestamp=Time PowerOutput 400
+end
+
+agentRule freightTraffic
+    condition resource=goods
+    repeatAfter 3
+    area -timestamp=Time -map=AirQuality pm10 1.2 1
+end
+
+zoneRule familyNeighbourhood
+    appliesTo residential
+    sample random -count 2
+    test map pollution less 3
+    createUnit -id house_2
+end</code></pre>
+    <p style="margin-top:22px">Language references: Andrew Willmott,
+      <a href="https://www.andrewwillmott.com/talks/inside-glassbox">Inside GlassBox</a> (GDC 2012), and
+      A. R. Costagliola, M. Montanari, P. Bellavista,
+      <a href="https://cris.unibo.it/bitstream/11585/1033948/2/134951.pdf"><em>Interconnecting Urban Networks: a Novel
+      Approach to Digital Twins through GlassBox Adaptation</em></a> (University of Bologna).
+      Details in <a href="https://github.com/sirmmo/citysim/blob/main/docs/GLASSBOX.md">GLASSBOX.md</a> and
+      <a href="https://github.com/sirmmo/citysim/blob/main/docs/RULES.md">RULES.md</a>.</p>
   </div>
 </section>
 
@@ -149,7 +201,7 @@ footer .wrap { display: flex; flex-wrap: wrap; gap: 14px 32px; justify-content: 
           tag vocabulary.</li>
         <li><strong>Declarative rules</strong>: a TOML file says which properties become which buildings.</li>
         <li><strong>Round trip</strong>: export the city back to GeoJSON in its source coordinates.</li>
-        <li><strong>Diagonal streets</strong>: zig-zags of tiles are drawn as straight diagonals.</li>
+        <li><strong>Natural streets</strong>: roads are drawn as smooth ribbons, so zig-zags of tiles become flowing diagonals and curves.</li>
       </ul>
     </div>
     <figure class="shot">
@@ -163,8 +215,9 @@ footer .wrap { display: flex; flex-wrap: wrap; gap: 14px 32px; justify-content: 
   <div class="wrap">
     <h2>One simulation, many worlds</h2>
     <p class="sub">Skins re-dress the game for the era of a historical map or the world of a fantasy one:
-      colours, names, available tools, icons and 3D models. They are picked automatically from the date or
-      the world, or chosen by hand.</p>
+      colours, names, available tools, icons and 3D models. Pick an era and a culture when you create a city,
+      or let the date or the world choose. Six ancient cultures (Romans, Athenians, Gauls, Ptolemies, Han and
+      Mauryas) are built from 0 A.D.'s own models, converted on first launch from the official repository.</p>
     <div class="gallery">
       <figure><img src="img/antiquity.webp" alt="A Roman town built from 0 A.D. models" loading="lazy">
         <figcaption><strong>Antiquity</strong>: Roman towns with art from 0 A.D. by Wildfire Games
@@ -221,6 +274,7 @@ cargo run --release -p opencity -- --geojson data/ohm-bologna-center.json --date
         <p><a href="https://github.com/sirmmo/citysim/blob/main/README.md">README</a> ·
           <a href="https://github.com/sirmmo/citysim/blob/main/docs/GEOJSON.md">GeoJSON import</a> ·
           <a href="https://github.com/sirmmo/citysim/blob/main/docs/SKINS.md">Skins</a> ·
+          <a href="https://github.com/sirmmo/citysim/blob/main/docs/GLASSBOX.md">GlassBox rules</a> ·
           <a href="https://github.com/sirmmo/citysim/blob/main/docs/settings.example.toml">Settings</a></p></div>
       <div class="card"><div class="tag">License</div>
         <p>GPL-2.0-or-later, like OpenCity. 0 A.D. art is CC BY-SA 3.0 and is not part of the repository.</p></div>

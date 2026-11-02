@@ -16,7 +16,14 @@ struct Index {
 /// Loads and validates one rules file by id.
 pub fn load(data_dir: &Path, id: &str) -> Result<Arc<Ruleset>, AssetError> {
     let path = data_dir.join("rules").join(format!("{id}.toml"));
-    let rules: Ruleset = toml::from_str(&read_text(&path)?).map_err(|source| AssetError::Settings { path: path.clone(), source })?;
+    let mut rules: Ruleset = toml::from_str(&read_text(&path)?).map_err(|source| AssetError::Settings { path: path.clone(), source })?;
+    for script in rules.scripts.clone() {
+        let file = data_dir.join("rules").join(&script);
+        let text = read_text(&file)?;
+        let warnings =
+            opencity_core::gbx::compile(&mut rules, &script, &text).map_err(|e| AssetError::Parse { path: file.clone(), line: 0, message: e.message })?;
+        warnings.iter().for_each(|w| log::info!("{w}"));
+    }
     rules.validate().map_err(|e| AssetError::Parse { path, line: 0, message: e.to_string() })?;
     Ok(Arc::new(rules))
 }

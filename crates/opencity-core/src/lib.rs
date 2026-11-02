@@ -8,6 +8,7 @@
 pub mod city;
 pub mod codes;
 pub mod footprint;
+pub mod gbx;
 pub mod glassbox;
 pub mod layer;
 pub mod rules;

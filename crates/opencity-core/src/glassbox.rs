@@ -68,6 +68,15 @@ pub struct GlassBox {
     pub demand: Vec<f32>,
     /// Fractional treasury income carried between ticks.
     pub treasury: f64,
+    /// Ticks run so far (the timestamp of metrics).
+    #[serde(default)]
+    pub tick: u64,
+    /// Metrics logged during the last tick (Extended GlassBox `log`).
+    #[serde(default)]
+    pub metrics: BTreeMap<String, f32>,
+    /// Timestamped metric snapshots, most recent last.
+    #[serde(default)]
+    pub metric_history: VecDeque<(u64, BTreeMap<String, f32>)>,
     #[serde(skip)]
     rules: Option<Arc<Ruleset>>,
     #[serde(skip)]
@@ -87,6 +96,9 @@ impl GlassBox {
             balances: Balances::default(),
             demand: vec![0.0; rules.zones.len()],
             treasury: 0.0,
+            tick: 0,
+            metrics: BTreeMap::new(),
+            metric_history: VecDeque::new(),
             rules: Some(rules),
             grid_cache: None,
         }
@@ -170,6 +182,8 @@ impl GlassBox {
             s.stock.resize(nres, 0.0);
             s.received = vec![0.0; nres];
         }
+        self.tick += 1;
+        let mut metrics: BTreeMap<String, f32> = BTreeMap::new();
         let mut bal = Balances { produced: vec![0.0; nres], delivered: vec![0.0; nres], unmet: vec![0.0; nres], undelivered: vec![0.0; nres] };
 
         // 1. Production.
@@ -177,6 +191,9 @@ impl GlassBox {
             let def = &rules.units[*u];
             let st = self.units.get_mut(&idx(p.0, p.1)).unwrap();
             let eff = st.satisfaction.max(0.25);
+            for (m, n) in &def.logs {
+                *metrics.entry(m.clone()).or_default() += n * eff;
+            }
             for (r, amount) in &def.produce {
                 let ri = rules.resource(r).unwrap();
                 let made = amount * eff;
@@ -354,16 +371,50 @@ impl GlassBox {
             for (lname, e) in &rules.units[*u].emits {
                 let li = rules.layer(lname).unwrap();
                 let (cx, cz) = ((r.w1 + r.w2) as f32 / 2.0, (r.l1 + r.l2) as f32 / 2.0);
-                let rad = e.radius as i64 + ((r.w2 - r.w1).max(r.l2 - r.l1) as i64 + 1) / 2;
-                for l in (cz as i64 - rad).max(0)..=(cz as i64 + rad).min(length as i64 - 1) {
-                    for w in (cx as i64 - rad).max(0)..=(cx as i64 + rad).min(width as i64 - 1) {
-                        let d = ((w as f32 - cx).powi(2) + (l as f32 - cz).powi(2)).sqrt();
-                        let k = (1.0 - d / (rad as f32 + 1.0)).max(0.0);
-                        self.layers[li][idx(w as u32, l as u32) as usize] += e.amount * eff * k;
+                let rad = e.radius + (r.w2 - r.w1).max(r.l2 - r.l1).div_ceil(2);
+                emit(&mut self.layers[li], width, length, cx, cz, e.amount * eff, rad);
+            }
+        }
+        // Agent rules: emissions along the routes of this tick's trips.
+        for ar in &rules.agent_rules {
+            let wanted = ar.resource.as_deref().and_then(|r| rules.resource(r));
+            for t in trips.iter().filter(|t| wanted.is_none_or(|w| w == t.resource)) {
+                let (mut x, mut z) = (t.from.0 as i64, t.from.1 as i64);
+                let (tx, tz) = (t.to.0 as i64, t.to.1 as i64);
+                let mut steps = 0u32;
+                while (x, z) != (tx, tz) {
+                    if x != tx {
+                        x += (tx - x).signum()
+                    } else {
+                        z += (tz - z).signum()
+                    }
+                    steps += 1;
+                    if steps % ar.every.max(1) == 0 {
+                        for a in &ar.areas {
+                            let li = rules.layer(&a.layer).unwrap();
+                            emit(&mut self.layers[li], width, length, x as f32, z as f32, a.amount, a.radius);
+                        }
                     }
                 }
             }
         }
+        // Map rules, tile by tile.
+        for mr in &rules.map_rules {
+            if self.tick % mr.every.max(1) as u64 != 0 {
+                continue;
+            }
+            let ins: Vec<(usize, f32)> = mr.inputs.iter().map(|(l, v)| (rules.layer(l).unwrap(), *v)).collect();
+            let outs: Vec<(usize, f32)> = mr.outputs.iter().map(|(l, v)| (rules.layer(l).unwrap(), *v)).collect();
+            let conds: Vec<(usize, &crate::rules::Test)> = mr.conditions.iter().map(|c| (rules.layer(&c.id).unwrap(), c)).collect();
+            for i in 0..(width * length) as usize {
+                if conds.iter().all(|(li, c)| c.cmp.holds(self.layers[*li][i], c.value)) && ins.iter().all(|(li, v)| self.layers[*li][i] >= *v) {
+                    ins.iter().for_each(|(li, v)| self.layers[*li][i] -= v);
+                    outs.iter().for_each(|(li, v)| self.layers[*li][i] += v);
+                }
+            }
+        }
+        // Consuming rules cannot take a map below zero.
+        self.layers.iter_mut().flatten().for_each(|v| *v = v.max(0.0));
 
         // 6. Satisfaction.
         for (p, u, _) in &units {
@@ -399,7 +450,13 @@ impl GlassBox {
             self.demand[zi] = self.demand[zi] * 0.8 + d * 0.2;
         }
         self.balances = bal;
+        self.metric_history.push_back((self.tick, metrics.clone()));
+        while self.metric_history.len() > 1000 {
+            self.metric_history.pop_front();
+        }
+        self.metrics = metrics;
         self.grow(&rules, layer, terrain, footprints, rng);
+        self.zone_rules(&rules, layer, terrain, footprints, rng);
         trips
     }
 
@@ -449,6 +506,38 @@ impl GlassBox {
         }
         self.grid_cache = Some((layer.revision(), all.clone()));
         all
+    }
+
+    /// GlassBox `zoneRule`s: sample empty plots and build where the tests hold.
+    fn zone_rules(&mut self, rules: &Ruleset, layer: &mut BuildingLayer, terrain: &Terrain, footprints: &Footprints, rng: &mut impl Rng) {
+        let width = layer.width();
+        for zr in &rules.zone_rules {
+            if self.tick % zr.every.max(1) as u64 != 0 {
+                continue;
+            }
+            let code = zr.zone.as_deref().and_then(|z| rules.zones.iter().find(|x| x.id == z)).and_then(|z| structure_code(&z.structure));
+            let mut plots: Vec<(u32, u32)> = layer
+                .structures()
+                .filter(|(_, s)| s.code.is_zone() && s.unit.is_none() && s.level == 0 && code.is_none_or(|c| c == s.code))
+                .map(|(p, _)| p)
+                .collect();
+            plots.shuffle(rng);
+            let unit = rules.unit(&zr.create).unwrap();
+            for (w, l) in plots.into_iter().take(zr.sample as usize) {
+                let ok = zr.tests.iter().all(|t| {
+                    let v = match t.scope {
+                        crate::rules::Scope::Map => rules.layer(&t.id).map_or(0.0, |li| self.layers[li][(l * width + w) as usize]),
+                        crate::rules::Scope::Global => {
+                            rules.resource(&t.id).map(|ri| self.balances.produced[ri]).or_else(|| self.metrics.get(&t.id).copied()).unwrap_or(0.0)
+                        }
+                    };
+                    t.cmp.holds(v, t.value)
+                });
+                if ok {
+                    set_unit(layer, terrain, footprints, rng, w, l, Some(unit), 1, rules);
+                }
+            }
+        }
     }
 
     /// Places new buildings on plots and changes unit levels.
@@ -502,6 +591,18 @@ impl GlassBox {
                     }
                 }
             }
+        }
+    }
+}
+
+/// Adds `amount` around a point, fading linearly to zero at `radius + 1`.
+fn emit(values: &mut [f32], width: u32, length: u32, cx: f32, cz: f32, amount: f32, radius: u32) {
+    let rad = radius as i64;
+    for l in (cz as i64 - rad).max(0)..=(cz as i64 + rad).min(length as i64 - 1) {
+        for w in (cx as i64 - rad).max(0)..=(cx as i64 + rad).min(width as i64 - 1) {
+            let d = ((w as f32 - cx).powi(2) + (l as f32 - cz).powi(2)).sqrt();
+            let k = (1.0 - d / (rad as f32 + 1.0)).max(0.0);
+            values[(l as u32 * width + w as u32) as usize] += amount * k;
         }
     }
 }

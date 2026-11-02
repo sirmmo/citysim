@@ -135,6 +135,9 @@ pub struct UnitDef {
     /// Cost when placed with a service tool (0: the tool's own cost).
     #[serde(default)]
     pub build_cost: u32,
+    /// Metrics recorded per tick (Extended GlassBox `log`), scaled like production.
+    #[serde(default)]
+    pub logs: BTreeMap<String, f32>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -237,6 +240,99 @@ pub struct Ruleset {
     pub population: Option<String>,
     #[serde(default)]
     pub growth: GrowthDef,
+    /// GlassBox rule scripts (`.gbx`, relative to the rules file) compiled into this set.
+    #[serde(default)]
+    pub scripts: Vec<String>,
+    /// Per-tile layer rules (GlassBox `mapRule`).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub map_rules: Vec<MapRule>,
+    /// Development rules (GlassBox `zoneRule`).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub zone_rules: Vec<ZoneRule>,
+    /// Effects of moving agents (Extended GlassBox `agentRule`).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub agent_rules: Vec<AgentRule>,
+}
+
+/// Comparison used by rule conditions.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Cmp {
+    AtLeast,
+    AtMost,
+    Greater,
+    Less,
+    Is,
+}
+
+impl Cmp {
+    pub fn holds(self, value: f32, bound: f32) -> bool {
+        match self {
+            Cmp::AtLeast => value >= bound,
+            Cmp::AtMost => value <= bound,
+            Cmp::Greater => value > bound,
+            Cmp::Less => value < bound,
+            Cmp::Is => (value - bound).abs() < 1e-3,
+        }
+    }
+}
+
+/// Where a condition reads its value.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Scope {
+    /// A map layer at the tile.
+    Map,
+    /// A city-wide bin: last tick's production of a resource.
+    Global,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct Test {
+    pub scope: Scope,
+    pub id: String,
+    pub cmp: Cmp,
+    pub value: f32,
+}
+
+/// Runs on every tile every `every` ticks: when the conditions hold and the
+/// inputs are available on the tile, the inputs are taken and outputs added.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct MapRule {
+    pub name: String,
+    pub every: u32,
+    pub conditions: Vec<Test>,
+    pub inputs: Vec<(String, f32)>,
+    pub outputs: Vec<(String, f32)>,
+}
+
+/// Every `every` ticks, samples empty plots and builds `create` where the tests hold.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct ZoneRule {
+    pub name: String,
+    /// Zone id the plots must belong to (any zone when absent).
+    pub zone: Option<String>,
+    pub every: u32,
+    pub sample: u32,
+    pub tests: Vec<Test>,
+    pub create: String,
+}
+
+/// Emission of a map value along the route of agents carrying `resource`.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct AgentRule {
+    pub name: String,
+    pub resource: Option<String>,
+    /// Emit every `every` tiles travelled.
+    pub every: u32,
+    pub areas: Vec<AreaEmission>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct AreaEmission {
+    pub layer: String,
+    pub amount: f32,
+    pub radius: u32,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -321,6 +417,30 @@ impl Ruleset {
         for (tool, unit) in &self.services {
             if self.unit(unit).is_none() {
                 return err(format!("service {tool}: unknown unit {unit}"));
+            }
+        }
+        for r in &self.map_rules {
+            for (l, _) in r.inputs.iter().chain(r.outputs.iter()) {
+                if self.layer(l).is_none() {
+                    return err(format!("mapRule {}: unknown map {l}", r.name));
+                }
+            }
+        }
+        for r in &self.zone_rules {
+            if self.unit(&r.create).is_none() {
+                return err(format!("zoneRule {}: unknown unit {}", r.name, r.create));
+            }
+            if let Some(z) = &r.zone {
+                if !self.zones.iter().any(|x| &x.id == z) {
+                    return err(format!("zoneRule {}: unknown zone {z}", r.name));
+                }
+            }
+        }
+        for r in &self.agent_rules {
+            for a in &r.areas {
+                if self.layer(&a.layer).is_none() {
+                    return err(format!("agentRule {}: unknown map {}", r.name, a.layer));
+                }
             }
         }
         if let Some(p) = &self.population {

@@ -122,7 +122,13 @@ set** in the spirit of SimCity's GlassBox engine:
 * Services use resources and cover the map with layers.
 
 Everything is defined in [`assets/rules/glassbox.toml`](assets/rules/glassbox.toml).
-Choose it under **File > New city… > Rules**. See [docs/RULES.md](docs/RULES.md).
+Behaviour can also be scripted in the **GlassBox rule language**: `unitRule`,
+`mapRule`, `zoneRule` and `agentRule`, with the timestamped metrics of the
+Extended GlassBox model by Costagliola, Montanari and Bellavista
+([paper](https://cris.unibo.it/bitstream/11585/1033948/2/134951.pdf)). See
+[`assets/rules/glassbox.gbx`](assets/rules/glassbox.gbx). Choose it under
+**File > New city… > Rules**. See [docs/RULES.md](docs/RULES.md) and
+[docs/GLASSBOX.md](docs/GLASSBOX.md).
 
 ![A GlassBox town with the pollution layer](docs/glassbox.png)
 

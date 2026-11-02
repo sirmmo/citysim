@@ -71,12 +71,19 @@ short of goods.
   layer requirements.
 * **View > Data layer** draws pollution, land value or a service's coverage over the map.
 
+## GlassBox rule scripts
+
+Behaviour can also be written in the GlassBox rule language (`unitRule`,
+`mapRule`, `zoneRule`, `agentRule`), including the Extended GlassBox metrics,
+in `.gbx` scripts listed under `scripts`. See [GLASSBOX.md](GLASSBOX.md).
+
 ## File format
 
 ```toml
 id = "my_rules"
 name = "My rules"
 population = "residents"           # resource counted as population
+scripts = ["my_rules.gbx"]         # GlassBox rule scripts (optional)
 
 [growth]                           # level_up, level_down, chance, max_new, road_access
 

@@ -424,6 +424,17 @@ impl EguiUi {
                     }
                 });
             }
+            if let Some(gb) = city.glassbox.as_ref().filter(|g| !g.metrics.is_empty()) {
+                ui.separator();
+                ui.label(RichText::new(format!("Metrics at tick {}", gb.tick)).small().color(Color32::GRAY));
+                egui::Grid::new("metrics").num_columns(2).show(ui, |ui| {
+                    for (name, v) in &gb.metrics {
+                        ui.label(name);
+                        ui.label(RichText::new(format!("{v:.1}")).monospace());
+                        ui.end_row();
+                    }
+                });
+            }
             ui.separator();
             ui.label(RichText::new("Last 20 years").small().color(Color32::GRAY));
             chart(ui, city);

@@ -8,6 +8,8 @@ id = "glassbox"
 name = "GlassBox"
 description = "Resource-driven simulation: workers, shoppers and goods travel by road, power through the grid; services cover the map."
 population = "residents"
+# GlassBox rule scripts compiled into this set (docs/GLASSBOX.md).
+scripts = ["glassbox.gbx"]
 
 [growth]
 level_up = 0.75      # satisfaction needed to grow a level
@@ -116,6 +118,23 @@ name = "Education coverage"
 decay = 1.0
 colour = [0.95, 0.8, 0.2]
 max = 10.0
+
+# Maps written by the GlassBox script's agent rules.
+[[layer]]
+id = "AirQuality.pm10"
+name = "Air quality (PM10)"
+diffusion = 0.2
+decay = 0.1
+colour = [0.6, 0.6, 0.65]
+max = 40.0
+
+[[layer]]
+id = "Noise.level"
+name = "Noise"
+diffusion = 0.1
+decay = 0.3
+colour = [0.9, 0.5, 0.9]
+max = 30.0
 
 # ---------------------------------------------------------------- zones
 [[zone]]
