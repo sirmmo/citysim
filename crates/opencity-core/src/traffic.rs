@@ -26,12 +26,55 @@ pub fn tile_time(kind: RoadKind, traffic: u8) -> f32 {
     (10.0 + traffic as f32 / kind.capacity()) / kind.speed()
 }
 
+/// [`tile_time`] for a vehicle with a top speed (walkers and carts are no
+/// quicker on a highway than on a lane).
+pub fn vehicle_tile_time(kind: RoadKind, traffic: u8, top_speed: f32) -> f32 {
+    (10.0 + traffic as f32 / kind.capacity()) / kind.speed().min(top_speed)
+}
+
 /// Shortest road route from `from` to `to`, both included. Dijkstra over road
 /// tiles: [`PathCost::Distance`] takes the quickest route on empty roads
 /// (highways are faster, dirt roads slower), [`PathCost::Traffic`] also
 /// avoids loaded roads.
 pub fn find_path(layer: &BuildingLayer, terrain: &Terrain, from: (u32, u32), to: (u32, u32), cost: PathCost) -> Option<Vec<(u32, u32)>> {
-    let is_road = |w, l| layer.code_at(w, l) == Some(StructureCode::Road);
+    find_route(layer, terrain, from, to, cost, &Ways::ALL, f32::INFINITY)
+}
+
+/// Road kinds a vehicle may drive on.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Ways(u8);
+
+impl Ways {
+    pub const ALL: Ways = Ways(0xff);
+    pub const NONE: Ways = Ways(0);
+
+    pub fn of(kinds: impl IntoIterator<Item = RoadKind>) -> Self {
+        Ways(kinds.into_iter().fold(0, |m, k| m | 1 << k as u8))
+    }
+
+    pub const fn allows(self, kind: RoadKind) -> bool {
+        self.0 & (1 << kind as u8) != 0
+    }
+}
+
+impl Default for Ways {
+    fn default() -> Self {
+        Self::ALL
+    }
+}
+
+/// [`find_path`] for a vehicle that only drives on `ways` and never goes
+/// faster than `top_speed` (in road speed units: a street is 1).
+pub fn find_route(
+    layer: &BuildingLayer,
+    terrain: &Terrain,
+    from: (u32, u32),
+    to: (u32, u32),
+    cost: PathCost,
+    ways: &Ways,
+    top_speed: f32,
+) -> Option<Vec<(u32, u32)>> {
+    let is_road = |w, l| layer.structure_at(w, l).is_some_and(|s| s.code == StructureCode::Road && ways.allows(s.road));
     if !is_road(from.0, from.1) || !is_road(to.0, to.1) {
         return None;
     }
@@ -61,7 +104,7 @@ pub fn find_path(layer: &BuildingLayer, terrain: &Terrain, from: (u32, u32), to:
                 PathCost::Distance => 0,
                 PathCost::Traffic => s.map_or(0, |s| s.traffic),
             };
-            let step = tile_time(kind, traffic).round() as u32;
+            let step = (vehicle_tile_time(kind, traffic, top_speed) * 4.0).round() as u32;
             let nd = d + step;
             if nd < dist[idx(q)] {
                 dist[idx(q)] = nd;
@@ -83,19 +126,44 @@ pub fn find_path(layer: &BuildingLayer, terrain: &Terrain, from: (u32, u32), to:
     Some(path)
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum VehicleKind {
     Car,
     Pickup,
     Sports,
+    Walker,
+    Handcart,
+    HorseCart,
 }
 
 impl VehicleKind {
-    pub const fn graphic(self) -> GraphicCode {
+    pub const ALL: [VehicleKind; 6] = [Self::Car, Self::Pickup, Self::Sports, Self::Walker, Self::Handcart, Self::HorseCart];
+    /// The vehicles of rules that name none (and of the classic simulation).
+    pub const MOTOR: [VehicleKind; 3] = [Self::Car, Self::Pickup, Self::Sports];
+
+    /// Model id used by rules files (`model = "horse_cart"`).
+    pub const fn id(self) -> &'static str {
         match self {
-            Self::Car => GraphicCode::VEHICLE_STD,
-            Self::Pickup => GraphicCode::VEHICLE_PICKUP,
-            Self::Sports => GraphicCode::VEHICLE_SPORT,
+            Self::Car => "car",
+            Self::Pickup => "pickup",
+            Self::Sports => "sports_car",
+            Self::Walker => "walker",
+            Self::Handcart => "handcart",
+            Self::HorseCart => "horse_cart",
+        }
+    }
+
+    pub fn from_id(id: &str) -> Option<Self> {
+        Self::ALL.into_iter().find(|k| k.id() == id)
+    }
+
+    /// The model from the data files; `None` for those drawn procedurally.
+    pub const fn graphic(self) -> Option<GraphicCode> {
+        match self {
+            Self::Car => Some(GraphicCode::VEHICLE_STD),
+            Self::Pickup => Some(GraphicCode::VEHICLE_PICKUP),
+            Self::Sports => Some(GraphicCode::VEHICLE_SPORT),
+            _ => None,
         }
     }
 
@@ -122,6 +190,9 @@ pub struct Waypoint {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Vehicle {
     pub kind: VehicleKind,
+    /// Top speed in road speed units (a street is 1); none for motor vehicles.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub top_speed: Option<f32>,
     pub route: Vec<Waypoint>,
     /// Index of the waypoint the vehicle is leaving.
     pub index: usize,
@@ -151,7 +222,7 @@ impl Vehicle {
                 road: layer.structure_at(w, l).map_or(RoadKind::Street, |s| s.road),
             })
             .collect();
-        Self { kind, route, index: 0, progress: 0.0 }
+        Self { kind, top_speed: None, route, index: 0, progress: 0.0 }
     }
 
     /// Advances the vehicle; returns false once it has arrived.
@@ -159,7 +230,7 @@ impl Vehicle {
         let mut remaining = dt_ms;
         while remaining > 0.0 {
             let Some(next) = self.route.get(self.index + 1) else { return false };
-            let ms_per_tile = tile_time(next.road, next.traffic) * MS_PER_STEP;
+            let ms_per_tile = vehicle_tile_time(next.road, next.traffic, self.top_speed.unwrap_or(f32::INFINITY)) * MS_PER_STEP;
             let left = (1.0 - self.progress) * ms_per_tile;
             if remaining < left {
                 self.progress += remaining / ms_per_tile;
@@ -228,5 +299,20 @@ mod tests {
         layer.build_road(Rect::new((11, 0), (11, 2)), RoadKind::Highway, &t).unwrap();
         let p = find_path(&layer, &t, (1, 0), (10, 0), PathCost::Distance).unwrap();
         assert!(p.contains(&(5, 2)), "{p:?}");
+        // A cart barred from the highway keeps to the street.
+        let ways = Ways::of([RoadKind::Street]);
+        let p = find_route(&layer, &t, (1, 0), (10, 0), PathCost::Distance, &ways, 0.5).unwrap();
+        assert_eq!(p.len(), 10);
+        // A walker is no quicker on a highway.
+        assert_eq!(vehicle_tile_time(RoadKind::Highway, 0, 0.4), vehicle_tile_time(RoadKind::Street, 0, 0.4));
+        assert!(find_route(&layer, &t, (1, 0), (0, 2), PathCost::Distance, &ways, 1.0).is_none());
+    }
+
+    #[test]
+    fn vehicle_models_have_ids() {
+        for k in VehicleKind::ALL {
+            assert_eq!(VehicleKind::from_id(k.id()), Some(k));
+        }
+        assert!(VehicleKind::Car.graphic().is_some() && VehicleKind::HorseCart.graphic().is_none());
     }
 }

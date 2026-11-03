@@ -37,7 +37,7 @@ pub struct Look {
     /// UI accent and panel colours (RGB, 0..255).
     pub ui_accent: [u8; 3],
     pub ui_panel: [u8; 3],
-    /// Show cars and trucks.
+    /// Show cars and trucks (people on foot and carts are always shown).
     pub vehicles: bool,
 }
 

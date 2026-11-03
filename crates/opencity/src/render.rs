@@ -109,6 +109,8 @@ struct Model {
 pub struct Renderer {
     catalog: Catalog,
     models: HashMap<GraphicCode, Option<Model>>,
+    /// Vehicles drawn from boxes (walkers, carts), built on first use.
+    vehicle_meshes: HashMap<opencity_core::traffic::VehicleKind, Option<Mesh>>,
     textures: HashMap<PathBuf, Texture2D>,
     /// Ground colour per height step, sampled from the legacy terrain texture.
     palette: Vec<[f32; 3]>,
@@ -155,6 +157,7 @@ impl Renderer {
         Self {
             catalog,
             models: HashMap::new(),
+            vehicle_meshes: HashMap::new(),
             textures: HashMap::new(),
             palette,
             white,
@@ -491,8 +494,9 @@ impl Renderer {
                 }
             }
         }
-        let vehicles: &[opencity_core::traffic::Vehicle] = if self.look.vehicles { &city.vehicles } else { &[] };
-        for v in vehicles {
+        // Skins of the past hide cars and trucks; walkers and carts stay.
+        let motor = self.look.vehicles;
+        for v in city.vehicles.iter().filter(|v| motor || v.kind.graphic().is_none()) {
             let p = v.pose();
             let angle = match p.heading {
                 Direction::South => 0.0f32,
@@ -502,7 +506,18 @@ impl Renderer {
             }
             .to_radians();
             let m = Mat4::from_translation(vec3(p.x, p.y + 0.02, p.z)) * Mat4::from_rotation_y(angle) * Mat4::from_translation(vec3(-0.5, 0.0, -0.5));
-            self.draw_model_cpu(v.kind.graphic(), m);
+            match v.kind.graphic() {
+                Some(gc) => self.draw_model_cpu(gc, m),
+                None => {
+                    if let Some(mesh) = self.vehicle_meshes.entry(v.kind).or_insert_with(|| crate::vehicles::mesh(v.kind)) {
+                        let gl = unsafe { get_internal_gl() }.quad_gl;
+                        gl.push_model_matrix(m);
+                        draw_mesh(mesh);
+                        let gl = unsafe { get_internal_gl() }.quad_gl;
+                        gl.pop_model_matrix();
+                    }
+                }
+            }
         }
         // Translucent water plane, drawn last.
         let (w, l) = (city.width() as f32, city.length() as f32);

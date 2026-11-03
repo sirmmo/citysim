@@ -113,6 +113,34 @@ id = "road"
 name = "Streets"
 structures = ["road"]
 
+# No cars before 1800: people walk, carts carry the loads. None of them may
+# use a highway (a city imported from a modern map keeps its motorways
+# empty), and none is quicker than its speed on any street.
+[[network.vehicle]]
+id = "walker"
+name = "People on foot"
+model = "walker"
+ways = ["street", "paved_street", "dirt_road"]
+speed = 0.8
+carries = ["workers", "shoppers"]
+
+[[network.vehicle]]
+id = "handcart"
+name = "Handcart"
+model = "handcart"
+ways = ["street", "paved_street", "dirt_road"]
+speed = 0.6
+carries = ["cart.handcart", "food", "goods"]
+
+[[network.vehicle]]
+id = "horse_cart"
+name = "Horse cart"
+model = "horse_cart"
+ways = ["street", "paved_street", "dirt_road"]
+speed = 1.0
+carries = ["cart.horse", "food", "goods", "fodder"]
+direct = true
+
 # ---------------------------------------------------------------- map layers
 [[layer]]
 id = "pollution"

@@ -166,6 +166,53 @@ it. Units connect through the nearest road they can open onto, which is
 never a highway. Between two units within 4 tiles of a highway, a trip costs
 4 tiles to get on and off, then a 2.5th of its length.
 
+### Vehicles
+
+A network that lists `[[network.vehicle]]` entries is a vehicle network. The
+rules then decide what moves along it and where:
+
+```toml
+[[network.vehicle]]
+id = "horse_cart"
+name = "Horse cart"
+model = "horse_cart"     # car, pickup, sports_car, walker, handcart, horse_cart
+ways = ["street", "paved_street", "dirt_road"]   # road kinds it may use; none = all
+speed = 1.0              # top speed, in street speeds; none = no limit
+carries = ["cart.horse", "food", "goods", "fodder"]   # none = any resource on the network
+share = 1                # how often it is picked among those fit for a trip
+direct = true            # quickest route rather than avoiding traffic
+```
+
+- **What you see:** each trip shown on the map becomes one of the vehicles
+  that carry its resource, picked by `share`. A vehicle that carries a
+  resource also carries that resource's kinds.
+- **Ways:** the vehicle routes only over the road kinds in `ways`.
+- **Top speed:** a vehicle is never faster than its `speed`. Trips of the
+  resources it carries are measured at that speed too, using the fastest of
+  their vehicles.
+- **Highways:** the highway shortcut applies only if one of a resource's
+  vehicles may use highways.
+- **Unlisted resources:** a resource that no vehicle carries is still
+  delivered, but it is not drawn.
+- **Defaults:** a road network without vehicles carries cars, pickups and
+  sports cars on every road, as before.
+
+The modern rules run cars (workers, shoppers, car trips), sports cars
+(shoppers) and delivery trucks (goods and fuel). The pre-industrial rules
+have no cars:
+
+| Vehicle | Carries | Ways | Speed |
+|---|---|---|---|
+| People on foot | workers, customers | lanes, cobbles, streets | 0.8 |
+| Handcart | handcarts, food, goods | lanes, cobbles, streets | 0.6 |
+| Horse cart | horse carts, food, goods, fodder | lanes, cobbles, streets | 1.0 |
+
+None of them may use a highway, even on a map imported with motorways.
+
+Inspecting a road lists the vehicles allowed on it. Skins that set
+`vehicles = false` hide cars and trucks only. People on foot and carts are
+always drawn.
+
 ## Playing
 
 * The zone tools show a **Low / Medium / High** density switch.
@@ -228,6 +275,7 @@ scripts = ["my_rules.gbx"]         # GlassBox rule scripts (optional)
 [[resource]]                       # id, name, transport, network, max_trip, colour, uses, trail
   [[resource.subtype]]             # id, name, share, max_trip, colour, uses, trail
 [[network]]                        # id, name, structures, through_buildings
+[[network.vehicle]]                # id, name, model, ways, speed, carries, share, direct
 [[layer]]                          # id, name, diffusion, decay, colour, max
 [[zone]]                           # id, name, structure, densities, demand, base_demand
 [services]                         # tool id = unit id

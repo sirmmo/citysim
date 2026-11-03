@@ -15,6 +15,7 @@ mod roads;
 mod ui;
 #[cfg(not(target_os = "android"))]
 mod ui_egui;
+mod vehicles;
 
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
@@ -96,6 +97,9 @@ struct Args {
     /// Inspect this tile at start, "x,y" (screenshots, docs).
     #[arg(long, hide = true)]
     inspect: Option<String>,
+    /// Look at the --inspect tile from this distance in tiles (screenshots, docs).
+    #[arg(long, hide = true, requires = "inspect")]
+    zoom: Option<f32>,
     /// Run scripts/bake-0ad.sh now, even if it ran before.
     #[arg(long)]
     bake_0ad: bool,
@@ -826,6 +830,10 @@ async fn main() -> Result<()> {
         if let (Ok(x), Ok(y)) = (x.trim().parse(), y.trim().parse()) {
             game.run_command(ui_egui::Command::Inspect((x, y)));
             game.flow_view.focus_only = true;
+            if let Some(d) = s.args.zoom {
+                game.camera.target = macroquad::prelude::vec3(x as f32 + 0.5, game.camera.target.y, y as f32 + 0.5);
+                game.camera.distance = d;
+            }
         }
     }
     if s.args.show_network {
@@ -835,7 +843,7 @@ async fn main() -> Result<()> {
             ui.open_network();
         }
     }
-    if s.args.screenshot.is_some() {
+    if s.args.screenshot.is_some() && s.args.zoom.is_none() {
         game.camera.distance *= 0.75;
         game.camera.pitch = 38f32.to_radians();
     }

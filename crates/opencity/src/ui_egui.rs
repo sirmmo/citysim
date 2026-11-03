@@ -584,7 +584,7 @@ impl EguiUi {
                     }
                     ui.add_space(2.0);
                     if s.code == StructureCode::Road {
-                        road_details(ui, s.road, info.traffic);
+                        road_details(ui, s.road, info.traffic, rules.map(|r| &**r));
                     } else {
                         ui.label(size_line(city, s));
                     }
@@ -959,7 +959,12 @@ fn size_line(city: &City, s: &opencity_core::Structure) -> String {
 }
 
 /// Speed, capacity and width of a road, against a street.
-fn road_details(ui: &mut egui::Ui, kind: opencity_core::RoadKind, traffic: u8) {
+fn road_details(ui: &mut egui::Ui, kind: opencity_core::RoadKind, traffic: u8, rules: Option<&opencity_core::rules::Ruleset>) {
+    // The vehicles the rules let onto this kind of road.
+    let vehicles: Option<Vec<&str>> = rules.and_then(|r| {
+        let net = r.networks.iter().find(|n| n.structures.iter().any(|s| s == "road") && !n.vehicles.is_empty())?;
+        Some(net.vehicles.iter().filter(|v| v.ways().allows(kind)).map(|v| v.name.as_str()).collect())
+    });
     egui::Grid::new("road").num_columns(2).show(ui, |ui| {
         ui.label("Speed");
         ui.label(format!("× {:.1} of a street", kind.speed()));
@@ -976,6 +981,11 @@ fn road_details(ui: &mut egui::Ui, kind: opencity_core::RoadKind, traffic: u8) {
         ui.label("Traffic");
         ui.label(format!("{traffic}"));
         ui.end_row();
+        if let Some(v) = vehicles {
+            ui.label("Used by");
+            ui.label(if v.is_empty() { "nobody (closed to every vehicle)".to_string() } else { v.join(", ") });
+            ui.end_row();
+        }
     });
 }
 

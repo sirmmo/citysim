@@ -1,0 +1,119 @@
+//! Vehicles without a model in the data files, built from boxes: people on
+//! foot, handcarts and horse carts. Same frame as the legacy car models: a
+//! tile from 0 to 1, driving towards +z in the right lane (x ≈ 0.3).
+
+use macroquad::models::{Mesh, Vertex};
+use macroquad::prelude::*;
+use opencity_core::traffic::VehicleKind;
+
+const WOOD: [f32; 3] = [0.45, 0.3, 0.17];
+const WHEEL: [f32; 3] = [0.25, 0.18, 0.1];
+const SACK: [f32; 3] = [0.82, 0.74, 0.55];
+const SKIN: [f32; 3] = [0.87, 0.68, 0.52];
+const HORSE: [f32; 3] = [0.42, 0.27, 0.15];
+const CLOTH: [[f32; 3]; 3] = [[0.55, 0.2, 0.15], [0.25, 0.32, 0.5], [0.35, 0.45, 0.25]];
+
+#[derive(Default)]
+struct Builder {
+    vertices: Vec<Vertex>,
+    indices: Vec<u16>,
+}
+
+impl Builder {
+    /// An axis-aligned box from `a` to `b`, faces shaded by their direction.
+    fn cuboid(&mut self, a: Vec3, b: Vec3, c: [f32; 3]) {
+        let faces: [([Vec3; 4], f32); 6] = [
+            ([vec3(a.x, b.y, a.z), vec3(b.x, b.y, a.z), vec3(b.x, b.y, b.z), vec3(a.x, b.y, b.z)], 1.0),
+            ([vec3(a.x, a.y, a.z), vec3(a.x, a.y, b.z), vec3(b.x, a.y, b.z), vec3(b.x, a.y, a.z)], 0.45),
+            ([vec3(a.x, a.y, b.z), vec3(a.x, b.y, b.z), vec3(b.x, b.y, b.z), vec3(b.x, a.y, b.z)], 0.85),
+            ([vec3(a.x, a.y, a.z), vec3(b.x, a.y, a.z), vec3(b.x, b.y, a.z), vec3(a.x, b.y, a.z)], 0.6),
+            ([vec3(b.x, a.y, a.z), vec3(b.x, a.y, b.z), vec3(b.x, b.y, b.z), vec3(b.x, b.y, a.z)], 0.75),
+            ([vec3(a.x, a.y, a.z), vec3(a.x, b.y, a.z), vec3(a.x, b.y, b.z), vec3(a.x, a.y, b.z)], 0.7),
+        ];
+        for (q, shade) in faces {
+            let base = self.vertices.len() as u16;
+            let color = Color::new(c[0] * shade, c[1] * shade, c[2] * shade, 1.0);
+            for p in q {
+                self.vertices.push(Vertex { position: p, uv: Vec2::ZERO, color: color.into(), normal: Vec4::ZERO });
+            }
+            self.indices.extend_from_slice(&[base, base + 1, base + 2, base, base + 2, base + 3]);
+        }
+    }
+
+    /// A person standing at (x, z), facing +z.
+    fn person(&mut self, x: f32, z: f32, cloth: [f32; 3]) {
+        self.cuboid(vec3(x - 0.025, 0.0, z - 0.015), vec3(x + 0.025, 0.07, z + 0.015), [0.3, 0.25, 0.2]);
+        self.cuboid(vec3(x - 0.03, 0.07, z - 0.02), vec3(x + 0.03, 0.15, z + 0.02), cloth);
+        self.cuboid(vec3(x - 0.018, 0.15, z - 0.018), vec3(x + 0.018, 0.188, z + 0.018), SKIN);
+    }
+
+    /// A pair of wheels on an axle across `x0..x1` at `z`.
+    fn wheels(&mut self, x0: f32, x1: f32, z: f32, r: f32) {
+        for x in [x0 - 0.015, x1] {
+            self.cuboid(vec3(x, 0.0, z - r), vec3(x + 0.015, 2.0 * r, z + r), WHEEL);
+        }
+    }
+
+    /// A cart bed with its load, from `z0` to `z1`.
+    fn cart(&mut self, x0: f32, x1: f32, z0: f32, z1: f32, r: f32) {
+        let y = 1.4 * r;
+        self.wheels(x0, x1, (z0 + z1) / 2.0, r);
+        self.cuboid(vec3(x0, y, z0), vec3(x1, y + 0.025, z1), WOOD);
+        let m = (z1 - z0) * 0.15;
+        self.cuboid(vec3(x0 + 0.02, y + 0.025, z0 + m), vec3(x1 - 0.02, y + 0.075, z1 - m), SACK);
+    }
+
+    fn build(self) -> Mesh {
+        Mesh { vertices: self.vertices, indices: self.indices, texture: None }
+    }
+}
+
+/// The mesh of a vehicle drawn procedurally, `None` for those with a model.
+pub fn mesh(kind: VehicleKind) -> Option<Mesh> {
+    let mut b = Builder::default();
+    match kind {
+        VehicleKind::Walker => {
+            b.person(0.27, 0.45, CLOTH[0]);
+            b.person(0.35, 0.53, CLOTH[1]);
+            b.person(0.3, 0.62, CLOTH[2]);
+        }
+        VehicleKind::Handcart => {
+            b.cart(0.22, 0.38, 0.45, 0.68, 0.045);
+            // Shafts back to the person pushing it.
+            for x in [0.23, 0.36] {
+                b.cuboid(vec3(x, 0.08, 0.35), vec3(x + 0.01, 0.095, 0.45), WOOD);
+            }
+            b.person(0.3, 0.33, CLOTH[0]);
+        }
+        VehicleKind::HorseCart => {
+            b.cart(0.2, 0.4, 0.25, 0.52, 0.06);
+            for x in [0.24, 0.355] {
+                b.cuboid(vec3(x, 0.09, 0.52), vec3(x + 0.01, 0.105, 0.62), WOOD);
+            }
+            b.person(0.3, 0.3, CLOTH[1]);
+            // The horse: legs, body, neck and head.
+            for (x, z) in [(0.27, 0.6), (0.315, 0.6), (0.27, 0.71), (0.315, 0.71)] {
+                b.cuboid(vec3(x, 0.0, z), vec3(x + 0.015, 0.08, z + 0.015), HORSE);
+            }
+            b.cuboid(vec3(0.265, 0.08, 0.58), vec3(0.335, 0.15, 0.74), HORSE);
+            b.cuboid(vec3(0.28, 0.13, 0.72), vec3(0.32, 0.2, 0.77), HORSE);
+            b.cuboid(vec3(0.285, 0.17, 0.76), vec3(0.315, 0.2, 0.82), [0.3, 0.2, 0.12]);
+        }
+        _ => return None,
+    }
+    Some(b.build())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn every_vehicle_has_a_look() {
+        for k in VehicleKind::ALL {
+            assert!(k.graphic().is_some() != mesh(k).is_some(), "{k:?}");
+        }
+        let m = mesh(VehicleKind::HorseCart).unwrap();
+        assert!(m.vertices.iter().all(|v| (0.0..=1.0).contains(&v.position.x) && (0.0..=1.0).contains(&v.position.z)));
+    }
+}

@@ -168,6 +168,67 @@ pub struct NetworkDef {
     /// Whether adjacent buildings also conduct (like OpenCity's power).
     #[serde(default)]
     pub through_buildings: bool,
+    /// Vehicles moving along it (`[[network.vehicle]]`), which makes it a
+    /// vehicle network: agent trips are shown as these vehicles, and each
+    /// keeps to the ways it may use. Without any, a road network carries
+    /// cars, pickups and sports cars on every road.
+    #[serde(default, rename = "vehicle", skip_serializing_if = "Vec::is_empty")]
+    pub vehicles: Vec<VehicleDef>,
+}
+
+/// A kind of vehicle on a network, declared inside it as `[[network.vehicle]]`.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct VehicleDef {
+    pub id: String,
+    pub name: String,
+    /// What it looks like: car, pickup, sports_car, walker, handcart, horse_cart.
+    pub model: String,
+    /// Ways it may use: road kinds (street, highway, paved_street, dirt_road).
+    /// Empty means every way of the network.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub ways: Vec<String>,
+    /// Top speed in road speed units (a street is 1): a walker is no
+    /// quicker on a highway. Trips of the resources it carries are measured
+    /// at this speed at most.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub speed: Option<f32>,
+    /// Resources (or kinds) whose trips it makes; empty means any resource
+    /// on the network. A resource's kinds are carried by what carries it.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub carries: Vec<String>,
+    /// How often it is picked among the vehicles fit for a trip.
+    #[serde(default = "default_share")]
+    pub share: f32,
+    /// Takes the quickest route on empty roads instead of avoiding traffic.
+    #[serde(default)]
+    pub direct: bool,
+}
+
+impl VehicleDef {
+    pub fn kind(&self) -> crate::traffic::VehicleKind {
+        crate::traffic::VehicleKind::from_id(&self.model).unwrap_or(crate::traffic::VehicleKind::Car)
+    }
+
+    /// The road kinds it may drive on.
+    pub fn ways(&self) -> crate::traffic::Ways {
+        if self.ways.is_empty() {
+            return crate::traffic::Ways::ALL;
+        }
+        crate::traffic::Ways::of(self.ways.iter().filter_map(|w| crate::RoadKind::from_id(w)))
+    }
+
+    pub fn top_speed(&self) -> f32 {
+        self.speed.unwrap_or(f32::INFINITY)
+    }
+
+    pub fn path_cost(&self) -> crate::traffic::PathCost {
+        if self.direct {
+            crate::traffic::PathCost::Distance
+        } else {
+            crate::traffic::PathCost::Traffic
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -515,6 +576,30 @@ impl Ruleset {
         self.networks.iter().position(|n| n.id == id)
     }
 
+    /// The vehicles that may carry a resource (or kind), with its network.
+    /// Empty when the network names no vehicles.
+    pub fn vehicles_for(&self, resource: usize) -> Vec<&VehicleDef> {
+        let r = &self.resources[resource];
+        let Some(net) = r.network.as_deref().and_then(|n| self.network(n)) else { return Vec::new() };
+        let root = &self.resources[self.root(resource)].id;
+        self.networks[net]
+            .vehicles
+            .iter()
+            .filter(|v| {
+                v.carries.is_empty()
+                    || v.carries.iter().any(|c| {
+                        // The resource, the resource it is a kind of, or one of its kinds.
+                        c == &r.id || c == root || self.resource(c).is_some_and(|k| self.resources[k].parent.as_ref() == Some(&r.id))
+                    })
+            })
+            .collect()
+    }
+
+    /// Whether the resource travels on a network that names its vehicles.
+    pub fn vehicle_network(&self, resource: usize) -> bool {
+        self.resources[resource].network.as_deref().and_then(|n| self.network(n)).is_some_and(|n| !self.networks[n].vehicles.is_empty())
+    }
+
     /// Zone using an OpenCity zone structure.
     pub fn zone_for(&self, code: StructureCode) -> Option<usize> {
         self.zones.iter().position(|z| structure_code(&z.structure) == Some(code))
@@ -558,6 +643,32 @@ impl Ruleset {
             for s in &n.structures {
                 if structure_code(s).is_none() {
                     return err(format!("network {}: unknown structure {s}", n.id));
+                }
+            }
+            for v in &n.vehicles {
+                let at = |m: String| err(format!("network {} vehicle {}: {m}", n.id, v.id));
+                if crate::traffic::VehicleKind::from_id(&v.model).is_none() {
+                    return at(format!("unknown model {}", v.model));
+                }
+                if !v.ways.is_empty() && !n.structures.iter().any(|s| s == "road") {
+                    return at("ways are road kinds, but the network has no roads".into());
+                }
+                for w in &v.ways {
+                    if crate::RoadKind::from_id(w).is_none() {
+                        return at(format!("unknown way {w}"));
+                    }
+                }
+                for c in &v.carries {
+                    match self.resource(c) {
+                        None => return at(format!("carries unknown resource {c}")),
+                        Some(i) if self.resources[i].network.as_deref() != Some(n.id.as_str()) => {
+                            return at(format!("carries {c}, which does not travel on this network"))
+                        }
+                        _ => {}
+                    }
+                }
+                if v.speed.is_some_and(|x| !x.is_finite() || x <= 0.0) || !v.share.is_finite() || v.share < 0.0 {
+                    return at("speed must be above 0 and share 0 or more".into());
                 }
             }
         }

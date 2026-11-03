@@ -264,3 +264,44 @@ fn highways_give_no_access() {
     }
     assert!(units(&c, StructureCode::Residential) > 0);
 }
+
+#[test]
+fn rules_choose_the_vehicles_of_each_age() {
+    use opencity_core::traffic::VehicleKind;
+    let old = rules_named("pre-industrial");
+    let kinds = |r: &Ruleset, id: &str| -> Vec<VehicleKind> { r.vehicles_for(r.resource(id).unwrap()).iter().map(|v| v.kind()).collect() };
+    // No cars before 1800: people walk, carts carry the loads.
+    for id in ["workers", "shoppers", "food", "goods", "cart", "cart.horse", "fodder"] {
+        let k = kinds(&old, id);
+        assert!(!k.is_empty() && k.iter().all(|k| k.graphic().is_none()), "{id}: {k:?}");
+    }
+    assert_eq!(kinds(&old, "workers"), [VehicleKind::Walker]);
+    assert_eq!(kinds(&old, "cart.handcart"), [VehicleKind::Handcart]);
+    assert!(old.vehicles_for(old.resource("goods").unwrap()).iter().all(|v| !v.ways().allows(RoadKind::Highway)));
+    let new = rules_named("glassbox");
+    assert!(kinds(&new, "goods").contains(&VehicleKind::Pickup));
+    assert!(kinds(&new, "car.electric").contains(&VehicleKind::Car));
+
+    // A bad model or way is refused.
+    let mut bad = (*old).clone();
+    bad.networks[0].vehicles[0].model = "spaceship".into();
+    assert!(bad.validate().is_err());
+    let mut bad = (*old).clone();
+    bad.networks[0].vehicles[0].ways = vec!["canal".into()];
+    assert!(bad.validate().is_err());
+
+    // The medieval demo town only ever shows walkers and carts.
+    let mut c = City::new(Terrain::flat(60, 60), None, Footprints::builtin(), 5);
+    c.use_rules(old);
+    opencity_core::scenario::demo_town(&mut c);
+    let mut seen = std::collections::BTreeSet::new();
+    for _ in 0..600 {
+        c.simulate_round();
+        for v in &c.vehicles {
+            assert!(v.kind.graphic().is_none() && v.top_speed.is_some_and(|t| t <= 1.0), "{:?}", v.kind);
+            seen.insert(v.kind.id());
+        }
+        c.vehicles.clear();
+    }
+    assert!(seen.contains("walker") && seen.len() >= 2, "{seen:?}");
+}

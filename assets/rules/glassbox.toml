@@ -111,6 +111,28 @@ id = "road"
 name = "Roads"
 structures = ["road"]
 
+# Vehicles on the roads. Trips of the resources each one carries are drawn
+# as that vehicle, which keeps to its ways (road kinds; none listed = all).
+[[network.vehicle]]
+id = "car"
+name = "Car"
+model = "car"
+carries = ["workers", "shoppers", "car"]
+share = 4
+
+[[network.vehicle]]
+id = "sports_car"
+name = "Sports car"
+model = "sports_car"
+carries = ["shoppers"]
+
+[[network.vehicle]]
+id = "truck"
+name = "Delivery truck"
+model = "pickup"
+carries = ["goods", "fuel"]
+direct = true                    # quickest route, even through traffic
+
 [[network]]
 id = "power_grid"
 name = "Power grid"

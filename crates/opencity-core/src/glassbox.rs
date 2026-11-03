@@ -421,11 +421,20 @@ impl GlassBox {
                     Some((c, road_at(w, l).map_or(1.0, |k| k.speed()), near_highway.get(idx(w, l) as usize).copied().unwrap_or(false)))
                 })
                 .collect();
+            // The vehicles carrying the resource cap the speed (people on
+            // foot are no quicker on a paved street) and may be kept off
+            // highways.
+            let vehicles = rules.vehicles_for(root);
+            let (top, highway) = if vehicles.is_empty() {
+                (f32::INFINITY, true)
+            } else {
+                (vehicles.iter().map(|v| v.top_speed()).fold(0.0, f32::max), vehicles.iter().any(|v| v.ways().allows(RoadKind::Highway)))
+            };
             let trip_length = |s: usize, i: usize, dist: u32| -> f32 {
                 let (Some(a), Some(b)) = (acc[s], acc[i]) else { return f32::INFINITY };
-                let local = dist as f32 / a.1.min(b.1);
-                if a.2 && b.2 {
-                    local.min(HIGHWAY_RAMP as f32 + dist as f32 / RoadKind::Highway.speed())
+                let local = dist as f32 / a.1.min(b.1).min(top);
+                if highway && a.2 && b.2 {
+                    local.min(HIGHWAY_RAMP as f32 + dist as f32 / RoadKind::Highway.speed().min(top))
                 } else {
                     local
                 }

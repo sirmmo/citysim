@@ -7,11 +7,11 @@ use rand_pcg::Pcg32;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    glassbox::GlassBox,
+    glassbox::{GlassBox, Trip},
     layer::{BuildError, BuildingLayer, Query, Rect, Status},
     rules::Ruleset,
     sim::{self, SimValues},
-    traffic::{find_path, Vehicle, VehicleKind, MAX_VEHICLES},
+    traffic::{find_path, find_route, Vehicle, VehicleKind, Ways, MAX_VEHICLES},
     Footprints, Sound, StructureCode, Terrain, Tool,
 };
 
@@ -390,15 +390,39 @@ impl City {
         // Road traffic loads still come from the classic traffic simulator.
         let _ = sim::traffic_step(&mut self.layer, &self.terrain, &mut self.rng);
         // A sample of the trips becomes visible vehicles.
-        for t in trips.iter().filter(|t| t.amount >= 1.0).take(64) {
-            if self.vehicles.len() >= MAX_VEHICLES || self.rng.gen_range(0..100) >= 15 {
-                continue;
+        // Picked at random, so every resource shows its vehicles (not
+        // just those listed first, like workers on foot).
+        let visible: Vec<&Trip> = trips.iter().filter(|t| t.amount >= 1.0).collect();
+        for _ in 0..if visible.is_empty() { 0 } else { 10 } {
+            let t = visible[self.rng.gen_range(0..visible.len())];
+            if self.vehicles.len() >= MAX_VEHICLES {
+                break;
             }
             let (Some(a), Some(b)) = (self.nearest_road(t.from), self.nearest_road(t.to)) else { continue };
-            let kind = [VehicleKind::Car, VehicleKind::Pickup, VehicleKind::Sports][t.resource % 3];
-            if let Some(path) = find_path(&self.layer, &self.terrain, a, b, kind.path_cost()) {
+            // The rules say which vehicles carry the resource and on which
+            // ways; networks without vehicles get the classic cars.
+            let (kind, ways, top, cost) = match gb.rules().map(|r| r.vehicles_for(t.resource)) {
+                Some(fit) if !fit.is_empty() => {
+                    let total: f32 = fit.iter().map(|v| v.share).sum();
+                    let mut x = self.rng.gen_range(0.0..total.max(1e-6));
+                    let v = fit.iter().find(|v| {
+                        x -= v.share;
+                        x < 0.0
+                    });
+                    let v = v.unwrap_or(&fit[fit.len() - 1]);
+                    (v.kind(), v.ways(), v.top_speed(), v.path_cost())
+                }
+                Some(_) if gb.rules().is_some_and(|r| r.vehicle_network(t.resource)) => continue,
+                _ => {
+                    let k = VehicleKind::MOTOR[t.resource % 3];
+                    (k, Ways::ALL, f32::INFINITY, k.path_cost())
+                }
+            };
+            if let Some(path) = find_route(&self.layer, &self.terrain, a, b, cost, &ways, top) {
                 if path.len() > 1 {
-                    self.vehicles.push(Vehicle::new(kind, &path, &self.layer, &self.terrain));
+                    let mut v = Vehicle::new(kind, &path, &self.layer, &self.terrain);
+                    v.top_speed = top.is_finite().then_some(top);
+                    self.vehicles.push(v);
                 }
             }
         }
@@ -437,7 +461,7 @@ impl City {
             return;
         }
         let Some(dest) = self.layer.random_structure(StructureCode::Road, &mut self.rng) else { return };
-        let kind = [VehicleKind::Car, VehicleKind::Pickup, VehicleKind::Sports][self.rng.gen_range(0..3)];
+        let kind = VehicleKind::MOTOR[self.rng.gen_range(0..3)];
         if let Some(path) = find_path(&self.layer, &self.terrain, start, dest, kind.path_cost()) {
             if path.len() > 1 {
                 self.vehicles.push(Vehicle::new(kind, &path, &self.layer, &self.terrain));

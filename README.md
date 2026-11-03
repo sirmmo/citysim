@@ -147,6 +147,11 @@ fodder), fields and a granary feed the town, wells give water, and the
 buildings are huts, cottages, row houses, insulae, market stalls, taverns,
 coaching inns, caravanserais, quarries, foundries and craft halls. A new
 city in an ancient, medieval or Renaissance age gets it by default.
+Each road network lists its vehicles: what each one looks like, which road
+kinds it may use, how fast it can go and what it carries. Modern towns get
+cars and delivery trucks. Towns of the past get people on foot, handcarts
+and horse carts, and none of them may use a highway (see
+[docs/RULES.md](docs/RULES.md#vehicles)).
 Behaviour can also be scripted in the **GlassBox rule language**: `unitRule`,
 `mapRule`, `zoneRule` and `agentRule`, with the timestamped metrics of the
 Extended GlassBox model by Costagliola, Montanari and Bellavista
