@@ -825,6 +825,7 @@ async fn main() -> Result<()> {
     }
     if s.args.show_network {
         game.flow_view.on = true;
+        #[cfg(not(target_os = "android"))]
         if let Some(ui) = game.egui.as_mut() {
             ui.open_network();
         }
