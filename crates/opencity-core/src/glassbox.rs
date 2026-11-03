@@ -45,6 +45,12 @@ pub struct UnitState {
     /// Consecutive ticks below the level-down threshold.
     #[serde(default)]
     pub struggling: u32,
+    /// Asked of this unit by its trips (resource `uses`), needed next tick.
+    #[serde(default)]
+    pub extra: Vec<f32>,
+    /// Everything needed this tick (by resource index): own needs plus `extra`.
+    #[serde(default)]
+    pub needs: Vec<f32>,
 }
 
 /// A plot whose building was abandoned rests before developing again:
@@ -60,6 +66,19 @@ impl Vacancy {
         self.since + ((grace as u64) << self.strikes.min(6))
     }
 }
+
+/// One link of the resource network: a resource going from one unit to
+/// another (by origin tile).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct Link {
+    pub resource: usize,
+    pub from: (u32, u32),
+    pub to: (u32, u32),
+}
+
+/// Share of a link's amount that comes from the latest tick; the rest is
+/// carried over, so the network view is steady rather than jittery.
+const FLOW_SMOOTHING: f32 = 0.2;
 
 /// City-wide balances of the last tick, by resource index.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
@@ -106,6 +125,9 @@ pub struct GlassBox {
     /// Everything above, sampled every tick, for graphs and analysis.
     #[serde(default)]
     pub series: crate::series::Series,
+    /// The resource network: amount per tick on each link, smoothed.
+    #[serde(skip)]
+    pub flows: HashMap<Link, f32>,
     /// Building changes this tick: built, abandoned, levelled up, levelled down.
     #[serde(skip)]
     churn: [u32; 4],
@@ -116,6 +138,9 @@ pub struct GlassBox {
 }
 
 const NO_COMPONENT: u32 = u32::MAX;
+
+/// A grid producer: its origin tile and what it supplied this tick.
+type Supplier = ((u32, u32), f32);
 const BUCKET: u32 = 8;
 
 impl GlassBox {
@@ -133,6 +158,7 @@ impl GlassBox {
             metric_history: VecDeque::new(),
             vacated: BTreeMap::new(),
             series: Default::default(),
+            flows: HashMap::new(),
             churn: [0; 4],
             rules: Some(rules),
             grid_cache: None,
@@ -154,6 +180,22 @@ impl GlassBox {
 
     pub fn layer_value(&self, layer: usize, w: u32, l: u32, width: u32) -> f32 {
         self.layers.get(layer).and_then(|v| v.get((l * width + w) as usize)).copied().unwrap_or(0.0)
+    }
+
+    /// What a unit lacks: (resource, missing amount per tick) for each need
+    /// met by less than 95%, its trips' needs included.
+    pub fn shortfall(&self, rules: &Ruleset, unit: usize, w: u32, l: u32, width: u32) -> Vec<(usize, f32)> {
+        let Some(st) = self.unit_state(w, l, width) else { return Vec::new() };
+        let own = rules.units[unit].needs.iter().filter_map(|(r, n)| Some((rules.resource(r)?, *n)));
+        let wanted: Vec<(usize, f32)> =
+            if st.needs.is_empty() { own.collect() } else { st.needs.iter().copied().enumerate().filter(|(_, v)| *v > 0.0).collect() };
+        wanted
+            .into_iter()
+            .filter_map(|(ri, need)| {
+                let missing = need - st.received.get(ri).copied().unwrap_or(0.0);
+                (missing > need * 0.05).then_some((ri, missing))
+            })
+            .collect()
     }
 
     pub fn unit_state(&self, w: u32, l: u32, width: u32) -> Option<&UnitState> {
@@ -215,13 +257,32 @@ impl GlassBox {
         for (p, _, _) in &units {
             let s = self.units.entry(idx(p.0, p.1)).or_insert_with(|| UnitState { satisfaction: 0.5, ..Default::default() });
             s.stock.resize(nres, 0.0);
+            s.extra.resize(nres, 0.0);
             s.received = vec![0.0; nres];
         }
+        // What each unit needs this tick: its own needs, plus what its trips
+        // of the last tick asked of other networks (resource `uses`).
+        let need: Vec<Vec<f32>> = units
+            .iter()
+            .map(|(p, u, _)| {
+                let mut n = vec![0.0; nres];
+                for (r, v) in &rules.units[*u].needs {
+                    n[rules.resource(r).unwrap()] += v;
+                }
+                let st = self.units.get_mut(&idx(p.0, p.1)).unwrap();
+                for (ri, e) in st.extra.iter_mut().enumerate() {
+                    n[ri] += *e;
+                    *e = 0.0;
+                }
+                st.needs = n.clone();
+                n
+            })
+            .collect();
         self.tick += 1;
         let mut metrics: BTreeMap<String, f32> = BTreeMap::new();
         let mut bal = Balances { produced: vec![0.0; nres], delivered: vec![0.0; nres], unmet: vec![0.0; nres], undelivered: vec![0.0; nres] };
 
-        // 1. Production.
+        // 1. Production. A resource with kinds is made as its kinds, by share.
         for (p, u, _) in &units {
             let def = &rules.units[*u];
             let st = self.units.get_mut(&idx(p.0, p.1)).unwrap();
@@ -232,149 +293,249 @@ impl GlassBox {
             for (r, amount) in &def.produce {
                 let ri = rules.resource(r).unwrap();
                 let made = amount * eff;
-                bal.produced[ri] += made;
-                match rules.resources[ri].transport {
-                    Transport::City => self.treasury += made as f64,
-                    Transport::Local => st.stock[ri] = made,
-                    Transport::Grid => st.stock[ri] = made,
-                    Transport::Agents => st.stock[ri] = (st.stock[ri] + made).min(amount * 3.0),
+                add(&mut bal.produced, ri, rules.root(ri), made);
+                for (k, f) in split(&rules, ri) {
+                    if k != ri {
+                        bal.produced[k] += made * f;
+                    }
+                    let m = made * f;
+                    match rules.resources[k].transport {
+                        Transport::City => self.treasury += m as f64,
+                        Transport::Local | Transport::Grid => st.stock[k] = m,
+                        Transport::Agents => st.stock[k] = (st.stock[k] + m).min(amount * f * 3.0),
+                    }
                 }
             }
         }
 
-        // 2. Grids.
+        // 2. Grids. Kinds serve needs for that kind first; what is left fills
+        // needs for the resource (slots any kind fills), shared out evenly.
+        let mut tick_flows: HashMap<Link, f32> = HashMap::new();
         let comps = self.components(&rules, layer, terrain);
-        for (ri, res) in rules.resources.iter().enumerate() {
-            if res.transport != Transport::Grid {
+        for root in 0..nres {
+            let res = &rules.resources[root];
+            if res.transport != Transport::Grid || res.parent.is_some() {
                 continue;
             }
+            let fam = rules.family(root);
             let net = rules.network(res.network.as_deref().unwrap_or_default()).unwrap();
-            let comp_of = |rect: &Rect| unit_component(&comps[net], rect, width, length, 1);
-            let mut supply: HashMap<u32, f32> = HashMap::new();
-            let mut demand: HashMap<u32, f32> = HashMap::new();
-            for (p, u, r) in &units {
-                let Some(c) = comp_of(r) else { continue };
+            let comp: Vec<Option<u32>> = units.iter().map(|(_, _, r)| unit_component(&comps[net], r, width, length, 1)).collect();
+            let mut pools: HashMap<u32, Pool> = HashMap::new();
+            let mut producers: HashMap<(u32, usize), Vec<Supplier>> = HashMap::new();
+            for (i, (p, _, _)) in units.iter().enumerate() {
+                let Some(c) = comp[i] else { continue };
+                let pool = pools.entry(c).or_insert_with(|| Pool::new(fam.len()));
                 let st = &self.units[&idx(p.0, p.1)];
-                *supply.entry(c).or_default() += st.stock[ri];
-                *demand.entry(c).or_default() += rules.units[*u].needs.get(&res.id).copied().unwrap_or(0.0);
-            }
-            for (p, u, r) in &units {
-                let need = rules.units[*u].needs.get(&res.id).copied().unwrap_or(0.0);
-                let st = self.units.get_mut(&idx(p.0, p.1)).unwrap();
-                let c = comp_of(r);
-                if need > 0.0 {
-                    let f = c.map_or(0.0, |c| {
-                        let d = demand[&c];
-                        if d > 0.0 {
-                            (supply[&c] / d).min(1.0)
-                        } else {
-                            0.0
-                        }
-                    });
-                    st.received[ri] += need * f;
-                    bal.delivered[ri] += need * f;
-                    bal.unmet[ri] += need * (1.0 - f);
+                for (j, &k) in fam.iter().enumerate() {
+                    if st.stock[k] > 0.0 {
+                        pool.supply[j] += st.stock[k];
+                        producers.entry((c, j)).or_default().push((*p, st.stock[k]));
+                    }
+                    if j > 0 {
+                        pool.want[j] += need[i][k];
+                    }
                 }
-                if st.stock[ri] > 0.0 {
-                    let used = c.map_or(0.0, |c| (demand[&c] / supply[&c].max(1e-6)).min(1.0));
-                    bal.undelivered[ri] += st.stock[ri] * (1.0 - used);
-                    st.stock[ri] = 0.0;
+                pool.slot += need[i][root];
+            }
+            pools.values_mut().for_each(Pool::settle);
+            for (i, (p, _, _)) in units.iter().enumerate() {
+                let pool = comp[i].and_then(|c| pools.get(&c).map(|pl| (c, pl)));
+                for (j, &k) in fam.iter().enumerate() {
+                    let n = need[i][k];
+                    if n <= 0.0 {
+                        continue;
+                    }
+                    let mut got = 0.0;
+                    if let Some((c, pl)) = pool {
+                        // (kind, amount) that served this need.
+                        let parts: Vec<(usize, f32)> = if j > 0 {
+                            vec![(j, n * pl.kind_share[j])]
+                        } else {
+                            let slot_total: f32 = pl.slot_take.iter().sum();
+                            (0..fam.len()).filter(|&q| pl.slot_take[q] > 0.0).map(|q| (q, n * pl.slot_share * pl.slot_take[q] / slot_total)).collect()
+                        };
+                        for (q, amount) in parts {
+                            got += amount;
+                            if fam[q] != root {
+                                bal.delivered[fam[q]] += amount;
+                            }
+                            for &(from, made) in producers.get(&(c, q)).into_iter().flatten() {
+                                if from != *p && amount > 0.0 {
+                                    *tick_flows.entry(Link { resource: fam[q], from, to: *p }).or_default() += amount * made / pl.supply[q];
+                                }
+                            }
+                        }
+                    }
+                    self.units.get_mut(&idx(p.0, p.1)).unwrap().received[k] += got;
+                    bal.delivered[root] += got;
+                    add(&mut bal.unmet, k, root, (n - got).max(0.0));
+                }
+                let st = self.units.get_mut(&idx(p.0, p.1)).unwrap();
+                for (j, &k) in fam.iter().enumerate() {
+                    if st.stock[k] > 0.0 {
+                        let used = pool.map_or(0.0, |(_, pl)| pl.used(j));
+                        add(&mut bal.undelivered, k, root, st.stock[k] * (1.0 - used));
+                        st.stock[k] = 0.0;
+                    }
                 }
             }
         }
 
-        // 3. Agents.
+        // 3. Agents. A need for a kind takes only that kind; a need for the
+        // resource is a slot filled by any kind, from the nearest senders.
         let mut trips = Vec::new();
-        for (ri, res) in rules.resources.iter().enumerate() {
-            if res.transport != Transport::Agents {
+        for root in 0..nres {
+            let res = &rules.resources[root];
+            if res.transport != Transport::Agents || res.parent.is_some() {
                 continue;
             }
+            let fam = rules.family(root);
             let net = rules.network(res.network.as_deref().unwrap_or_default()).unwrap();
             // Agents walk from the road to any plot that was allowed to develop.
             let reach = rules.growth.road_access.max(1);
             let access = |r: &Rect| unit_component(&comps[net], r, width, length, reach);
-            // Senders bucketed by (component, cell).
-            let mut buckets: HashMap<(u32, u32, u32), Vec<usize>> = HashMap::new();
-            for (i, (p, u, r)) in units.iter().enumerate() {
-                if !rules.units[*u].sends.iter().any(|s| s == &res.id) || self.units[&idx(p.0, p.1)].stock[ri] <= 0.0 {
+            // Which unit types send which members of the family.
+            let sends_table: Vec<Vec<bool>> = rules
+                .units
+                .iter()
+                .map(|def| (0..nres).map(|k| fam.contains(&k) && def.sends.iter().any(|s| *s == rules.resources[k].id || *s == res.id)).collect())
+                .collect();
+            let sends = |u: usize, k: usize| sends_table[u][k];
+            let uses: Vec<Vec<(usize, f32)>> =
+                (0..nres).map(|k| rules.resources[k].uses.iter().filter_map(|(r, per)| Some((rules.resource(r)?, *per))).collect()).collect();
+            // Stocks of the family's members, by unit and member position,
+            // and what is left of each member over all senders.
+            let mut stock: Vec<Vec<f32>> = units
+                .iter()
+                .map(|(p, u, _)| {
+                    let st = &self.units[&idx(p.0, p.1)];
+                    fam.iter().map(|&k| if sends(*u, k) { st.stock[k] } else { 0.0 }).collect()
+                })
+                .collect();
+            let mut left: Vec<f32> = (0..fam.len()).map(|j| stock.iter().map(|s| s[j]).sum()).collect();
+            // Senders bucketed by (component, cell), with what each bucket has left.
+            let mut buckets: HashMap<(u32, u32, u32), Bucket> = HashMap::new();
+            for (i, (p, _, r)) in units.iter().enumerate() {
+                if stock[i].iter().all(|&x| x <= 0.0) {
                     continue;
                 }
                 if let Some(c) = access(r) {
-                    buckets.entry((c, p.0 / BUCKET, p.1 / BUCKET)).or_default().push(i);
+                    let b = buckets.entry((c, p.0 / BUCKET, p.1 / BUCKET)).or_insert_with(|| Bucket { senders: Vec::new(), left: vec![0.0; fam.len()] });
+                    b.senders.push(i);
+                    b.left.iter_mut().zip(&stock[i]).for_each(|(l, x)| *l += x);
                 }
             }
-            let mut receivers: Vec<usize> = (0..units.len()).filter(|&i| rules.units[units[i].1].needs.contains_key(&res.id)).collect();
+            let mut receivers: Vec<usize> = (0..units.len()).filter(|&i| fam.iter().any(|&k| need[i][k] > 0.0)).collect();
             // Established units are served first, in a stable order: who gets
             // the scarce workers or shoppers must not change at random every
             // tick, or buildings flicker between thriving and failing.
             receivers.sort_by_key(|&i| (std::cmp::Reverse(self.units[&idx(units[i].0 .0, units[i].0 .1)].age), i));
-            let reach = res.max_trip.div_ceil(BUCKET) as i64;
+            let max_trip = fam.iter().map(|&k| rules.resources[k].max_trip).max().unwrap_or(0);
+            let rings = max_trip.div_ceil(BUCKET) as i64;
+            let all: Vec<usize> = (0..fam.len()).collect();
             for i in receivers {
-                let (p, u, r) = units[i];
-                let need = rules.units[u].needs[&res.id];
-                let mut missing = need;
-                if let Some(c) = access(&r) {
-                    // Nearest senders first: rings of buckets.
-                    'rings: for ring in 0..=reach {
-                        for dz in -ring..=ring {
-                            for dx in -ring..=ring {
-                                if dx.abs().max(dz.abs()) != ring {
-                                    continue;
-                                }
-                                let (cx, cz) = (p.0 as i64 / BUCKET as i64 + dx, p.1 as i64 / BUCKET as i64 + dz);
-                                if cx < 0 || cz < 0 {
-                                    continue;
-                                }
-                                let Some(list) = buckets.get(&(c, cx as u32, cz as u32)) else { continue };
-                                for &s in list {
-                                    if s == i {
+                let (p, _, r) = units[i];
+                // Needs for a kind first, then the slot any kind fills
+                // (members by position in `fam`).
+                let keys: Vec<(usize, &[usize])> =
+                    (1..fam.len()).filter(|&j| need[i][fam[j]] > 0.0).map(|j| (j, &all[j..=j])).chain((need[i][root] > 0.0).then_some((0, &all[..]))).collect();
+                for (key, accept) in keys {
+                    let n = need[i][fam[key]];
+                    let mut missing = n;
+                    let available = |left: &[f32]| accept.iter().any(|&j| left[j] > 0.0);
+                    if let Some(c) = access(&r).filter(|_| available(&left)) {
+                        // Nearest senders first: rings of buckets.
+                        'rings: for ring in 0..=rings {
+                            for dz in -ring..=ring {
+                                for dx in -ring..=ring {
+                                    if dx.abs().max(dz.abs()) != ring {
                                         continue;
                                     }
-                                    let sp = units[s].0;
-                                    if sp.0.abs_diff(p.0) + sp.1.abs_diff(p.1) > res.max_trip {
+                                    let (cx, cz) = (p.0 as i64 / BUCKET as i64 + dx, p.1 as i64 / BUCKET as i64 + dz);
+                                    if cx < 0 || cz < 0 {
                                         continue;
                                     }
-                                    let stock = &mut self.units.get_mut(&idx(sp.0, sp.1)).unwrap().stock[ri];
-                                    let take = stock.min(missing);
-                                    if take > 0.0 {
-                                        *stock -= take;
-                                        missing -= take;
-                                        trips.push(Trip { resource: ri, from: sp, to: p, amount: take });
-                                        if missing <= 1e-4 {
-                                            break 'rings;
+                                    let Some(bucket) = buckets.get_mut(&(c, cx as u32, cz as u32)) else { continue };
+                                    if !accept.iter().any(|&j| bucket.left[j] > 0.0) {
+                                        continue;
+                                    }
+                                    for &s in &bucket.senders {
+                                        if s == i {
+                                            continue;
+                                        }
+                                        let sp = units[s].0;
+                                        let dist = sp.0.abs_diff(p.0) + sp.1.abs_diff(p.1);
+                                        for &j in accept {
+                                            let a = fam[j];
+                                            let take = stock[s][j].min(missing);
+                                            if take <= 0.0 || dist > rules.resources[a].max_trip {
+                                                continue;
+                                            }
+                                            stock[s][j] -= take;
+                                            left[j] -= take;
+                                            bucket.left[j] -= take;
+                                            missing -= take;
+                                            // Secondary impact: the trip asks other networks of the sender.
+                                            if !uses[a].is_empty() {
+                                                let sender = self.units.get_mut(&idx(sp.0, sp.1)).unwrap();
+                                                for &(ur, per) in &uses[a] {
+                                                    sender.extra[ur] += take * per;
+                                                }
+                                            }
+                                            if a != root {
+                                                bal.delivered[a] += take;
+                                            }
+                                            trips.push(Trip { resource: a, from: sp, to: p, amount: take });
+                                            *tick_flows.entry(Link { resource: a, from: sp, to: p }).or_default() += take;
+                                            if missing <= 1e-4 || !available(&left) {
+                                                break 'rings;
+                                            }
                                         }
                                     }
                                 }
                             }
                         }
                     }
+                    let got = n - missing.max(0.0);
+                    self.units.get_mut(&idx(p.0, p.1)).unwrap().received[fam[key]] += got;
+                    bal.delivered[root] += got;
+                    add(&mut bal.unmet, fam[key], root, missing.max(0.0));
                 }
-                let got = need - missing.max(0.0);
-                self.units.get_mut(&idx(p.0, p.1)).unwrap().received[ri] += got;
-                bal.delivered[ri] += got;
-                bal.unmet[ri] += missing.max(0.0);
             }
-            for (p, u, _) in &units {
-                if rules.units[*u].sends.iter().any(|s| s == &res.id) {
-                    bal.undelivered[ri] += self.units[&idx(p.0, p.1)].stock[ri];
+            for (i, (p, u, _)) in units.iter().enumerate() {
+                let st = self.units.get_mut(&idx(p.0, p.1)).unwrap();
+                for (j, &k) in fam.iter().enumerate() {
+                    if sends(*u, k) {
+                        st.stock[k] = stock[i][j];
+                        add(&mut bal.undelivered, k, root, stock[i][j]);
+                    }
                 }
             }
         }
 
+        // The network view: links fade unless used again.
+        for v in self.flows.values_mut() {
+            *v *= 1.0 - FLOW_SMOOTHING;
+        }
+        for (k, v) in tick_flows {
+            *self.flows.entry(k).or_default() += v * FLOW_SMOOTHING;
+        }
+        self.flows.retain(|k, v| *v > 0.01 && present.contains(&idx(k.from.0, k.from.1)) && present.contains(&idx(k.to.0, k.to.1)));
+
         // 4. Treasury.
-        for (p, u, _) in &units {
-            for (r, need) in &rules.units[*u].needs {
-                let ri = rules.resource(r).unwrap();
-                if rules.resources[ri].transport != Transport::City {
+        for (i, (p, _, _)) in units.iter().enumerate() {
+            for ri in 0..nres {
+                let n = need[i][ri];
+                if n <= 0.0 || rules.resources[ri].transport != Transport::City {
                     continue;
                 }
                 let st = self.units.get_mut(&idx(p.0, p.1)).unwrap();
-                if *fund > 0 || self.treasury > *need as f64 {
-                    self.treasury -= *need as f64;
-                    st.received[ri] = *need;
-                    bal.delivered[ri] += need;
+                if *fund > 0 || self.treasury > n as f64 {
+                    self.treasury -= n as f64;
+                    st.received[ri] = n;
+                    bal.delivered[ri] += n;
                 } else {
-                    bal.unmet[ri] += need;
+                    bal.unmet[ri] += n;
                 }
             }
         }
@@ -417,8 +578,9 @@ impl GlassBox {
         }
         // Agent rules: emissions along the routes of this tick's trips.
         for ar in &rules.agent_rules {
-            let wanted = ar.resource.as_deref().and_then(|r| rules.resource(r));
-            for t in trips.iter().filter(|t| wanted.is_none_or(|w| w == t.resource)) {
+            let wanted: Vec<usize> = ar.resources.iter().filter_map(|r| rules.resource(r)).collect();
+            let follows = |r: usize| ar.resources.is_empty() || wanted.contains(&r) || wanted.contains(&rules.root(r));
+            for t in trips.iter().filter(|t| follows(t.resource)) {
                 let (mut x, mut z) = (t.from.0 as i64, t.from.1 as i64);
                 let (tx, tz) = (t.to.0 as i64, t.to.1 as i64);
                 let mut steps = 0u32;
@@ -435,6 +597,26 @@ impl GlassBox {
                             emit(&mut self.layers[li], width, length, x as f32, z as f32, a.amount, a.radius);
                         }
                     }
+                }
+            }
+        }
+        // Resource trails: layers along the routes of this tick's trips.
+        for t in &trips {
+            let trail = &rules.resources[t.resource].trail;
+            if trail.is_empty() {
+                continue;
+            }
+            let lis: Vec<(usize, f32)> = trail.iter().map(|(l, a)| (rules.layer(l).unwrap(), a * t.amount)).collect();
+            let (mut x, mut z) = (t.from.0 as i64, t.from.1 as i64);
+            let (tx, tz) = (t.to.0 as i64, t.to.1 as i64);
+            while (x, z) != (tx, tz) {
+                if x != tx {
+                    x += (tx - x).signum()
+                } else {
+                    z += (tz - z).signum()
+                }
+                for &(li, a) in &lis {
+                    self.layers[li][(z as u32 * width + x as u32) as usize] += a;
                 }
             }
         }
@@ -456,16 +638,14 @@ impl GlassBox {
         // Consuming rules cannot take a map below zero.
         self.layers.iter_mut().flatten().for_each(|v| *v = v.max(0.0));
 
-        // 6. Satisfaction.
-        for (p, u, _) in &units {
+        // 6. Satisfaction: the share of needs met (own needs and those of trips).
+        for (n, (p, u, _)) in units.iter().enumerate() {
             let def = &rules.units[*u];
             let i = idx(p.0, p.1);
             let st = &self.units[&i];
-            let mut s = if def.needs.is_empty() {
-                1.0
-            } else {
-                def.needs.iter().map(|(r, n)| (st.received[rules.resource(r).unwrap()] / n.max(1e-6)).min(1.0)).sum::<f32>() / def.needs.len() as f32
-            };
+            let wanted: Vec<(usize, f32)> = need[n].iter().copied().enumerate().filter(|(_, v)| *v > 0.0).collect();
+            let mut s =
+                if wanted.is_empty() { 1.0 } else { wanted.iter().map(|(ri, v)| (st.received[*ri] / v.max(1e-6)).min(1.0)).sum::<f32>() / wanted.len() as f32 };
             for (lname, b) in &def.requires {
                 let v = self.layers[rules.layer(lname).unwrap()][i as usize];
                 if b.min.is_some_and(|m| v < m) || b.max.is_some_and(|m| v > m) {
@@ -703,7 +883,16 @@ impl GlassBox {
                 let (up, down) = (st.thriving >= g.patience, st.struggling >= g.patience);
                 let d = &z.densities[(density as usize).min(z.densities.len() - 1)];
                 let Some(k) = d.units.iter().position(|id| rules.unit(id) == Some(u as usize)) else { continue };
-                let changed = if up && k + 1 < d.units.len() && rng.r#gen::<f32>() < g.chance {
+                // Never grow into a unit whose map requirements already fail
+                // here: it would only shrink back, and flicker.
+                let fits = |unit: usize| {
+                    rules.units[unit].requires.iter().all(|(l, b)| {
+                        let v = rules.layer(l).map_or(0.0, |li| self.layers[li][key as usize]);
+                        !(b.min.is_some_and(|m| v < m) || b.max.is_some_and(|m| v > m))
+                    })
+                };
+                let next_fits = k + 1 < d.units.len() && fits(rules.unit(&d.units[k + 1]).unwrap());
+                let changed = if up && next_fits && rng.r#gen::<f32>() < g.chance {
                     let next = rules.unit(&d.units[k + 1]).unwrap();
                     let ok = set_unit(layer, terrain, footprints, rng, p.0, p.1, Some(next), k as u8 + 2, rules);
                     self.churn[2] += ok as u32;
@@ -783,6 +972,75 @@ fn set_unit(
         layer.resize(w, l, old, terrain, footprints, rng);
     }
     true
+}
+
+/// Adds to a resource's balance, and to its parent's when it is a kind.
+fn add(v: &mut [f32], k: usize, root: usize, x: f32) {
+    v[k] += x;
+    if k != root {
+        v[root] += x;
+    }
+}
+
+/// What producing `resource` makes: itself, or its kinds by share.
+fn split(rules: &Ruleset, resource: usize) -> Vec<(usize, f32)> {
+    let kinds = rules.kinds(resource);
+    let total: f32 = kinds.iter().map(|&k| rules.resources[k].share).sum();
+    if kinds.is_empty() || total <= 0.0 {
+        vec![(resource, 1.0)]
+    } else {
+        kinds.into_iter().map(|k| (k, rules.resources[k].share / total)).collect()
+    }
+}
+
+/// Senders of an agent resource family in one cell of a network component.
+struct Bucket {
+    senders: Vec<usize>,
+    /// Stock left per family member.
+    left: Vec<f32>,
+}
+
+/// A grid resource family within one network component. Index 0 is the
+/// resource itself, then its kinds.
+struct Pool {
+    supply: Vec<f32>,
+    /// Needs for each kind.
+    want: Vec<f32>,
+    /// Needs for the resource, which any kind fills.
+    slot: f32,
+    /// Share of a kind's needs met.
+    kind_share: Vec<f32>,
+    /// Share of the slot needs met.
+    slot_share: f32,
+    /// Supply of each kind going to slots.
+    slot_take: Vec<f32>,
+}
+
+impl Pool {
+    fn new(n: usize) -> Self {
+        Self { supply: vec![0.0; n], want: vec![0.0; n], slot: 0.0, kind_share: vec![0.0; n], slot_share: 0.0, slot_take: vec![0.0; n] }
+    }
+
+    fn settle(&mut self) {
+        let left: Vec<f32> = (0..self.supply.len()).map(|j| self.supply[j] - self.supply[j].min(self.want[j])).collect();
+        for j in 0..self.supply.len() {
+            self.kind_share[j] = if self.want[j] > 0.0 { (self.supply[j] / self.want[j]).min(1.0) } else { 0.0 };
+        }
+        let spare: f32 = left.iter().sum();
+        let filled = spare.min(self.slot);
+        self.slot_share = if self.slot > 0.0 { filled / self.slot } else { 0.0 };
+        for (take, l) in self.slot_take.iter_mut().zip(&left) {
+            *take = if spare > 0.0 { filled * l / spare } else { 0.0 };
+        }
+    }
+
+    /// Share of kind `j`'s supply that was used.
+    fn used(&self, j: usize) -> f32 {
+        if self.supply[j] <= 0.0 {
+            return 0.0;
+        }
+        ((self.supply[j].min(self.want[j]) + self.slot_take[j]) / self.supply[j]).min(1.0)
+    }
 }
 
 /// Network component a unit connects to: any of its tiles or the tiles up

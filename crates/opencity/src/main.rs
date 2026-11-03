@@ -4,9 +4,12 @@ mod audio;
 #[cfg(not(target_os = "android"))]
 mod bake;
 mod camera;
+mod flows;
 mod gpu;
 #[cfg(not(target_os = "android"))]
 mod graphs;
+#[cfg(not(target_os = "android"))]
+mod network;
 mod render;
 mod roads;
 mod ui;
@@ -87,6 +90,12 @@ struct Args {
     /// Open the GlassBox graphs on this preset (screenshots, docs).
     #[arg(long, hide = true)]
     show_graphs: Option<String>,
+    /// Show the resource network and its panel (screenshots, docs).
+    #[arg(long, hide = true)]
+    show_network: bool,
+    /// Inspect this tile at start, "x,y" (screenshots, docs).
+    #[arg(long, hide = true)]
+    inspect: Option<String>,
     /// Run scripts/bake-0ad.sh now, even if it ran before.
     #[arg(long)]
     bake_0ad: bool,
@@ -295,6 +304,11 @@ struct Game {
     last_mouse: Vec2,
     resume_speed: Speed,
     hover: Option<(u32, u32)>,
+    /// The GlassBox resource network on the map.
+    flow_view: flows::FlowView,
+    flow_arcs: Vec<flows::Arc>,
+    flow_key: Option<flows::ArcsKey>,
+    flow_hover: Option<usize>,
     #[cfg(not(target_os = "android"))]
     egui: Option<ui_egui::EguiUi>,
     /// Background 0 A.D. art installation, if running.
@@ -439,6 +453,13 @@ impl Game {
             Command::SetOverlay(o) => self.overlay = o,
             Command::ResetCamera => self.camera = OrbitCamera::new(self.city.width(), self.city.length()),
             Command::CloseQuery => self.query = None,
+            Command::SetFlows(v) => self.flow_view = v,
+            Command::Inspect(tile) => {
+                self.query = Some((self.last_mouse, tile));
+                if let Some(o) = self.city.layer.origin_of(tile.0, tile.1) {
+                    self.camera.target = flows::unit_centre(&self.city, o);
+                }
+            }
             Command::Quit => return false,
         }
         true
@@ -471,6 +492,49 @@ impl Game {
         }
     }
 
+    /// Rebuilds the network arcs when the city or the view changed, and
+    /// finds the arc under the mouse.
+    fn update_flows(&mut self, cam: &Camera3D, mouse: Vec2, ui_mouse: bool) {
+        if !self.flow_view.on || self.city.glassbox.is_none() {
+            self.flow_arcs.clear();
+            self.flow_key = None;
+            self.flow_hover = None;
+            return;
+        }
+        let focus = self.query.map(|(_, t)| t);
+        let tick = self.city.glassbox.as_ref().map_or(0, |g| g.tick);
+        let key = (tick, self.flow_view.clone(), focus, self.city.layer.revision());
+        if self.flow_key.as_ref() != Some(&key) {
+            self.flow_arcs = flows::arcs(&self.city, &self.flow_view, focus);
+            self.flow_key = Some(key);
+        }
+        self.flow_hover = if ui_mouse { None } else { flows::pick(&self.flow_arcs, cam, mouse) };
+    }
+
+    /// Tints buildings that lack a shown resource, by how much they lack.
+    fn draw_shortages(&self) {
+        let (Some(gb), Some(rules)) = (&self.city.glassbox, self.city.rules()) else { return };
+        if !self.flow_view.shortages {
+            return;
+        }
+        let w = self.city.width();
+        for ((x, l), s) in self.city.layer.structures() {
+            let Some(u) = s.unit.map(|u| u as usize).filter(|&u| u < rules.units.len()) else { continue };
+            let def = &rules.units[u];
+            let lack: f32 = gb
+                .shortfall(rules, u, x, l, w)
+                .iter()
+                .filter(|(r, _)| self.flow_view.shows(rules, *r))
+                .map(|(r, missing)| missing / def.needs.get(&rules.resources[*r].id).copied().unwrap_or(1.0).max(1e-6))
+                .fold(0.0, f32::max);
+            if lack > 0.0 {
+                let (sw, sl) = self.city.footprints().size(s.graphic);
+                let colour = Color::new(1.0, 0.15, 0.1, 0.25 + 0.45 * lack.min(1.0));
+                self.renderer.draw_data_overlay_rect(&self.city.terrain, opencity_core::Rect::sized(x, l, sw, sl), colour);
+            }
+        }
+    }
+
     fn frame(&mut self) -> bool {
         #[cfg(not(target_os = "android"))]
         self.poll_bake();
@@ -498,6 +562,8 @@ impl Game {
                 skin_choice: &self.skin_choice,
                 rulesets: &self.rulesets,
                 overlay: self.overlay,
+                flows: &self.flow_view,
+                flow_hover: self.flow_hover.and_then(|i| self.flow_arcs.get(i)).map(|a| (a.link, a.amount)),
             };
             let mut commands = Vec::new();
             egui_macroquad::ui(|ctx| {
@@ -513,6 +579,9 @@ impl Game {
             }
         }
 
+        if is_key_pressed(KeyCode::V) && !egui_keyboard && self.city.glassbox.is_some() {
+            self.flow_view.on = !self.flow_view.on;
+        }
         if is_key_pressed(KeyCode::Escape) && !egui_keyboard {
             if self.active.is_some() || self.query.is_some() {
                 self.active = None;
@@ -565,6 +634,7 @@ impl Game {
         let cam = self.camera.camera();
         let hover = if ui_mouse { None } else { pick_tile(&cam, &self.city.terrain, mouse) };
         self.hover = hover;
+        self.update_flows(&cam, mouse, ui_mouse);
         let t = phase(1, t);
 
         // Map interaction.
@@ -604,6 +674,10 @@ impl Game {
                     }
                 }
             }
+        }
+        if self.flow_view.on {
+            self.draw_shortages();
+            self.renderer.draw_flows(&self.flow_arcs, &cam, get_time(), self.flow_hover);
         }
         if let Some(Action::Tool(Some(tool))) = self.active {
             if let (Some(start), Some(cur)) = (self.drag_start, hover) {
@@ -720,6 +794,10 @@ async fn main() -> Result<()> {
         last_mouse: mouse_position().into(),
         resume_speed: Speed::Normal,
         hover: None,
+        flow_view: Default::default(),
+        flow_arcs: Vec::new(),
+        flow_key: None,
+        flow_hover: None,
         #[cfg(not(target_os = "android"))]
         egui: (!s.args.classic_ui).then(|| ui_egui::EguiUi::new(&s.settings.map)),
         // Never in automated runs (screenshots, benchmarks, CI).
@@ -737,6 +815,19 @@ async fn main() -> Result<()> {
     #[cfg(not(target_os = "android"))]
     if let (Some(preset), Some(ui)) = (&s.args.show_graphs, game.egui.as_mut()) {
         ui.open_graphs(preset);
+    }
+    #[cfg(not(target_os = "android"))]
+    if let Some((x, y)) = s.args.inspect.as_deref().and_then(|v| v.split_once(',')) {
+        if let (Ok(x), Ok(y)) = (x.trim().parse(), y.trim().parse()) {
+            game.run_command(ui_egui::Command::Inspect((x, y)));
+            game.flow_view.focus_only = true;
+        }
+    }
+    if s.args.show_network {
+        game.flow_view.on = true;
+        if let Some(ui) = game.egui.as_mut() {
+            ui.open_network();
+        }
     }
     if s.args.screenshot.is_some() {
         game.camera.distance *= 0.75;

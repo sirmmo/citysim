@@ -38,6 +38,16 @@ agentRule freightTraffic
     area -timestamp=Time -map=Noise level 1.5 2
 end
 
+# --- Kinds: every kind of car is noisy (Extended GlassBox `{type}`) -------
+# `car.{type}` repeats the line for each kind declared in the TOML file
+# (car.gasoline, car.electric). Petrol cars also leave a PM10 trail, set on
+# the kind itself (`trail`), and each kind draws on its own network (`uses`).
+agentRule carNoise
+    condition resource=car.{type}
+    repeatAfter 3
+    area -timestamp=Time -map=Noise level 0.4 1
+end
+
 # --- Maps: clean air slowly raises land value -----------------------------
 mapRule cleanAirValue
     rate 10

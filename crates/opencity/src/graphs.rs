@@ -44,7 +44,17 @@ pub struct Graphs {
 
 impl Default for Graphs {
     fn default() -> Self {
-        Self { open: false, selected: BTreeSet::new(), filter: String::new(), range: Range::Last(500), normalize: false, smooth: 1, note: None, cleared: false, pending: None }
+        Self {
+            open: false,
+            selected: BTreeSet::new(),
+            filter: String::new(),
+            range: Range::Last(500),
+            normalize: false,
+            smooth: 1,
+            note: None,
+            cleared: false,
+            pending: None,
+        }
     }
 }
 

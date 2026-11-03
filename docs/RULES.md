@@ -26,6 +26,51 @@ Buildings are **units**. Each one:
 | `city` | Into or out of the treasury. | taxes, upkeep |
 | `local` | Stays in the unit, used for statistics. | residents |
 
+**Kinds** (subtypes) split an `agents` or `grid` resource into variants that
+fill the same slots but weigh on different networks. `car` with kinds
+`gasoline` and `electric` becomes three resources: `car`, `car.gasoline` and
+`car.electric`.
+
+* **Slots.** A need for `car` is a slot that either kind fills, from the
+  nearest sender with any kind in stock. A need for `car.electric` takes only
+  electric cars, and is served before slots.
+* **Production.** A unit that produces `car` makes its kinds by their
+  `share`. A unit can also produce a kind directly.
+* **Secondary impacts.** `uses` lists resources a kind needs per unit moved.
+  The sender asks for them the next tick through their own networks, and they
+  count towards its satisfaction like its other needs. `trail` adds to map
+  layers per unit moved and per tile travelled.
+* **Balances.** The parent's balances (produced, delivered, unmet,
+  undelivered) are totals over its kinds. Zone demand terms on `car` see the
+  whole family.
+* **Kinds move like their parent:** same transport and network; `max_trip`
+  can differ.
+
+```toml
+[[resource]]
+id = "car"
+name = "Cars"
+transport = "agents"
+network = "road"
+
+  [[resource.subtype]]
+  id = "gasoline"
+  name = "Petrol cars"
+  share = 0.75
+  uses = { fuel = 0.25 }                # fuel delivered by road
+  trail = { "AirQuality.pm10" = 0.1 }   # air pollution along the route
+
+  [[resource.subtype]]
+  id = "electric"
+  name = "Electric cars"
+  share = 0.25
+  uses = { power = 0.3 }                # charging, from the power grid
+```
+
+In `.gbx` scripts, `car.{type}` repeats the line once per kind (the Extended
+GlassBox `{type}` placeholder). A rule's `condition resource=car` follows every
+kind of car.
+
 **Networks** are made of structures (`road`, `power_line`). With
 `through_buildings`, adjacent buildings conduct too, as with OpenCity's power.
 
@@ -41,7 +86,9 @@ When demand is positive, empty plots near roads develop into the density's
 first unit. Units with high satisfaction grow to the next unit; unhappy ones
 shrink, and empty their plot at the first level (`[growth]` sets the thresholds).
 
-Growth is damped so that buildings do not flicker between states:
+Growth is damped so that buildings do not flicker between states. A building
+also never levels up into a unit whose layer `requires` already fail on its
+tile, since it would only shrink back:
 
 | `[growth]` key | Default | Effect |
 |---|---|---|
@@ -65,6 +112,8 @@ coverage layers that bigger buildings require.
 ```
 houses ──workers──▶ industry, shops, services        (by road)
 houses ──shoppers─▶ shops                            (by road)
+houses ──cars─────▶ parking at shops and industry    (by road; petrol or electric)
+industry ──fuel───▶ homes of petrol cars             (by road)
 industry ──goods──▶ shops                            (by road)
 power plants ──power──▶ everything connected         (grid: power lines, roads, buildings)
 zones ──taxes──▶ treasury ──upkeep──▶ services and plants
@@ -85,6 +134,23 @@ short of goods.
 * **Inspect** (`/`) a building to see its satisfaction, needs, production and
   layer requirements.
 * **View > Data layer** draws pollution, land value or a service's coverage over the map.
+* **Resource network** (`V`, **View > Resource network**, or **Network** in the
+  City panel) draws who sends what to whom on the map. Each link (a sender
+  building to a receiver) is an arc in its resource's colour (`colour` in
+  `[[resource]]`). Arcs are as thick as the flow, smoothed over recent ticks,
+  with dots travelling towards the receiver. Power links run from plants to
+  the consumers of their grid. Buildings that lack a shown resource are
+  tinted red by how much they lack. Hover an arc to read the resource, both
+  ends, the amount per tick and the distance.
+  * The panel toggles each resource. Workers, shoppers and goods are on by
+    default; power is off. It hides links under an amount and switches the
+    shortage tint. **Only the inspected building's links** isolates one
+    building.
+  * Per resource, it lists links, amount per tick, mean trip length, the share
+    served and the unmet amount. Two lists, **Busiest links** and **Biggest
+    shortages**, jump to a building when clicked.
+  * **Inspect** (`/`) a building to list its incoming and outgoing links,
+    with links to the buildings at the other end.
 * **GlassBox graphs** (`G`, **View > GlassBox graphs** or the button in the City panel)
   plot every series the engine samples each tick, for the last 2000 ticks:
   demand; produced, delivered, unmet and undelivered resources; buildings and
@@ -117,7 +183,8 @@ scripts = ["my_rules.gbx"]         # GlassBox rule scripts (optional)
 
 [growth]                           # level_up, level_down, chance, max_new, road_access
 
-[[resource]]                       # id, name, transport, network, max_trip
+[[resource]]                       # id, name, transport, network, max_trip, colour, uses, trail
+  [[resource.subtype]]             # id, name, share, max_trip, colour, uses, trail
 [[network]]                        # id, name, structures, through_buildings
 [[layer]]                          # id, name, diffusion, decay, colour, max
 [[zone]]                           # id, name, structure, densities, demand, base_demand

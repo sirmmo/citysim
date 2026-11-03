@@ -28,6 +28,7 @@ name = "Workers"
 transport = "agents"
 network = "road"
 max_trip = 30
+colour = [0.35, 0.65, 1.0]       # links on the network view
 
 [[resource]]
 id = "shoppers"
@@ -35,6 +36,7 @@ name = "Shoppers"
 transport = "agents"
 network = "road"
 max_trip = 20
+colour = [1.0, 0.45, 0.75]       # links on the network view
 
 [[resource]]
 id = "goods"
@@ -42,12 +44,49 @@ name = "Goods"
 transport = "agents"
 network = "road"
 max_trip = 40
+colour = [1.0, 0.7, 0.2]       # links on the network view
+
+# Cars: one resource with two kinds. Both fill the same parking slots at
+# shops and workplaces (a need for "car"), but each draws on another network:
+# petrol cars need fuel and dirty the air along their routes, electric cars
+# charge from the power grid at home.
+[[resource]]
+id = "car"
+name = "Cars"
+transport = "agents"
+network = "road"
+max_trip = 30
+colour = [0.75, 0.75, 0.8]
+
+  [[resource.subtype]]
+  id = "gasoline"
+  name = "Petrol cars"
+  share = 0.75
+  colour = [0.9, 0.35, 0.25]
+  uses = { fuel = 0.25 }                  # per car sent, the next tick
+  trail = { "AirQuality.pm10" = 0.1 }     # per car and tile travelled
+
+  [[resource.subtype]]
+  id = "electric"
+  name = "Electric cars"
+  share = 0.25
+  colour = [0.3, 0.9, 0.6]
+  uses = { power = 0.3 }
+
+[[resource]]
+id = "fuel"
+name = "Fuel"
+transport = "agents"
+network = "road"
+max_trip = 40
+colour = [0.65, 0.45, 0.95]
 
 [[resource]]
 id = "power"
 name = "Power"
 transport = "grid"
 network = "power_grid"
+colour = [1.0, 0.95, 0.35]       # links on the network view
 
 [[resource]]
 id = "taxes"
@@ -201,81 +240,81 @@ park = "park"
 id = "house_1"
 name = "Cottage"
 graphic = 11
-produce = { residents = 4, workers = 2, shoppers = 2, taxes = 0.04 }
+produce = { residents = 4, workers = 2, shoppers = 2, taxes = 0.04, car = 1 }
 needs = { power = 1 }
-sends = ["workers", "shoppers"]
+sends = ["workers", "shoppers", "car"]
 requires = { pollution = { max = 30 } }
 
 [[unit]]
 id = "house_2"
 name = "Family house"
 graphic = 12
-produce = { residents = 6, workers = 3, shoppers = 3, taxes = 0.06 }
+produce = { residents = 6, workers = 3, shoppers = 3, taxes = 0.06, car = 1.5 }
 needs = { power = 1 }
-sends = ["workers", "shoppers"]
+sends = ["workers", "shoppers", "car"]
 requires = { pollution = { max = 25 } }
 
 [[unit]]
 id = "house_3"
 name = "Large house"
 graphic = 13
-produce = { residents = 8, workers = 4, shoppers = 4, taxes = 0.09 }
+produce = { residents = 8, workers = 4, shoppers = 4, taxes = 0.09, car = 2 }
 needs = { power = 2 }
-sends = ["workers", "shoppers"]
+sends = ["workers", "shoppers", "car"]
 requires = { pollution = { max = 20 }, land_value = { min = 2 } }
 
 [[unit]]
 id = "townhouse_1"
 name = "Townhouses"
 graphic = 14
-produce = { residents = 12, workers = 6, shoppers = 5, taxes = 0.12 }
+produce = { residents = 12, workers = 6, shoppers = 5, taxes = 0.12, car = 3 }
 needs = { power = 2 }
-sends = ["workers", "shoppers"]
+sends = ["workers", "shoppers", "car"]
 requires = { pollution = { max = 25 } }
 
 [[unit]]
 id = "townhouse_2"
 name = "Apartments"
 graphic = 15
-produce = { residents = 18, workers = 9, shoppers = 7, taxes = 0.18 }
+produce = { residents = 18, workers = 9, shoppers = 7, taxes = 0.18, car = 4.5 }
 needs = { power = 3 }
-sends = ["workers", "shoppers"]
+sends = ["workers", "shoppers", "car"]
 requires = { pollution = { max = 20 }, fire_safety = { min = 1 } }
 
 [[unit]]
 id = "townhouse_3"
 name = "Apartment block"
 graphic = 17
-produce = { residents = 26, workers = 13, shoppers = 10, taxes = 0.26 }
+produce = { residents = 26, workers = 13, shoppers = 10, taxes = 0.26, car = 6.5 }
 needs = { power = 4 }
-sends = ["workers", "shoppers"]
+sends = ["workers", "shoppers", "car"]
 requires = { pollution = { max = 15 }, fire_safety = { min = 1 }, police_safety = { min = 1 } }
 
 [[unit]]
 id = "tower_1"
 name = "Residential tower"
 graphic = 16
-produce = { residents = 40, workers = 20, shoppers = 15, taxes = 0.4 }
+produce = { residents = 40, workers = 20, shoppers = 15, taxes = 0.4, car = 10 }
 needs = { power = 6 }
-sends = ["workers", "shoppers"]
+sends = ["workers", "shoppers", "car"]
 requires = { pollution = { max = 20 }, fire_safety = { min = 1 } }
 
 [[unit]]
 id = "tower_2"
 name = "High-rise"
 graphic = 18
-produce = { residents = 90, workers = 45, shoppers = 32, taxes = 0.9 }
+produce = { residents = 90, workers = 45, shoppers = 32, taxes = 0.9, car = 22.5 }
 needs = { power = 12 }
-sends = ["workers", "shoppers"]
+sends = ["workers", "shoppers", "car"]
 requires = { pollution = { max = 15 }, fire_safety = { min = 1 }, police_safety = { min = 1 }, health = { min = 1 } }
 
 [[unit]]
 id = "tower_3"
 name = "Skyscraper"
 graphic = 19
-produce = { residents = 160, workers = 80, shoppers = 55, taxes = 1.6 }
+produce = { residents = 160, workers = 80, shoppers = 55, taxes = 1.6, car = 40 }
 needs = { power = 20 }
-sends = ["workers", "shoppers"]
+sends = ["workers", "shoppers", "car"]
 requires = { pollution = { max = 10 }, fire_safety = { min = 1 }, police_safety = { min = 1 }, health = { min = 1 }, education = { min = 1 }, land_value = { min = 5 } }
 
 # Commercial: shops need workers, customers and goods.
@@ -284,7 +323,7 @@ id = "shop_1"
 name = "Corner shop"
 graphic = 21
 produce = { taxes = 0.05 }
-needs = { workers = 1, shoppers = 3, goods = 1, power = 1 }
+needs = { workers = 1, shoppers = 3, goods = 1, power = 1, car = 0.5 }
 emits = { land_value = { amount = 0.4, radius = 2 } }
 
 [[unit]]
@@ -292,7 +331,7 @@ id = "shop_2"
 name = "Store"
 graphic = 22
 produce = { taxes = 0.08 }
-needs = { workers = 2, shoppers = 5, goods = 2, power = 1 }
+needs = { workers = 2, shoppers = 5, goods = 2, power = 1, car = 1 }
 emits = { land_value = { amount = 0.6, radius = 2 } }
 
 [[unit]]
@@ -300,7 +339,7 @@ id = "shop_3"
 name = "Supermarket"
 graphic = 23
 produce = { taxes = 0.12 }
-needs = { workers = 3, shoppers = 8, goods = 3, power = 2 }
+needs = { workers = 3, shoppers = 8, goods = 3, power = 2, car = 1.5 }
 emits = { land_value = { amount = 0.8, radius = 3 } }
 
 [[unit]]
@@ -308,7 +347,7 @@ id = "store_1"
 name = "Shopping street"
 graphic = 24
 produce = { taxes = 0.2 }
-needs = { workers = 5, shoppers = 12, goods = 5, power = 3 }
+needs = { workers = 5, shoppers = 12, goods = 5, power = 3, car = 2.5 }
 emits = { land_value = { amount = 1.0, radius = 3 } }
 
 [[unit]]
@@ -316,7 +355,7 @@ id = "store_2"
 name = "Department store"
 graphic = 26
 produce = { taxes = 0.35 }
-needs = { workers = 8, shoppers = 20, goods = 8, power = 4 }
+needs = { workers = 8, shoppers = 20, goods = 8, power = 4, car = 4 }
 emits = { land_value = { amount = 1.2, radius = 3 } }
 requires = { fire_safety = { min = 1 } }
 
@@ -325,7 +364,7 @@ id = "store_3"
 name = "Hotel"
 graphic = 27
 produce = { taxes = 0.5 }
-needs = { workers = 12, shoppers = 25, goods = 10, power = 6 }
+needs = { workers = 12, shoppers = 25, goods = 10, power = 6, car = 6 }
 emits = { land_value = { amount = 1.5, radius = 4 } }
 requires = { fire_safety = { min = 1 }, police_safety = { min = 1 } }
 
@@ -334,7 +373,7 @@ id = "mall_1"
 name = "Grand hotel"
 graphic = 28
 produce = { taxes = 0.7 }
-needs = { workers = 15, shoppers = 30, goods = 12, power = 8 }
+needs = { workers = 15, shoppers = 30, goods = 12, power = 8, car = 7.5 }
 emits = { land_value = { amount = 2.0, radius = 4 } }
 requires = { fire_safety = { min = 1 } }
 
@@ -343,7 +382,7 @@ id = "mall_2"
 name = "Shopping centre"
 graphic = 25
 produce = { taxes = 1.4 }
-needs = { workers = 30, shoppers = 60, goods = 25, power = 15 }
+needs = { workers = 30, shoppers = 60, goods = 25, power = 15, car = 15 }
 emits = { land_value = { amount = 3.0, radius = 5 } }
 requires = { fire_safety = { min = 1 }, police_safety = { min = 1 } }
 
@@ -352,7 +391,7 @@ id = "mall_3"
 name = "Office tower"
 graphic = 29
 produce = { taxes = 2.0 }
-needs = { workers = 45, shoppers = 50, goods = 20, power = 20 }
+needs = { workers = 45, shoppers = 50, goods = 20, power = 20, car = 22.5 }
 emits = { land_value = { amount = 4.0, radius = 6 } }
 requires = { fire_safety = { min = 1 }, police_safety = { min = 1 }, education = { min = 1 } }
 
@@ -361,54 +400,54 @@ requires = { fire_safety = { min = 1 }, police_safety = { min = 1 }, education =
 id = "workshop_1"
 name = "Workshop"
 graphic = 31
-produce = { goods = 2, taxes = 0.04 }
-needs = { workers = 2, power = 1 }
-sends = ["goods"]
+produce = { goods = 2, taxes = 0.04, fuel = 1 }
+needs = { workers = 2, power = 1, car = 1 }
+sends = ["goods", "fuel"]
 emits = { pollution = { amount = 1.0, radius = 2 } }
 
 [[unit]]
 id = "workshop_2"
 name = "Meat factory"
 graphic = 32
-produce = { goods = 3, taxes = 0.06 }
-needs = { workers = 3, power = 2 }
-sends = ["goods"]
+produce = { goods = 3, taxes = 0.06, fuel = 1.5 }
+needs = { workers = 3, power = 2, car = 1.5 }
+sends = ["goods", "fuel"]
 emits = { pollution = { amount = 1.5, radius = 2 } }
 
 [[unit]]
 id = "workshop_3"
 name = "Hangar"
 graphic = 33
-produce = { goods = 4, taxes = 0.08 }
-needs = { workers = 4, power = 2 }
-sends = ["goods"]
+produce = { goods = 4, taxes = 0.08, fuel = 2 }
+needs = { workers = 4, power = 2, car = 2 }
+sends = ["goods", "fuel"]
 emits = { pollution = { amount = 2.0, radius = 2 } }
 
 [[unit]]
 id = "factory_1"
 name = "Warehouse"
 graphic = 34
-produce = { goods = 6, taxes = 0.12 }
-needs = { workers = 6, power = 3 }
-sends = ["goods"]
+produce = { goods = 6, taxes = 0.12, fuel = 3 }
+needs = { workers = 6, power = 3, car = 3 }
+sends = ["goods", "fuel"]
 emits = { pollution = { amount = 2.5, radius = 3 } }
 
 [[unit]]
 id = "factory_2"
 name = "Container yard"
 graphic = 35
-produce = { goods = 9, taxes = 0.18 }
-needs = { workers = 8, power = 4 }
-sends = ["goods"]
+produce = { goods = 9, taxes = 0.18, fuel = 4.5 }
+needs = { workers = 8, power = 4, car = 4 }
+sends = ["goods", "fuel"]
 emits = { pollution = { amount = 3.0, radius = 3 } }
 
 [[unit]]
 id = "factory_3"
 name = "Tank farm"
 graphic = 36
-produce = { goods = 12, taxes = 0.24 }
-needs = { workers = 10, power = 5 }
-sends = ["goods"]
+produce = { goods = 12, taxes = 0.24, fuel = 6 }
+needs = { workers = 10, power = 5, car = 5 }
+sends = ["goods", "fuel"]
 emits = { pollution = { amount = 4.0, radius = 3 } }
 requires = { fire_safety = { min = 1 } }
 
@@ -416,18 +455,18 @@ requires = { fire_safety = { min = 1 } }
 id = "plant_1"
 name = "Refinery"
 graphic = 37
-produce = { goods = 16, taxes = 0.3 }
-needs = { workers = 14, power = 6 }
-sends = ["goods"]
+produce = { goods = 16, taxes = 0.3, fuel = 20 }
+needs = { workers = 14, power = 6, car = 7 }
+sends = ["goods", "fuel"]
 emits = { pollution = { amount = 5.0, radius = 4 } }
 
 [[unit]]
 id = "plant_2"
 name = "Steel mill"
 graphic = 38
-produce = { goods = 30, taxes = 0.6 }
-needs = { workers = 25, power = 12 }
-sends = ["goods"]
+produce = { goods = 30, taxes = 0.6, fuel = 6 }
+needs = { workers = 25, power = 12, car = 12.5 }
+sends = ["goods", "fuel"]
 emits = { pollution = { amount = 8.0, radius = 5 } }
 requires = { fire_safety = { min = 1 } }
 
@@ -435,9 +474,9 @@ requires = { fire_safety = { min = 1 } }
 id = "plant_3"
 name = "Aeronautics works"
 graphic = 39
-produce = { goods = 45, taxes = 1.0 }
-needs = { workers = 40, power = 20 }
-sends = ["goods"]
+produce = { goods = 45, taxes = 1.0, fuel = 6 }
+needs = { workers = 40, power = 20, car = 20 }
+sends = ["goods", "fuel"]
 emits = { pollution = { amount = 6.0, radius = 4 } }
 requires = { fire_safety = { min = 1 }, education = { min = 1 } }
 

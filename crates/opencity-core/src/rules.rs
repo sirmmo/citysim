@@ -48,10 +48,88 @@ pub struct ResourceDef {
     /// Longest trip in tiles for agent transport.
     #[serde(default = "default_trip")]
     pub max_trip: u32,
+    /// Colour of its links on the network view (RGB, 0..1).
+    #[serde(default)]
+    pub colour: Option<[f32; 3]>,
+    /// Kinds of this resource (`car` → `car.gasoline`, `car.electric`).
+    /// A need for the resource is a slot any kind fills; a need for a kind
+    /// takes only that kind. Producing the resource makes its kinds by `share`.
+    #[serde(default, rename = "subtype", skip_serializing_if = "Vec::is_empty")]
+    pub subtypes: Vec<SubtypeDef>,
+    /// For a kind: the resource it is a kind of (set when the rules are read).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub parent: Option<String>,
+    /// For a kind: its share of what is produced as the parent resource.
+    #[serde(default = "default_share")]
+    pub share: f32,
+    /// Secondary impact: other resources needed per unit moved, asked of
+    /// the sender the next tick (electric cars draw power, petrol cars fuel).
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub uses: BTreeMap<String, f32>,
+    /// Secondary impact: added to map layers per unit moved and tile travelled.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub trail: BTreeMap<String, f32>,
+}
+
+/// A kind of resource, declared inside it as `[[resource.subtype]]`.
+/// It moves like its parent (same transport and network).
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SubtypeDef {
+    /// Short id; the resource id becomes `<parent>.<id>`.
+    pub id: String,
+    pub name: String,
+    #[serde(default = "default_share")]
+    pub share: f32,
+    #[serde(default)]
+    pub max_trip: Option<u32>,
+    #[serde(default)]
+    pub colour: Option<[f32; 3]>,
+    #[serde(default)]
+    pub uses: BTreeMap<String, f32>,
+    #[serde(default)]
+    pub trail: BTreeMap<String, f32>,
 }
 
 fn default_trip() -> u32 {
     40
+}
+
+fn default_share() -> f32 {
+    1.0
+}
+
+/// Reads resources, adding each declared subtype as a resource of its own
+/// right after its parent.
+fn flatten_resources<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Vec<ResourceDef>, D::Error> {
+    let list: Vec<ResourceDef> = Vec::deserialize(d)?;
+    let mut out: Vec<ResourceDef> = Vec::new();
+    for r in list {
+        let kinds: Vec<ResourceDef> = r
+            .subtypes
+            .iter()
+            .map(|k| ResourceDef {
+                id: format!("{}.{}", r.id, k.id),
+                name: k.name.clone(),
+                transport: r.transport,
+                network: r.network.clone(),
+                max_trip: k.max_trip.unwrap_or(r.max_trip),
+                colour: k.colour,
+                subtypes: Vec::new(),
+                parent: Some(r.id.clone()),
+                share: k.share,
+                uses: k.uses.clone(),
+                trail: k.trail.clone(),
+            })
+            .collect();
+        out.push(r);
+        for k in kinds {
+            if !out.iter().any(|x| x.id == k.id) {
+                out.push(k);
+            }
+        }
+    }
+    Ok(out)
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -254,7 +332,7 @@ pub struct Ruleset {
     pub name: String,
     #[serde(default)]
     pub description: String,
-    #[serde(default, rename = "resource")]
+    #[serde(default, rename = "resource", deserialize_with = "flatten_resources")]
     pub resources: Vec<ResourceDef>,
     #[serde(default, rename = "layer")]
     pub layers: Vec<LayerDef>,
@@ -350,11 +428,14 @@ pub struct ZoneRule {
     pub create: String,
 }
 
-/// Emission of a map value along the route of agents carrying `resource`.
+/// Emission of a map value along the route of agents carrying `resources`.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct AgentRule {
     pub name: String,
-    pub resource: Option<String>,
+    /// Resources whose trips the rule follows (any of them; a resource also
+    /// covers its kinds). Empty: every trip.
+    #[serde(default)]
+    pub resources: Vec<String>,
     /// Emit every `every` tiles travelled.
     pub every: u32,
     pub areas: Vec<AreaEmission>,
@@ -378,6 +459,22 @@ impl Ruleset {
     pub fn resource(&self, id: &str) -> Option<usize> {
         self.resources.iter().position(|r| r.id == id)
     }
+
+    /// The resource a kind belongs to (itself when it is not a kind).
+    pub fn root(&self, resource: usize) -> usize {
+        self.resources[resource].parent.as_deref().and_then(|p| self.resource(p)).unwrap_or(resource)
+    }
+
+    /// The kinds of a resource.
+    pub fn kinds(&self, resource: usize) -> Vec<usize> {
+        let id = &self.resources[resource].id;
+        (0..self.resources.len()).filter(|&k| self.resources[k].parent.as_ref() == Some(id)).collect()
+    }
+
+    /// A resource and its kinds: the resources that can fill a need for it.
+    pub fn family(&self, resource: usize) -> Vec<usize> {
+        std::iter::once(resource).chain(self.kinds(resource)).collect()
+    }
     pub fn layer(&self, id: &str) -> Option<usize> {
         self.layers.iter().position(|l| l.id == id)
     }
@@ -397,6 +494,30 @@ impl Ruleset {
     pub fn validate(&self) -> Result<(), RulesError> {
         let err = |message: String| Err(RulesError { rules: self.id.clone(), message });
         for r in &self.resources {
+            if let Some(p) = &r.parent {
+                match self.resource(p).map(|i| &self.resources[i]) {
+                    None => return err(format!("resource {}: unknown parent {p}", r.id)),
+                    Some(pr) if pr.parent.is_some() => return err(format!("resource {}: kinds cannot have kinds", r.id)),
+                    Some(pr) if !matches!(pr.transport, Transport::Agents | Transport::Grid) => {
+                        return err(format!("resource {}: only agent and grid resources have kinds", pr.id))
+                    }
+                    Some(pr) if pr.transport != r.transport || pr.network != r.network => return err(format!("resource {}: a kind moves like {p}", r.id)),
+                    _ => {}
+                }
+                if !r.share.is_finite() || r.share < 0.0 {
+                    return err(format!("resource {}: share must be 0 or more", r.id));
+                }
+            }
+            for u in r.uses.keys() {
+                if self.resource(u).is_none() {
+                    return err(format!("resource {}: uses unknown resource {u}", r.id));
+                }
+            }
+            for l in r.trail.keys() {
+                if self.layer(l).is_none() {
+                    return err(format!("resource {}: trail on unknown layer {l}", r.id));
+                }
+            }
             match (r.transport, &r.network) {
                 (Transport::Agents | Transport::Grid, None) => return err(format!("resource {}: {:?} transport needs a network", r.id, r.transport)),
                 (_, Some(n)) if self.network(n).is_none() => return err(format!("resource {}: unknown network {n}", r.id)),

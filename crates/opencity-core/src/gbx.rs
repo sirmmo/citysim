@@ -71,11 +71,36 @@ fn tokenize(text: &str) -> Vec<Line> {
         .collect()
 }
 
-fn blocks(file: &str, text: &str) -> Result<Vec<Block>, RulesError> {
+/// Extended GlassBox `{type}` placeholders: a line naming `<resource>.{type}`
+/// is repeated once per kind of that resource, `{type}` replaced by the kind.
+fn expand_types(rules: &Ruleset, file: &str, lines: Vec<Line>) -> Result<Vec<Line>, RulesError> {
+    let mut out = Vec::new();
+    for line in lines {
+        let Some(word) = line.words.iter().find(|w| w.contains("{type}")) else {
+            out.push(line);
+            continue;
+        };
+        // `car.{type}`, also as an option value (`resource=car.{type}`).
+        let base = word.split("{type}").next().unwrap_or("").trim_end_matches('.').rsplit('=').next().unwrap_or("");
+        let kinds: Vec<String> = rules
+            .resource(base)
+            .map(|r| rules.kinds(r).into_iter().map(|k| rules.resources[k].id.rsplit('.').next().unwrap_or_default().to_string()).collect())
+            .unwrap_or_default();
+        if kinds.is_empty() {
+            return Err(RulesError { rules: file.to_string(), message: format!("line {}: {word}: {base:?} is not a resource with subtypes", line.no) });
+        }
+        for k in kinds {
+            out.push(Line { no: line.no, words: line.words.iter().map(|w| w.replace("{type}", &k)).collect() });
+        }
+    }
+    Ok(out)
+}
+
+fn blocks(file: &str, lines: Vec<Line>) -> Result<Vec<Block>, RulesError> {
     let err = |no: usize, m: String| RulesError { rules: file.to_string(), message: format!("line {no}: {m}") };
     let mut out = Vec::new();
     let mut cur: Option<Block> = None;
-    for line in tokenize(text) {
+    for line in lines {
         let head = line.words[0].as_str();
         match (&mut cur, head) {
             (None, "rule" | "unitRule" | "mapRule" | "zoneRule" | "agentRule") => {
@@ -148,7 +173,8 @@ fn plain(words: &[String]) -> Vec<&str> {
 pub fn compile(rules: &mut Ruleset, file: &str, text: &str) -> Result<Vec<String>, RulesError> {
     let mut warnings = Vec::new();
     let err = |no: usize, m: String| RulesError { rules: file.to_string(), message: format!("line {no}: {m}") };
-    for b in blocks(file, text)? {
+    let lines = expand_types(rules, file, tokenize(text))?;
+    for b in blocks(file, lines)? {
         let mut every = 1.0f32;
         let mut network: Option<String> = None;
         let mut applies: Option<String> = None;
@@ -291,12 +317,12 @@ pub fn compile(rules: &mut Ruleset, file: &str, text: &str) -> Result<Vec<String
                 rules.zone_rules.push(r);
             }
             "agentRule" => {
-                let mut r = AgentRule { name: b.name.clone(), resource: None, every: every as u32, areas: Vec::new() };
+                let mut r = AgentRule { name: b.name.clone(), resources: Vec::new(), every: every as u32, areas: Vec::new() };
                 for l in &b.lines {
                     let w: Vec<&str> = l.words.iter().map(String::as_str).collect();
                     match w.as_slice() {
                         ["repeatAfter" | "rate", ..] => {}
-                        ["condition", c] => r.resource = c.strip_prefix("resource=").map(str::to_string),
+                        ["condition", c] => r.resources.extend(c.strip_prefix("resource=").map(str::to_string)),
                         ["area", ..] => {
                             let map = option(&l.words, "map").ok_or_else(|| err(l.no, "area needs -map=".into()))?;
                             let p = plain(&l.words[1..]);
@@ -341,7 +367,19 @@ fn declare_resource(rules: &mut Ruleset, id: &str, transport: Transport, network
         }
         return;
     }
-    rules.resources.push(ResourceDef { id: id.to_string(), name: id.to_string(), transport, network, max_trip: 40 });
+    rules.resources.push(ResourceDef {
+        id: id.to_string(),
+        name: id.to_string(),
+        transport,
+        network,
+        max_trip: 40,
+        colour: None,
+        subtypes: Vec::new(),
+        parent: None,
+        share: 1.0,
+        uses: Default::default(),
+        trail: Default::default(),
+    });
 }
 
 fn declare_layer(rules: &mut Ruleset, id: &str) {
@@ -435,6 +473,41 @@ mod tests {
         assert_eq!(r.agent_rules[0].areas[1].layer, "NoiseMap.noise");
         assert_eq!(r.resources[r.resource("Car").unwrap()].network.as_deref(), Some("road"));
         r.validate().unwrap();
+    }
+
+    #[test]
+    fn expands_type_placeholders_over_kinds() {
+        let mut r: Ruleset = toml::from_str(
+            r#"
+        id = "t"
+        name = "t"
+        [[resource]]
+        id = "car"
+        name = "Cars"
+        transport = "agents"
+        network = "road"
+          [[resource.subtype]]
+          id = "gasoline"
+          name = "Petrol"
+          [[resource.subtype]]
+          id = "electric"
+          name = "Electric"
+        [[network]]
+        id = "road"
+        name = "Roads"
+        structures = ["road"]
+        [[layer]]
+        id = "Noise.level"
+        name = "Noise"
+        "#,
+        )
+        .unwrap();
+        assert_eq!(r.resource("car.electric").map(|k| r.root(k)), r.resource("car"));
+        let script = "agentRule carNoise\n    condition resource=car.{type}\n    area -map=Noise level 1 1\nend\n";
+        compile(&mut r, "t.gbx", script).unwrap();
+        assert_eq!(r.agent_rules[0].resources, ["car.gasoline", "car.electric"]);
+        let bad = compile(&mut r, "t.gbx", "agentRule x\n    condition resource=bus.{type}\nend\n").unwrap_err();
+        assert!(bad.message.contains("not a resource with subtypes"), "{}", bad.message);
     }
 
     #[test]

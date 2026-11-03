@@ -37,6 +37,10 @@ pub enum Command {
     ExportGeojson(PathBuf),
     ResetCamera,
     CloseQuery,
+    /// Network view settings (GlassBox rules).
+    SetFlows(crate::flows::FlowView),
+    /// Inspect the building on this tile and look at it.
+    Inspect((u32, u32)),
     Quit,
 }
 
@@ -54,6 +58,9 @@ pub struct View<'a> {
     pub skin_choice: &'a Option<Option<String>>,
     pub rulesets: &'a [Arc<Ruleset>],
     pub overlay: Option<usize>,
+    pub flows: &'a crate::flows::FlowView,
+    /// The network link under the mouse and its amount per tick.
+    pub flow_hover: Option<(opencity_core::glassbox::Link, f32)>,
 }
 
 #[derive(Default)]
@@ -81,6 +88,7 @@ pub struct EguiUi {
     import_rules: String,
     show_city: bool,
     graphs: crate::graphs::Graphs,
+    show_network: bool,
     /// Skin the current style and icons were built for.
     styled_for: Option<Option<String>>,
 }
@@ -149,6 +157,7 @@ impl EguiUi {
             import_rules: String::new(),
             show_city: true,
             graphs: Default::default(),
+            show_network: false,
             styled_for: None,
         }
     }
@@ -200,6 +209,10 @@ impl EguiUi {
         Some(tex)
     }
 
+    pub fn open_network(&mut self) {
+        self.show_network = true;
+    }
+
     /// Opens the GlassBox graphs on a preset (by name, e.g. "Growth churn").
     pub fn open_graphs(&mut self, preset: &str) {
         self.graphs.open_on(preset);
@@ -212,12 +225,18 @@ impl EguiUi {
         self.menu_bar(ctx, view, &mut out);
         self.tools(ctx, view, &mut out);
         if self.show_city {
-            self.city_panel(ctx, view);
+            self.city_panel(ctx, view, &mut out);
         }
         self.status_bar(ctx, view);
         self.query_window(ctx, view, &mut out);
         let export_dir = view.save_path.parent().map(Path::to_path_buf).unwrap_or_default();
         self.graphs.show(ctx, view.city.glassbox.as_ref(), &export_dir);
+        if self.show_network {
+            crate::network::window(ctx, &mut self.show_network, view.city, view.flows, view.query, &mut out);
+        }
+        if let Some((link, amount)) = view.flow_hover {
+            crate::network::hover_tooltip(ctx, view.city, link, amount);
+        }
         self.dialogs(ctx, view, &mut out);
         out
     }
@@ -265,6 +284,11 @@ impl EguiUi {
                     ui.checkbox(&mut self.show_city, "City panel");
                     if view.city.glassbox.is_some() {
                         ui.checkbox(&mut self.graphs.open, "GlassBox graphs (G)");
+                        let mut on = view.flows.on;
+                        if ui.checkbox(&mut on, "Resource network on the map (V)").changed() {
+                            out.push(Command::SetFlows(crate::flows::FlowView { on, ..view.flows.clone() }));
+                        }
+                        ui.checkbox(&mut self.show_network, "Resource network panel");
                     }
                     if let Some(rules) = view.city.rules() {
                         ui.menu_button("Data layer", |ui| {
@@ -382,7 +406,7 @@ impl EguiUi {
         });
     }
 
-    fn city_panel(&mut self, ctx: &egui::Context, view: &View) {
+    fn city_panel(&mut self, ctx: &egui::Context, view: &View, out: &mut Vec<Command>) {
         let city = view.city;
         let v = city.values;
         egui::SidePanel::right("city").resizable(false).exact_width(230.0).show(ctx, |ui| {
@@ -404,9 +428,17 @@ impl EguiUi {
             }
             if let (Some(gb), Some(rules)) = (&city.glassbox, city.rules()) {
                 ui.separator();
-                if ui.button("📈 Graphs (G)").on_hover_text("Plot and analyse every GlassBox series").clicked() {
-                    self.graphs.open = !self.graphs.open;
-                }
+                ui.horizontal(|ui| {
+                    if ui.button("📈 Graphs (G)").on_hover_text("Plot and analyse every GlassBox series").clicked() {
+                        self.graphs.open = !self.graphs.open;
+                    }
+                    if ui.button("🔀 Network").on_hover_text("Show who sends what to whom on the map, and analyse it").clicked() {
+                        self.show_network = !self.show_network;
+                        if self.show_network && !view.flows.on {
+                            out.push(Command::SetFlows(crate::flows::FlowView { on: true, ..view.flows.clone() }));
+                        }
+                    }
+                });
                 ui.label(RichText::new("Demand").small().color(Color32::GRAY));
                 let max = gb.demand.iter().cloned().fold(1.0f32, f32::max);
                 for (z, d) in rules.zones.iter().zip(&gb.demand) {
@@ -513,7 +545,9 @@ impl EguiUi {
                     }
                     ui.label(format!("Level {}   Traffic {}", info.level, info.traffic));
                     if let (Some(gb), Some(rules), Some(u)) = (&view.city.glassbox, view.city.rules(), s.unit) {
-                        unit_details(ui, view.city, gb, rules, u as usize, view.city.layer.origin_of(w, l).unwrap_or((w, l)));
+                        let origin = view.city.layer.origin_of(w, l).unwrap_or((w, l));
+                        unit_details(ui, view.city, gb, rules, u as usize, origin);
+                        crate::network::unit_links(ui, view.city, gb, rules, origin, out);
                         return;
                     }
                     ui.horizontal(|ui| {
@@ -675,10 +709,24 @@ fn unit_details(ui: &mut egui::Ui, city: &City, gb: &opencity_core::glassbox::Gl
     let Some(st) = gb.unit_state(origin.0, origin.1, city.width()) else { return };
     ui.add(egui::ProgressBar::new(st.satisfaction).text(format!("Satisfaction {:.0}%", st.satisfaction * 100.0)));
     egui::Grid::new("unit").num_columns(2).show(ui, |ui| {
-        for (r, need) in &def.needs {
-            let i = rules.resource(r).unwrap();
+        // Its own needs, plus what its trips asked of other networks last tick.
+        let own = |i: usize| def.needs.get(&rules.resources[i].id).copied().unwrap_or(0.0);
+        let needs: Vec<(usize, f32)> = if st.needs.is_empty() {
+            def.needs.iter().filter_map(|(r, n)| Some((rules.resource(r)?, *n))).collect()
+        } else {
+            st.needs.iter().copied().enumerate().filter(|(_, n)| *n > 0.0).collect()
+        };
+        for (i, need) in needs {
             let got = st.received.get(i).copied().unwrap_or(0.0);
-            ui.label(format!("needs {}", rules.resources[i].name));
+            let trips = need - own(i);
+            let label = ui.label(if trips > 0.005 {
+                format!("needs {} (+{trips:.1} for trips)", rules.resources[i].name)
+            } else {
+                format!("needs {}", rules.resources[i].name)
+            });
+            if trips > 0.005 {
+                label.on_hover_text("Asked by the trips this building sent last tick (resource `uses`)");
+            }
             let ok = got >= need * 0.95;
             ui.label(RichText::new(format!("{got:.1} / {need:.1}")).monospace().color(if ok {
                 Color32::from_rgb(110, 210, 110)

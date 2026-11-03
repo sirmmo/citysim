@@ -73,6 +73,26 @@ fn a_town_develops_from_resource_flows() {
     let air = r.layer("AirQuality.pm10").unwrap();
     assert!((0..48).flat_map(|l| (0..48).map(move |x| (x, l))).any(|(x, l)| gb.layer_value(air, x, l, w) > 0.5));
     assert!(!r.agent_rules.is_empty() && !r.map_rules.is_empty() && !r.zone_rules.is_empty());
+    // Resource kinds: both kinds of car fill parking slots; their trips ask
+    // other networks of the homes (fuel by road, power from the grid).
+    for id in ["car.gasoline", "car.electric", "fuel"] {
+        assert!(gb.balances.delivered[res(id)] > 0.0, "no {id} delivered");
+    }
+    assert!((gb.balances.delivered[res("car")] - gb.balances.delivered[res("car.gasoline")] - gb.balances.delivered[res("car.electric")]).abs() < 0.01);
+    let homes: Vec<_> = c
+        .layer
+        .structures()
+        .filter(|(_, s)| s.code == StructureCode::Residential)
+        .filter_map(|(p, s)| Some((r.units[s.unit? as usize].needs.get("power").copied().unwrap_or(0.0), gb.unit_state(p.0, p.1, w)?)))
+        .collect();
+    assert!(homes.iter().any(|(own, st)| st.needs[res("power")] > own + 0.01), "electric cars should charge at home");
+    assert!(homes.iter().any(|(_, st)| st.needs[res("fuel")] > 0.0), "petrol cars should need fuel");
+    // The resource network: road links for agents, grid links from the plant.
+    for id in ["workers", "goods", "power"] {
+        assert!(gb.flows.keys().any(|k| k.resource == res(id)), "no {id} links");
+    }
+    assert!(gb.flows.iter().all(|(k, v)| *v > 0.0 && k.from != k.to));
+    assert!(gb.flows.keys().filter(|k| k.resource == res("power")).all(|k| k.from == (2, 2)));
     // A save keeps the engine state; rules are re-attached on load.
     let mut buf = Vec::new();
     opencity_core::save::save(&c, &mut buf).unwrap();
@@ -140,6 +160,9 @@ fn growth_settles_without_flicker() {
     let mut c = City::new(Terrain::flat(48, 48), None, Footprints::builtin(), 7);
     c.use_rules(rules());
     c.apply_tool(Tool::CoalPlant, (2, 2), (2, 2)).unwrap();
+    // Enough power that the town is limited by its plots, not its grid.
+    c.apply_tool(Tool::NuclearPlant, (30, 0), (30, 0)).unwrap();
+    c.apply_tool(Tool::Road, (32, 6), (32, 8)).unwrap();
     for l in [8, 12, 16, 20, 24] {
         c.apply_tool(Tool::Road, (2, l), (44, l)).unwrap();
     }

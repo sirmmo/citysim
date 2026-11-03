@@ -138,6 +138,7 @@ opencity-cli simulate --demo --game-rules glassbox --years 5 --metrics metrics.c
 
 * Agents deliver within the tick they are sent. Senders are chosen by
   straight-line distance, and visible vehicles follow real road paths.
-* `{type}` placeholders in resource names (Extended GlassBox) are not expanded.
-  Use separate resources.
+* `{type}` placeholders expand over the kinds declared in the rules file
+  (`[[resource.subtype]]`, see [RULES.md](RULES.md#the-model)), one line per kind.
+  Kinds are declared in TOML, not in the script.
 * Rules with `rate` are averaged per tick instead of firing in bursts.

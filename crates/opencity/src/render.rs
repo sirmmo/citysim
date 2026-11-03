@@ -451,11 +451,66 @@ impl Renderer {
 
     /// A data-layer tile drawn over everything (no depth test) so values
     /// stay readable under buildings.
+    pub fn draw_data_overlay_rect(&self, t: &Terrain, r: Rect, color: Color) {
+        let gl = unsafe { get_internal_gl() }.quad_gl;
+        gl.depth_test(false);
+        self.draw_overlay(t, r, color);
+        let gl = unsafe { get_internal_gl() }.quad_gl;
+        gl.depth_test(true);
+    }
+
     pub fn draw_data_overlay(&self, t: &Terrain, w: u32, l: u32, color: Color) {
         let gl = unsafe { get_internal_gl() }.quad_gl;
         gl.depth_test(false);
         self.draw_overlay(t, Rect::tile(w, l), color);
         let gl = unsafe { get_internal_gl() }.quad_gl;
+        gl.depth_test(true);
+    }
+
+    /// The resource network: camera-facing ribbons along each arc, fading in
+    /// from the sender, with dots travelling towards the receiver.
+    pub fn draw_flows(&self, arcs: &[crate::flows::Arc], cam: &Camera3D, time: f64, hovered: Option<usize>) {
+        use crate::flows::SEGMENTS;
+        let gl = unsafe { get_internal_gl() }.quad_gl;
+        gl.depth_test(false);
+        gl.texture(None);
+        gl.draw_mode(DrawMode::Triangles);
+        let view_dir = (cam.target - cam.position).normalize_or_zero();
+        let right = view_dir.cross(Vec3::Y).normalize_or_zero();
+        let up = right.cross(view_dir).normalize_or_zero();
+        let vert = |p: Vec3, c: Color| Vertex { position: p, uv: Vec2::ZERO, color: c.into(), normal: Vec4::ZERO };
+        for (i, arc) in arcs.iter().enumerate() {
+            let hot = hovered == Some(i);
+            let width = if hot { arc.width * 1.8 + 0.05 } else { arc.width };
+            let pts: Vec<Vec3> = (0..=SEGMENTS).map(|k| arc.point(k as f32 / SEGMENTS as f32)).collect();
+            for k in 0..SEGMENTS {
+                let (p, q) = (pts[k], pts[k + 1]);
+                let side = (q - p).cross(view_dir).normalize_or_zero() * width * 0.5;
+                let t = k as f32 / SEGMENTS as f32;
+                let mut c = arc.colour;
+                if hot {
+                    c = Color::new(c.r * 0.5 + 0.5, c.g * 0.5 + 0.5, c.b * 0.5 + 0.5, 1.0);
+                }
+                let (c0, c1) = (Color { a: 0.3 + 0.6 * t, ..c }, Color { a: 0.3 + 0.6 * (t + 1.0 / SEGMENTS as f32), ..c });
+                gl.geometry(&[vert(p - side, c0), vert(p + side, c0), vert(q + side, c1), vert(q - side, c1)], &[0, 1, 2, 0, 2, 3]);
+            }
+            // Travelling dots: more on longer links, faster on busier ones.
+            let dots = 1 + arc.tiles() / 8;
+            let speed = 0.25 + arc.width;
+            for d in 0..dots {
+                let t = ((time as f32 * speed + d as f32 / dots as f32 + (arc.link.from.0 * 7 + arc.link.to.1 * 13) as f32 * 0.037) % 1.0).abs();
+                let p = arc.point(t);
+                // A small hexagon facing the camera.
+                let r = 0.035 + width * 0.6;
+                let c = Color::new(arc.colour.r * 0.4 + 0.6, arc.colour.g * 0.4 + 0.6, arc.colour.b * 0.4 + 0.6, 0.95);
+                let mut vs = vec![vert(p, c)];
+                for k in 0..6 {
+                    let a = k as f32 * std::f32::consts::FRAC_PI_3;
+                    vs.push(vert(p + right * (a.cos() * r) + up * (a.sin() * r), c));
+                }
+                gl.geometry(&vs, &[0, 1, 2, 0, 2, 3, 0, 3, 4, 0, 4, 5, 0, 5, 6, 0, 6, 1]);
+            }
+        }
         gl.depth_test(true);
     }
 
