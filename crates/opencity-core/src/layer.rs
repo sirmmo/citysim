@@ -9,7 +9,7 @@
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 
-use crate::{codes::path_graphic, Direction, Footprints, GraphicCode, StructureCode, Terrain};
+use crate::{codes::path_graphic, Direction, Footprints, GraphicCode, RoadKind, StructureCode, Terrain};
 
 /// Highest level a zone can reach (legacy `OC_STRUCTURE_LEVEL_MAX`).
 pub const LEVEL_MAX: u8 = 99;
@@ -61,15 +61,22 @@ pub struct Structure {
     /// Unit type (index in the GlassBox ruleset) of a developed building.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub unit: Option<u16>,
+    /// Kind of road (roads only).
+    #[serde(default, skip_serializing_if = "is_street")]
+    pub road: RoadKind,
 }
 
 fn is_zero(v: &u8) -> bool {
     *v == 0
 }
 
+fn is_street(k: &RoadKind) -> bool {
+    *k == RoadKind::Street
+}
+
 impl Structure {
     pub fn new(code: StructureCode) -> Self {
-        Self { code, graphic: code.base_graphic(), level: 0, connections: 0, traffic: 0, density: 0, unit: None }
+        Self { code, graphic: code.base_graphic(), level: 0, connections: 0, traffic: 0, density: 0, unit: None, road: RoadKind::Street }
     }
 
     /// Graphic code a zone shows at the given level.
@@ -171,6 +178,8 @@ pub enum Query {
     Code(StructureCode),
     /// A tile with the power flag set (legacy `OC_STRUCTURE_ELECTRIC`).
     Powered,
+    /// A road buildings can open onto (any kind but highways).
+    RoadAccess,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, thiserror::Error)]
@@ -309,6 +318,7 @@ impl BuildingLayer {
             (Some(_), Query::Any) => true,
             (Some(t), Query::Code(c)) => t.code() == c,
             (Some(t), Query::Powered) => t.status.has(Status::POWER),
+            (Some(t), Query::RoadAccess) => t.structure().is_some_and(|s| s.code == StructureCode::Road && s.road.access()),
         })
     }
 
@@ -349,7 +359,7 @@ impl BuildingLayer {
         self.touch();
         match code {
             StructureCode::Part => Err(BuildError::Nothing),
-            c if c.is_path() => self.build_path(r, c, terrain),
+            c if c.is_path() => self.build_path(r, c, RoadKind::Street, terrain),
             c if c.is_block() || c == StructureCode::Test => self.build_block(r.w1, r.l1, c, terrain, footprints),
             c => self.build_area(r, c, terrain, rng),
         }
@@ -422,19 +432,38 @@ impl BuildingLayer {
         route
     }
 
-    fn build_path(&mut self, r: Rect, code: StructureCode, terrain: &Terrain) -> Result<u32, BuildError> {
+    /// Lays a road of `kind` along the path route of `r`. Road tiles of
+    /// another kind on the way are rebuilt as `kind` (and paid again).
+    pub fn build_road(&mut self, r: Rect, kind: RoadKind, terrain: &Terrain) -> Result<u32, BuildError> {
+        if !self.in_bounds(r) {
+            return Err(BuildError::OutOfBounds);
+        }
+        self.touch();
+        self.build_path(r, StructureCode::Road, kind, terrain)
+    }
+
+    fn build_path(&mut self, r: Rect, code: StructureCode, kind: RoadKind, terrain: &Terrain) -> Result<u32, BuildError> {
         let route = Self::path_route(r);
         if !route.iter().all(|&(w, l)| self.path_constructible(w, l, code, terrain)) {
             return Err(BuildError::NotConstructible);
         }
+        let road = code == StructureCode::Road;
+        let tile_cost = if road { kind.build_cost() } else { code.build_cost() };
         let mut cost = 0;
         for (w, l) in route {
             if self.tile(w, l).is_some() {
+                if let Some(s) = self.structure_mut(w, l).filter(|s| road && s.road != kind) {
+                    s.road = kind;
+                    s.traffic = 0;
+                    cost += tile_cost;
+                }
                 continue;
             }
             let i = self.idx(w, l);
-            self.tiles[i] = Some(Tile::main(Structure::new(code)));
-            cost += code.build_cost();
+            let mut s = Structure::new(code);
+            s.road = kind;
+            self.tiles[i] = Some(Tile::main(s));
+            cost += tile_cost;
             for dir in Direction::ALL {
                 if let Some((nw, nl)) = terrain.neighbour(w, l, dir) {
                     if self.code_at(nw, nl) == Some(code) {

@@ -3,7 +3,7 @@ description = "Ancient colours and names. Run scripts/bake-0ad.sh for 3D buildin
 era = "Antiquity"
 culture = "Generic (no 3D art)"
 
-disabled_tools = ["nuclear_plant", "power_line"]
+disabled_tools = ["nuclear_plant", "power_line", "road", "highway"]
 
 [applies]
 years = [-1000, 500]
@@ -21,7 +21,8 @@ vehicles = false
 residential = "Domus"
 commercial = "Forum & tabernae"
 industrial = "Fields & workshops"
-road = "Via"
+paved_street = "Via strata · paved road"
+dirt_road = "Via terrena · track"
 coal_plant = "Castellum"
 fire_station = "Vigiles"
 police = "Castrum"

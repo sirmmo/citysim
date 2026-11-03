@@ -24,7 +24,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     layer::{BuildingLayer, Rect, Structure},
     rules::{structure_code, DemandSource, Ruleset, Transport},
-    Direction, Footprints, GraphicCode, StructureCode, Terrain,
+    Direction, Footprints, GraphicCode, RoadKind, StructureCode, Terrain,
 };
 
 /// Per-unit state.
@@ -142,6 +142,9 @@ const NO_COMPONENT: u32 = u32::MAX;
 /// A grid producer: its origin tile and what it supplied this tick.
 type Supplier = ((u32, u32), f32);
 const BUCKET: u32 = 8;
+/// Units this close (in tiles) to a highway can use it: their trips cost
+/// this much to get on and off, then highway speed.
+const HIGHWAY_RAMP: u32 = 4;
 
 impl GlassBox {
     pub fn new(rules: Arc<Ruleset>, width: u32, length: u32) -> Self {
@@ -319,7 +322,7 @@ impl GlassBox {
             }
             let fam = rules.family(root);
             let net = rules.network(res.network.as_deref().unwrap_or_default()).unwrap();
-            let comp: Vec<Option<u32>> = units.iter().map(|(_, _, r)| unit_component(&comps[net], r, width, length, 1)).collect();
+            let comp: Vec<Option<u32>> = units.iter().map(|(_, _, r)| unit_component(&comps[net], r, width, length, 1, |_, _| true).map(|a| a.0)).collect();
             let mut pools: HashMap<u32, Pool> = HashMap::new();
             let mut producers: HashMap<(u32, usize), Vec<Supplier>> = HashMap::new();
             for (i, (p, _, _)) in units.iter().enumerate() {
@@ -383,6 +386,22 @@ impl GlassBox {
 
         // 3. Agents. A need for a kind takes only that kind; a need for the
         // resource is a slot filled by any kind, from the nearest senders.
+        // Trips are measured in street tiles: slower roads make them longer,
+        // and highways shorten them between units near a highway.
+        let road_at = |w: u32, l: u32| layer.structure_at(w, l).filter(|s| s.code == StructureCode::Road).map(|s| s.road);
+        let mut fastest = 0f32;
+        let mut near_highway = Vec::new();
+        for ((w, l), s) in layer.structures().filter(|(_, s)| s.code == StructureCode::Road) {
+            fastest = fastest.max(s.road.speed());
+            if s.road == RoadKind::Highway {
+                near_highway.resize((width * length) as usize, false);
+                let (w1, l1, w2, l2) = terrain.around(w, l, HIGHWAY_RAMP);
+                for (x, y) in (Rect { w1, l1, w2, l2 }).tiles() {
+                    near_highway[idx(x, y) as usize] = true;
+                }
+            }
+        }
+        let fastest = fastest.max(0.1);
         let mut trips = Vec::new();
         for root in 0..nres {
             let res = &rules.resources[root];
@@ -393,7 +412,24 @@ impl GlassBox {
             let net = rules.network(res.network.as_deref().unwrap_or_default()).unwrap();
             // Agents walk from the road to any plot that was allowed to develop.
             let reach = rules.growth.road_access.max(1);
-            let access = |r: &Rect| unit_component(&comps[net], r, width, length, reach);
+            // Network component, road speed and highway access of each unit,
+            // through the nearest road it can open onto (not a highway).
+            let acc: Vec<Option<(u32, f32, bool)>> = units
+                .iter()
+                .map(|(_, _, r)| {
+                    let (c, (w, l)) = unit_component(&comps[net], r, width, length, reach, |w, l| road_at(w, l).is_none_or(|k| k.access()))?;
+                    Some((c, road_at(w, l).map_or(1.0, |k| k.speed()), near_highway.get(idx(w, l) as usize).copied().unwrap_or(false)))
+                })
+                .collect();
+            let trip_length = |s: usize, i: usize, dist: u32| -> f32 {
+                let (Some(a), Some(b)) = (acc[s], acc[i]) else { return f32::INFINITY };
+                let local = dist as f32 / a.1.min(b.1);
+                if a.2 && b.2 {
+                    local.min(HIGHWAY_RAMP as f32 + dist as f32 / RoadKind::Highway.speed())
+                } else {
+                    local
+                }
+            };
             // Which unit types send which members of the family.
             let sends_table: Vec<Vec<bool>> = rules
                 .units
@@ -415,11 +451,11 @@ impl GlassBox {
             let mut left: Vec<f32> = (0..fam.len()).map(|j| stock.iter().map(|s| s[j]).sum()).collect();
             // Senders bucketed by (component, cell), with what each bucket has left.
             let mut buckets: HashMap<(u32, u32, u32), Bucket> = HashMap::new();
-            for (i, (p, _, r)) in units.iter().enumerate() {
+            for (i, (p, _, _)) in units.iter().enumerate() {
                 if stock[i].iter().all(|&x| x <= 0.0) {
                     continue;
                 }
-                if let Some(c) = access(r) {
+                if let Some((c, _, _)) = acc[i] {
                     let b = buckets.entry((c, p.0 / BUCKET, p.1 / BUCKET)).or_insert_with(|| Bucket { senders: Vec::new(), left: vec![0.0; fam.len()] });
                     b.senders.push(i);
                     b.left.iter_mut().zip(&stock[i]).for_each(|(l, x)| *l += x);
@@ -431,10 +467,10 @@ impl GlassBox {
             // tick, or buildings flicker between thriving and failing.
             receivers.sort_by_key(|&i| (std::cmp::Reverse(self.units[&idx(units[i].0 .0, units[i].0 .1)].age), i));
             let max_trip = fam.iter().map(|&k| rules.resources[k].max_trip).max().unwrap_or(0);
-            let rings = max_trip.div_ceil(BUCKET) as i64;
+            let rings = ((max_trip as f32 * fastest).ceil() as u32).div_ceil(BUCKET) as i64;
             let all: Vec<usize> = (0..fam.len()).collect();
             for i in receivers {
-                let (p, _, r) = units[i];
+                let (p, _, _) = units[i];
                 // Needs for a kind first, then the slot any kind fills
                 // (members by position in `fam`).
                 let keys: Vec<(usize, &[usize])> =
@@ -443,7 +479,7 @@ impl GlassBox {
                     let n = need[i][fam[key]];
                     let mut missing = n;
                     let available = |left: &[f32]| accept.iter().any(|&j| left[j] > 0.0);
-                    if let Some(c) = access(&r).filter(|_| available(&left)) {
+                    if let Some(c) = acc[i].map(|a| a.0).filter(|_| available(&left)) {
                         // Nearest senders first: rings of buckets.
                         'rings: for ring in 0..=rings {
                             for dz in -ring..=ring {
@@ -464,11 +500,11 @@ impl GlassBox {
                                             continue;
                                         }
                                         let sp = units[s].0;
-                                        let dist = sp.0.abs_diff(p.0) + sp.1.abs_diff(p.1);
+                                        let dist = trip_length(s, i, sp.0.abs_diff(p.0) + sp.1.abs_diff(p.1));
                                         for &j in accept {
                                             let a = fam[j];
                                             let take = stock[s][j].min(missing);
-                                            if take <= 0.0 || dist > rules.resources[a].max_trip {
+                                            if take <= 0.0 || dist > rules.resources[a].max_trip as f32 {
                                                 continue;
                                             }
                                             stock[s][j] -= take;
@@ -825,7 +861,7 @@ impl GlassBox {
         let width = layer.width();
         let road_near = |layer: &BuildingLayer, w: u32, l: u32| {
             let (w1, l1, w2, l2) = terrain.around(w, l, g.road_access);
-            layer.contains(Rect { w1, l1, w2, l2 }, crate::layer::Query::Code(StructureCode::Road))
+            layer.contains(Rect { w1, l1, w2, l2 }, crate::layer::Query::RoadAccess)
         };
         for (zi, z) in rules.zones.iter().enumerate() {
             let Some(code) = structure_code(&z.structure) else { continue };
@@ -1045,13 +1081,18 @@ impl Pool {
 
 /// Network component a unit connects to: any of its tiles or the tiles up
 /// to `reach` around it, nearest rings first.
-fn unit_component(comp: &[u32], r: &Rect, width: u32, length: u32, reach: u32) -> Option<u32> {
+/// Also returns the tile it connects through; `usable` filters the tiles
+/// it may connect through.
+fn unit_component(comp: &[u32], r: &Rect, width: u32, length: u32, reach: u32, usable: impl Fn(u32, u32) -> bool) -> Option<(u32, (u32, u32))> {
     (0..=reach).find_map(|d| {
         let w1 = r.w1.saturating_sub(d);
         let l1 = r.l1.saturating_sub(d);
         let w2 = (r.w2 + d).min(width - 1);
         let l2 = (r.l2 + d).min(length - 1);
-        (l1..=l2).flat_map(|l| (w1..=w2).map(move |w| (w, l))).map(|(w, l)| comp[(l * width + w) as usize]).find(|&c| c != NO_COMPONENT)
+        (l1..=l2)
+            .flat_map(|l| (w1..=w2).map(move |w| (w, l)))
+            .find(|&(w, l)| comp[(l * width + w) as usize] != NO_COMPONENT && usable(w, l))
+            .map(|(w, l)| (comp[(l * width + w) as usize], (w, l)))
     })
 }
 

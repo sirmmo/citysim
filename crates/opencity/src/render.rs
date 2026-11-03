@@ -11,7 +11,7 @@ use std::path::{Path, PathBuf};
 use macroquad::models::{draw_mesh, Mesh, Vertex};
 use macroquad::prelude::*;
 use opencity_assets::{ac3d, Catalog, Look};
-use opencity_core::{layer::TileKind, terrain::HEIGHT_MAX, City, Direction, GraphicCode, Rect, StructureCode, Terrain};
+use opencity_core::{layer::TileKind, terrain::HEIGHT_MAX, City, Direction, GraphicCode, Rect, RoadKind, StructureCode, Terrain};
 
 use crate::gpu::{Gpu, GpuMesh, Instance};
 use crate::roads;
@@ -22,7 +22,6 @@ const WATER_LEVEL: f32 = -0.05;
 /// Models sit slightly above the ground to avoid z-fighting with the terrain.
 const MODEL_LIFT: f32 = 0.015;
 const ROAD_LIFT: f32 = 0.02;
-const ROAD_HALF_WIDTH: f32 = 0.5;
 /// Graphic code of the straight north-south road, whose texture the ribbons use.
 const ROAD_TEXTURE_MODEL: GraphicCode = GraphicCode(154);
 /// Vertices per static mesh chunk (u16 indices).
@@ -119,11 +118,22 @@ pub struct Renderer {
     terrain: Static,
     terrain_key: Option<Vec<i8>>,
     roads: Static,
+    /// Generated surfaces of the road kinds other than streets.
+    road_surfaces: HashMap<RoadKind, Texture2D>,
     /// (layer revision, terrain revision) the scene was built for.
     scene_key: Option<(u64, u64)>,
     terrain_revision: u64,
     /// Buildings grouped by model: GPU instance buffers, or CPU matrices.
     instances: Vec<(GraphicCode, Option<macroquad::miniquad::BufferId>, Vec<Instance>)>,
+}
+
+/// Makes a texture repeat (road surfaces run along the whole ribbon).
+fn repeat(tex: &Texture2D) {
+    unsafe { get_internal_gl() }.quad_context.texture_set_wrap(
+        tex.raw_miniquad_id(),
+        macroquad::miniquad::TextureWrap::Repeat,
+        macroquad::miniquad::TextureWrap::Repeat,
+    );
 }
 
 pub fn load_texture_file(path: &Path) -> Option<Texture2D> {
@@ -153,6 +163,7 @@ impl Renderer {
             terrain: Static::default(),
             terrain_key: None,
             roads: Static::default(),
+            road_surfaces: HashMap::new(),
             scene_key: None,
             terrain_revision: 0,
             instances: Vec::new(),
@@ -309,7 +320,7 @@ impl Renderer {
         let mut groups: HashMap<GraphicCode, Vec<Instance>> = HashMap::new();
         for ((w, l), tile) in city.layer.tiles() {
             let TileKind::Main(s) = &tile.kind else { continue };
-            if s.code == StructureCode::Road && roads::is_ribbon_tile(s.connections) {
+            if s.code == StructureCode::Road && !roads::uses_model(s.connections, s.road) {
                 continue;
             }
             let c = t.tile_corners(w, l);
@@ -335,58 +346,108 @@ impl Renderer {
 
     fn road_texture(&mut self) -> Option<Texture2D> {
         let tex = self.model(ROAD_TEXTURE_MODEL)?.cpu.iter().find_map(|m| m.texture.clone())?;
-        unsafe { get_internal_gl() }.quad_context.texture_set_wrap(
-            tex.raw_miniquad_id(),
-            macroquad::miniquad::TextureWrap::Repeat,
-            macroquad::miniquad::TextureWrap::Repeat,
-        );
+        repeat(&tex);
         Some(tex)
     }
 
-    /// Smooth, textured ribbons along road centre lines.
+    /// The surface a kind of road is drawn with.
+    fn road_surface(&mut self, kind: RoadKind) -> Option<Texture2D> {
+        if kind == RoadKind::Street {
+            return self.road_texture();
+        }
+        if let Some(t) = self.road_surfaces.get(&kind) {
+            return Some(t.clone());
+        }
+        let n = roads::SURFACE_SIZE as u16;
+        let tex = Texture2D::from_rgba8(n, n, &roads::surface(kind)?);
+        tex.set_filter(FilterMode::Linear);
+        repeat(&tex);
+        self.road_surfaces.insert(kind, tex.clone());
+        Some(tex)
+    }
+
+    /// Smooth, textured ribbons along road centre lines, one surface per
+    /// kind of road, and flat patches for crossings without models.
     fn build_roads(&mut self, city: &City) {
-        let texture = self.road_texture();
         self.roads.clear(self.gpu.as_ref());
         let t = &city.terrain;
         let color = rgba(self.look.apply([1.0, 1.0, 1.0, 1.0]), shade(Vec3::Y));
-        let mut b = MeshBuilder::new(texture);
-        for (line, closed) in roads::centre_lines(city) {
-            let pts = roads::smooth(&line, closed);
-            let n = pts.len();
-            let mut along = 0.0f32;
-            let edge = |i: usize| -> (Vec3, Vec3) {
-                let prev = if i > 0 {
-                    pts[i - 1]
-                } else if closed {
-                    pts[n - 1]
-                } else {
-                    pts[i]
-                };
-                let next = if i + 1 < n {
-                    pts[i + 1]
-                } else if closed {
-                    pts[0]
-                } else {
-                    pts[i]
-                };
-                let d = vec2(next[0] - prev[0], next[1] - prev[1]).normalize_or_zero();
-                let side = vec2(-d.y, d.x) * ROAD_HALF_WIDTH;
-                let p = vec2(pts[i][0], pts[i][1]);
-                let at = |q: Vec2| vec3(q.x, height_at(t, q.x, q.y) + ROAD_LIFT, q.y);
-                (at(p + side), at(p - side))
-            };
-            let segs = if closed { n } else { n - 1 };
-            for i in 0..segs {
-                let j = (i + 1) % n;
-                let len = vec2(pts[j][0] - pts[i][0], pts[j][1] - pts[i][1]).length();
-                let ((l0, r0), (l1, r1)) = (edge(i), edge(j));
-                let v = |p: Vec3, u: f32, v: f32| Vertex { position: p, uv: vec2(u, v), color, normal: Vec4::ZERO };
-                b.quad([v(l0, 0.0, along), v(r0, 1.0, along), v(r1, 1.0, along + len), v(l1, 0.0, along + len)]);
-                along += len;
+        let lines = roads::centre_lines(city);
+        let patches = roads::patches(city);
+        for kind in RoadKind::ALL {
+            if !lines.iter().any(|l| l.kind == kind) && !patches.iter().any(|p| p.kind == kind) {
+                continue;
             }
-        }
-        for m in b.finish() {
-            self.roads.push(self.gpu.as_ref(), m);
+            let mut b = MeshBuilder::new(self.road_surface(kind));
+            let half = roads::half_width(kind);
+            // Wider roads sit a hair higher, so they cover the narrower ones they meet.
+            let lift = ROAD_LIFT + half * 0.01;
+            let at = |q: Vec2| vec3(q.x, height_at(t, q.x, q.y) + lift, q.y);
+            let v = |p: Vec3, u: f32, v: f32| Vertex { position: p, uv: vec2(u, v), color, normal: Vec4::ZERO };
+            for line in lines.iter().filter(|l| l.kind == kind) {
+                let (pts, closed) = (roads::smooth(&line.points, line.closed), line.closed);
+                let n = pts.len();
+                let mut along = 0.0f32;
+                let edge = |i: usize| -> (Vec3, Vec3) {
+                    let prev = if i > 0 {
+                        pts[i - 1]
+                    } else if closed {
+                        pts[n - 1]
+                    } else {
+                        pts[i]
+                    };
+                    let next = if i + 1 < n {
+                        pts[i + 1]
+                    } else if closed {
+                        pts[0]
+                    } else {
+                        pts[i]
+                    };
+                    let d = vec2(next[0] - prev[0], next[1] - prev[1]).normalize_or_zero();
+                    let side = vec2(-d.y, d.x) * half;
+                    let p = vec2(pts[i][0], pts[i][1]);
+                    (at(p + side), at(p - side))
+                };
+                let segs = if closed { n } else { n - 1 };
+                for i in 0..segs {
+                    let j = (i + 1) % n;
+                    let len = vec2(pts[j][0] - pts[i][0], pts[j][1] - pts[i][1]).length();
+                    let ((l0, r0), (l1, r1)) = (edge(i), edge(j));
+                    b.quad([v(l0, 0.0, along), v(r0, 1.0, along), v(r1, 1.0, along + len), v(l1, 0.0, along + len)]);
+                    along += len;
+                }
+            }
+            // Crossings: a square in the middle and an arm to each connected edge,
+            // textured with a plain stretch of the surface (no lane markings).
+            let (u0, u1) = if kind == RoadKind::Highway { (0.12, 0.24) } else { (0.2, 0.8) };
+            for p in patches.iter().filter(|p| p.kind == kind) {
+                let c = vec2(p.tile.0 as f32 + 0.5, p.tile.1 as f32 + 0.5);
+                let mut rect = |a: Vec2, z: Vec2| {
+                    let uv = |q: Vec2| (u0 + (u1 - u0) * (q.x - a.x) / (z.x - a.x).max(1e-3), q.y);
+                    let corners = [vec2(a.x, a.y), vec2(z.x, a.y), vec2(z.x, z.y), vec2(a.x, z.y)];
+                    let vs = corners.map(|q| {
+                        let (uu, vv) = uv(q);
+                        v(at(q), uu, vv)
+                    });
+                    b.quad(vs);
+                };
+                rect(c - Vec2::splat(half), c + Vec2::splat(half));
+                for d in Direction::ALL {
+                    if p.mask & d.mask() == 0 {
+                        continue;
+                    }
+                    let (dx, dl) = d.delta();
+                    let dir = vec2(dx as f32, dl as f32);
+                    let side = vec2(-dir.y, dir.x).abs() * half;
+                    let (from, to) = (c + dir * half, c + dir * 0.5);
+                    let a = from.min(to) - side;
+                    let z = from.max(to) + side;
+                    rect(a, z);
+                }
+            }
+            for m in b.finish() {
+                self.roads.push(self.gpu.as_ref(), m);
+            }
         }
     }
 

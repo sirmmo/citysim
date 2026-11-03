@@ -6,7 +6,9 @@
 
 id = "glassbox"
 name = "GlassBox"
-description = "Resource-driven simulation: workers, shoppers and goods travel by road, power through the grid; services cover the map."
+description = "Modern resource-driven simulation: workers, shoppers, goods and cars travel by road, power through the grid; services cover the map."
+# Ages these rules suit; older ages default to the pre-industrial rules.
+years = [1800, 9999]
 population = "residents"
 # GlassBox rule scripts compiled into this set (docs/GLASSBOX.md).
 scripts = ["glassbox.gbx"]
@@ -238,7 +240,8 @@ park = "park"
 # clean air, and the bigger homes want services and land value.
 [[unit]]
 id = "house_1"
-name = "Cottage"
+name = "Little house"
+description = "A single-storey home on its own plot."
 graphic = 11
 produce = { residents = 4, workers = 2, shoppers = 2, taxes = 0.04, car = 1 }
 needs = { power = 1 }
@@ -247,7 +250,8 @@ requires = { pollution = { max = 30 } }
 
 [[unit]]
 id = "house_2"
-name = "Family house"
+name = "Kit house"
+description = "A prefabricated family home, assembled in a weekend."
 graphic = 12
 produce = { residents = 6, workers = 3, shoppers = 3, taxes = 0.06, car = 1.5 }
 needs = { power = 1 }
@@ -256,7 +260,8 @@ requires = { pollution = { max = 25 } }
 
 [[unit]]
 id = "house_3"
-name = "Large house"
+name = "Family house"
+description = "A two-storey house with a garden, for a bigger family."
 graphic = 13
 produce = { residents = 8, workers = 4, shoppers = 4, taxes = 0.09, car = 2 }
 needs = { power = 2 }
@@ -265,7 +270,8 @@ requires = { pollution = { max = 20 }, land_value = { min = 2 } }
 
 [[unit]]
 id = "townhouse_1"
-name = "Townhouses"
+name = "Old town house"
+description = "A narrow house of the old town, often split into flats."
 graphic = 14
 produce = { residents = 12, workers = 6, shoppers = 5, taxes = 0.12, car = 3 }
 needs = { power = 2 }
@@ -274,7 +280,8 @@ requires = { pollution = { max = 25 } }
 
 [[unit]]
 id = "townhouse_2"
-name = "Apartments"
+name = "Apartment house"
+description = "A small building of rented flats."
 graphic = 15
 produce = { residents = 18, workers = 9, shoppers = 7, taxes = 0.18, car = 4.5 }
 needs = { power = 3 }
@@ -284,6 +291,7 @@ requires = { pollution = { max = 20 }, fire_safety = { min = 1 } }
 [[unit]]
 id = "townhouse_3"
 name = "Apartment block"
+description = "Four storeys of flats around a shared staircase."
 graphic = 17
 produce = { residents = 26, workers = 13, shoppers = 10, taxes = 0.26, car = 6.5 }
 needs = { power = 4 }
@@ -292,7 +300,8 @@ requires = { pollution = { max = 15 }, fire_safety = { min = 1 }, police_safety 
 
 [[unit]]
 id = "tower_1"
-name = "Residential tower"
+name = "Mid-rise block"
+description = "A long block of flats, a lift on each stair."
 graphic = 16
 produce = { residents = 40, workers = 20, shoppers = 15, taxes = 0.4, car = 10 }
 needs = { power = 6 }
@@ -302,6 +311,7 @@ requires = { pollution = { max = 20 }, fire_safety = { min = 1 } }
 [[unit]]
 id = "tower_2"
 name = "High-rise"
+description = "Seven storeys of flats over a two-by-two plot."
 graphic = 18
 produce = { residents = 90, workers = 45, shoppers = 32, taxes = 0.9, car = 22.5 }
 needs = { power = 12 }
@@ -310,7 +320,8 @@ requires = { pollution = { max = 15 }, fire_safety = { min = 1 }, police_safety 
 
 [[unit]]
 id = "tower_3"
-name = "Skyscraper"
+name = "Slab tower"
+description = "A long, tall slab of flats, a neighbourhood in one building."
 graphic = 19
 produce = { residents = 160, workers = 80, shoppers = 55, taxes = 1.6, car = 40 }
 needs = { power = 20 }
@@ -320,7 +331,8 @@ requires = { pollution = { max = 10 }, fire_safety = { min = 1 }, police_safety 
 # Commercial: shops need workers, customers and goods.
 [[unit]]
 id = "shop_1"
-name = "Corner shop"
+name = "Snack bar"
+description = "Sandwiches and coffee for people on their way to work."
 graphic = 21
 produce = { taxes = 0.05 }
 needs = { workers = 1, shoppers = 3, goods = 1, power = 1, car = 0.5 }
@@ -328,7 +340,8 @@ emits = { land_value = { amount = 0.4, radius = 2 } }
 
 [[unit]]
 id = "shop_2"
-name = "Store"
+name = "Petrol station"
+description = "Fuel and a small shop by the road."
 graphic = 22
 produce = { taxes = 0.08 }
 needs = { workers = 2, shoppers = 5, goods = 2, power = 1, car = 1 }
@@ -336,7 +349,8 @@ emits = { land_value = { amount = 0.6, radius = 2 } }
 
 [[unit]]
 id = "shop_3"
-name = "Supermarket"
+name = "Hardware store"
+description = "Tools, glue and boards for the whole neighbourhood."
 graphic = 23
 produce = { taxes = 0.12 }
 needs = { workers = 3, shoppers = 8, goods = 3, power = 2, car = 1.5 }
@@ -344,7 +358,8 @@ emits = { land_value = { amount = 0.8, radius = 3 } }
 
 [[unit]]
 id = "store_1"
-name = "Shopping street"
+name = "Market hall"
+description = "Stalls of food and goods under one roof."
 graphic = 24
 produce = { taxes = 0.2 }
 needs = { workers = 5, shoppers = 12, goods = 5, power = 3, car = 2.5 }
@@ -352,7 +367,8 @@ emits = { land_value = { amount = 1.0, radius = 3 } }
 
 [[unit]]
 id = "store_2"
-name = "Department store"
+name = "Restaurant"
+description = "Dinners for the district, and a terrace in summer."
 graphic = 26
 produce = { taxes = 0.35 }
 needs = { workers = 8, shoppers = 20, goods = 8, power = 4, car = 4 }
@@ -362,6 +378,7 @@ requires = { fire_safety = { min = 1 } }
 [[unit]]
 id = "store_3"
 name = "Hotel"
+description = "Rooms for travellers and business visitors."
 graphic = 27
 produce = { taxes = 0.5 }
 needs = { workers = 12, shoppers = 25, goods = 10, power = 6, car = 6 }
@@ -371,6 +388,7 @@ requires = { fire_safety = { min = 1 }, police_safety = { min = 1 } }
 [[unit]]
 id = "mall_1"
 name = "Grand hotel"
+description = "A large hotel with conference rooms."
 graphic = 28
 produce = { taxes = 0.7 }
 needs = { workers = 15, shoppers = 30, goods = 12, power = 8, car = 7.5 }
@@ -379,7 +397,8 @@ requires = { fire_safety = { min = 1 } }
 
 [[unit]]
 id = "mall_2"
-name = "Shopping centre"
+name = "Business centre"
+description = "Offices and shops in a four-by-four block."
 graphic = 25
 produce = { taxes = 1.4 }
 needs = { workers = 30, shoppers = 60, goods = 25, power = 15, car = 15 }
@@ -388,7 +407,8 @@ requires = { fire_safety = { min = 1 }, police_safety = { min = 1 } }
 
 [[unit]]
 id = "mall_3"
-name = "Office tower"
+name = "Skyscraper"
+description = "Sixty storeys of offices: the city's landmark."
 graphic = 29
 produce = { taxes = 2.0 }
 needs = { workers = 45, shoppers = 50, goods = 20, power = 20, car = 22.5 }
@@ -398,7 +418,8 @@ requires = { fire_safety = { min = 1 }, police_safety = { min = 1 }, education =
 # Industrial: workers make goods, and pollution.
 [[unit]]
 id = "workshop_1"
-name = "Workshop"
+name = "Scrapyard"
+description = "Salvaged materials sorted and sold on."
 graphic = 31
 produce = { goods = 2, taxes = 0.04, fuel = 1 }
 needs = { workers = 2, power = 1, car = 1 }
@@ -407,7 +428,8 @@ emits = { pollution = { amount = 1.0, radius = 2 } }
 
 [[unit]]
 id = "workshop_2"
-name = "Meat factory"
+name = "Slaughterhouse"
+description = "Meat for the city's shops."
 graphic = 32
 produce = { goods = 3, taxes = 0.06, fuel = 1.5 }
 needs = { workers = 3, power = 2, car = 1.5 }
@@ -417,6 +439,7 @@ emits = { pollution = { amount = 1.5, radius = 2 } }
 [[unit]]
 id = "workshop_3"
 name = "Hangar"
+description = "Light assembly and storage."
 graphic = 33
 produce = { goods = 4, taxes = 0.08, fuel = 2 }
 needs = { workers = 4, power = 2, car = 2 }
@@ -425,7 +448,8 @@ emits = { pollution = { amount = 2.0, radius = 2 } }
 
 [[unit]]
 id = "factory_1"
-name = "Warehouse"
+name = "Brickworks"
+description = "Bricks and building materials."
 graphic = 34
 produce = { goods = 6, taxes = 0.12, fuel = 3 }
 needs = { workers = 6, power = 3, car = 3 }
@@ -435,6 +459,7 @@ emits = { pollution = { amount = 2.5, radius = 3 } }
 [[unit]]
 id = "factory_2"
 name = "Container yard"
+description = "Freight packed and shipped out."
 graphic = 35
 produce = { goods = 9, taxes = 0.18, fuel = 4.5 }
 needs = { workers = 8, power = 4, car = 4 }
@@ -444,6 +469,7 @@ emits = { pollution = { amount = 3.0, radius = 3 } }
 [[unit]]
 id = "factory_3"
 name = "Tank farm"
+description = "Fuel stored and distributed."
 graphic = 36
 produce = { goods = 12, taxes = 0.24, fuel = 6 }
 needs = { workers = 10, power = 5, car = 5 }
@@ -454,6 +480,7 @@ requires = { fire_safety = { min = 1 } }
 [[unit]]
 id = "plant_1"
 name = "Refinery"
+description = "Crude oil turned into fuel and goods."
 graphic = 37
 produce = { goods = 16, taxes = 0.3, fuel = 20 }
 needs = { workers = 14, power = 6, car = 7 }
@@ -462,7 +489,8 @@ emits = { pollution = { amount = 5.0, radius = 4 } }
 
 [[unit]]
 id = "plant_2"
-name = "Steel mill"
+name = "Steelworks"
+description = "Steel for the city's industries."
 graphic = 38
 produce = { goods = 30, taxes = 0.6, fuel = 6 }
 needs = { workers = 25, power = 12, car = 12.5 }
@@ -473,6 +501,7 @@ requires = { fire_safety = { min = 1 } }
 [[unit]]
 id = "plant_3"
 name = "Aeronautics works"
+description = "Aircraft parts, designed and built."
 graphic = 39
 produce = { goods = 45, taxes = 1.0, fuel = 6 }
 needs = { workers = 40, power = 20, car = 20 }

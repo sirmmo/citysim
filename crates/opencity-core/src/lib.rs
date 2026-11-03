@@ -20,7 +20,7 @@ pub mod terrain;
 pub mod traffic;
 
 pub use city::{City, CityMeta, Date, GeoRef, Record, Speed, TileInfo, ToolError, ToolOutcome};
-pub use codes::{Direction, GraphicCode, Sound, StructureCode, StructureType, Tool};
+pub use codes::{Direction, GraphicCode, RoadKind, Sound, StructureCode, StructureType, Tool};
 pub use footprint::{Footprint, Footprints};
 pub use layer::{BuildError, BuildingLayer, Rect, Status, Structure};
 pub use terrain::Terrain;

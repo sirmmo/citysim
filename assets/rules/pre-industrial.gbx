@@ -1,0 +1,42 @@
+# GlassBox rule script, compiled into rules/pre-industrial.toml (see docs/GLASSBOX.md).
+
+# --- Metrics -----------------------------------------------------------------
+unitRule householdMetrics
+    appliesTo cottage
+    log -timestamp=Time Households 1
+end
+
+unitRule harvestMetrics
+    appliesTo farmstead
+    log -timestamp=Time Harvest 10
+end
+
+unitRule granaryMetrics
+    appliesTo granary
+    log -timestamp=Time GrainStore 80
+end
+
+# --- Agents: carts rumble along the streets ------------------------------------
+agentRule cartNoise
+    condition resource=cart.{type}
+    repeatAfter 3
+    area -timestamp=Time -map=Noise level 0.5 1
+end
+
+# --- Maps: water and quiet make a street worth living on ----------------------
+mapRule wellWater
+    rate 10
+    map water atLeast 1
+    map Noise.level atMost 4
+    map land_value out 0.2
+end
+
+# --- Zones: farming hamlets grow by the fields --------------------------------
+zoneRule hamlet
+    appliesTo residential
+    rate 40
+    sample random -count 2
+    test global residents greater 60
+    test map pollution less 2
+    createUnit -id cottage
+end

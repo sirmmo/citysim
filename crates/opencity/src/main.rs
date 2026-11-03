@@ -599,11 +599,16 @@ impl Game {
                 self.handle_action(Action::ToggleFast);
             }
             if let Some(a) = tool_key() {
-                let allowed = match (a, &self.skin) {
-                    (Action::Tool(Some(t)), Some(s)) => s.allows(t.id()),
-                    _ => true,
+                let allowed = |t: Tool| self.skin.as_ref().is_none_or(|s| s.allows(t.id())) && self.city.rules().is_none_or(|r| r.allows(t.id()));
+                // P lays the street of the age: asphalt, else paved, else dirt.
+                let a = match a {
+                    Action::Tool(Some(Tool::Road)) => {
+                        [Tool::Road, Tool::PavedStreet, Tool::DirtRoad].into_iter().find(|&t| allowed(t)).map(|t| Action::Tool(Some(t)))
+                    }
+                    Action::Tool(Some(t)) => allowed(t).then_some(a),
+                    _ => Some(a),
                 };
-                if allowed {
+                if let Some(a) = a {
                     self.handle_action(a);
                 }
             }

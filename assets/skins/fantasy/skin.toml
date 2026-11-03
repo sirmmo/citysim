@@ -3,6 +3,8 @@ description = "For OpenFantasyMap worlds: vivid colours, magic instead of electr
 era = "Fantasy"
 culture = "Generic realm"
 
+disabled_tools = ["highway"]
+
 [applies]
 # World names from the GeoJSON `world` member or --world; edit to taste.
 worlds = ["Eldoria", "*fantasy*", "ofm:*"]

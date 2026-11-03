@@ -193,6 +193,9 @@ pub struct Emission {
 pub struct UnitDef {
     pub id: String,
     pub name: String,
+    /// One line shown when the unit is inspected.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub description: String,
     /// Model shown (OpenCity graphic code); its footprint is the unit's size.
     pub graphic: u16,
     /// Produced per tick, scaled by how well the unit's needs are met.
@@ -332,6 +335,13 @@ pub struct Ruleset {
     pub name: String,
     #[serde(default)]
     pub description: String,
+    /// Years the rules suit (inclusive); a new city in an age outside them
+    /// gets another rules set by default.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub years: Option<[i64; 2]>,
+    /// Tool ids not offered with these rules (e.g. power lines before electricity).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub disabled_tools: Vec<String>,
     #[serde(default, rename = "resource", deserialize_with = "flatten_resources")]
     pub resources: Vec<ResourceDef>,
     #[serde(default, rename = "layer")]
@@ -456,6 +466,26 @@ pub struct RulesError {
 }
 
 impl Ruleset {
+    /// Whether the tool (by id) is offered with these rules.
+    pub fn allows(&self, tool_id: &str) -> bool {
+        !self.disabled_tools.iter().any(|t| t == tool_id)
+    }
+
+    /// Whether the rules suit a city in `year` (rules without years suit any).
+    pub fn fits_year(&self, year: i64) -> bool {
+        self.years.is_none_or(|[a, b]| (a..=b).contains(&year))
+    }
+
+    /// Whether the rules suit any year of the range.
+    pub fn fits_years(&self, range: [i64; 2]) -> bool {
+        self.years.is_none_or(|[a, b]| a <= range[1] && range[0] <= b)
+    }
+
+    /// The unit a service tool builds, if the rules map it.
+    pub fn service_unit(&self, tool_id: &str) -> Option<&UnitDef> {
+        self.services.get(tool_id).and_then(|u| self.unit(u)).map(|u| &self.units[u])
+    }
+
     pub fn resource(&self, id: &str) -> Option<usize> {
         self.resources.iter().position(|r| r.id == id)
     }

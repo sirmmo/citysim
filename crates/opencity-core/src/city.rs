@@ -284,9 +284,16 @@ impl City {
             _ => {
                 let code = tool.structure().expect("building tool");
                 let rect = if code.is_block() { Rect::tile(a.0, a.1) } else { rect };
-                let mut cost = self.layer.build(rect, code, &self.terrain, &self.footprints, &mut self.rng)?;
+                let mut cost = match tool.road_kind() {
+                    Some(kind) => self.layer.build_road(rect, kind, &self.terrain)?,
+                    None => self.layer.build(rect, code, &self.terrain, &self.footprints, &mut self.rng)?,
+                };
                 if let Some(per_tile) = self.zone_cost(code) {
                     cost = cost / code.build_cost().max(1) * per_tile;
+                }
+                // Services priced by the rules (e.g. a well instead of a park).
+                if let Some(price) = self.rules().and_then(|r| r.service_unit(tool.id())).map(|u| u.build_cost).filter(|&c| c > 0) {
+                    cost = cost / code.build_cost().max(1) * price;
                 }
                 self.after_build(tool, code, rect);
                 cost
@@ -472,7 +479,14 @@ impl City {
             // Money flows through the rules (taxes and upkeep resources).
             return;
         }
-        let maintenance: u32 = self.layer.tiles().map(|(_, t)| t.code().maintenance_cost()).sum();
+        let maintenance: u32 = self
+            .layer
+            .tiles()
+            .map(|(_, t)| match t.structure() {
+                Some(s) if s.code == StructureCode::Road => s.road.maintenance_cost(),
+                _ => t.code().maintenance_cost(),
+            })
+            .sum();
         self.fund -= maintenance as i64;
         let v = self.values;
         self.income += (v.residential * RESIDENTIAL_TAX + v.commercial * COMMERCIAL_TAX + v.industrial * INDUSTRIAL_TAX) / 100;

@@ -46,7 +46,7 @@ mod tests {
     fn shipped_rules_load() {
         let dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../assets");
         let all = load_all(&dir);
-        assert_eq!(all.len(), 1);
-        assert_eq!(all[0].id, "glassbox");
+        let ids: Vec<&str> = all.iter().map(|r| r.id.as_str()).collect();
+        assert_eq!(ids, ["glassbox", "pre-industrial"]);
     }
 }

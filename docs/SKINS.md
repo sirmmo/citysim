@@ -33,9 +33,15 @@ keys group it in the new-city dialog.
 | `[models]` | Graphic code to replacement `.ac` model |
 | any file under the skin folder | Replaces the base file with the same relative path, e.g. `skins/fantasy/graphism/gui/road.png` |
 
-Tool ids: `residential`, `commercial`, `industrial`, `road`, `power_line`,
+Tool ids: `residential`, `commercial`, `industrial`, `road` (asphalt
+street), `highway`, `paved_street`, `dirt_road`, `power_line`,
 `coal_plant`, `nuclear_plant`, `fire_station`, `police`, `hospital`,
 `school`, `park`, `trees`, `raise`, `lower`, `bulldozer`.
+
+With GlassBox rules, a service tool is named after the unit the rules build
+with it (a "Fortified granary" for `coal_plant` in the pre-industrial rules),
+and the inspector names every building as the rules do. Rules can hide tools
+too (`disabled_tools` in the rules file).
 
 Replacement models keep the footprint of the model they replace, because the
 simulation uses the base catalog's sizes.
@@ -47,11 +53,16 @@ simulation uses the base catalog's sizes.
   centres, barracks, fortress, wall towers, fields, mines and five tree species.
   Tools are named after the culture's own buildings (Domus, Oikos, Tegia, Mín Jū…).
 * **antiquity**: the same era without 3D art, used when nothing is baked.
-* **renaissance**: years 501 to 1799. Faded warm palette, no vehicles, no
-  nuclear plant. The coal plant becomes a "Watermill" and power lines become a "Mill race".
-* **industrial**: 1800-1945. Grey skies, coal age names, no nuclear plant.
+  Paved roads (*via strata*) and tracks instead of asphalt.
+* **medieval**: years 501 to 1449. Muted palette, no vehicles, no
+  electricity; cobbled streets and dirt lanes.
+* **renaissance**: years 1450 to 1799. Faded warm palette, no vehicles, no
+  nuclear plant, cobbled streets and lanes. With the classic rules the coal
+  plant becomes a "Watermill" and power lines become a "Mill race".
+* **industrial**: 1800-1945. Grey skies, coal age names, no nuclear plant,
+  no highways.
 * **fantasy**: worlds `Eldoria`, `*fantasy*`, `ofm:*`. Vivid palette, magic
-  vocabulary ("Mage tower", "Ley line", "Dragon forge"), no vehicles.
+  vocabulary ("Mage tower", "Ley line", "Dragon forge"), no vehicles, no highways.
 
 Except for antiquity, these reuse OpenCity's modern-looking models, so they
 are a mood change, not a full reskin.

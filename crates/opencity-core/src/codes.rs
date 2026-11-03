@@ -283,6 +283,124 @@ impl Direction {
     }
 }
 
+/// Kinds of road. They share the road network (they connect to each other
+/// and carry the same traffic) but differ in cost, speed, capacity and width,
+/// and in whether buildings can open onto them.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RoadKind {
+    /// Modern asphalt city street.
+    #[default]
+    Street,
+    /// Fast, wide, high-capacity road with no access for buildings.
+    Highway,
+    /// Beaten earth: cheap, slow, narrow.
+    DirtRoad,
+    /// Cobbled or flagstone street of pre-industrial towns.
+    PavedStreet,
+}
+
+impl RoadKind {
+    pub const ALL: [RoadKind; 4] = [RoadKind::Street, RoadKind::Highway, RoadKind::DirtRoad, RoadKind::PavedStreet];
+
+    /// Stable identifier (saves, rules, skins).
+    pub const fn id(self) -> &'static str {
+        match self {
+            Self::Street => "street",
+            Self::Highway => "highway",
+            Self::DirtRoad => "dirt_road",
+            Self::PavedStreet => "paved_street",
+        }
+    }
+
+    pub fn from_id(id: &str) -> Option<Self> {
+        Self::ALL.into_iter().find(|k| k.id() == id)
+    }
+
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::Street => "Street",
+            Self::Highway => "Highway",
+            Self::DirtRoad => "Dirt road",
+            Self::PavedStreet => "Paved street",
+        }
+    }
+
+    /// Cost to build one tile.
+    pub const fn build_cost(self) -> u32 {
+        match self {
+            Self::Street => 5,
+            Self::Highway => 25,
+            Self::DirtRoad => 1,
+            Self::PavedStreet => 3,
+        }
+    }
+
+    /// Monthly upkeep per tile.
+    pub const fn maintenance_cost(self) -> u32 {
+        match self {
+            Self::Street | Self::PavedStreet => 1,
+            Self::Highway => 4,
+            Self::DirtRoad => 0,
+        }
+    }
+
+    /// Travel speed relative to a street: trips cover `speed` tiles in the
+    /// time a street takes for one.
+    pub const fn speed(self) -> f32 {
+        match self {
+            Self::Street => 1.0,
+            Self::Highway => 2.5,
+            Self::DirtRoad => 0.5,
+            Self::PavedStreet => 0.8,
+        }
+    }
+
+    /// Traffic it carries before slowing down, relative to a street.
+    pub const fn capacity(self) -> f32 {
+        match self {
+            Self::Street => 1.0,
+            Self::Highway => 3.0,
+            Self::DirtRoad => 0.4,
+            Self::PavedStreet => 0.7,
+        }
+    }
+
+    /// Whether buildings can open onto it (and plots next to it develop).
+    pub const fn access(self) -> bool {
+        !matches!(self, Self::Highway)
+    }
+
+    /// Lanes, for display.
+    pub const fn lanes(self) -> u8 {
+        match self {
+            Self::Highway => 4,
+            Self::DirtRoad => 1,
+            Self::Street | Self::PavedStreet => 2,
+        }
+    }
+
+    /// Paved width in tiles, for display (highways spill over their verges).
+    pub const fn width(self) -> f32 {
+        match self {
+            Self::Street => 1.0,
+            Self::Highway => 1.3,
+            Self::DirtRoad => 0.5,
+            Self::PavedStreet => 0.75,
+        }
+    }
+
+    /// The tool that builds it.
+    pub const fn tool(self) -> Tool {
+        match self {
+            Self::Street => Tool::Road,
+            Self::Highway => Tool::Highway,
+            Self::DirtRoad => Tool::DirtRoad,
+            Self::PavedStreet => Tool::PavedStreet,
+        }
+    }
+}
+
 /// Player tools (legacy `OPENCITY_TOOL_CODE`, minus the experimental agents).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Tool {
@@ -293,6 +411,9 @@ pub enum Tool {
     RaiseTerrain,
     LowerTerrain,
     Road,
+    Highway,
+    DirtRoad,
+    PavedStreet,
     PowerLine,
     CoalPlant,
     NuclearPlant,
@@ -306,7 +427,7 @@ pub enum Tool {
 }
 
 impl Tool {
-    pub const ALL: [Tool; 17] = [
+    pub const ALL: [Tool; 20] = [
         Tool::Destroy,
         Tool::ZoneResidential,
         Tool::ZoneCommercial,
@@ -314,6 +435,9 @@ impl Tool {
         Tool::RaiseTerrain,
         Tool::LowerTerrain,
         Tool::Road,
+        Tool::Highway,
+        Tool::DirtRoad,
+        Tool::PavedStreet,
         Tool::PowerLine,
         Tool::CoalPlant,
         Tool::NuclearPlant,
@@ -336,6 +460,9 @@ impl Tool {
             Tool::RaiseTerrain => "raise",
             Tool::LowerTerrain => "lower",
             Tool::Road => "road",
+            Tool::Highway => "highway",
+            Tool::DirtRoad => "dirt_road",
+            Tool::PavedStreet => "paved_street",
             Tool::PowerLine => "power_line",
             Tool::CoalPlant => "coal_plant",
             Tool::NuclearPlant => "nuclear_plant",
@@ -356,7 +483,7 @@ impl Tool {
             Tool::ZoneResidential => S::Residential,
             Tool::ZoneCommercial => S::Commercial,
             Tool::ZoneIndustrial => S::Industrial,
-            Tool::Road => S::Road,
+            Tool::Road | Tool::Highway | Tool::DirtRoad | Tool::PavedStreet => S::Road,
             Tool::PowerLine => S::PowerLine,
             Tool::CoalPlant => S::CoalPlant,
             Tool::NuclearPlant => S::NuclearPlant,
@@ -368,6 +495,17 @@ impl Tool {
             Tool::School => S::School,
             Tool::TestBuilding => S::Test,
             Tool::Destroy | Tool::RaiseTerrain | Tool::LowerTerrain => return None,
+        })
+    }
+
+    /// The kind of road a road tool lays.
+    pub const fn road_kind(self) -> Option<RoadKind> {
+        Some(match self {
+            Tool::Road => RoadKind::Street,
+            Tool::Highway => RoadKind::Highway,
+            Tool::DirtRoad => RoadKind::DirtRoad,
+            Tool::PavedStreet => RoadKind::PavedStreet,
+            _ => return None,
         })
     }
 
@@ -384,7 +522,7 @@ impl Tool {
             Tool::Destroy => Sound::Destroy,
             Tool::ZoneResidential | Tool::ZoneCommercial | Tool::ZoneIndustrial => Sound::Zone,
             Tool::RaiseTerrain | Tool::LowerTerrain => Sound::Terrain,
-            Tool::Road => Sound::Road,
+            Tool::Road | Tool::Highway | Tool::DirtRoad | Tool::PavedStreet => Sound::Road,
             Tool::PowerLine => Sound::PowerLine,
             Tool::Park | Tool::Trees => Sound::Park,
             _ => Sound::Plant,
@@ -427,6 +565,16 @@ mod tests {
         assert_eq!(path_graphic(b, SOUTH | NORTH | WEST), GraphicCode(162));
         assert_eq!(path_graphic(b, NORTH | WEST | EAST), GraphicCode(163));
         assert_eq!(path_graphic(b, 15), GraphicCode(164));
+    }
+
+    #[test]
+    fn road_kinds_have_tools_and_ids() {
+        for k in RoadKind::ALL {
+            assert_eq!(k.tool().road_kind(), Some(k));
+            assert_eq!(RoadKind::from_id(k.id()), Some(k));
+            assert_eq!(k.tool().structure(), Some(StructureCode::Road));
+        }
+        assert!(!RoadKind::Highway.access() && RoadKind::DirtRoad.access());
     }
 
     #[test]

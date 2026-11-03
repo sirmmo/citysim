@@ -1,0 +1,547 @@
+# Pre-industrial GlassBox rules: towns before steam and electricity
+# (antiquity, the Middle Ages, the Renaissance).
+#
+# No power, no cars. People walk, so trips are short; food comes from the
+# fields, goods from quarries, mines and workshops; carts carry trade, and
+# horse carts eat fodder. Wells give water, and the bigger houses need it.
+# Same model as glassbox.toml (see docs/RULES.md); units reuse the models
+# of the modern rules, which the period skins dress as their own buildings.
+
+id = "pre-industrial"
+name = "Pre-industrial GlassBox"
+description = "Towns before steam and electricity: people walk, carts carry trade, fields feed the town, wells give water."
+population = "residents"
+scripts = ["pre-industrial.gbx"]
+years = [-9999, 1799]
+# No electricity, and no asphalt: streets are dirt or paved.
+disabled_tools = ["power_line", "nuclear_plant", "road", "highway"]
+
+[growth]
+level_up = 0.75
+level_down = 0.3
+chance = 0.12
+max_new = 3
+road_access = 3
+grace = 40
+patience = 15
+saturation = 0.1
+
+# ---------------------------------------------------------------- resources
+[[resource]]
+id = "workers"
+name = "Workers"
+transport = "agents"
+network = "road"
+max_trip = 30                     # tiles of street; dirt roads halve it
+colour = [0.35, 0.65, 1.0]
+
+[[resource]]
+id = "shoppers"
+name = "Customers"
+transport = "agents"
+network = "road"
+max_trip = 22
+colour = [1.0, 0.45, 0.75]
+
+[[resource]]
+id = "food"
+name = "Food"
+transport = "agents"
+network = "road"
+max_trip = 40
+colour = [0.55, 0.85, 0.3]
+
+[[resource]]
+id = "goods"
+name = "Goods"
+transport = "agents"
+network = "road"
+max_trip = 40
+colour = [1.0, 0.7, 0.2]
+
+# Carts: trade needs them at markets and workshops. Handcarts need nothing;
+# horse carts eat fodder from the farms, and dirty the streets.
+[[resource]]
+id = "cart"
+name = "Carts"
+transport = "agents"
+network = "road"
+max_trip = 36
+colour = [0.75, 0.6, 0.45]
+
+  [[resource.subtype]]
+  id = "handcart"
+  name = "Handcarts"
+  share = 0.6
+  max_trip = 20
+  colour = [0.85, 0.75, 0.55]
+
+  [[resource.subtype]]
+  id = "horse"
+  name = "Horse carts"
+  share = 0.4
+  colour = [0.6, 0.4, 0.25]
+  uses = { fodder = 0.3 }
+  trail = { pollution = 0.02 }
+
+[[resource]]
+id = "fodder"
+name = "Fodder"
+transport = "agents"
+network = "road"
+max_trip = 36
+colour = [0.85, 0.85, 0.35]
+
+[[resource]]
+id = "taxes"
+name = "Taxes"
+transport = "city"
+
+[[resource]]
+id = "upkeep"
+name = "Upkeep"
+transport = "city"
+
+[[resource]]
+id = "residents"
+name = "Residents"
+transport = "local"
+
+# ---------------------------------------------------------------- networks
+[[network]]
+id = "road"
+name = "Streets"
+structures = ["road"]
+
+# ---------------------------------------------------------------- map layers
+[[layer]]
+id = "pollution"
+name = "Smoke & dirt"
+diffusion = 0.15
+decay = 0.1
+colour = [0.55, 0.4, 0.15]
+max = 40.0
+
+[[layer]]
+id = "land_value"
+name = "Land value"
+diffusion = 0.1
+decay = 0.06
+colour = [0.2, 0.75, 0.3]
+max = 40.0
+
+[[layer]]
+id = "water"
+name = "Water"
+decay = 1.0
+colour = [0.3, 0.6, 1.0]
+max = 10.0
+
+[[layer]]
+id = "fire_safety"
+name = "Fire watch"
+decay = 1.0
+colour = [0.95, 0.3, 0.2]
+max = 10.0
+
+[[layer]]
+id = "police_safety"
+name = "Guard"
+decay = 1.0
+colour = [0.3, 0.4, 0.95]
+max = 10.0
+
+[[layer]]
+id = "health"
+name = "Health"
+decay = 1.0
+colour = [0.95, 0.95, 0.95]
+max = 10.0
+
+[[layer]]
+id = "education"
+name = "Learning"
+decay = 1.0
+colour = [0.95, 0.8, 0.2]
+max = 10.0
+
+[[layer]]
+id = "Noise.level"
+name = "Noise"
+diffusion = 0.1
+decay = 0.3
+colour = [0.9, 0.5, 0.9]
+max = 20.0
+
+# ---------------------------------------------------------------- zones
+[[zone]]
+id = "residential"
+name = "Residential"
+structure = "residential"
+base_demand = 3.0
+demand = [{ resource = "workers", from = "unmet", weight = 0.5 }]
+densities = [
+  { id = "low", name = "Low density", cost = 2, units = ["hut", "cottage", "family_house"] },
+  { id = "medium", name = "Medium density", cost = 5, units = ["town_house", "merchant_house", "row_houses"] },
+  { id = "high", name = "High density", cost = 10, units = ["tenement", "courtyard_house", "insula"] },
+]
+
+[[zone]]
+id = "commercial"
+name = "Commercial"
+structure = "commercial"
+demand = [
+  { resource = "shoppers", from = "undelivered", weight = 0.5 },
+  { resource = "goods", from = "undelivered", weight = 0.3 },
+  { resource = "food", from = "undelivered", weight = 0.05 },
+]
+densities = [
+  { id = "low", name = "Low density", cost = 2, units = ["market_stall", "bakery", "shop"] },
+  { id = "medium", name = "Medium density", cost = 5, units = ["covered_market", "tavern", "coaching_inn"] },
+  { id = "high", name = "High density", cost = 10, units = ["caravanserai", "market_square", "exchange"] },
+]
+
+[[zone]]
+id = "industrial"
+name = "Fields & crafts"
+structure = "industrial"
+base_demand = 1.5
+demand = [
+  { resource = "workers", from = "undelivered", weight = 0.5 },
+  { resource = "food", from = "unmet", weight = 0.5 },
+  { resource = "goods", from = "unmet", weight = 0.4 },
+]
+densities = [
+  { id = "low", name = "Fields", cost = 3, units = ["grain_field", "farm", "farmstead"] },
+  { id = "medium", name = "Quarries & mines", cost = 6, units = ["quarry", "mine", "stone_works"] },
+  { id = "high", name = "Workshops", cost = 12, units = ["foundry", "stables", "craft_hall"] },
+]
+
+# ---------------------------------------------------------------- services
+[services]
+coal_plant = "granary"
+fire_station = "watchtower"
+police = "guard_house"
+hospital = "bathhouse"
+school = "academy"
+park = "well"
+
+# ---------------------------------------------------------------- units
+# Residential: families eat and work; bigger houses want water and safety.
+[[unit]]
+id = "hut"
+name = "Hut"
+description = "One room under a thatched roof."
+graphic = 11
+produce = { residents = 3, workers = 2, shoppers = 1, taxes = 0.01 }
+needs = { food = 1 }
+sends = ["workers", "shoppers"]
+requires = { pollution = { max = 25 } }
+
+[[unit]]
+id = "cottage"
+name = "Cottage"
+description = "A family home with a vegetable plot."
+graphic = 12
+produce = { residents = 5, workers = 3, shoppers = 2, taxes = 0.02 }
+needs = { food = 1.5 }
+sends = ["workers", "shoppers"]
+requires = { pollution = { max = 20 } }
+
+[[unit]]
+id = "family_house"
+name = "Family house"
+description = "Two storeys of stone and timber; three generations under one roof."
+graphic = 13
+produce = { residents = 7, workers = 4, shoppers = 3, taxes = 0.04 }
+needs = { food = 2 }
+sends = ["workers", "shoppers"]
+requires = { pollution = { max = 20 }, water = { min = 1 } }
+
+[[unit]]
+id = "town_house"
+name = "Town house"
+description = "A narrow house on a burgage plot, the workshop on the ground floor."
+graphic = 14
+produce = { residents = 10, workers = 6, shoppers = 4, taxes = 0.06 }
+needs = { food = 3 }
+sends = ["workers", "shoppers"]
+requires = { pollution = { max = 20 }, water = { min = 1 } }
+
+[[unit]]
+id = "merchant_house"
+name = "Merchant's house"
+description = "A merchant's home above his storerooms."
+graphic = 15
+produce = { residents = 14, workers = 8, shoppers = 6, taxes = 0.1 }
+needs = { food = 4 }
+sends = ["workers", "shoppers"]
+requires = { pollution = { max = 15 }, water = { min = 1 }, fire_safety = { min = 1 } }
+
+[[unit]]
+id = "row_houses"
+name = "Row houses"
+description = "A row of houses sharing walls along the street."
+graphic = 16
+produce = { residents = 20, workers = 12, shoppers = 8, taxes = 0.14 }
+needs = { food = 6 }
+sends = ["workers", "shoppers"]
+requires = { pollution = { max = 15 }, water = { min = 1 }, fire_safety = { min = 1 } }
+
+[[unit]]
+id = "tenement"
+name = "Tenement"
+description = "Rooms rented by the week, crowded and cheap."
+graphic = 17
+produce = { residents = 30, workers = 18, shoppers = 10, taxes = 0.2 }
+needs = { food = 9 }
+sends = ["workers", "shoppers"]
+requires = { water = { min = 1 }, fire_safety = { min = 1 } }
+
+[[unit]]
+id = "courtyard_house"
+name = "Courtyard house"
+description = "A wealthy household around its own courtyard."
+graphic = 18
+produce = { residents = 40, workers = 22, shoppers = 16, taxes = 0.35 }
+needs = { food = 12 }
+sends = ["workers", "shoppers"]
+requires = { pollution = { max = 10 }, water = { min = 1 }, fire_safety = { min = 1 }, police_safety = { min = 1 } }
+
+[[unit]]
+id = "insula"
+name = "Insula block"
+description = "A long block of flats over shops, five storeys high."
+graphic = 19
+produce = { residents = 70, workers = 40, shoppers = 28, taxes = 0.6 }
+needs = { food = 20 }
+sends = ["workers", "shoppers"]
+requires = { water = { min = 1 }, fire_safety = { min = 1 }, police_safety = { min = 1 }, health = { min = 1 } }
+
+# Commercial: customers, goods and food, brought by carts.
+[[unit]]
+id = "market_stall"
+name = "Market stall"
+description = "Bread, cheese and cloth on a trestle table."
+graphic = 21
+produce = { taxes = 0.03 }
+needs = { workers = 1, shoppers = 3, food = 1, cart = 0.5 }
+emits = { land_value = { amount = 0.3, radius = 2 } }
+
+[[unit]]
+id = "bakery"
+name = "Bakery"
+description = "The oven is lit before dawn."
+graphic = 22
+produce = { taxes = 0.05 }
+needs = { workers = 2, shoppers = 4, food = 2, cart = 0.5 }
+emits = { land_value = { amount = 0.4, radius = 2 } }
+
+[[unit]]
+id = "shop"
+name = "Shop & store"
+description = "Tools, pots and cloth, and a store room behind."
+graphic = 23
+produce = { taxes = 0.07 }
+needs = { workers = 2, shoppers = 5, goods = 2, cart = 1 }
+emits = { land_value = { amount = 0.5, radius = 2 } }
+
+[[unit]]
+id = "covered_market"
+name = "Covered market"
+description = "Stalls under a long roof, open every day."
+graphic = 24
+produce = { taxes = 0.15 }
+needs = { workers = 4, shoppers = 10, food = 4, goods = 3, cart = 2 }
+emits = { land_value = { amount = 0.8, radius = 3 } }
+
+[[unit]]
+id = "tavern"
+name = "Tavern"
+description = "Ale, stew and the latest news."
+graphic = 26
+produce = { taxes = 0.2 }
+needs = { workers = 4, shoppers = 12, food = 5, cart = 1.5 }
+emits = { land_value = { amount = 0.6, radius = 2 }, "Noise.level" = { amount = 0.5, radius = 2 } }
+requires = { fire_safety = { min = 1 } }
+
+[[unit]]
+id = "coaching_inn"
+name = "Coaching inn"
+description = "Rooms for travellers and stables for their horses."
+graphic = 27
+produce = { taxes = 0.3 }
+needs = { workers = 6, shoppers = 14, food = 6, fodder = 2, "cart.horse" = 1 }
+emits = { land_value = { amount = 1.0, radius = 3 } }
+requires = { fire_safety = { min = 1 } }
+
+[[unit]]
+id = "caravanserai"
+name = "Caravanserai"
+description = "Merchants from afar rest here with their wares."
+graphic = 28
+produce = { taxes = 0.45 }
+needs = { workers = 8, shoppers = 18, goods = 8, fodder = 3, cart = 4 }
+emits = { land_value = { amount = 1.4, radius = 3 } }
+requires = { police_safety = { min = 1 } }
+
+[[unit]]
+id = "market_square"
+name = "Market square"
+description = "The heart of the town: stalls, guild halls and the town hall."
+graphic = 25
+produce = { taxes = 0.9 }
+needs = { workers = 16, shoppers = 40, food = 12, goods = 12, cart = 8 }
+emits = { land_value = { amount = 2.5, radius = 5 } }
+requires = { fire_safety = { min = 1 }, police_safety = { min = 1 } }
+
+[[unit]]
+id = "exchange"
+name = "Merchants' exchange"
+description = "Bankers and traders, under a tower seen from the whole valley."
+graphic = 29
+produce = { taxes = 1.4 }
+needs = { workers = 24, shoppers = 40, goods = 16, cart = 10 }
+emits = { land_value = { amount = 3.5, radius = 6 } }
+requires = { fire_safety = { min = 1 }, police_safety = { min = 1 }, education = { min = 1 } }
+
+# Fields & crafts: food, fodder and goods; carts to carry them.
+[[unit]]
+id = "grain_field"
+name = "Grain field"
+description = "Barley and wheat, harvested by hand."
+graphic = 31
+produce = { food = 4, fodder = 1, taxes = 0.02 }
+needs = { workers = 2 }
+sends = ["food", "fodder"]
+
+[[unit]]
+id = "farm"
+name = "Farm"
+description = "Fields, a barn, a few animals, and wool spun in winter."
+graphic = 32
+produce = { food = 5, fodder = 2, goods = 1, cart = 1, taxes = 0.03 }
+needs = { workers = 3 }
+sends = ["food", "fodder", "goods", "cart"]
+
+[[unit]]
+id = "quarry"
+name = "Quarry"
+description = "Stone cut for the town's walls and houses."
+graphic = 33
+produce = { goods = 3, cart = 1, taxes = 0.04 }
+needs = { workers = 4 }
+sends = ["goods", "cart"]
+emits = { pollution = { amount = 1.0, radius = 2 }, "Noise.level" = { amount = 1.0, radius = 2 } }
+
+[[unit]]
+id = "mine"
+name = "Mine"
+description = "Ore dug from the hillside."
+graphic = 34
+produce = { goods = 5, cart = 1.5, taxes = 0.08 }
+needs = { workers = 6, food = 1 }
+sends = ["goods", "cart"]
+emits = { pollution = { amount = 1.5, radius = 2 } }
+
+[[unit]]
+id = "farmstead"
+name = "Farmstead"
+description = "A farm with granaries, a weaving shed and its own carts."
+graphic = 35
+produce = { food = 10, fodder = 4, goods = 3, cart = 3, taxes = 0.08 }
+needs = { workers = 6 }
+sends = ["food", "fodder", "goods", "cart"]
+
+[[unit]]
+id = "stone_works"
+name = "Stone works"
+description = "Masons dress the quarried stone."
+graphic = 36
+produce = { goods = 8, cart = 2, taxes = 0.12 }
+needs = { workers = 8, food = 2 }
+sends = ["goods", "cart"]
+emits = { pollution = { amount = 2.0, radius = 3 }, "Noise.level" = { amount = 1.5, radius = 2 } }
+
+[[unit]]
+id = "foundry"
+name = "Foundry"
+description = "Bronze and iron cast in clay moulds."
+graphic = 37
+produce = { goods = 14, cart = 3, taxes = 0.25 }
+needs = { workers = 14, food = 3, cart = 1 }
+sends = ["goods", "cart"]
+emits = { pollution = { amount = 4.0, radius = 4 } }
+requires = { fire_safety = { min = 1 } }
+
+[[unit]]
+id = "stables"
+name = "Stables"
+description = "Horses bred, shod and hired out with their carts."
+graphic = 38
+produce = { "cart.horse" = 8, taxes = 0.2 }
+needs = { workers = 8, fodder = 6 }
+sends = ["cart"]
+emits = { pollution = { amount = 1.0, radius = 2 } }
+
+[[unit]]
+id = "craft_hall"
+name = "Craft hall"
+description = "Weavers, potters and joiners of the guilds under one roof."
+graphic = 39
+produce = { goods = 24, cart = 4, taxes = 0.5 }
+needs = { workers = 24, food = 4, cart = 2 }
+sends = ["goods", "cart"]
+emits = { pollution = { amount = 2.0, radius = 3 } }
+requires = { fire_safety = { min = 1 }, education = { min = 1 } }
+
+# Services.
+[[unit]]
+id = "granary"
+name = "Fortified granary"
+description = "The town's grain reserve behind thick walls: food for everyone."
+graphic = 300
+produce = { food = 80 }
+needs = { workers = 8, upkeep = 0.3 }
+sends = ["food"]
+emits = { police_safety = { amount = 6.0, radius = 6 } }
+
+[[unit]]
+id = "watchtower"
+name = "Watchtower"
+description = "A watchman on the tower, buckets and hooks below."
+graphic = 350
+needs = { workers = 3, upkeep = 0.2 }
+emits = { fire_safety = { amount = 10.0, radius = 10 } }
+
+[[unit]]
+id = "guard_house"
+name = "Guard house"
+description = "The town guard and its night patrols."
+graphic = 360
+needs = { workers = 4, food = 1, upkeep = 0.2 }
+emits = { police_safety = { amount = 10.0, radius = 10 } }
+
+[[unit]]
+id = "bathhouse"
+name = "Bathhouse"
+description = "Hot baths, a physician and herbs."
+graphic = 370
+needs = { workers = 8, food = 1, upkeep = 0.4 }
+emits = { health = { amount = 10.0, radius = 14 } }
+
+[[unit]]
+id = "academy"
+name = "Academy"
+description = "Masters teach reading, numbers and law."
+graphic = 390
+needs = { workers = 5, food = 1, upkeep = 0.3 }
+emits = { education = { amount = 10.0, radius = 12 } }
+
+[[unit]]
+id = "well"
+name = "Public well"
+description = "Clean water for the houses around it."
+graphic = 320
+build_cost = 20
+emits = { water = { amount = 10.0, radius = 4 }, land_value = { amount = 1.0, radius = 2 } }

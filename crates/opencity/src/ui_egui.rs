@@ -9,7 +9,7 @@ use egui_macroquad::egui::{self, Color32, RichText, TextureHandle, Vec2 as EVec2
 use opencity_assets::{Catalog, Skin};
 use std::sync::Arc;
 
-use opencity_core::{rules::Ruleset, City, Speed, Status, Tool};
+use opencity_core::{rules::Ruleset, City, Speed, Status, StructureCode, Tool};
 use opencity_mapgen::{MapParams, Relief, Shape, TreeDensity, Water};
 
 use crate::ui::Action;
@@ -107,7 +107,10 @@ const GROUPS: &[(&str, &[ToolEntry])] = &[
     (
         "Networks",
         &[
-            ("road", Action::Tool(Some(Tool::Road)), "Road", "P"),
+            ("road", Action::Tool(Some(Tool::Road)), "Street", "P"),
+            ("road_highway", Action::Tool(Some(Tool::Highway)), "Highway", ""),
+            ("road_paved_street", Action::Tool(Some(Tool::PavedStreet)), "Paved street", "P"),
+            ("road_dirt_road", Action::Tool(Some(Tool::DirtRoad)), "Dirt road", ""),
             ("power_line", Action::Tool(Some(Tool::PowerLine)), "Power line", "L"),
             ("power_plant_coal", Action::Tool(Some(Tool::CoalPlant)), "Coal plant", ""),
             ("power_plant_nuclear", Action::Tool(Some(Tool::NuclearPlant)), "Nuclear plant", ""),
@@ -138,7 +141,10 @@ const GROUPS: &[(&str, &[ToolEntry])] = &[
 fn tool_cost(a: Action) -> Option<u32> {
     match a {
         Action::Tool(Some(Tool::RaiseTerrain | Tool::LowerTerrain)) => Some(opencity_core::city::TERRAIN_COST),
-        Action::Tool(Some(t)) => t.structure().map(|s| s.build_cost()).filter(|&c| c > 0),
+        Action::Tool(Some(t)) => match t.road_kind() {
+            Some(k) => Some(k.build_cost()),
+            None => t.structure().map(|s| s.build_cost()).filter(|&c| c > 0),
+        },
         _ => None,
     }
 }
@@ -201,8 +207,18 @@ impl EguiUi {
             Some(s) => s.resolve(&catalog.data_dir, &rel),
             None => catalog.path(&rel),
         };
-        let bytes = opencity_assets::read_bytes(&path).ok()?;
-        let img = image::load_from_memory(&bytes).ok()?.to_rgba8();
+        let img = match opencity_assets::read_bytes(&path).ok().and_then(|b| image::load_from_memory(&b).ok()) {
+            Some(img) => img.to_rgba8(),
+            // Road kinds without their own icon: the street icon, repainted.
+            None => {
+                let kind = name.strip_prefix("road_").and_then(opencity_core::RoadKind::from_id)?;
+                let rel = "graphism/gui/road.png";
+                let path = skin.map_or_else(|| catalog.path(rel), |s| s.resolve(&catalog.data_dir, rel));
+                let mut img = image::load_from_memory(&opencity_assets::read_bytes(&path).ok()?).ok()?.to_rgba8();
+                repaint_road_icon(&mut img, kind);
+                img
+            }
+        };
         let color = egui::ColorImage::from_rgba_unmultiplied([img.width() as usize, img.height() as usize], img.as_raw());
         let tex = ctx.load_texture(name, color, egui::TextureOptions::LINEAR);
         self.icons.insert(name, tex.clone());
@@ -361,10 +377,12 @@ impl EguiUi {
                             Action::Tool(Some(t)) => (t.id(), label),
                             _ => ("inspect", label),
                         };
-                        if view.skin.is_some_and(|s| !s.allows(id)) {
+                        if view.skin.is_some_and(|s| !s.allows(id)) || view.city.rules().is_some_and(|r| !r.allows(id)) {
                             continue;
                         }
-                        let label = view.skin.map_or(label, |s| s.label(id, label));
+                        // What the rules build names a service; skins name the rest.
+                        let service = view.city.rules().and_then(|r| r.service_unit(id)).map(|u| u.name.as_str());
+                        let label = service.unwrap_or_else(|| view.skin.map_or(label, |s| s.label(id, label)));
                         let selected = view.active == Some(action);
                         let tex = self.icon(ctx, view.catalog, view.skin, icon);
                         let cost = match (action, view.city.rules()) {
@@ -372,6 +390,9 @@ impl EguiUi {
                                 .zone_for(t.structure().unwrap())
                                 .and_then(|z| rules.zones[z].densities.get(view.city.zone_density as usize))
                                 .map(|d| d.cost),
+                            (Action::Tool(Some(t)), Some(rules)) if rules.service_unit(t.id()).is_some_and(|u| u.build_cost > 0) => {
+                                rules.service_unit(t.id()).map(|u| u.build_cost)
+                            }
                             _ => tool_cost(action),
                         };
                         let text = match cost {
@@ -521,7 +542,7 @@ impl EguiUi {
                     let h = view.city.terrain.tile_min(w, l);
                     ui.label(format!("height {h}"));
                     if let Some(s) = view.city.layer.structure_at(w, l) {
-                        ui.label(format!("· {}", structure_name(view.catalog, s)));
+                        ui.label(format!("· {}", display_name(view, s)));
                     }
                 }
                 if let Some(m) = view.message {
@@ -535,46 +556,66 @@ impl EguiUi {
 
     fn query_window(&mut self, ctx: &egui::Context, view: &View, out: &mut Vec<Command>) {
         let Some((w, l)) = view.query else { return };
+        let city = view.city;
+        let rules = city.rules();
+        let s = city.layer.structure_at(w, l);
+        let def = s.and_then(|s| s.unit).and_then(|u| rules.map(|r| &r.units[u as usize]));
+        let title = s.map_or_else(|| "Empty land".to_string(), |s| display_name(view, s));
         let mut open = true;
-        egui::Window::new(format!("Tile {w},{l}")).open(&mut open).resizable(false).default_pos([200.0, 120.0]).show(ctx, |ui| {
-            match (view.city.query(w, l), view.city.layer.structure_at(w, l)) {
-                (Some(info), Some(s)) => {
-                    ui.heading(structure_name(view.catalog, s));
-                    if let Some(desc) = view.catalog.get(s.graphic).and_then(|e| e.description.as_deref()) {
-                        ui.label(RichText::new(desc).italics().small());
+        egui::Window::new(RichText::new(title).strong())
+            .id(egui::Id::new("query_window"))
+            .open(&mut open)
+            .resizable(false)
+            .default_width(300.0)
+            .default_pos([200.0, 120.0])
+            .show(ctx, |ui| {
+                ui.set_max_width(320.0);
+                if let (Some(s), Some(info)) = (s, city.query(w, l)) {
+                    let origin = city.layer.origin_of(w, l).unwrap_or((w, l));
+                    // What it is: zone, density and level, or service, or road.
+                    ui.label(RichText::new(kind_line(view, s)).color(Color32::GRAY));
+                    let description = match def {
+                        Some(d) => (!d.description.is_empty()).then_some(d.description.as_str()),
+                        None if s.code == StructureCode::Road => None,
+                        None => view.catalog.get(s.graphic).and_then(|e| e.description.as_deref()),
+                    };
+                    if let Some(d) = description {
+                        ui.label(RichText::new(d).italics().small());
                     }
-                    ui.label(format!("Level {}   Traffic {}", info.level, info.traffic));
-                    if let (Some(gb), Some(rules), Some(u)) = (&view.city.glassbox, view.city.rules(), s.unit) {
-                        let origin = view.city.layer.origin_of(w, l).unwrap_or((w, l));
-                        unit_details(ui, view.city, gb, rules, u as usize, origin);
-                        crate::network::unit_links(ui, view.city, gb, rules, origin, out);
-                        return;
+                    ui.add_space(2.0);
+                    if s.code == StructureCode::Road {
+                        road_details(ui, s.road, info.traffic);
+                    } else {
+                        ui.label(size_line(city, s));
                     }
-                    ui.horizontal(|ui| {
-                        for (label, bit) in [
-                            ("Residents", Status::RESIDENTIAL),
-                            ("Shops", Status::COMMERCIAL),
-                            ("Jobs", Status::INDUSTRIAL),
-                            ("Power", Status::POWER),
-                            ("Road", Status::ROAD),
-                        ] {
-                            let on = info.status.has(bit);
-                            let text = RichText::new(if on { format!("✔ {label}") } else { format!("✖ {label}") });
-                            ui.label(if on { text.color(Color32::from_rgb(110, 210, 110)) } else { text.color(Color32::from_rgb(220, 110, 100)) });
-                        }
-                    });
+                    if let (Some(gb), Some(rules), Some(u)) = (&city.glassbox, rules, s.unit) {
+                        unit_details(ui, city, gb, rules, u as usize, origin);
+                        crate::network::unit_links(ui, city, gb, rules, origin, out);
+                    } else if s.code != StructureCode::Road {
+                        ui.label(format!("Level {}", info.level));
+                        ui.horizontal_wrapped(|ui| {
+                            for (label, bit) in [
+                                ("Residents", Status::RESIDENTIAL),
+                                ("Shops", Status::COMMERCIAL),
+                                ("Jobs", Status::INDUSTRIAL),
+                                ("Power", Status::POWER),
+                                ("Road", Status::ROAD),
+                            ] {
+                                let on = info.status.has(bit);
+                                let text = RichText::new(if on { format!("✔ {label}") } else { format!("✖ {label}") });
+                                ui.label(if on { text.color(Color32::from_rgb(110, 210, 110)) } else { text.color(Color32::from_rgb(220, 110, 100)) });
+                            }
+                        });
+                    }
                 }
-                _ => {
-                    ui.label("Empty land");
+                ui.separator();
+                ui.label(RichText::new(format!("Tile {w}, {l} · ground height {}", city.terrain.tile_min(w, l))).small().color(Color32::GRAY));
+                if let (Some(gb), Some(rules)) = (&city.glassbox, rules) {
+                    let values: Vec<String> =
+                        rules.layers.iter().enumerate().map(|(i, layer)| format!("{} {:.1}", layer.name, gb.layer_value(i, w, l, city.width()))).collect();
+                    ui.label(RichText::new(values.join(" · ")).small().color(Color32::GRAY));
                 }
-            }
-            ui.label(format!("Ground height {}", view.city.terrain.tile_min(w, l)));
-            if let (Some(gb), Some(rules)) = (&view.city.glassbox, view.city.rules()) {
-                let values: Vec<String> =
-                    rules.layers.iter().enumerate().map(|(i, layer)| format!("{} {:.1}", layer.name, gb.layer_value(i, w, l, view.city.width()))).collect();
-                ui.label(RichText::new(values.join(" · ")).small());
-            }
-        });
+            });
         if !open {
             out.push(Command::CloseQuery);
         }
@@ -586,7 +627,11 @@ impl EguiUi {
             Dialog::None => {}
             Dialog::NewCity => {
                 egui::Window::new("New city").collapsible(false).resizable(false).anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0]).show(ctx, |ui| {
+                    let before = self.new_skin.clone();
                     era_culture_picker(ui, view.skins, &mut self.new_era, &mut self.new_skin);
+                    if self.new_skin != before {
+                        self.new_rules = rules_for_age(view.rulesets, view.skins, self.new_skin.as_deref(), self.new_rules.take());
+                    }
                     rules_picker(ui, view.rulesets, &mut self.new_rules);
                     ui.separator();
                     let m = &mut self.new_map;
@@ -705,7 +750,6 @@ impl EguiUi {
 /// A GlassBox unit's needs, deliveries and satisfaction.
 fn unit_details(ui: &mut egui::Ui, city: &City, gb: &opencity_core::glassbox::GlassBox, rules: &Ruleset, unit: usize, origin: (u32, u32)) {
     let def = &rules.units[unit];
-    ui.label(RichText::new(&def.name).strong());
     let Some(st) = gb.unit_state(origin.0, origin.1, city.width()) else { return };
     ui.add(egui::ProgressBar::new(st.satisfaction).text(format!("Satisfaction {:.0}%", st.satisfaction * 100.0)));
     egui::Grid::new("unit").num_columns(2).show(ui, |ui| {
@@ -755,6 +799,46 @@ fn unit_details(ui: &mut egui::Ui, city: &City, gb: &opencity_core::glassbox::Gl
             ui.end_row();
         }
     });
+}
+
+/// Repaints the street icon (a light road with darker dashes on a grey
+/// button) as another kind of road.
+fn repaint_road_icon(img: &mut image::RgbaImage, kind: opencity_core::RoadKind) {
+    use opencity_core::RoadKind as K;
+    for (x, y, p) in img.enumerate_pixels_mut() {
+        let [r, g, b, a] = p.0;
+        // The road is the warm (yellowish) part; the button is grey.
+        if (r as i32 - b as i32) < 18 {
+            continue;
+        }
+        let lum = (r as f32 * 0.3 + g as f32 * 0.59 + b as f32 * 0.11) / 229.0;
+        let mark = lum < 0.85;
+        let cobble = ((x / 3) + (y / 3)) % 2 == 0;
+        let base: [f32; 3] = match (kind, mark) {
+            (K::Street, _) => continue,
+            (K::Highway, false) => [95.0, 98.0, 104.0],
+            (K::Highway, true) => [245.0, 245.0, 240.0],
+            (K::DirtRoad, false) => [176.0, 136.0, 88.0],
+            (K::DirtRoad, true) => [140.0, 104.0, 64.0],
+            (K::PavedStreet, _) if cobble => [190.0, 182.0, 166.0],
+            (K::PavedStreet, _) => [160.0, 152.0, 138.0],
+        };
+        let shade = if mark { 1.0 } else { lum.min(1.1) };
+        *p = image::Rgba([(base[0] * shade).min(255.0) as u8, (base[1] * shade).min(255.0) as u8, (base[2] * shade).min(255.0) as u8, a]);
+    }
+}
+
+/// The rules to offer for a new city in a skin's age: the current choice if
+/// it suits the age (or is the classic rules), else the first set that does.
+fn rules_for_age(rulesets: &[Arc<Ruleset>], skins: &[Skin], skin: Option<&str>, current: Option<String>) -> Option<String> {
+    // Without a skin the city is modern.
+    let years = skin.and_then(|id| skins.iter().find(|s| s.id == id)).and_then(|s| s.applies.years).unwrap_or([1946, 9999]);
+    let fits = |id: &str| rulesets.iter().find(|r| r.id == id).is_some_and(|r| r.fits_years(years));
+    match current {
+        None => None,
+        Some(id) if fits(&id) => Some(id),
+        Some(id) => rulesets.iter().find(|r| r.years.is_some() && r.fits_years(years)).map(|r| r.id.clone()).or(Some(id)),
+    }
 }
 
 fn rules_picker(ui: &mut egui::Ui, rulesets: &[Arc<Ruleset>], chosen: &mut Option<String>) {
@@ -814,8 +898,85 @@ fn era_culture_picker(ui: &mut egui::Ui, skins: &[Skin], era: &mut Option<String
     }
 }
 
-fn structure_name(catalog: &Catalog, s: &opencity_core::Structure) -> String {
+/// What a structure is called: its GlassBox unit, its kind of road, else
+/// its skin or model name.
+fn display_name(view: &View, s: &opencity_core::Structure) -> String {
+    match s.unit.and_then(|u| view.city.rules().map(|r| &r.units[u as usize])) {
+        Some(d) => d.name.clone(),
+        None if s.code == StructureCode::Road => s.road.name().to_string(),
+        None => structure_name(view.catalog, view.skin, s),
+    }
+}
+
+/// Name of a structure without a GlassBox unit: the skin's name for the
+/// tool that builds it, else the model's name.
+fn structure_name(catalog: &Catalog, skin: Option<&Skin>, s: &opencity_core::Structure) -> String {
+    let tool = Tool::ALL.into_iter().find(|t| t.structure() == Some(s.code) && t.road_kind().is_none_or(|k| k == s.road));
+    if let (Some(t), Some(skin)) = (tool, skin) {
+        if let Some(label) = skin.labels.get(t.id()) {
+            return label.clone();
+        }
+    }
     catalog.get(s.graphic).and_then(|e| e.name.clone()).unwrap_or_else(|| format!("{:?}", s.code))
+}
+
+/// "Residential · Medium density · level 2 of 3", "Service", "Road"...
+fn kind_line(view: &View, s: &opencity_core::Structure) -> String {
+    let rules = view.city.rules();
+    if s.code == StructureCode::Road {
+        return if s.road.access() { "Road".into() } else { "Road · no access for buildings".into() };
+    }
+    if let (Some(rules), Some(u)) = (rules, s.unit) {
+        let id = &rules.units[u as usize].id;
+        if let Some(z) = rules.zone_for(s.code) {
+            let zone = &rules.zones[z];
+            if let Some(d) = zone.densities.get(s.density as usize) {
+                let level = d.units.iter().position(|x| x == id).map_or(String::new(), |i| format!(" · level {} of {}", i + 1, d.units.len()));
+                return format!("{} · {}{level}", zone.name, d.name);
+            }
+            return zone.name.clone();
+        }
+        return "Service".into();
+    }
+    match s.code {
+        c if c.is_zone() && s.level == 0 => format!("{c:?} zone · empty plot"),
+        c if c.is_zone() => format!("{c:?} zone"),
+        c => format!("{c:?}").replace("Dept", " department"),
+    }
+}
+
+/// Footprint and height of a building.
+fn size_line(city: &City, s: &opencity_core::Structure) -> String {
+    let fp = city.footprints().get(s.graphic);
+    let (w, l) = (fp.width.max(1), fp.length.max(1));
+    let tiles = if w * l == 1 { "1 tile".to_string() } else { format!("{w} × {l} tiles") };
+    if fp.height <= 0.0 {
+        return format!("Size {tiles}");
+    }
+    // One tile of height is about three floors.
+    let floors = (fp.height / 0.3).round().max(1.0) as u32;
+    format!("Size {tiles} · {floors} floor{}", if floors == 1 { "" } else { "s" })
+}
+
+/// Speed, capacity and width of a road, against a street.
+fn road_details(ui: &mut egui::Ui, kind: opencity_core::RoadKind, traffic: u8) {
+    egui::Grid::new("road").num_columns(2).show(ui, |ui| {
+        ui.label("Speed");
+        ui.label(format!("× {:.1} of a street", kind.speed()));
+        ui.end_row();
+        ui.label("Capacity");
+        ui.label(format!("× {:.1} of a street", kind.capacity()));
+        ui.end_row();
+        ui.label("Width");
+        ui.label(format!("{} lane{} · {:.2} tiles", kind.lanes(), if kind.lanes() == 1 { "" } else { "s" }, kind.width()));
+        ui.end_row();
+        ui.label("Cost");
+        ui.label(format!("${} per tile, ${}/month upkeep", kind.build_cost(), kind.maintenance_cost()));
+        ui.end_row();
+        ui.label("Traffic");
+        ui.label(format!("{traffic}"));
+        ui.end_row();
+    });
 }
 
 /// Population and fund over the recorded years.

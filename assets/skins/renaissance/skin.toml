@@ -2,10 +2,10 @@ name = "Renaissance"
 description = "Cities before the industrial revolution: warm, faded colours, no cars, water power instead of electricity."
 era = "Renaissance"
 
-disabled_tools = ["nuclear_plant"]
+disabled_tools = ["nuclear_plant", "road", "highway"]
 
 [applies]
-years = [501, 1799]
+years = [1450, 1799]
 
 [look]
 sky = [0.86, 0.78, 0.62]
@@ -20,7 +20,8 @@ vehicles = false
 residential = "Housing"
 commercial = "Market"
 industrial = "Workshops"
-road = "Street"
+paved_street = "Cobbled street"
+dirt_road = "Lane"
 power_line = "Mill race"
 coal_plant = "Watermill"
 fire_station = "Fire watch"

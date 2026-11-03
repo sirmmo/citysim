@@ -2,11 +2,15 @@
 
 use std::sync::Arc;
 
-use opencity_core::{rules::Ruleset, City, Footprints, StructureCode, Terrain, Tool};
+use opencity_core::{rules::Ruleset, City, Footprints, RoadKind, StructureCode, Terrain, Tool};
 
 fn rules() -> Arc<Ruleset> {
+    rules_named("glassbox")
+}
+
+fn rules_named(id: &str) -> Arc<Ruleset> {
     let dir = format!("{}/../../assets/rules", env!("CARGO_MANIFEST_DIR"));
-    let mut r: Ruleset = toml::from_str(&std::fs::read_to_string(format!("{dir}/glassbox.toml")).unwrap()).unwrap();
+    let mut r: Ruleset = toml::from_str(&std::fs::read_to_string(format!("{dir}/{id}.toml")).unwrap()).unwrap();
     for script in r.scripts.clone() {
         opencity_core::gbx::compile(&mut r, &script, &std::fs::read_to_string(format!("{dir}/{script}")).unwrap()).unwrap();
     }
@@ -187,4 +191,76 @@ fn growth_settles_without_flicker() {
     }
     assert!(before.len() > 300, "the town shrank to {}", before.len());
     assert!(changes < 15, "{changes} building changes in 300 settled ticks");
+}
+
+/// A walled town of the past: paved and dirt streets, a granary, wells, carts.
+#[test]
+fn a_pre_industrial_town_lives_on_food_and_carts() {
+    let r = rules_named("pre-industrial");
+    assert!(!r.allows("power_line") && !r.allows("road") && r.allows("dirt_road"));
+    assert!(r.fits_year(1200) && !r.fits_year(1900));
+    assert!(!rules().fits_year(1200));
+    let mut c = City::new(Terrain::flat(48, 48), None, Footprints::builtin(), 11);
+    c.use_rules(r.clone());
+    c.apply_tool(Tool::CoalPlant, (2, 2), (2, 2)).unwrap(); // the granary
+    for l in [8, 16, 24] {
+        c.apply_tool(Tool::PavedStreet, (2, l), (44, l)).unwrap();
+    }
+    for l in [12, 20] {
+        c.apply_tool(Tool::DirtRoad, (2, l), (44, l)).unwrap();
+    }
+    c.apply_tool(Tool::DirtRoad, (7, 2), (7, 8)).unwrap();
+    for w in [2, 23, 44] {
+        c.apply_tool(Tool::PavedStreet, (w, 8), (w, 24)).unwrap();
+    }
+    c.apply_tool(Tool::ZoneResidential, (2, 9), (44, 11)).unwrap();
+    c.apply_tool(Tool::ZoneIndustrial, (2, 13), (30, 15)).unwrap();
+    c.zone_density = 1;
+    c.apply_tool(Tool::ZoneIndustrial, (31, 13), (44, 15)).unwrap();
+    c.zone_density = 0;
+    c.apply_tool(Tool::ZoneCommercial, (21, 17), (44, 19)).unwrap();
+    c.zone_density = 1;
+    c.apply_tool(Tool::ZoneResidential, (2, 17), (20, 19)).unwrap();
+    for w in [6, 16, 26, 36] {
+        c.apply_tool(Tool::Park, (w, 21), (w, 21)).unwrap(); // wells
+    }
+    c.apply_tool(Tool::FireDept, (10, 22), (10, 22)).unwrap();
+    assert_eq!(c.layer.structure_at(4, 12).unwrap().road, RoadKind::DirtRoad);
+    for _ in 0..800 {
+        c.simulate_round();
+    }
+    let gb = c.glassbox.as_ref().unwrap();
+    let res = |id: &str| r.resource(id).unwrap();
+    let (houses, shops, crafts) = (units(&c, StructureCode::Residential), units(&c, StructureCode::Commercial), units(&c, StructureCode::Industrial));
+    println!("houses {houses} shops {shops} crafts {crafts} population {}", c.population);
+    println!("delivered {:?}", gb.balances.delivered);
+    assert!(houses > 20, "houses {houses}");
+    assert!(crafts > 5, "crafts {crafts}");
+    assert!(shops > 3, "shops {shops}");
+    for id in ["food", "workers", "cart", "cart.handcart", "cart.horse", "fodder"] {
+        assert!(gb.balances.delivered[res(id)] > 0.0, "{id} delivered");
+    }
+    // Water from the wells lets houses grow past the first level.
+    let watered = c.layer.structures().filter(|(_, s)| s.unit.is_some_and(|u| r.units[u as usize].requires.contains_key("water"))).count();
+    assert!(watered > 0, "no house needing water was built");
+}
+
+/// Plots along a highway alone do not develop: buildings cannot open onto it.
+#[test]
+fn highways_give_no_access() {
+    let mut c = City::new(Terrain::flat(40, 30), None, Footprints::builtin(), 5);
+    c.use_rules(rules());
+    c.apply_tool(Tool::NuclearPlant, (2, 2), (2, 2)).unwrap();
+    c.apply_tool(Tool::Highway, (2, 14), (38, 14)).unwrap();
+    c.apply_tool(Tool::ZoneResidential, (2, 15), (38, 16)).unwrap();
+    for _ in 0..200 {
+        c.simulate_round();
+    }
+    assert_eq!(units(&c, StructureCode::Residential), 0);
+    // A street next to them opens the plots.
+    c.apply_tool(Tool::Road, (2, 17), (38, 17)).unwrap();
+    for _ in 0..200 {
+        c.simulate_round();
+    }
+    assert!(units(&c, StructureCode::Residential) > 0);
 }

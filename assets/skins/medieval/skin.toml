@@ -1,0 +1,31 @@
+name = "Middle Ages"
+description = "501-1449: walled towns of timber and stone, dirt lanes and cobbled market streets, no engines."
+era = "Middle Ages"
+
+disabled_tools = ["nuclear_plant", "power_line", "road", "highway"]
+
+[applies]
+years = [501, 1449]
+
+[look]
+sky = [0.66, 0.70, 0.74]
+tint = [1.0, 0.95, 0.85]
+saturation = 0.6
+water = [0.20, 0.32, 0.36, 0.65]
+ui_accent = [120, 60, 40]
+ui_panel = [30, 26, 22]
+vehicles = false
+
+[labels]
+residential = "Burgage plots"
+commercial = "Market"
+industrial = "Fields & crafts"
+paved_street = "Cobbled street"
+dirt_road = "Lane"
+coal_plant = "Tithe barn"
+fire_station = "Watch"
+police = "Town guard"
+hospital = "Hospital of St John"
+school = "Cathedral school"
+park = "Well"
+trees = "Wood"

@@ -5,7 +5,7 @@ use std::collections::BinaryHeap;
 
 use serde::{Deserialize, Serialize};
 
-use crate::{layer::BuildingLayer, Direction, GraphicCode, StructureCode, Terrain};
+use crate::{layer::BuildingLayer, Direction, GraphicCode, RoadKind, StructureCode, Terrain};
 
 /// Maximum simultaneous vehicles (legacy `OC_MOVEMENT_MAX`).
 pub const MAX_VEHICLES: usize = 100;
@@ -20,8 +20,16 @@ pub enum PathCost {
     Traffic,
 }
 
+/// Time units to cross one tile of a road of `kind` carrying `traffic`
+/// (10 on an empty street; faster kinds cost less, loads over capacity more).
+pub fn tile_time(kind: RoadKind, traffic: u8) -> f32 {
+    (10.0 + traffic as f32 / kind.capacity()) / kind.speed()
+}
+
 /// Shortest road route from `from` to `to`, both included. Dijkstra over road
-/// tiles; with [`PathCost::Traffic`] each tile costs `1 + traffic`.
+/// tiles: [`PathCost::Distance`] takes the quickest route on empty roads
+/// (highways are faster, dirt roads slower), [`PathCost::Traffic`] also
+/// avoids loaded roads.
 pub fn find_path(layer: &BuildingLayer, terrain: &Terrain, from: (u32, u32), to: (u32, u32), cost: PathCost) -> Option<Vec<(u32, u32)>> {
     let is_road = |w, l| layer.code_at(w, l) == Some(StructureCode::Road);
     if !is_road(from.0, from.1) || !is_road(to.0, to.1) {
@@ -47,10 +55,13 @@ pub fn find_path(layer: &BuildingLayer, terrain: &Terrain, from: (u32, u32), to:
             if !is_road(q.0, q.1) {
                 continue;
             }
-            let step = match cost {
-                PathCost::Distance => 1,
-                PathCost::Traffic => 1 + layer.structure_at(q.0, q.1).map_or(0, |s| s.traffic as u32),
+            let s = layer.structure_at(q.0, q.1);
+            let kind = s.map_or(RoadKind::Street, |s| s.road);
+            let traffic = match cost {
+                PathCost::Distance => 0,
+                PathCost::Traffic => s.map_or(0, |s| s.traffic),
             };
+            let step = tile_time(kind, traffic).round() as u32;
             let nd = d + step;
             if nd < dist[idx(q)] {
                 dist[idx(q)] = nd;
@@ -104,6 +115,8 @@ pub struct Waypoint {
     pub height_min: i8,
     pub height_max: i8,
     pub traffic: u8,
+    #[serde(default)]
+    pub road: RoadKind,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -135,6 +148,7 @@ impl Vehicle {
                 height_min: terrain.tile_min(w, l),
                 height_max: terrain.tile_max(w, l),
                 traffic: layer.structure_at(w, l).map_or(0, |s| s.traffic),
+                road: layer.structure_at(w, l).map_or(RoadKind::Street, |s| s.road),
             })
             .collect();
         Self { kind, route, index: 0, progress: 0.0 }
@@ -145,7 +159,7 @@ impl Vehicle {
         let mut remaining = dt_ms;
         while remaining > 0.0 {
             let Some(next) = self.route.get(self.index + 1) else { return false };
-            let ms_per_tile = (next.traffic as f32 + 10.0) * MS_PER_STEP;
+            let ms_per_tile = tile_time(next.road, next.traffic) * MS_PER_STEP;
             let left = (1.0 - self.progress) * ms_per_tile;
             if remaining < left {
                 self.progress += remaining / ms_per_tile;
@@ -198,5 +212,21 @@ mod tests {
         assert!(v.advance(100.0));
         assert!(v.pose().x > 0.5);
         assert!(!v.advance(10_000.0));
+    }
+
+    #[test]
+    fn highways_are_quicker_and_dirt_roads_slower() {
+        assert!(tile_time(RoadKind::Highway, 0) < tile_time(RoadKind::Street, 0));
+        assert!(tile_time(RoadKind::DirtRoad, 0) > tile_time(RoadKind::PavedStreet, 0));
+        assert!(tile_time(RoadKind::DirtRoad, 20) > tile_time(RoadKind::Highway, 20));
+        // A highway detour beats the direct street.
+        let t = Terrain::flat(12, 6);
+        let mut layer = BuildingLayer::new(12, 6);
+        layer.build_road(Rect::new((0, 0), (11, 0)), RoadKind::Street, &t).unwrap();
+        layer.build_road(Rect::new((0, 0), (0, 2)), RoadKind::Highway, &t).unwrap();
+        layer.build_road(Rect::new((0, 2), (11, 2)), RoadKind::Highway, &t).unwrap();
+        layer.build_road(Rect::new((11, 0), (11, 2)), RoadKind::Highway, &t).unwrap();
+        let p = find_path(&layer, &t, (1, 0), (10, 0), PathCost::Distance).unwrap();
+        assert!(p.contains(&(5, 2)), "{p:?}");
     }
 }

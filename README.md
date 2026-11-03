@@ -101,9 +101,22 @@ Android devices) fall back to the simpler renderer. Measure with
 | Middle drag / arrows / WASD | Pan (hold Shift or Alt to go faster) |
 | Wheel / + - / Insert, Delete | Zoom |
 | Home, End | Tilt |
-| R C I P L T X U J / | Residential, commercial, industrial, road, power line, trees, bulldozer, raise, lower, query |
+| R C I P L T X U J / | Residential, commercial, industrial, street (or the period's paved street), power line, trees, bulldozer, raise, lower, query |
 | Space, F | Pause, fast forward |
 | Esc | Drop the tool, or open the menu (new, load, save, quit) |
+
+Roads come in four kinds that connect to each other:
+
+| Road | Cost | Speed | Capacity | Width | Notes |
+|---|---|---|---|---|---|
+| Street | $5 | 1 | 1 | 1 tile, 2 lanes | Modern asphalt |
+| Highway | $25 | 2.5 | 3 | 1.3 tiles, 4 lanes | Buildings cannot open onto it; trips between places near one take it |
+| Paved street | $3 | 0.8 | 0.7 | ¾ tile | Cobbles and flagstones of older towns |
+| Dirt road | $1 | 0.5 | 0.4 | ½ tile | Cheap, slow, narrow |
+
+Dragging a road over another kind rebuilds it. Each age offers its own:
+asphalt streets and highways today, paved streets and dirt roads before
+the industrial age.
 
 Zones grow when they are powered, near a road, and near the two other zone
 types. Power flows from plants through any chain of adjacent buildings,
@@ -111,7 +124,9 @@ roads and power lines. Taxes are collected monthly and paid each new year.
 
 The desktop build uses an egui interface: menus, a tool palette with costs,
 a city panel with history, open/save/import/export dialogs and a tile
-inspector. Android and `--classic-ui` use the original OpenCity artwork.
+inspector. The inspector names the building as the rules do, with its zone,
+density and level, its size (tiles and floors), and for roads their speed,
+capacity, lanes and cost. Android and `--classic-ui` use the original OpenCity artwork.
 
 Settings live in `~/.config/opencity/settings.toml`; see
 [docs/settings.example.toml](docs/settings.example.toml).
@@ -125,7 +140,13 @@ set** in the spirit of SimCity's GlassBox engine:
 * Networks move resources: workers, shoppers and goods by road, power through the grid.
 * Services use resources and cover the map with layers.
 
-Everything is defined in [`assets/rules/glassbox.toml`](assets/rules/glassbox.toml).
+Two sets ship. [`glassbox.toml`](assets/rules/glassbox.toml) is a modern
+city: power, cars, fuel. [`pre-industrial.toml`](assets/rules/pre-industrial.toml)
+is a town of the past: people walk, carts carry trade (horse carts eat
+fodder), fields and a granary feed the town, wells give water, and the
+buildings are huts, cottages, row houses, insulae, market stalls, taverns,
+coaching inns, caravanserais, quarries, foundries and craft halls. A new
+city in an ancient, medieval or Renaissance age gets it by default.
 Behaviour can also be scripted in the **GlassBox rule language**: `unitRule`,
 `mapRule`, `zoneRule` and `agentRule`, with the timestamped metrics of the
 Extended GlassBox model by Costagliola, Montanari and Bellavista
@@ -145,7 +166,8 @@ GeoJSON `world`, or set with `--skin` and **View > Skin**. See
 [docs/SKINS.md](docs/SKINS.md), which also assesses what a complete
 per-era or per-world reskin needs.
 
-**File > New city…** lets you pick an era and a culture. The antiquity
+**File > New city…** lets you pick an era (Antiquity, Middle Ages,
+Renaissance, Industrial age, Modern) and a culture. The antiquity
 cultures (Romans, Athenians, Gauls, Ptolemies, Han, Mauryas) use
 [0 A.D.](https://play0ad.com) art (CC BY-SA 3.0, not committed).
 `opencity-cli bake-0ad` converts it straight from the official 0 A.D.
@@ -169,7 +191,8 @@ scripts/dev.sh /target/debug/opencity-cli export-geojson bologna.ocsave.json -o 
 The game opens the same inputs directly with `--geojson FILE [--date YEAR] [--rules FILE]`.
 Roads are drawn as smooth ribbons along their tiles: L-turns become curves
 and the zig-zags that diagonal streets rasterise to become flowing diagonals.
-Junctions keep the original crossing models.
+Street junctions keep the original crossing models; each kind of road has
+its own width and surface.
 See [docs/GEOJSON.md](docs/GEOJSON.md).
 
 ## License

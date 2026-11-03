@@ -109,6 +109,13 @@ coverage layers that bigger buildings require.
 
 ## The shipped rules
 
+Two sets ship: **GlassBox** (`glassbox.toml`, modern) and **Pre-industrial
+GlassBox** (`pre-industrial.toml`). A rules file can say which years it
+suits (`years = [-9999, 1799]`): a new city in an age outside them gets the
+first set that fits. It can also hide tools (`disabled_tools`).
+
+### GlassBox (modern)
+
 ```
 houses ──workers──▶ industry, shops, services        (by road)
 houses ──shoppers─▶ shops                            (by road)
@@ -126,13 +133,48 @@ Residential demand comes from open jobs, commercial demand from shoppers and
 goods with nowhere to go, industrial demand from unemployed workers and shops
 short of goods.
 
+### Pre-industrial
+
+```
+houses ──workers──▶ fields, crafts, shops, services  (on foot)
+houses ──customers─▶ stalls, shops, taverns, markets  (on foot)
+fields, farms, granary ──food──▶ houses, taverns, markets
+farms ──fodder──▶ horse carts, inns, stables
+crafts ──goods──▶ shops, markets
+farms, crafts, stables ──carts──▶ markets and workshops (handcarts or horse carts)
+wells ──▶ water ──▶ family houses and up
+watch, guard, bathhouse, academy ──▶ coverage ──▶ bigger houses and halls
+```
+
+No power and no cars. The zones' densities are the town's grades:
+
+| Zone | Low | Medium | High |
+|---|---|---|---|
+| Residential | Hut, Cottage, Family house | Town house, Merchant's house, Row houses | Tenement, Courtyard house, Insula block |
+| Commercial | Market stall, Bakery, Shop & store | Covered market, Tavern, Coaching inn | Caravanserai, Market square, Merchants' exchange |
+| Fields & crafts | Grain field, Farm, Farmstead | Quarry, Mine, Stone works | Foundry, Stables, Craft hall |
+
+Services: Fortified granary (the coal-plant tool), Watchtower, Guard house,
+Bathhouse, Academy, and the Public well (the park tool).
+
+### Roads
+
+The road network has four kinds of road (`road`, `highway`, `paved_street`,
+`dirt_road`). They connect to each other. Agent trips are measured in street
+tiles, so slower roads shorten their reach: a dirt road (speed 0.5) halves
+it. Units connect through the nearest road they can open onto, which is
+never a highway. Between two units within 4 tiles of a highway, a trip costs
+4 tiles to get on and off, then a 2.5th of its length.
+
 ## Playing
 
 * The zone tools show a **Low / Medium / High** density switch.
 * The **City** panel shows zone demand and, per resource, what was delivered
   against what was wanted. Shortages are orange.
-* **Inspect** (`/`) a building to see its satisfaction, needs, production and
-  layer requirements.
+* **Inspect** (`/`) a building to see its name and description, its zone,
+  density and level ("level 2 of 3"), its size in tiles and floors, its
+  satisfaction, needs, production and layer requirements. Inspect a road for
+  its kind, speed, capacity, lanes, cost and traffic.
 * **View > Data layer** draws pollution, land value or a service's coverage over the map.
 * **Resource network** (`V`, **View > Resource network**, or **Network** in the
   City panel) draws who sends what to whom on the map. Each link (a sender
@@ -189,8 +231,11 @@ scripts = ["my_rules.gbx"]         # GlassBox rule scripts (optional)
 [[layer]]                          # id, name, diffusion, decay, colour, max
 [[zone]]                           # id, name, structure, densities, demand, base_demand
 [services]                         # tool id = unit id
-[[unit]]                           # id, name, graphic, produce, needs, sends, emits, requires
+[[unit]]                           # id, name, description, graphic, produce, needs, sends, emits, requires, build_cost
 ```
+
+Top-level keys also include `description`, `years` (the ages the rules
+suit) and `disabled_tools` (tool ids hidden with these rules).
 
 `graphic` is an OpenCity model code (see `assets/graphism.conf`). The model's
 footprint is the unit's size, and skins restyle it like any other building.

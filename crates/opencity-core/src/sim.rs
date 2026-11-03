@@ -74,7 +74,7 @@ pub fn zone_step(layer: &mut BuildingLayer, terrain: &Terrain, footprints: &Foot
         let (w1, l1, w2, l2) = terrain.around(w, l, r);
         Rect { w1, l1, w2, l2 }
     };
-    if layer.contains(around(n.road), Query::Code(StructureCode::Road)) {
+    if layer.contains(around(n.road), Query::RoadAccess) {
         status.set(Status::ROAD);
     }
     for (other, bit, range) in n.others {
@@ -197,7 +197,8 @@ pub fn traffic_step(layer: &mut BuildingLayer, terrain: &Terrain, rng: &mut impl
             }
         }
     }
-    let traffic = (load / roads.max(1)).min(u8::MAX as u32) as u8;
+    let capacity = layer.structure_at(w, l).map_or(1.0, |s| s.road.capacity());
+    let traffic = ((load / roads.max(1)) as f32 / capacity).min(u8::MAX as f32) as u8;
     layer.structure_mut(w, l).unwrap().traffic = traffic;
     (traffic > TRAFFIC_VEHICLE_MIN && rng.gen_range(0..100) < TRAFFIC_VEHICLE_CHANCE).then_some((w, l))
 }

@@ -2,7 +2,7 @@ name = "Industrial age"
 description = "1800-1945: soot-grey skies, steam and coal."
 era = "Industrial age"
 
-disabled_tools = ["nuclear_plant"]
+disabled_tools = ["nuclear_plant", "highway"]
 
 [applies]
 years = [1800, 1945]
