@@ -85,6 +85,27 @@ Click any building with the inspect tool (/) to see:
 - what it needs and makes, where its supplies come from and what it lacks;
 - the map layers on its tile.
 
+## Regions
+
+A region is a grid of neighbouring cities, played one at a time, that trade
+across their borders.
+
+- **File > New region…** picks a name, the number of cities across and down,
+  the map size and the rules, then founds the first town. **File > Open
+  region…** opens one; regions live next to your saves in `regions/`.
+  `--region FOLDER` opens or creates one from the command line.
+- **The 🗺 Region window** shows the grid. Click a town to play it, which
+  saves the open one, or found a new one in an empty slot.
+- **Border crossings:** neighbours trade through a road, track or power line
+  that reaches their shared edge, on both sides. The window shows each edge:
+  ✔ trading, ✖ a crossing is missing, · no neighbour.
+- **Monthly trade:** each month the open town buys what it lacks from
+  neighbours with a surplus and sells what it has left over: workers
+  commuting, shoppers, goods, fuel and power (food before 1800). Imports fill
+  unmet needs and cost money; exports earn it. The window lists the deals.
+- **Waiting towns:** neighbours keep the summary they had when you last left
+  them, until you play them again.
+
 ## Research
 
 Under GlassBox rules, ideas and research unlock buildings and tools:

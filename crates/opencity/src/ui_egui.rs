@@ -47,6 +47,17 @@ pub enum Command {
     SetFlows(crate::flows::FlowView),
     /// Inspect the building on this tile and look at it.
     Inspect((u32, u32)),
+    /// A new region: name, slots across and down, tiles per city map, rules.
+    NewRegion {
+        name: String,
+        size: [u32; 2],
+        map_size: u32,
+        rules: Option<String>,
+    },
+    OpenRegion(PathBuf),
+    /// Open or found the city in a region slot.
+    RegionCity([u32; 2]),
+    SaveRegion,
     /// Turn the plant or service on this tile a quarter clockwise.
     Turn((u32, u32)),
     Quit,
@@ -69,6 +80,8 @@ pub struct View<'a> {
     pub flows: &'a crate::flows::FlowView,
     /// The network link under the mouse and its amount per tick.
     pub flow_hover: Option<(opencity_core::glassbox::Link, f32)>,
+    /// The region being played, if any.
+    pub region: Option<&'a crate::region::RegionSession>,
 }
 
 #[derive(Default)]
@@ -80,6 +93,8 @@ enum Dialog {
     SaveAs,
     Import,
     Export,
+    NewRegion,
+    OpenRegion,
 }
 
 pub struct EguiUi {
@@ -99,6 +114,10 @@ pub struct EguiUi {
     show_network: bool,
     show_research: bool,
     show_policies: bool,
+    show_region: bool,
+    region_name: String,
+    region_size: [u32; 2],
+    region_map: u32,
     /// Skin the current style and icons were built for.
     styled_for: Option<Option<String>>,
 }
@@ -178,6 +197,10 @@ impl EguiUi {
             show_network: false,
             show_research: false,
             show_policies: false,
+            show_region: false,
+            region_name: "My region".into(),
+            region_size: [3, 3],
+            region_map: 64,
             styled_for: None,
         }
     }
@@ -239,6 +262,10 @@ impl EguiUi {
         Some(tex)
     }
 
+    pub fn open_region(&mut self) {
+        self.show_region = true;
+    }
+
     pub fn open_policies(&mut self) {
         self.show_policies = true;
     }
@@ -271,6 +298,9 @@ impl EguiUi {
         self.graphs.show(ctx, view.city.glassbox.as_ref(), &export_dir);
         if self.show_network {
             crate::network::window(ctx, &mut self.show_network, view.city, view.flows, view.query, &mut out);
+        }
+        if let (true, Some(r)) = (self.show_region, view.region) {
+            crate::regionui::window(ctx, &mut self.show_region, r, view.city, &mut out);
         }
         if self.show_policies {
             crate::policies::window(ctx, &mut self.show_policies, view.city, &mut out);
@@ -306,6 +336,20 @@ impl EguiUi {
                     if ui.button("Save as…").clicked() {
                         self.path = view.save_path.display().to_string();
                         self.dialog = Dialog::SaveAs;
+                        ui.close_menu();
+                    }
+                    ui.separator();
+                    if ui.button("New region…").clicked() {
+                        self.dialog = Dialog::NewRegion;
+                        ui.close_menu();
+                    }
+                    if ui.button("Open region…").clicked() {
+                        self.path = crate::region::regions_dir(&view.save_path).display().to_string();
+                        self.dialog = Dialog::OpenRegion;
+                        ui.close_menu();
+                    }
+                    if view.region.is_some() && ui.button("Save region").clicked() {
+                        out.push(Command::SaveRegion);
                         ui.close_menu();
                     }
                     ui.separator();
@@ -505,6 +549,9 @@ impl EguiUi {
                         && ui.button("📜 Policies").on_hover_text("Set tax rates and the city's policies").clicked()
                     {
                         self.show_policies = !self.show_policies;
+                    }
+                    if view.region.is_some() && ui.button("🗺 Region").on_hover_text("The region's cities and this month's trade").clicked() {
+                        self.show_region = !self.show_region;
                     }
                 });
                 ui.label(RichText::new("Demand").small().color(Color32::GRAY));
@@ -737,6 +784,67 @@ impl EguiUi {
                     ui.horizontal(|ui| {
                         if ui.button("Create").clicked() {
                             out.push(Command::NewCity(self.new_map.clone(), self.new_skin.clone(), self.new_rules.clone()));
+                            close = true;
+                        }
+                        if ui.button("Cancel").clicked() {
+                            close = true;
+                        }
+                    });
+                });
+            }
+            Dialog::NewRegion => {
+                egui::Window::new("New region").collapsible(false).resizable(false).anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0]).show(ctx, |ui| {
+                    ui.label(RichText::new("A grid of neighbouring cities that trade across their borders. You play one at a time.").small());
+                    egui::Grid::new("newregion").num_columns(2).show(ui, |ui| {
+                        ui.label("Name");
+                        ui.text_edit_singleline(&mut self.region_name);
+                        ui.end_row();
+                        ui.label("Cities across");
+                        ui.add(egui::DragValue::new(&mut self.region_size[0]).range(1..=6));
+                        ui.end_row();
+                        ui.label("Cities down");
+                        ui.add(egui::DragValue::new(&mut self.region_size[1]).range(1..=6));
+                        ui.end_row();
+                        ui.label("Map size");
+                        ui.add(egui::DragValue::new(&mut self.region_map).range(32..=192).suffix(" tiles"));
+                        ui.end_row();
+                    });
+                    rules_picker(ui, view.rulesets, &mut self.new_rules);
+                    ui.horizontal(|ui| {
+                        if ui.button("Create").clicked() {
+                            out.push(Command::NewRegion {
+                                name: self.region_name.clone(),
+                                size: self.region_size,
+                                map_size: self.region_map,
+                                rules: self.new_rules.clone(),
+                            });
+                            self.show_region = true;
+                            close = true;
+                        }
+                        if ui.button("Cancel").clicked() {
+                            close = true;
+                        }
+                    });
+                });
+            }
+            Dialog::OpenRegion => {
+                egui::Window::new("Open region").collapsible(false).resizable(false).anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0]).show(ctx, |ui| {
+                    ui.label("Region folder (or its region.json)");
+                    ui.add(egui::TextEdit::singleline(&mut self.path).desired_width(420.0));
+                    let dir = PathBuf::from(&self.path);
+                    if let Ok(entries) = std::fs::read_dir(&dir) {
+                        let mut found: Vec<PathBuf> = entries.flatten().map(|e| e.path()).filter(|p| p.join("region.json").is_file()).collect();
+                        found.sort();
+                        for p in found {
+                            if ui.small_button(p.file_name().map(|f| f.to_string_lossy().into_owned()).unwrap_or_default()).clicked() {
+                                self.path = p.display().to_string();
+                            }
+                        }
+                    }
+                    ui.horizontal(|ui| {
+                        if ui.button("Open").clicked() {
+                            out.push(Command::OpenRegion(PathBuf::from(&self.path)));
+                            self.show_region = true;
                             close = true;
                         }
                         if ui.button("Cancel").clicked() {

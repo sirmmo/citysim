@@ -2,6 +2,11 @@
 
 Release notes in full are on the [releases page](https://github.com/sirmmo/citysim/releases).
 
+## 0.2.18: Regions
+- **Regions:** a grid of neighbouring cities, played one at a time (File > New region…, Open region…, `--region`).
+- **The 🗺 Region window:** found towns, switch between them (the open one is saved), and see border crossings and this month's trade.
+- **Trade:** each month the open town buys what it lacks and sells what it has left over to neighbours with crossings on both sides of their shared edge. Prices come from the rules (`price` on a resource), and commuters count.
+
 ## 0.2.17: Service vehicles
 - **Coverage by road:** fire, police and health coverage now spreads along the streets (`by_road` emissions). A station covers what its vehicles can drive to.
 - **Dispatch:** fire stations send Kenney fire trucks, police stations patrol cars and hospitals ambulances to the buildings they cover. Before 1800 the watch and guards go on foot.

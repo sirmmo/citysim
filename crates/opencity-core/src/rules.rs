@@ -73,6 +73,14 @@ pub struct ResourceDef {
     /// Secondary impact: added to map layers per unit moved and tile travelled.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub trail: BTreeMap<String, f32>,
+    /// Price per unit when traded with neighbouring cities of a region
+    /// (0: not traded).
+    #[serde(default, skip_serializing_if = "is_zero_f32")]
+    pub price: f32,
+}
+
+fn is_zero_f32(v: &f32) -> bool {
+    *v == 0.0
 }
 
 /// A kind of resource, declared inside it as `[[resource.subtype]]`.
@@ -124,6 +132,7 @@ fn flatten_resources<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Vec<Resou
                 share: k.share,
                 uses: k.uses.clone(),
                 trail: k.trail.clone(),
+                price: r.price,
             })
             .collect();
         out.push(r);

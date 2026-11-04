@@ -12,6 +12,7 @@ pub mod gbx;
 pub mod glassbox;
 pub mod layer;
 pub mod rail;
+pub mod region;
 pub mod rules;
 pub mod save;
 pub mod scenario;

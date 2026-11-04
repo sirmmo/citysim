@@ -38,6 +38,7 @@ transport = "agents"
 network = "road"
 max_trip = 30                     # tiles of street; dirt roads halve it
 colour = [0.35, 0.65, 1.0]
+price = 0.01                     # per unit traded with neighbouring cities
 
 [[resource]]
 id = "shoppers"
@@ -46,6 +47,7 @@ transport = "agents"
 network = "road"
 max_trip = 22
 colour = [1.0, 0.45, 0.75]
+price = 0.01                     # per unit traded with neighbouring cities
 
 [[resource]]
 id = "food"
@@ -54,6 +56,7 @@ transport = "agents"
 network = "road"
 max_trip = 40
 colour = [0.55, 0.85, 0.3]
+price = 0.03                     # per unit traded with neighbouring cities
 
 [[resource]]
 id = "goods"
@@ -62,6 +65,7 @@ transport = "agents"
 network = "road"
 max_trip = 40
 colour = [1.0, 0.7, 0.2]
+price = 0.04                     # per unit traded with neighbouring cities
 
 # Carts: trade needs them at markets and workshops. Handcarts need nothing;
 # horse carts eat fodder from the farms, and dirty the streets.

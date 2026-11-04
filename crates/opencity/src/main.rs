@@ -12,6 +12,9 @@ mod graphs;
 mod network;
 #[cfg(not(target_os = "android"))]
 mod policies;
+mod region;
+#[cfg(not(target_os = "android"))]
+mod regionui;
 mod render;
 #[cfg(not(target_os = "android"))]
 mod research;
@@ -104,6 +107,10 @@ struct Args {
     /// Open the policy window (screenshots, docs).
     #[arg(long, hide = true)]
     show_policies: bool,
+    /// Play a region: open the folder (or its region.json), or create a
+    /// 3×3 region of 64-tile maps there with the rules of --game-rules.
+    #[arg(long)]
+    region: Option<PathBuf>,
     /// Inspect this tile at start, "x,y" (screenshots, docs).
     #[arg(long, hide = true)]
     inspect: Option<String>,
@@ -323,6 +330,8 @@ struct Game {
     flow_arcs: Vec<flows::Arc>,
     flow_key: Option<flows::ArcsKey>,
     flow_hover: Option<usize>,
+    /// The region being played, if any.
+    region: Option<region::RegionSession>,
     #[cfg(not(target_os = "android"))]
     egui: Option<ui_egui::EguiUi>,
     /// Background 0 A.D. art installation, if running.
@@ -340,6 +349,106 @@ impl Game {
         if let Err(e) = self.city.turn_building(w, l) {
             self.say(format!("Cannot turn it: {e}"));
         }
+    }
+
+    /// Saves the open region city and records its summary; false on error.
+    fn region_store(&mut self) -> bool {
+        let Some(r) = self.region.as_mut() else { return false };
+        let Some(slot) = r.slot else { return true };
+        let name = r.name().unwrap_or_else(|| r.town_name(slot));
+        let path = r.city_path(slot);
+        let file = path.file_name().map(|f| f.to_string_lossy().into_owned()).unwrap_or_default();
+        if let Err(e) = save_city(&self.city, &path) {
+            self.say(format!("Save failed: {e:#}"));
+            return false;
+        }
+        r.region.summarize(slot, &name, &file, &self.city);
+        if let Err(e) = r.write() {
+            self.say(format!("Save failed: {e:#}"));
+            return false;
+        }
+        true
+    }
+
+    /// Opens (or founds) the city in a region slot, saving the open one.
+    fn region_goto(&mut self, slot: [u32; 2]) {
+        if self.region.as_ref().is_some_and(|r| r.slot == Some(slot)) {
+            return;
+        }
+        if !self.region_store() {
+            return;
+        }
+        let Some(r) = self.region.as_ref() else { return };
+        let founded = r.region.city(slot).is_some();
+        let city = if founded {
+            load_city(&r.city_path(slot), &self.catalog)
+        } else {
+            let mut params = startup().settings.map.clone();
+            params.width = r.region.map_size;
+            params.length = r.region.map_size;
+            params.seed = r.region.slot_seed(slot);
+            new_city_with(params, &self.base_catalog).map(|mut c| {
+                if let Some(rules) = r.region.rules.as_ref().and_then(|id| self.rulesets.iter().find(|x| &x.id == id).cloned()) {
+                    c.use_rules(rules);
+                }
+                c.meta.name = Some(r.town_name(slot));
+                c
+            })
+        };
+        match city {
+            Ok(c) => {
+                let name = c.meta.name.clone().unwrap_or_else(|| r.town_name(slot));
+                self.set_city(c);
+                if let Some(r) = self.region.as_mut() {
+                    r.slot = Some(slot);
+                    r.deals.clear();
+                    r.month = 0;
+                }
+                if !founded {
+                    self.region_store();
+                }
+                self.say(if founded { format!("Opened {name}") } else { format!("Founded {name}") });
+            }
+            Err(e) => self.say(format!("Cannot open the city: {e:#}")),
+        }
+    }
+
+    fn region_new(&mut self, name: &str, size: [u32; 2], map_size: u32, rules: Option<String>) {
+        let dir = region::regions_dir(&save_path()).join(region::folder_name(name));
+        let seed = macroquad::rand::rand() as u64;
+        let r = opencity_core::region::Region::new(name, size, map_size, seed, rules);
+        match region::RegionSession::create(&dir, r) {
+            Ok(s) => {
+                self.region = Some(s);
+                self.region_goto([0, 0]);
+            }
+            Err(e) => self.say(format!("Cannot create the region: {e:#}")),
+        }
+    }
+
+    fn region_open(&mut self, dir: &Path) {
+        let dir = if dir.is_file() { dir.parent().map(Path::to_path_buf).unwrap_or_default() } else { dir.to_path_buf() };
+        match region::RegionSession::open(&dir) {
+            Ok(s) => {
+                let first = s.region.cities.iter().map(|c| c.slot).min_by_key(|s| (s[1], s[0])).unwrap_or([0, 0]);
+                self.region = Some(s);
+                self.region_goto(first);
+            }
+            Err(e) => self.say(format!("Cannot open the region: {e:#}")),
+        }
+    }
+
+    /// Once a month the open city agrees its trade with the neighbours.
+    fn region_month(&mut self) {
+        let Some(r) = self.region.as_mut() else { return };
+        let Some(slot) = r.slot else { return };
+        let month = self.city.date.year * 12 + self.city.date.month;
+        if month == r.month {
+            return;
+        }
+        r.month = month;
+        r.deals = r.region.trade(slot, &self.city);
+        self.city.apply_trade(&r.deals);
     }
 
     fn set_city(&mut self, mut city: City) {
@@ -499,7 +608,18 @@ impl Game {
                     self.camera.target = flows::unit_centre(&self.city, o);
                 }
             }
-            Command::Quit => return false,
+            Command::Quit => {
+                self.region_store();
+                return false;
+            }
+            Command::NewRegion { name, size, map_size, rules } => self.region_new(&name, size, map_size, rules),
+            Command::OpenRegion(dir) => self.region_open(&dir),
+            Command::RegionCity(slot) => self.region_goto(slot),
+            Command::SaveRegion => {
+                if self.region_store() {
+                    self.say("Region saved");
+                }
+            }
         }
         true
     }
@@ -603,6 +723,7 @@ impl Game {
                 overlay: self.overlay,
                 flows: &self.flow_view,
                 flow_hover: self.flow_hover.and_then(|i| self.flow_arcs.get(i)).map(|a| (a.link, a.amount)),
+                region: self.region.as_ref(),
             };
             let mut commands = Vec::new();
             egui_macroquad::ui(|ctx| {
@@ -691,6 +812,7 @@ impl Game {
         }
         let t = get_time();
         self.city.update(get_frame_time().min(0.25) as f64 * 1000.0);
+        self.region_month();
         self.city.speed = speed;
         let t = phase(0, t);
 
@@ -861,6 +983,7 @@ async fn main() -> Result<()> {
         flow_arcs: Vec::new(),
         flow_key: None,
         flow_hover: None,
+        region: None,
         #[cfg(not(target_os = "android"))]
         egui: (!s.args.classic_ui).then(|| ui_egui::EguiUi::new(&s.settings.map)),
         // Never in automated runs (screenshots, benchmarks, CI).
@@ -893,6 +1016,25 @@ async fn main() -> Result<()> {
     #[cfg(not(target_os = "android"))]
     if let (true, Some(ui)) = (s.args.show_policies, game.egui.as_mut()) {
         ui.open_policies();
+    }
+    if let Some(dir) = &s.args.region {
+        if dir.join("region.json").is_file() || dir.is_file() {
+            game.region_open(dir);
+        } else {
+            let name = dir.file_name().map_or("Region".to_string(), |n| n.to_string_lossy().into_owned());
+            let r = opencity_core::region::Region::new(&name, [3, 3], 64, 7, s.args.game_rules.clone());
+            match region::RegionSession::create(dir, r) {
+                Ok(session) => {
+                    game.region = Some(session);
+                    game.region_goto([0, 0]);
+                }
+                Err(e) => log::warn!("region: {e:#}"),
+            }
+        }
+        #[cfg(not(target_os = "android"))]
+        if let Some(ui) = game.egui.as_mut() {
+            ui.open_region();
+        }
     }
     #[cfg(not(target_os = "android"))]
     if let (Some(tech), Some(ui)) = (&s.args.show_research, game.egui.as_mut()) {

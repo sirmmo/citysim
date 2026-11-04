@@ -584,3 +584,62 @@ fn services_cover_what_they_can_drive_to_and_send_vehicles() {
     }
     assert!(seen > 0, "no fire truck was sent");
 }
+
+#[test]
+fn neighbouring_cities_trade_across_their_borders() {
+    use opencity_core::region::Region;
+    let r = rules();
+    let town = |zone: Tool, edge_west: bool| {
+        let mut c = City::new(Terrain::flat(40, 24), None, Footprints::builtin(), 9);
+        c.fund = 10_000_000;
+        c.use_rules(r.clone());
+        c.research_all();
+        c.apply_tool(Tool::Road, (4, 8), (35, 8)).unwrap();
+        c.apply_tool(Tool::Road, (4, 12), (35, 12)).unwrap();
+        c.apply_tool(Tool::Road, (4, 8), (4, 12)).unwrap();
+        c.apply_tool(zone, (5, 9), (33, 11)).unwrap();
+        c.apply_tool(Tool::CoalPlant, (6, 5), (6, 5)).unwrap();
+        // A road out to the shared edge: the border crossing.
+        if edge_west {
+            c.apply_tool(Tool::Road, (0, 10), (4, 10)).unwrap();
+        } else {
+            c.apply_tool(Tool::Road, (35, 10), (39, 10)).unwrap();
+        }
+        c
+    };
+    // West: a commuter town with workers to spare.
+    let mut west = town(Tool::ZoneResidential, false);
+    for _ in 0..300 {
+        west.simulate_round();
+    }
+    let mut region = Region::new("Test", [2, 1], 40, 1, Some("glassbox".into()));
+    region.summarize([0, 0], "Westville", "west.ocsave.json", &west);
+    assert_eq!(region.cities[0].borders, [false, true, false, false]);
+    let workers = r.resource("workers").unwrap();
+    assert!(region.cities[0].surplus["workers"] > 1.0, "{:?}", region.cities[0].surplus);
+    // East: workshops short of workers, trading month by month.
+    let run = |trade: bool| {
+        let mut east = town(Tool::ZoneIndustrial, true);
+        let mut imported = 0.0;
+        for t in 0..300 {
+            if trade && t % 30 == 29 {
+                let deals = region.trade([1, 0], &east);
+                east.apply_trade(&deals);
+            }
+            east.simulate_round();
+            imported += east.glassbox.as_ref().unwrap().balances.imported[workers];
+        }
+        (east, imported)
+    };
+    let (alone, none) = run(false);
+    let (trading, imported) = run(true);
+    assert_eq!(none, 0.0);
+    assert!(imported > 0.0, "commuters came over the border");
+    let fill = |c: &City| {
+        let gb = c.glassbox.as_ref().unwrap();
+        gb.units.values().map(|u| u.satisfaction).sum::<f32>() / gb.units.len().max(1) as f32
+    };
+    assert!(fill(&trading) > fill(&alone), "workshops are better staffed: {} vs {}", fill(&trading), fill(&alone));
+    // The region file round-trips.
+    assert_eq!(Region::from_json(&region.to_json()).unwrap(), region);
+}

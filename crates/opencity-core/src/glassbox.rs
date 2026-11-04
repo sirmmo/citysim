@@ -87,6 +87,11 @@ pub struct Balances {
     pub delivered: Vec<f32>,
     pub unmet: Vec<f32>,
     pub undelivered: Vec<f32>,
+    /// Bought from and sold to neighbouring cities (regions).
+    #[serde(default)]
+    pub imported: Vec<f32>,
+    #[serde(default)]
+    pub exported: Vec<f32>,
 }
 
 /// One trip made by agents this tick.
@@ -137,6 +142,19 @@ pub struct GlassBox {
     /// What has been spent on each project so far, by resource.
     #[serde(default)]
     pub progress: BTreeMap<String, BTreeMap<String, f32>>,
+    /// Running averages of what is left over (undelivered) and what is
+    /// lacking (unmet) per tick, by resource, before any trade: what a
+    /// region offers to and asks from the neighbours.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub surplus: Vec<f32>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub deficit: Vec<f32>,
+    /// Trade agreed with the neighbours, per tick and resource: bought
+    /// (filling unmet needs) and sold (taking what had nowhere to go).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub imports: Vec<f32>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub exports: Vec<f32>,
     /// Tax rates the city set, by tax id (others are at their default).
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub tax_rates: BTreeMap<String, f32>,
@@ -194,6 +212,10 @@ impl GlassBox {
             researched: BTreeSet::new(),
             research: None,
             progress: BTreeMap::new(),
+            surplus: Vec::new(),
+            deficit: Vec::new(),
+            imports: Vec::new(),
+            exports: Vec::new(),
             tax_rates: BTreeMap::new(),
             stances: BTreeMap::new(),
             discoveries: Vec::new(),
@@ -494,7 +516,8 @@ impl GlassBox {
             .collect();
         self.tick += 1;
         let mut metrics: BTreeMap<String, f32> = BTreeMap::new();
-        let mut bal = Balances { produced: vec![0.0; nres], delivered: vec![0.0; nres], unmet: vec![0.0; nres], undelivered: vec![0.0; nres] };
+        let mut bal =
+            Balances { produced: vec![0.0; nres], delivered: vec![0.0; nres], unmet: vec![0.0; nres], undelivered: vec![0.0; nres], ..Default::default() };
 
         // 1. Production. A resource with kinds is made as its kinds, by share.
         // Finished research adds its bonus to a resource and to its kinds.
@@ -842,6 +865,38 @@ impl GlassBox {
             *self.flows.entry(k).or_default() += v * FLOW_SMOOTHING;
         }
         self.flows.retain(|k, v| *v > 0.01 && present.contains(&idx(k.from.0, k.from.1)) && present.contains(&idx(k.to.0, k.to.1)));
+
+        // Trade with neighbouring cities (regions): averages first, then the
+        // agreed imports fill unmet needs and exports take the leftovers.
+        for v in [&mut self.surplus, &mut self.deficit, &mut self.imports, &mut self.exports] {
+            v.resize(nres, 0.0);
+        }
+        bal.imported = vec![0.0; nres];
+        bal.exported = vec![0.0; nres];
+        for ri in 0..nres {
+            if rules.resources[ri].price <= 0.0 {
+                continue;
+            }
+            self.surplus[ri] = self.surplus[ri] * 0.95 + bal.undelivered[ri] * 0.05;
+            self.deficit[ri] = self.deficit[ri] * 0.95 + bal.unmet[ri] * 0.05;
+            let mut budget = self.imports[ri].min(bal.unmet[ri]);
+            for (i, (p, _, _)) in units.iter().enumerate() {
+                if budget <= 0.0 {
+                    break;
+                }
+                let st = self.units.get_mut(&idx(p.0, p.1)).unwrap();
+                let take = (need[i][ri] - st.received[ri]).max(0.0).min(budget);
+                if take > 0.0 {
+                    st.received[ri] += take;
+                    budget -= take;
+                    bal.imported[ri] += take;
+                }
+            }
+            bal.unmet[ri] -= bal.imported[ri];
+            bal.exported[ri] = self.exports[ri].min(bal.undelivered[ri]);
+            bal.undelivered[ri] -= bal.exported[ri];
+            self.treasury += ((bal.exported[ri] - bal.imported[ri]) * rules.resources[ri].price) as f64;
+        }
 
         // 4. Treasury.
         for (i, (p, _, _)) in units.iter().enumerate() {

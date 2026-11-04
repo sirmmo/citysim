@@ -223,6 +223,31 @@ Inspecting a road lists the vehicles allowed on it. Skins that set
 `vehicles = false` hide cars and trucks only. People on foot and carts are
 always drawn.
 
+### Regions and trade
+
+A resource with a `price` is traded with the neighbouring cities of a
+region (see [PLAYING.md](PLAYING.md#regions)):
+
+```toml
+[[resource]]
+id = "workers"
+transport = "agents"
+network = "road"
+price = 0.02                         # per unit bought or sold
+```
+
+- **Averages:** each city keeps running averages of what it has left over
+  (undelivered) and what it lacks (unmet) per tick, measured before any trade.
+- **Monthly deals:** each month the open city buys what it lacks from
+  neighbours with a surplus, and sells its surplus to neighbours that lack it.
+  It trades only with neighbours that have a crossing on both sides of the
+  shared edge: a road, track or power line reaching it.
+- **Imports** fill unmet needs, first come first served, and are paid at the price.
+- **Exports** take what had nowhere to go, and earn the price.
+
+The shipped rules price workers (commuters), shoppers, goods, fuel and
+power; before 1800, workers, shoppers, food and goods.
+
 ### Service vehicles and coverage by road
 
 An emission can travel along the streets instead of as the crow flies:
