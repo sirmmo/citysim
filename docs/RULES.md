@@ -182,7 +182,16 @@ speed = 1.0              # top speed, in street speeds; none = no limit
 carries = ["cart.horse", "food", "goods", "fodder"]   # none = any resource on the network
 share = 1                # how often it is picked among those fit for a trip
 direct = true            # quickest route rather than avoiding traffic
+meshes = ["kenney/car-kit/delivery", "kenney/car-kit/truck"]   # .obj models, one per trip (optional)
 ```
+
+`meshes` draws the vehicle with `.obj` models from `<data>/models/` instead
+of `model`'s look; `model` still decides how it moves and which skins hide
+it. The game ships the CC0 Kenney kits under `models/kenney/`: `car-kit`
+(sedan, suv, van, taxi, police, ambulance, firetruck, delivery, truck,
+garbage-truck, tractor…), `train-kit` (locomotives, diesel and electric
+trains, trams, carriages) and `watercraft` (boats and ships). The modern
+rules use the car kit for cars, taxis, sports cars and delivery trucks.
 
 - **What you see:** each trip shown on the map becomes one of the vehicles
   that carry its resource, picked by `share`. A vehicle that carries a

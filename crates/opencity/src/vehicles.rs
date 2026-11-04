@@ -104,6 +104,44 @@ pub fn mesh(kind: VehicleKind) -> Option<Mesh> {
     Some(b.build())
 }
 
+/// Scale from Kenney kit units to tiles: a sedan is about 0.4 of a tile.
+const KIT_SCALE: f32 = 0.155;
+
+/// Meshes for an `.obj` vehicle (Kenney kits), in the same frame as the
+/// legacy cars: centred on the right lane (x ≈ 0.3) of a 0..1 tile, nose
+/// towards +z, faces shaded by their direction. Long models (ships,
+/// carriages) shrink to fit a tile.
+pub fn obj_meshes(obj: &opencity_assets::obj::ObjMesh, texture: Option<Texture2D>) -> Vec<Mesh> {
+    let (lo, hi) = obj.bounds();
+    let length = (hi[2] - lo[2]).max(1e-3);
+    let s = KIT_SCALE.min(0.9 / length);
+    let (cx, cz) = ((lo[0] + hi[0]) / 2.0, (lo[2] + hi[2]) / 2.0);
+    let light = vec3(0.4, 1.0, 0.3).normalize();
+    let mut out = Vec::new();
+    let mut b = Builder::default();
+    for t in &obj.triangles {
+        if b.vertices.len() + 3 > u16::MAX as usize {
+            out.push(Mesh { vertices: std::mem::take(&mut b.vertices), indices: std::mem::take(&mut b.indices), texture: texture.clone() });
+        }
+        let p = t.map(|i| {
+            let q = obj.positions[i as usize];
+            vec3(0.3 + (q[0] - cx) * s, q[1] * s, 0.5 + (q[2] - cz) * s)
+        });
+        let n = (p[1] - p[0]).cross(p[2] - p[0]).normalize_or_zero();
+        let k = 0.55 + 0.45 * n.dot(light).max(0.0);
+        let base = b.vertices.len() as u16;
+        for (j, pos) in p.into_iter().enumerate() {
+            let uv = obj.uvs[t[j] as usize];
+            b.vertices.push(Vertex { position: pos, uv: vec2(uv[0], uv[1]), color: Color::new(k, k, k, 1.0).into(), normal: n.extend(0.0) });
+        }
+        b.indices.extend_from_slice(&[base, base + 1, base + 2]);
+    }
+    if !b.indices.is_empty() {
+        out.push(Mesh { vertices: b.vertices, indices: b.indices, texture });
+    }
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

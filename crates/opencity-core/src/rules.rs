@@ -207,6 +207,10 @@ pub struct VehicleDef {
     /// Takes the quickest route on empty roads instead of avoiding traffic.
     #[serde(default)]
     pub direct: bool,
+    /// 3D models to draw it with instead of `model`'s, one picked per trip:
+    /// `.obj` files under `<data>/models/` (`"kenney/car-kit/taxi"`).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub meshes: Vec<String>,
 }
 
 impl VehicleDef {

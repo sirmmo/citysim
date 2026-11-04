@@ -3,7 +3,7 @@ name = "opencity"
 description = "OpenCity: a 3D city simulation (Rust port)"
 # Package fields are spelled out (not inherited from the workspace) because
 # cargo-quad-apk embeds an older Cargo that cannot parse inheritance.
-version = "0.2.11"
+version = "0.2.12"
 edition = "2021"
 rust-version = "1.88"
 license = "GPL-2.0-or-later"
@@ -33,8 +33,8 @@ opencity-zeroad.workspace = true
 [package.metadata.android]
 package_name = "io.github.sirmmo.citysim"
 label = "CitySim"
-version_code = 13
-version_name = "0.2.11"
+version_code = 14
+version_name = "0.2.12"
 assets = "../../assets"
 res = "android/res"
 icon = "@mipmap/ic_launcher"

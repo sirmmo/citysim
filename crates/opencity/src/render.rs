@@ -111,6 +111,8 @@ pub struct Renderer {
     models: HashMap<GraphicCode, Option<Model>>,
     /// Vehicles drawn from boxes (walkers, carts), built on first use.
     vehicle_meshes: HashMap<opencity_core::traffic::VehicleKind, Option<Mesh>>,
+    /// `.obj` vehicle models by path under `<data>/models/` (None: missing).
+    obj_meshes: HashMap<String, Option<Vec<Mesh>>>,
     textures: HashMap<PathBuf, Texture2D>,
     /// Ground colour per height step, sampled from the legacy terrain texture.
     palette: Vec<[f32; 3]>,
@@ -160,6 +162,7 @@ impl Renderer {
             catalog,
             models: HashMap::new(),
             vehicle_meshes: HashMap::new(),
+            obj_meshes: HashMap::new(),
             textures: HashMap::new(),
             palette,
             white,
@@ -467,6 +470,23 @@ impl Renderer {
         }
     }
 
+    /// An `.obj` model (`kenney/car-kit/taxi`), loaded on first use with
+    /// the `colormap.png` next to it.
+    fn obj_mesh(&mut self, name: &str) -> Option<&Vec<Mesh>> {
+        if !self.obj_meshes.contains_key(name) {
+            let path = self.catalog.path(&format!("models/{name}.obj"));
+            let meshes = opencity_assets::obj::load(&path).map_err(|e| log::warn!("vehicle model {name}: {e}")).ok().map(|obj| {
+                let tex = path.parent().and_then(|d| load_texture_file(&d.join("colormap.png")));
+                if let Some(t) = &tex {
+                    t.set_filter(FilterMode::Nearest);
+                }
+                crate::vehicles::obj_meshes(&obj, tex)
+            });
+            self.obj_meshes.insert(name.to_string(), meshes);
+        }
+        self.obj_meshes.get(name)?.as_ref()
+    }
+
     fn draw_model_cpu(&mut self, gc: GraphicCode, matrix: Mat4) {
         if self.model(gc).is_none() {
             return;
@@ -519,6 +539,16 @@ impl Renderer {
             }
             .to_radians();
             let m = Mat4::from_translation(vec3(p.x, p.y + 0.02, p.z)) * Mat4::from_rotation_y(angle) * Mat4::from_translation(vec3(-0.5, 0.0, -0.5));
+            if let Some(meshes) = v.mesh.as_deref().and_then(|name| self.obj_mesh(name)) {
+                let gl = unsafe { get_internal_gl() }.quad_gl;
+                gl.push_model_matrix(m);
+                for mesh in meshes {
+                    draw_mesh(mesh);
+                }
+                let gl = unsafe { get_internal_gl() }.quad_gl;
+                gl.pop_model_matrix();
+                continue;
+            }
             match v.kind.graphic() {
                 Some(gc) => self.draw_model_cpu(gc, m),
                 None => {

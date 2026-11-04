@@ -431,7 +431,7 @@ impl City {
             let (Some(a), Some(b)) = (self.nearest_road(t.from), self.nearest_road(t.to)) else { continue };
             // The rules say which vehicles carry the resource and on which
             // ways; networks without vehicles get the classic cars.
-            let (kind, ways, top, cost) = match gb.rules().map(|r| r.vehicles_for(t.resource)) {
+            let (kind, ways, top, cost, mesh) = match gb.rules().map(|r| r.vehicles_for(t.resource)) {
                 Some(fit) if !fit.is_empty() => {
                     let total: f32 = fit.iter().map(|v| v.share).sum();
                     let mut x = self.rng.gen_range(0.0..total.max(1e-6));
@@ -440,18 +440,20 @@ impl City {
                         x < 0.0
                     });
                     let v = v.unwrap_or(&fit[fit.len() - 1]);
-                    (v.kind(), v.ways(), v.top_speed(), v.path_cost())
+                    let mesh = (!v.meshes.is_empty()).then(|| v.meshes[self.rng.gen_range(0..v.meshes.len())].clone());
+                    (v.kind(), v.ways(), v.top_speed(), v.path_cost(), mesh)
                 }
                 Some(_) if gb.rules().is_some_and(|r| r.vehicle_network(t.resource)) => continue,
                 _ => {
                     let k = VehicleKind::MOTOR[t.resource % 3];
-                    (k, Ways::ALL, f32::INFINITY, k.path_cost())
+                    (k, Ways::ALL, f32::INFINITY, k.path_cost(), None)
                 }
             };
             if let Some(path) = find_route(&self.layer, &self.terrain, a, b, cost, &ways, top) {
                 if path.len() > 1 {
                     let mut v = Vehicle::new(kind, &path, &self.layer, &self.terrain);
                     v.top_speed = top.is_finite().then_some(top);
+                    v.mesh = mesh;
                     self.vehicles.push(v);
                 }
             }

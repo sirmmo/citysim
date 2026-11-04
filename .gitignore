@@ -11,3 +11,5 @@
 /assets/skins/antiquity/ATTRIBUTION.txt
 /assets/skins/.bake-0ad-attempted
 __pycache__/
+# Kenney kit downloads (CC0); the models used are extracted to assets/models/kenney/
+/assets/third-party/

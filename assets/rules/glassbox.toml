@@ -134,12 +134,23 @@ name = "Car"
 model = "car"
 carries = ["workers", "shoppers", "car"]
 share = 4
+# Kenney car kit (CC0), one picked per trip; without the files, `model`.
+meshes = ["kenney/car-kit/sedan", "kenney/car-kit/suv", "kenney/car-kit/hatchback-sports", "kenney/car-kit/van", "kenney/car-kit/suv-luxury"]
+
+[[network.vehicle]]
+id = "taxi"
+name = "Taxi"
+model = "car"
+carries = ["shoppers"]
+share = 0.5
+meshes = ["kenney/car-kit/taxi"]
 
 [[network.vehicle]]
 id = "sports_car"
 name = "Sports car"
 model = "sports_car"
 carries = ["shoppers"]
+meshes = ["kenney/car-kit/sedan-sports", "kenney/car-kit/race"]
 
 [[network.vehicle]]
 id = "truck"
@@ -147,6 +158,7 @@ name = "Delivery truck"
 model = "pickup"
 carries = ["goods", "fuel"]
 direct = true                    # quickest route, even through traffic
+meshes = ["kenney/car-kit/delivery", "kenney/car-kit/truck", "kenney/car-kit/truck-flat", "kenney/car-kit/delivery-flat", "kenney/car-kit/garbage-truck"]
 
 [[network]]
 id = "power_grid"

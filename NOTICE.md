@@ -38,6 +38,12 @@ Wildfire Games (CC BY-SA 3.0), converted from the official 0 A.D. repository
 by `opencity-cli bake-0ad`. That art is not part of this repository. The bake writes its own `ATTRIBUTION.txt`
 next to the converted files, and they keep the CC BY-SA 3.0 licence.
 
+## Kenney kits (CC0)
+
+`assets/models/kenney/` holds models from the Car Kit, Train Kit and
+Watercraft Kit by [Kenney](https://www.kenney.nl), released under CC0
+(public domain). Each folder keeps the kit's `License.txt`.
+
 ## License
 
 OpenCity is GPL version 2 or later, and so is this derivative work

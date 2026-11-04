@@ -193,6 +193,9 @@ pub struct Vehicle {
     /// Top speed in road speed units (a street is 1); none for motor vehicles.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub top_speed: Option<f32>,
+    /// `.obj` model it is drawn with (see `VehicleDef::meshes`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mesh: Option<String>,
     pub route: Vec<Waypoint>,
     /// Index of the waypoint the vehicle is leaving.
     pub index: usize,
@@ -222,7 +225,7 @@ impl Vehicle {
                 road: layer.structure_at(w, l).map_or(RoadKind::Street, |s| s.road),
             })
             .collect();
-        Self { kind, top_speed: None, route, index: 0, progress: 0.0 }
+        Self { kind, top_speed: None, mesh: None, route, index: 0, progress: 0.0 }
     }
 
     /// Advances the vehicle; returns false once it has arrived.
