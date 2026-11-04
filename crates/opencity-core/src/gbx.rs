@@ -239,7 +239,7 @@ pub fn compile(rules: &mut Ruleset, file: &str, text: &str) -> Result<Vec<String
                             let amount = num(file, l, 3)? * scale;
                             let radius = w.iter().position(|x| *x == "radius").and_then(|i| w.get(i + 1)).and_then(|r| r.parse().ok()).unwrap_or(0);
                             declare_layer(rules, layer);
-                            let e = rules.units[ui].emits.entry(layer.to_string()).or_insert(Emission { amount: 0.0, radius });
+                            let e = rules.units[ui].emits.entry(layer.to_string()).or_insert(Emission { amount: 0.0, radius, by_road: false });
                             e.amount += if *dir == "out" { amount } else { -amount };
                             e.radius = e.radius.max(radius);
                         }

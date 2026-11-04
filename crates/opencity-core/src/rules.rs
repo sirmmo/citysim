@@ -255,6 +255,35 @@ pub struct Emission {
     /// Tiles around the building reached, with linear falloff.
     #[serde(default)]
     pub radius: u32,
+    /// Reach along the streets instead of as the crow flies: `radius` is a
+    /// travel time (in street tiles) from the building, and places reach
+    /// it from a road at most 2 tiles away. Fire, police and ambulances
+    /// cover what they can drive to.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub by_road: bool,
+}
+
+/// Vehicles a service sends out to the buildings it covers (`dispatch`).
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Dispatch {
+    /// How it moves and looks without meshes: car, pickup, walker…
+    #[serde(default = "default_dispatch_model")]
+    pub model: String,
+    /// `.obj` models (`kenney/car-kit/firetruck`), one picked per call.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub meshes: Vec<String>,
+    /// One call every this many ticks, on average.
+    #[serde(default = "default_dispatch_every")]
+    pub every: u32,
+}
+
+fn default_dispatch_model() -> String {
+    "car".into()
+}
+
+fn default_dispatch_every() -> u32 {
+    10
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -288,6 +317,16 @@ pub struct UnitDef {
     /// Metrics recorded per tick (Extended GlassBox `log`), scaled like production.
     #[serde(default)]
     pub logs: BTreeMap<String, f32>,
+    /// Vehicles it sends to the buildings it covers.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub dispatch: Option<Dispatch>,
+}
+
+impl UnitDef {
+    /// How far its calls go: the widest of its emissions.
+    pub fn reach(&self) -> u32 {
+        self.emits.values().map(|e| e.radius).max().unwrap_or(12)
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -874,6 +913,11 @@ impl Ruleset {
             }
         }
         for u in &self.units {
+            if let Some(d) = &u.dispatch {
+                if crate::traffic::VehicleKind::from_id(&d.model).is_none() || d.every == 0 {
+                    return err(format!("unit {}: dispatch needs a known model and every > 0", u.id));
+                }
+            }
             for r in u.produce.keys().chain(u.needs.keys()).chain(u.sends.iter()) {
                 if self.resource(r).is_none() {
                     return err(format!("unit {}: unknown resource {r}", u.id));

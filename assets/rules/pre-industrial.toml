@@ -557,7 +557,8 @@ name = "Watchtower"
 description = "A watchman on the tower, buckets and hooks below."
 graphic = 350
 needs = { workers = 3, upkeep = 0.2 }
-emits = { fire_safety = { amount = 10.0, radius = 10 } }
+emits = { fire_safety = { amount = 10.0, radius = 10, by_road = true } }
+dispatch = { model = "walker", every = 12 }
 
 [[unit]]
 id = "guard_house"
@@ -565,7 +566,8 @@ name = "Guard house"
 description = "The town guard and its night patrols."
 graphic = 360
 needs = { workers = 4, food = 1, upkeep = 0.2 }
-emits = { police_safety = { amount = 10.0, radius = 10 } }
+emits = { police_safety = { amount = 10.0, radius = 10, by_road = true } }
+dispatch = { model = "walker", every = 12 }
 
 [[unit]]
 id = "bathhouse"
@@ -573,7 +575,8 @@ name = "Bathhouse"
 description = "Hot baths, a physician and herbs."
 graphic = 370
 needs = { workers = 8, food = 1, upkeep = 0.4 }
-emits = { health = { amount = 10.0, radius = 14 } }
+emits = { health = { amount = 10.0, radius = 14, by_road = true } }
+dispatch = { model = "walker", every = 12 }
 
 [[unit]]
 id = "academy"

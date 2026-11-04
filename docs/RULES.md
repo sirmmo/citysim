@@ -223,6 +223,28 @@ Inspecting a road lists the vehicles allowed on it. Skins that set
 `vehicles = false` hide cars and trucks only. People on foot and carts are
 always drawn.
 
+### Service vehicles and coverage by road
+
+An emission can travel along the streets instead of as the crow flies:
+
+```toml
+emits = { fire_safety = { amount = 10.0, radius = 12, by_road = true } }
+dispatch = { meshes = ["kenney/car-kit/firetruck"], every = 15 }
+```
+
+- **`by_road`:** `radius` is a travel time in street tiles: a highway tile
+  counts 0.4, a dirt road 2. Places take the value of the best road tile
+  within 2 tiles of them, falling off with travel time plus the last steps
+  on foot. A fire station covers what its trucks can drive to; a house just
+  as near but on a street the station cannot reach stays uncovered. Level
+  crossings count as road, other track does not.
+- **`dispatch`:** sends a vehicle now and then (about once every `every`
+  ticks) along the streets to a building within its reach. `model` says how
+  it moves (`car`, `walker`…), and `meshes` what it looks like.
+- **Shipped rules:** fire stations send fire trucks, police stations patrol
+  cars and hospitals ambulances. Before 1800 the watch, the guards and the
+  bathhouse staff walk.
+
 ### Railways
 
 Track is a kind of road (`rail`) that only trains use. A **station** is a

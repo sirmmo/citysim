@@ -464,6 +464,7 @@ impl City {
         self.values = gb.values(&self.layer);
         self.glassbox = Some(gb);
         self.spawn_trains();
+        self.dispatch_services();
         let gb = self.glassbox.take().unwrap();
         if let Some(pop) = gb.rules().and_then(|r| r.population.as_deref().and_then(|p| r.resource(p))) {
             self.population = gb.local_total(pop) as u32;
@@ -516,6 +517,45 @@ impl City {
                 let mut v = Vehicle::new(VehicleKind::Car, &path, &self.layer, &self.terrain);
                 v.mesh = Some(mesh);
                 self.vehicles.push(v);
+            }
+        }
+    }
+
+    /// Services with a `dispatch` send a vehicle now and then to one of
+    /// the buildings they cover, along the streets.
+    fn dispatch_services(&mut self) {
+        let Some(rules) = self.rules().cloned() else { return };
+        let services: Vec<((u32, u32), usize)> = self
+            .layer
+            .structures()
+            .filter_map(|(p, s)| s.unit.map(|u| (p, u as usize)))
+            .filter(|(_, u)| *u < rules.units.len() && rules.units[*u].dispatch.is_some())
+            .collect();
+        for (p, u) in services {
+            let def = &rules.units[u];
+            let d = def.dispatch.as_ref().unwrap();
+            if self.vehicles.len() >= MAX_VEHICLES || self.rng.gen_range(0..d.every) != 0 {
+                continue;
+            }
+            let reach = def.reach() as i64;
+            let targets: Vec<(u32, u32)> = self
+                .layer
+                .structures()
+                .filter(|(q, s)| s.unit.is_some() && *q != p && (q.0 as i64 - p.0 as i64).abs() + (q.1 as i64 - p.1 as i64).abs() <= reach)
+                .map(|(q, _)| q)
+                .collect();
+            if targets.is_empty() {
+                continue;
+            }
+            let t = targets[self.rng.gen_range(0..targets.len())];
+            let (Some(a), Some(b)) = (self.nearest_road(p), self.nearest_road(t)) else { continue };
+            let kind = VehicleKind::from_id(&d.model).unwrap_or(VehicleKind::Car);
+            if let Some(path) = find_route(&self.layer, &self.terrain, a, b, crate::traffic::PathCost::Distance, &Ways::ALL, f32::INFINITY) {
+                if path.len() > 1 {
+                    let mut v = Vehicle::new(kind, &path, &self.layer, &self.terrain);
+                    v.mesh = (!d.meshes.is_empty()).then(|| d.meshes[self.rng.gen_range(0..d.meshes.len())].clone());
+                    self.vehicles.push(v);
+                }
             }
         }
     }

@@ -593,21 +593,24 @@ id = "fire_station"
 name = "Fire station"
 graphic = 350
 needs = { workers = 4, power = 2, upkeep = 0.3 }
-emits = { fire_safety = { amount = 10.0, radius = 12 } }
+emits = { fire_safety = { amount = 10.0, radius = 12, by_road = true } }
+dispatch = { meshes = ["kenney/car-kit/firetruck"], every = 15 }
 
 [[unit]]
 id = "police_station"
 name = "Police station"
 graphic = 360
 needs = { workers = 4, power = 2, upkeep = 0.3 }
-emits = { police_safety = { amount = 10.0, radius = 12 } }
+emits = { police_safety = { amount = 10.0, radius = 12, by_road = true } }
+dispatch = { meshes = ["kenney/car-kit/police"], every = 6 }
 
 [[unit]]
 id = "hospital"
 name = "Hospital"
 graphic = 370
 needs = { workers = 10, power = 6, upkeep = 0.6 }
-emits = { health = { amount = 10.0, radius = 16 } }
+emits = { health = { amount = 10.0, radius = 16, by_road = true } }
+dispatch = { meshes = ["kenney/car-kit/ambulance"], every = 10 }
 
 [[unit]]
 id = "school"

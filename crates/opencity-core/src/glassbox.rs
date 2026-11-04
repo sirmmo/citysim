@@ -909,6 +909,10 @@ impl GlassBox {
             let eff = self.units[&idx(p.0, p.1)].satisfaction.max(0.25);
             for (lname, e) in &rules.units[*u].emits {
                 let li = rules.layer(lname).unwrap();
+                if e.by_road {
+                    emit_by_road(&mut self.layers[li], layer, terrain, r, e.amount * eff, e.radius);
+                    continue;
+                }
                 let (cx, cz) = ((r.w1 + r.w2) as f32 / 2.0, (r.l1 + r.l2) as f32 / 2.0);
                 let rad = e.radius + (r.w2 - r.w1).max(r.l2 - r.l1).div_ceil(2);
                 emit(&mut self.layers[li], width, length, cx, cz, e.amount * eff, rad);
@@ -1294,6 +1298,71 @@ fn emit(values: &mut [f32], width: u32, length: u32, cx: f32, cz: f32, amount: f
             let k = (1.0 - d / (rad as f32 + 1.0)).max(0.0);
             values[(l as u32 * width + w as u32) as usize] += amount * k;
         }
+    }
+}
+
+/// Places a building can drive to: travel time (in street tiles) to every
+/// road tile reached within `max` from the roads around `r`. Track is not
+/// road, but level crossings are.
+pub fn road_reach(layer: &BuildingLayer, terrain: &Terrain, r: &Rect, max: f32) -> HashMap<(u32, u32), f32> {
+    let road = |w: u32, l: u32| {
+        layer.structure_at(w, l).filter(|s| s.code == StructureCode::Road).and_then(|s| {
+            if s.road.is_rail() {
+                layer.is_level_crossing(w, l).then_some(1.0)
+            } else {
+                Some(1.0 / s.road.speed())
+            }
+        })
+    };
+    let mut best: HashMap<(u32, u32), f32> = HashMap::new();
+    let mut heap = std::collections::BinaryHeap::new();
+    let (w1, l1) = (r.w1.saturating_sub(2), r.l1.saturating_sub(2));
+    let (w2, l2) = ((r.w2 + 2).min(layer.width() - 1), (r.l2 + 2).min(layer.length() - 1));
+    for (w, l) in (Rect { w1, l1, w2, l2 }).tiles() {
+        if road(w, l).is_some() {
+            best.insert((w, l), 0.0);
+            heap.push((std::cmp::Reverse(0u32), (w, l)));
+        }
+    }
+    while let Some((std::cmp::Reverse(c), (w, l))) = heap.pop() {
+        let c = c as f32 / 100.0;
+        if best.get(&(w, l)).is_some_and(|&b| b < c) {
+            continue;
+        }
+        for d in Direction::ALL {
+            let Some((nw, nl)) = terrain.neighbour(w, l, d) else { continue };
+            let Some(step) = road(nw, nl) else { continue };
+            let nc = c + step;
+            if nc <= max && best.get(&(nw, nl)).is_none_or(|&b| nc < b) {
+                best.insert((nw, nl), nc);
+                heap.push((std::cmp::Reverse((nc * 100.0) as u32), (nw, nl)));
+            }
+        }
+    }
+    best
+}
+
+/// Coverage along the streets (see `Emission::by_road`): each place takes
+/// the best of the road tiles within 2 tiles of it, with linear falloff
+/// over travel time plus the last steps on foot.
+fn emit_by_road(values: &mut [f32], layer: &BuildingLayer, terrain: &Terrain, r: &Rect, amount: f32, radius: u32) {
+    let (width, length) = (layer.width(), layer.length());
+    let rad = radius as f32 + 1.0;
+    let mut got: HashMap<usize, f32> = HashMap::new();
+    for ((w, l), c) in road_reach(layer, terrain, r, radius as f32) {
+        for y in l.saturating_sub(2)..=(l + 2).min(length - 1) {
+            for x in w.saturating_sub(2)..=(w + 2).min(width - 1) {
+                let d = (x.abs_diff(w) + y.abs_diff(l)) as f32;
+                let k = 1.0 - (c + d) / rad;
+                if k > 0.0 {
+                    let v = got.entry((y * width + x) as usize).or_default();
+                    *v = v.max(amount * k);
+                }
+            }
+        }
+    }
+    for (i, v) in got {
+        values[i] += v;
     }
 }
 

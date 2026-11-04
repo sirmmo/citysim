@@ -548,3 +548,39 @@ fn railways_link_towns_no_road_joins() {
     // Cars never drive on the track; trains run between the stations.
     assert!(with.vehicles.iter().filter(|v| v.on_rail()).all(|v| v.mesh.as_deref().is_some_and(|m| m.contains("train"))));
 }
+
+#[test]
+fn services_cover_what_they_can_drive_to_and_send_vehicles() {
+    let r = rules();
+    let mut c = City::new(Terrain::flat(48, 32), None, Footprints::builtin(), 3);
+    c.fund = 10_000_000;
+    c.use_rules(r.clone());
+    c.research_all();
+    // A street with the fire station and houses on it; a second street just
+    // as near, but not joined to the first.
+    c.apply_tool(Tool::Road, (2, 10), (40, 10)).unwrap();
+    c.apply_tool(Tool::Road, (2, 16), (40, 16)).unwrap();
+    c.apply_tool(Tool::CoalPlant, (2, 5), (2, 5)).unwrap();
+    c.apply_tool(Tool::CoalPlant, (2, 17), (2, 17)).unwrap();
+    c.apply_tool(Tool::FireDept, (20, 8), (20, 8)).unwrap();
+    c.apply_tool(Tool::ZoneResidential, (8, 11), (34, 11)).unwrap();
+    c.apply_tool(Tool::ZoneResidential, (8, 15), (34, 15)).unwrap();
+    for _ in 0..200 {
+        c.simulate_round();
+    }
+    let gb = c.glassbox.as_ref().unwrap();
+    let fire = r.layer("fire_safety").unwrap();
+    let at = |w: u32, l: u32| gb.layer_value(fire, w, l, c.width());
+    // Same distance from the station as the crow flies, very different by road.
+    assert!(at(21, 11) > 1.0, "on the station's street: {}", at(21, 11));
+    assert!(at(21, 15) < at(21, 11) / 2.0, "the other street cannot be driven to: {} vs {}", at(21, 15), at(21, 11));
+    // Fire trucks go out along the streets.
+    let trucks = c.vehicles.iter().filter(|v| v.mesh.as_deref() == Some("kenney/car-kit/firetruck")).count();
+    let mut seen = trucks;
+    let mut c2 = c.clone();
+    for _ in 0..100 {
+        c2.simulate_round();
+        seen += c2.vehicles.iter().filter(|v| v.mesh.as_deref() == Some("kenney/car-kit/firetruck")).count();
+    }
+    assert!(seen > 0, "no fire truck was sent");
+}

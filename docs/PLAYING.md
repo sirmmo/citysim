@@ -64,6 +64,11 @@ game see [RULES.md](RULES.md); for the documentation index see
 - **Plants and services** (power plants, fire stations, police, hospitals, schools, wells…):
   - **Placing:** a new one turns to face the street beside it, and the preview shows the footprint it will take.
   - **Turning:** inspect it and press **⟳ Turn**, or **O**. Long buildings swap their footprint when turned.
+- **Services cover what they can reach by road.** Fire, police and health
+  coverage spreads along the streets from the building, so a station on a
+  street cut off from a neighbourhood does not protect it. Fire trucks,
+  police cars and ambulances (the watch and guards on foot before 1800) go
+  out to the buildings they cover.
 - **Locked tools** are greyed out until research unlocks them; their tooltip names the project.
 
 ## The city panel

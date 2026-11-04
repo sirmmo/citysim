@@ -2,6 +2,11 @@
 
 Release notes in full are on the [releases page](https://github.com/sirmmo/citysim/releases).
 
+## 0.2.17: Service vehicles
+- **Coverage by road:** fire, police and health coverage now spreads along the streets (`by_road` emissions). A station covers what its vehicles can drive to.
+- **Dispatch:** fire stations send Kenney fire trucks, police stations patrol cars and hospitals ambulances to the buildings they cover. Before 1800 the watch and guards go on foot.
+- **`dispatch`** in the rules: model, meshes and how often.
+
 ## 0.2.16: Railways
 - **Track and stations:** a Railway tool lays track, and a Railway station joins it to the streets. Trains (Kenney diesel and electric trains) run between stations on one line.
 - **Linked towns:** under GlassBox rules, places near stations on one line trade as if next door, even in towns no road joins.
