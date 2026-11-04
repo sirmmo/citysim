@@ -543,7 +543,9 @@ impl Renderer {
             if let Some(meshes) = v.mesh.as_deref().and_then(|name| self.obj_mesh(name)) {
                 // Trains run down the middle of the track, and a locomotive
                 // is longer than a car.
-                let m = if v.on_rail() {
+                let m = if v.water {
+                    m * Mat4::from_translation(vec3(0.5, -0.04, 0.5)) * Mat4::from_scale(Vec3::splat(1.2)) * Mat4::from_translation(vec3(-0.3, 0.0, -0.5))
+                } else if v.on_rail() {
                     m * Mat4::from_translation(vec3(0.5, 0.0, 0.5)) * Mat4::from_scale(Vec3::splat(1.8)) * Mat4::from_translation(vec3(-0.3, 0.0, -0.5))
                 } else {
                     m

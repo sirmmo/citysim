@@ -232,7 +232,12 @@ impl VehicleDef {
         if self.ways.is_empty() {
             return crate::traffic::Ways::ALL;
         }
-        crate::traffic::Ways::of(self.ways.iter().filter_map(|w| crate::RoadKind::from_id(w)))
+        let roads = crate::traffic::Ways::of(self.ways.iter().filter_map(|w| crate::RoadKind::from_id(w)));
+        if self.ways.iter().any(|w| w == "water") {
+            roads.union(crate::traffic::Ways::WATER)
+        } else {
+            roads
+        }
     }
 
     pub fn top_speed(&self) -> f32 {
@@ -903,7 +908,7 @@ impl Ruleset {
                     return at("ways are road kinds, but the network has no roads".into());
                 }
                 for w in &v.ways {
-                    if crate::RoadKind::from_id(w).is_none() {
+                    if crate::RoadKind::from_id(w).is_none() && w != "water" {
                         return at(format!("unknown way {w}"));
                     }
                 }

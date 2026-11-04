@@ -281,7 +281,10 @@ fn highways_give_no_access() {
 fn rules_choose_the_vehicles_of_each_age() {
     use opencity_core::traffic::VehicleKind;
     let old = rules_named("pre-industrial");
-    let kinds = |r: &Ruleset, id: &str| -> Vec<VehicleKind> { r.vehicles_for(r.resource(id).unwrap()).iter().map(|v| v.kind()).collect() };
+    // Road vehicles (trains and boats run apart).
+    let kinds = |r: &Ruleset, id: &str| -> Vec<VehicleKind> {
+        r.vehicles_for(r.resource(id).unwrap()).iter().filter(|v| !v.ways().sails() && !v.ways().allows(RoadKind::Rail)).map(|v| v.kind()).collect()
+    };
     // No cars before 1800: people walk, carts carry the loads.
     for id in ["workers", "shoppers", "food", "goods", "cart", "cart.horse", "fodder"] {
         let k = kinds(&old, id);
@@ -642,4 +645,63 @@ fn neighbouring_cities_trade_across_their_borders() {
     assert!(fill(&trading) > fill(&alone), "workshops are better staffed: {} vs {}", fill(&trading), fill(&alone));
     // The region file round-trips.
     assert_eq!(Region::from_json(&region.to_json()).unwrap(), region);
+}
+
+#[test]
+fn harbours_link_towns_across_a_lake() {
+    let r = rules();
+    let build = |harbours: bool| {
+        let mut t = Terrain::flat(64, 24);
+        for w in 22..=42 {
+            for l in 0..=24 {
+                t.set_corner(w, l, -1);
+            }
+        }
+        let mut c = City::new(t, None, Footprints::builtin(), 5);
+        c.fund = 10_000_000;
+        c.use_rules(r.clone());
+        c.research_all();
+        for (w1, w2, zone) in [(2, 16, Tool::ZoneResidential), (47, 60, Tool::ZoneIndustrial)] {
+            c.apply_tool(Tool::Road, (w1, 8), (w2, 8)).unwrap();
+            c.apply_tool(Tool::Road, (w1, 12), (w2, 12)).unwrap();
+            c.apply_tool(Tool::Road, (w1, 8), (w1, 12)).unwrap();
+            c.apply_tool(zone, (w1 + 1, 9), (w2, 11)).unwrap();
+            c.apply_tool(Tool::CoalPlant, (w1 + 2, 5), (w1 + 2, 5)).unwrap();
+        }
+        if harbours {
+            c.apply_tool(Tool::Road, (16, 14), (20, 14)).unwrap();
+            c.apply_tool(Tool::Road, (16, 12), (16, 14)).unwrap();
+            c.apply_tool(Tool::Harbour, (19, 15), (19, 15)).unwrap();
+            c.apply_tool(Tool::Road, (43, 14), (47, 14)).unwrap();
+            c.apply_tool(Tool::Road, (47, 12), (47, 14)).unwrap();
+            c.apply_tool(Tool::Harbour, (43, 15), (43, 15)).unwrap();
+        }
+        for _ in 0..400 {
+            c.simulate_round();
+        }
+        c
+    };
+    let crossing = |c: &City| -> f32 {
+        let gb = c.glassbox.as_ref().unwrap();
+        gb.flows.iter().filter(|(l, _)| (l.from.0 < 30) != (l.to.0 < 30)).map(|(_, v)| *v).sum()
+    };
+    let (without, with) = (build(false), build(true));
+    let water = opencity_core::rail::Railways::water(&with.layer, &with.terrain, with.footprints());
+    assert_eq!(water.stations.len(), 2, "both harbours stand on the shore: {:?}", water.stations);
+    assert_eq!(crossing(&without), 0.0);
+    assert!(crossing(&with) > 0.0, "boats carry trips across the lake");
+    assert!(with.vehicles.iter().filter(|v| v.water).all(|v| v.route.iter().all(|w| with.terrain.is_water(w.w, w.l))));
+}
+
+#[test]
+fn canals_dig_water_through_empty_land() {
+    let mut c = City::new(Terrain::flat(30, 20), None, Footprints::builtin(), 1);
+    c.fund = 100_000;
+    let before = c.fund;
+    c.apply_tool(Tool::Canal, (2, 10), (20, 10)).unwrap();
+    assert!((2..=20).all(|w| c.terrain.is_water(w, 10)));
+    assert!(c.fund < before);
+    // Not next to buildings.
+    c.apply_tool(Tool::Road, (5, 15), (12, 15)).unwrap();
+    assert!(c.apply_tool(Tool::Canal, (4, 14), (12, 14)).is_err());
 }

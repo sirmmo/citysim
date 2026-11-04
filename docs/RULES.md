@@ -223,6 +223,35 @@ Inspecting a road lists the vehicles allowed on it. Skins that set
 `vehicles = false` hide cars and trucks only. People on foot and carts are
 always drawn.
 
+### Waterways and harbours
+
+Water works like rail: a **line** is one connected body of water (a lake, a
+river, the sea, a canal), and a **harbour** on its shore is the stop. Its
+quay is a water tile at most 2 tiles out, past the sloping shore.
+
+- **Linked places:** places within 8 tiles of harbours on the same water
+  trade with each other at speed 2. Boats are slower than trains, but they
+  need no track.
+- **Which resources sail:** the road network lists a water vehicle for them
+  (`ways = ["water"]`). If the network lists no vehicles at all, every resource sails.
+- **Boats** sail between harbours over water tiles, drawn with the water
+  vehicle's `meshes`: Kenney cargo ships and tugs today, rowing and sailing
+  boats before 1800, where the harbour is a `quay`.
+- **Canals:** the **Canal** tool digs empty land, with nothing built around
+  it, below the water line, at $30 a tile.
+- **GeoJSON import:** `landuse=port` and `harbour=yes` become harbours.
+
+```toml
+[[network.vehicle]]
+id = "ship"
+name = "Ship"
+model = "car"
+ways = ["water"]
+carries = ["workers", "shoppers", "goods", "fuel"]
+share = 0
+meshes = ["kenney/watercraft/ship-cargo-a", "kenney/watercraft/boat-tug-a"]
+```
+
 ### Regions and trade
 
 A resource with a `price` is traded with the neighbouring cities of a

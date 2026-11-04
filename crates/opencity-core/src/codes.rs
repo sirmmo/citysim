@@ -29,6 +29,8 @@ pub enum StructureCode {
     School = 40,
     /// Railway station: joins a rail line to the streets around it.
     Station = 41,
+    /// Harbour: boats call here, linking the places along one body of water.
+    Harbour = 42,
 }
 
 impl StructureCode {
@@ -55,6 +57,7 @@ impl StructureCode {
             38 => Hospital,
             40 => School,
             41 => Station,
+            42 => Harbour,
             _ => return None,
         })
     }
@@ -72,7 +75,7 @@ impl StructureCode {
     }
 
     pub const fn is_public_service(self) -> bool {
-        matches!(self, Self::FireDept | Self::PoliceDept | Self::Hospital | Self::School | Self::Station)
+        matches!(self, Self::FireDept | Self::PoliceDept | Self::Hospital | Self::School | Self::Station | Self::Harbour)
     }
 
     /// Structures placed as one fixed-size block (the size comes from the model).
@@ -100,6 +103,7 @@ impl StructureCode {
             Hospital => GraphicCode::HOSPITAL_DEPT,
             School => GraphicCode::EDUCATION_DEPT,
             Station => GraphicCode::RAIL_STATION,
+            Harbour => GraphicCode::HARBOUR,
         }
     }
 
@@ -111,7 +115,7 @@ impl StructureCode {
             Industrial => StructureType::Industry,
             CoalPlant | NuclearPlant => StructureType::Electricity,
             Road | PowerLine => StructureType::Path,
-            FireDept | PoliceDept | Hospital | School | Station => StructureType::Government,
+            FireDept | PoliceDept | Hospital | School | Station | Harbour => StructureType::Government,
             Flora => StructureType::Tree,
             Part | Test => StructureType::Undefined,
         }
@@ -129,6 +133,7 @@ impl StructureCode {
             NuclearPlant => 5000,
             FireDept | PoliceDept | Hospital | School => 1500,
             Station => 3000,
+            Harbour => 2500,
             Test | Part => 0,
         }
     }
@@ -143,6 +148,7 @@ impl StructureCode {
             NuclearPlant => 80,
             FireDept | PoliceDept | Hospital | School => 15,
             Station => 25,
+            Harbour => 20,
         }
     }
 
@@ -156,7 +162,7 @@ impl StructureCode {
             Park => 10,
             PowerLine => 1,
             Road | Flora => 4,
-            Part | CoalPlant | FireDept | PoliceDept | Hospital | School | Station => 200,
+            Part | CoalPlant | FireDept | PoliceDept | Hospital | School | Station | Harbour => 200,
             NuclearPlant => 800,
             Test => 0,
         }
@@ -205,6 +211,7 @@ impl GraphicCode {
     pub const HOSPITAL_DEPT: Self = Self(370);
     pub const EDUCATION_DEPT: Self = Self(390);
     pub const RAIL_STATION: Self = Self(395);
+    pub const HARBOUR: Self = Self(396);
     pub const VEHICLE_STD: Self = Self(400);
     pub const VEHICLE_PICKUP: Self = Self(440);
     pub const VEHICLE_SPORT: Self = Self(441);
@@ -449,10 +456,12 @@ pub enum Tool {
     TestBuilding,
     Rail,
     Station,
+    Harbour,
+    Canal,
 }
 
 impl Tool {
-    pub const ALL: [Tool; 22] = [
+    pub const ALL: [Tool; 24] = [
         Tool::Destroy,
         Tool::ZoneResidential,
         Tool::ZoneCommercial,
@@ -475,6 +484,8 @@ impl Tool {
         Tool::TestBuilding,
         Tool::Rail,
         Tool::Station,
+        Tool::Harbour,
+        Tool::Canal,
     ];
 
     /// Stable identifier, used by skins and GeoJSON rules.
@@ -502,6 +513,8 @@ impl Tool {
             Tool::TestBuilding => "test_building",
             Tool::Rail => "rail",
             Tool::Station => "station",
+            Tool::Harbour => "harbour",
+            Tool::Canal => "canal",
         }
     }
 
@@ -524,7 +537,8 @@ impl Tool {
             Tool::School => S::School,
             Tool::TestBuilding => S::Test,
             Tool::Station => S::Station,
-            Tool::Destroy | Tool::RaiseTerrain | Tool::LowerTerrain => return None,
+            Tool::Harbour => S::Harbour,
+            Tool::Destroy | Tool::RaiseTerrain | Tool::LowerTerrain | Tool::Canal => return None,
         })
     }
 
@@ -544,7 +558,7 @@ impl Tool {
     pub const fn is_area(self) -> bool {
         match self.structure() {
             Some(s) => !s.is_block(),
-            None => matches!(self, Tool::Destroy),
+            None => matches!(self, Tool::Destroy | Tool::Canal),
         }
     }
 
@@ -552,7 +566,7 @@ impl Tool {
         match self {
             Tool::Destroy => Sound::Destroy,
             Tool::ZoneResidential | Tool::ZoneCommercial | Tool::ZoneIndustrial => Sound::Zone,
-            Tool::RaiseTerrain | Tool::LowerTerrain => Sound::Terrain,
+            Tool::RaiseTerrain | Tool::LowerTerrain | Tool::Canal => Sound::Terrain,
             Tool::Road | Tool::Highway | Tool::DirtRoad | Tool::PavedStreet | Tool::Rail => Sound::Road,
             Tool::PowerLine => Sound::PowerLine,
             Tool::Park | Tool::Trees => Sound::Park,

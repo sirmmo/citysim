@@ -141,6 +141,7 @@ const GROUPS: &[(&str, &[ToolEntry])] = &[
             ("road_paved_street", Action::Tool(Some(Tool::PavedStreet)), "Paved street", "P"),
             ("road_dirt_road", Action::Tool(Some(Tool::DirtRoad)), "Dirt road", ""),
             ("road_rail", Action::Tool(Some(Tool::Rail)), "Railway", ""),
+            ("lower", Action::Tool(Some(Tool::Canal)), "Canal", ""),
             ("power_line", Action::Tool(Some(Tool::PowerLine)), "Power line", "L"),
             ("power_plant_coal", Action::Tool(Some(Tool::CoalPlant)), "Coal plant", ""),
             ("power_plant_nuclear", Action::Tool(Some(Tool::NuclearPlant)), "Nuclear plant", ""),
@@ -154,6 +155,7 @@ const GROUPS: &[(&str, &[ToolEntry])] = &[
             ("hospital", Action::Tool(Some(Tool::Hospital)), "Hospital", ""),
             ("education", Action::Tool(Some(Tool::School)), "School", ""),
             ("government", Action::Tool(Some(Tool::Station)), "Railway station", ""),
+            ("government", Action::Tool(Some(Tool::Harbour)), "Harbour", ""),
         ],
     ),
     (

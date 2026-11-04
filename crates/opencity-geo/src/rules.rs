@@ -25,6 +25,7 @@ pub enum Build {
     School,
     Rail,
     Station,
+    Harbour,
     Ignore,
 }
 
@@ -48,6 +49,7 @@ impl Build {
             "school" => School,
             "rail" => Rail,
             "station" => Station,
+            "harbour" => Harbour,
             "ignore" => Ignore,
             _ => return None,
         })
@@ -72,6 +74,7 @@ impl Build {
             School => "school",
             Rail => "rail",
             Station => "station",
+            Harbour => "harbour",
             Ignore => "ignore",
         }
     }

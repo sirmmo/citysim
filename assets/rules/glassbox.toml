@@ -178,6 +178,16 @@ carries = ["workers", "shoppers", "goods"]
 share = 0
 meshes = ["kenney/train-kit/train-diesel-a", "kenney/train-kit/train-diesel-b", "kenney/train-kit/train-electric-city-a", "kenney/train-kit/train-electric-double-a"]
 
+# Ships sail between harbours on one body of water (docs/RULES.md#waterways).
+[[network.vehicle]]
+id = "ship"
+name = "Ship"
+model = "car"
+ways = ["water"]
+carries = ["workers", "shoppers", "goods", "fuel"]
+share = 0
+meshes = ["kenney/watercraft/ship-cargo-a", "kenney/watercraft/ship-cargo-b", "kenney/watercraft/boat-tug-a", "kenney/watercraft/ship-small"]
+
 [[network]]
 id = "power_grid"
 name = "Power grid"
@@ -302,6 +312,7 @@ hospital = "hospital"
 school = "school"
 park = "park"
 station = "station"
+harbour = "harbour"
 
 # ---------------------------------------------------------------- units
 # Residential: residents produce workers and shoppers; they need power and
@@ -631,6 +642,13 @@ name = "Railway station"
 description = "Trains stop here: places near stations on one line trade as if next door."
 graphic = 395
 needs = { workers = 4, power = 2, upkeep = 0.6 }
+
+[[unit]]
+id = "harbour"
+name = "Harbour"
+description = "Ships call here: places near harbours on one body of water trade as if next door."
+graphic = 396
+needs = { workers = 4, power = 1, upkeep = 0.4 }
 
 [[unit]]
 id = "park"

@@ -315,7 +315,7 @@ fn priority(b: Build) -> u8 {
         Rail => 1,
         PowerLine => 2,
         CoalPlant | NuclearPlant => 3,
-        FireStation | Police | Hospital | School | Station => 4,
+        FireStation | Police | Hospital | School | Station | Harbour => 4,
         Residential | Commercial | Industrial => 5,
         Park => 6,
         Trees => 7,
@@ -341,6 +341,7 @@ fn code_of(b: Build) -> Option<StructureCode> {
         School => StructureCode::School,
         Rail => StructureCode::Road,
         Station => StructureCode::Station,
+        Harbour => StructureCode::Harbour,
         Water | Ignore => return None,
     })
 }

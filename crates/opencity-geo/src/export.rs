@@ -59,6 +59,7 @@ fn tags(code: StructureCode, level: u8) -> Map<String, Value> {
         Hospital => ("hospital", &[("amenity", "hospital")]),
         School => ("school", &[("amenity", "school")]),
         Station => ("station", &[("railway", "station"), ("building", "train_station")]),
+        Harbour => ("harbour", &[("landuse", "port"), ("harbour", "yes")]),
         Test | Part => ("ignore", &[]),
     };
     let mut m = Map::new();

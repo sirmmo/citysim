@@ -6,7 +6,7 @@
 #
 # build = residential | commercial | industrial | road | power_line
 #       | coal_plant | nuclear_plant | park | trees | water
-#       | fire_station | police | hospital | school | rail | station | ignore
+#       | fire_station | police | hospital | school | rail | station | harbour | ignore
 #
 # Copy this file, edit it and pass it with `--rules` to map other tag
 # vocabularies (for example a fantasy map with custom keys).
@@ -80,6 +80,14 @@ when = { highway = [
     "motorway_link", "trunk_link", "primary_link", "secondary_link", "tertiary_link",
 ] }
 build = "road"
+
+# --- Harbours -----------------------------------------------------------------
+[[rule]]
+when = { landuse = "port" }
+build = "harbour"
+[[rule]]
+when = { harbour = "yes" }
+build = "harbour"
 
 # --- Railways ----------------------------------------------------------------
 [[rule]]

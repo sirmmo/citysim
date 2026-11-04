@@ -190,8 +190,10 @@ const BUCKET: u32 = 8;
 const HIGHWAY_RAMP: u32 = 4;
 /// How far (in tiles) people walk to a station.
 pub const STATION_WALK: u32 = 8;
-/// Time (in street tiles) to board and leave a train.
+/// Time (in street tiles) to board and leave a train or a boat.
 const STATION_TIME: f32 = 3.0;
+/// Boats cover this many tiles in the time a street takes for one.
+pub const WATER_SPEED: f32 = 2.0;
 
 impl GlassBox {
     pub fn new(rules: Arc<Ruleset>, width: u32, length: u32) -> Self {
@@ -653,6 +655,12 @@ impl GlassBox {
         if !rail.stations.is_empty() {
             fastest = fastest.max(RoadKind::Rail.speed());
         }
+        // Waterways: harbours on one body of water, the same way.
+        let water = crate::rail::Railways::water(layer, terrain, footprints);
+        if !water.stations.is_empty() {
+            fastest = fastest.max(WATER_SPEED);
+        }
+        let lines = [(&rail, RoadKind::Rail.speed()), (&water, WATER_SPEED)];
         let fastest = fastest.max(0.1);
         let mut trips = Vec::new();
         for root in 0..nres {
@@ -671,17 +679,19 @@ impl GlassBox {
             // Street networks joined by a railway count as one: merge their
             // components through the stations on each line.
             let mut merged: HashMap<u32, u32> = HashMap::new();
-            let station_comp: Vec<Option<u32>> = rail
-                .stations
-                .iter()
-                .map(|st| {
-                    let r = Rect::sized(st.origin.0, st.origin.1, st.size.0, st.size.1);
-                    unit_component(&comps[net], &r, width, length, 2, |w, l| road_at(w, l).is_none_or(|k| k.access())).map(|(c, _)| c)
-                })
-                .collect();
-            {
+            let station_comp: [Vec<Option<u32>>; 2] = lines.map(|(net_lines, _)| {
+                net_lines
+                    .stations
+                    .iter()
+                    .map(|st| {
+                        let r = Rect::sized(st.origin.0, st.origin.1, st.size.0, st.size.1);
+                        unit_component(&comps[net], &r, width, length, 2, |w, l| road_at(w, l).is_none_or(|k| k.access())).map(|(c, _)| c)
+                    })
+                    .collect()
+            });
+            for (k, (net_lines, _)) in lines.iter().enumerate() {
                 let mut root_of_line: HashMap<u32, u32> = HashMap::new();
-                for (st, c) in rail.stations.iter().zip(&station_comp) {
+                for (st, c) in net_lines.stations.iter().zip(&station_comp[k]) {
                     let Some(c) = *c else { continue };
                     let r = *root_of_line.entry(st.line).or_insert(c);
                     let (ra, rb) = (find_root(&merged, r), find_root(&merged, c));
@@ -693,11 +703,11 @@ impl GlassBox {
             // Component (merged and own), road speed, highway access and the
             // nearest station (index, walk) of each unit.
             #[allow(clippy::type_complexity)]
-            let acc: Vec<Option<(u32, u32, f32, bool, Option<(usize, u32)>, (u32, u32))>> = access
+            let acc: Vec<Option<(u32, u32, f32, bool, [Option<(usize, u32)>; 2], (u32, u32))>> = access
                 .iter()
                 .map(|a| {
                     let (c, (w, l)) = (*a)?;
-                    let station = rail.nearest_station((w, l), STATION_WALK).filter(|&(i, _)| station_comp[i].is_some());
+                    let station = [0, 1].map(|k| lines[k].0.nearest_station((w, l), STATION_WALK).filter(|&(i, _)| station_comp[k][i].is_some()));
                     Some((
                         find_root(&merged, c),
                         c,
@@ -712,7 +722,7 @@ impl GlassBox {
             // foot are no quicker on a paved street) and may be kept off
             // highways.
             let vehicles = rules.vehicles_for(root);
-            let road_vehicles: Vec<_> = vehicles.iter().filter(|v| !v.ways().allows(RoadKind::Rail)).collect();
+            let road_vehicles: Vec<_> = vehicles.iter().filter(|v| !v.ways().allows(RoadKind::Rail) && !v.ways().sails()).collect();
             let (top, highway) = if vehicles.is_empty() {
                 (f32::INFINITY, true)
             } else {
@@ -721,6 +731,8 @@ impl GlassBox {
             // Trains carry the resource when the network lists a rail
             // vehicle for it, or lists no vehicles at all.
             let by_rail = vehicles.is_empty() || vehicles.iter().any(|v| v.ways().allows(RoadKind::Rail));
+            let by_water = vehicles.is_empty() || vehicles.iter().any(|v| v.ways().sails());
+            let carried = [by_rail, by_water];
             let trip_length = |s: usize, i: usize, dist: u32| -> f32 {
                 let (Some(a), Some(b)) = (acc[s], acc[i]) else { return f32::INFINITY };
                 // By road, only within one street network.
@@ -728,12 +740,14 @@ impl GlassBox {
                 if highway && a.3 && b.3 && a.1 == b.1 {
                     best = best.min(HIGHWAY_RAMP as f32 + dist as f32 / RoadKind::Highway.speed().min(top));
                 }
-                if let (true, Some((sa, wa)), Some((sb, wb))) = (by_rail, a.4, b.4) {
-                    let (x, y) = (&rail.stations[sa], &rail.stations[sb]);
-                    if sa != sb && x.line == y.line {
-                        let ride = x.platform.0.abs_diff(y.platform.0) + x.platform.1.abs_diff(y.platform.1);
-                        let walk = (wa + wb) as f32 / a.2.min(b.2).min(top).min(1.0);
-                        best = best.min(STATION_TIME + walk + ride as f32 / RoadKind::Rail.speed());
+                for (k, (net_lines, speed)) in lines.iter().enumerate() {
+                    if let (true, Some((sa, wa)), Some((sb, wb))) = (carried[k], a.4[k], b.4[k]) {
+                        let (x, y) = (&net_lines.stations[sa], &net_lines.stations[sb]);
+                        if sa != sb && x.line == y.line {
+                            let ride = x.platform.0.abs_diff(y.platform.0) + x.platform.1.abs_diff(y.platform.1);
+                            let walk = (wa + wb) as f32 / a.2.min(b.2).min(top).min(1.0);
+                            best = best.min(STATION_TIME + walk + ride as f32 / speed);
+                        }
                     }
                 }
                 best

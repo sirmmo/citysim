@@ -2,6 +2,11 @@
 
 Release notes in full are on the [releases page](https://github.com/sirmmo/citysim/releases).
 
+## 0.2.19: Waterways and harbours
+- **Harbours:** a harbour on any lake, river, coast or canal links the places near harbours on the same water. Boats sail between harbours: Kenney cargo ships and tugs today, rowing and sailing boats at a Quay before 1800.
+- **Canal tool:** digs empty land below the water line.
+- **Rules:** vehicles with `ways = ["water"]` are boats. GeoJSON imports and exports harbours.
+
 ## 0.2.18: Regions
 - **Regions:** a grid of neighbouring cities, played one at a time (File > New region…, Open region…, `--region`).
 - **The 🗺 Region window:** found towns, switch between them (the open one is saved), and see border crossings and this month's trade.

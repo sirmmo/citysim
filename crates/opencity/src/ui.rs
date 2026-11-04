@@ -63,6 +63,8 @@ const TOOLS: &[(&str, Action, &str)] = &[
     ("hospital", Action::Tool(Some(Tool::Hospital)), "Hospital"),
     ("education", Action::Tool(Some(Tool::School)), "School"),
     ("government", Action::Tool(Some(Tool::Station)), "Railway station"),
+    ("government", Action::Tool(Some(Tool::Harbour)), "Harbour"),
+    ("lower", Action::Tool(Some(Tool::Canal)), "Canal"),
     ("raise", Action::Tool(Some(Tool::RaiseTerrain)), "Raise terrain (U)"),
     ("lower", Action::Tool(Some(Tool::LowerTerrain)), "Lower terrain (J)"),
 ];

@@ -66,6 +66,11 @@ impl Terrain {
         *self.tile_corners(w, l).iter().max().unwrap()
     }
 
+    /// Whether the tile lies under water (below the sea level, height 0).
+    pub fn is_water(&self, w: u32, l: u32) -> bool {
+        self.tile_max(w, l) < 0
+    }
+
     pub fn is_tile_flat(&self, w: u32, l: u32) -> bool {
         let c = self.tile_corners(w, l);
         c.iter().all(|&h| h == c[0])

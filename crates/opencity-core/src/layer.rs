@@ -246,7 +246,7 @@ impl BuildingLayer {
         self.revision.0
     }
 
-    fn touch(&mut self) {
+    pub fn touch(&mut self) {
         self.revision.0 += 1;
     }
 
@@ -431,6 +431,10 @@ impl BuildingLayer {
             if !self.can_build(r, code, terrain) {
                 continue;
             }
+            // Harbours stand on dry land with water alongside.
+            if code == StructureCode::Harbour && (r.tiles().any(|(w, l)| terrain.is_water(w, l)) || !Self::touches_water(r, terrain)) {
+                continue;
+            }
             let roads = self.front_roads(r, facing);
             if best.is_none_or(|(b, _, _)| roads > b) {
                 best = Some((roads, facing, r));
@@ -446,6 +450,14 @@ impl BuildingLayer {
             self.tile_mut(w, l).unwrap().status.set(Status::POWER);
         }
         Ok(code.build_cost())
+    }
+
+    /// Whether water lies within 2 tiles of `r`'s edges (past the shore's slope).
+    fn touches_water(r: Rect, terrain: &Terrain) -> bool {
+        let (w1, l1) = (r.w1.saturating_sub(2), r.l1.saturating_sub(2));
+        let (w2, l2) = ((r.w2 + 2).min(terrain.width() - 1), (r.l2 + 2).min(terrain.length() - 1));
+        let d = |v: u32, a: u32, b: u32| if v < a { a - v } else { v.saturating_sub(b) };
+        (Rect { w1, l1, w2, l2 }).tiles().any(|(x, y)| (1..=2).contains(&(d(x, r.w1, r.w2) + d(y, r.l1, r.l2))) && terrain.is_water(x, y))
     }
 
     /// Road tiles along the front edge of a block at `r`.

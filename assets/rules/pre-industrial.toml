@@ -162,6 +162,18 @@ speed = 1.0
 carries = ["cart.horse", "food", "goods", "fodder"]
 direct = true
 
+
+# Boats sail between quays on one body of water.
+[[network.vehicle]]
+id = "boat"
+name = "Boat"
+# Not a motor vehicle: skins of the past that hide cars still show boats.
+model = "walker"
+ways = ["water"]
+carries = ["workers", "shoppers", "food", "goods"]
+share = 0
+meshes = ["kenney/watercraft/boat-row-large", "kenney/watercraft/boat-sail-a", "kenney/watercraft/boat-sail-b", "kenney/watercraft/boat-fishing-small"]
+
 # ---------------------------------------------------------------- map layers
 [[layer]]
 id = "pollution"
@@ -268,6 +280,7 @@ densities = [
 
 # ---------------------------------------------------------------- services
 [services]
+harbour = "quay"
 coal_plant = "granary"
 fire_station = "watchtower"
 police = "guard_house"
@@ -590,6 +603,13 @@ graphic = 390
 produce = { research = 1.5 }
 needs = { workers = 5, food = 1, upkeep = 0.3, ideas = 0.5 }
 emits = { education = { amount = 10.0, radius = 12 } }
+
+[[unit]]
+id = "quay"
+name = "Quay"
+description = "Boats tie up here: places near quays on one river, lake or coast trade as if next door."
+graphic = 396
+needs = { workers = 3, upkeep = 0.2 }
 
 [[unit]]
 id = "well"

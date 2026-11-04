@@ -26,6 +26,8 @@ pub const MS_PER_DAY: f64 = 1750.0;
 /// Years of history kept for the graphs.
 pub const HISTORY_LEN: usize = 20;
 pub const TERRAIN_COST: u32 = 5;
+/// Cost of digging one tile of canal.
+pub const CANAL_COST: u32 = 30;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Date {
@@ -301,6 +303,7 @@ impl City {
         let rect = Rect::new(a, b);
         let cost = match tool {
             Tool::Destroy => self.layer.destroy(rect)?,
+            Tool::Canal => self.dig_canal(rect)?,
             Tool::RaiseTerrain | Tool::LowerTerrain => {
                 let (w1, l1, w2, l2) = self.terrain.around(a.0, a.1, 1);
                 if self.layer.contains(Rect { w1, l1, w2, l2 }, Query::Any) {
@@ -412,6 +415,7 @@ impl City {
             self.spawn_vehicle(start);
         }
         self.spawn_trains();
+        self.spawn_boats();
         self.values = sim::refresh_values(&self.layer);
     }
 
@@ -434,8 +438,8 @@ impl City {
             // ways; networks without vehicles get the classic cars.
             let (kind, ways, top, cost, mesh) = match gb.rules().map(|r| r.vehicles_for(t.resource)) {
                 // Trains run on their own (see `spawn_trains`).
-                Some(fit) if fit.iter().any(|v| !v.ways().allows(crate::RoadKind::Rail)) => {
-                    let fit: Vec<_> = fit.into_iter().filter(|v| !v.ways().allows(crate::RoadKind::Rail)).collect();
+                Some(fit) if fit.iter().any(|v| !v.ways().allows(crate::RoadKind::Rail) && !v.ways().sails()) => {
+                    let fit: Vec<_> = fit.into_iter().filter(|v| !v.ways().allows(crate::RoadKind::Rail) && !v.ways().sails()).collect();
                     let total: f32 = fit.iter().map(|v| v.share).sum();
                     let mut x = self.rng.gen_range(0.0..total.max(1e-6));
                     let v = fit.iter().find(|v| {
@@ -464,6 +468,7 @@ impl City {
         self.values = gb.values(&self.layer);
         self.glassbox = Some(gb);
         self.spawn_trains();
+        self.spawn_boats();
         self.dispatch_services();
         let gb = self.glassbox.take().unwrap();
         if let Some(pop) = gb.rules().and_then(|r| r.population.as_deref().and_then(|p| r.resource(p))) {
@@ -519,6 +524,53 @@ impl City {
                 self.vehicles.push(v);
             }
         }
+    }
+
+    /// Digs a canal along the path route of `r`: empty land with nothing
+    /// built around it is lowered below the water line. Returns the cost.
+    fn dig_canal(&mut self, r: Rect) -> Result<u32, ToolError> {
+        let route = BuildingLayer::path_route(r);
+        let mut cost = 0;
+        for (w, l) in route {
+            if self.terrain.is_water(w, l) {
+                continue;
+            }
+            let (w1, l1, w2, l2) = self.terrain.around(w, l, 1);
+            if self.layer.contains(Rect { w1, l1, w2, l2 }, crate::layer::Query::Any) {
+                return Err(ToolError::TerrainOccupied);
+            }
+            for (x, y) in [(w, l), (w + 1, l), (w, l + 1), (w + 1, l + 1)] {
+                if self.terrain.corner(x, y) >= 0 {
+                    self.terrain.set_corner(x, y, -1);
+                }
+            }
+            cost += CANAL_COST;
+        }
+        self.layer.touch();
+        Ok(cost)
+    }
+
+    /// Boats between harbours on one body of water, drawn with the rules'
+    /// water vehicle (or a small ship).
+    fn spawn_boats(&mut self) {
+        let boats = self.vehicles.iter().filter(|v| v.water).count();
+        let water = crate::rail::Railways::water(&self.layer, &self.terrain, &self.footprints);
+        let pairs = water.connections();
+        if pairs.is_empty() || boats >= water.stations.len() || self.vehicles.len() >= MAX_VEHICLES || self.rng.gen_range(0..10) != 0 {
+            return;
+        }
+        let (a, b) = pairs[self.rng.gen_range(0..pairs.len())];
+        let Some(path) = water.route(self.width(), water.stations[a].platform, water.stations[b].platform) else { return };
+        if path.len() < 2 {
+            return;
+        }
+        let meshes: Vec<String> = self
+            .rules()
+            .map(|r| r.networks.iter().flat_map(|n| &n.vehicles).filter(|v| v.ways().sails()).flat_map(|v| v.meshes.clone()).collect())
+            .unwrap_or_default();
+        let mut v = Vehicle::boat(&path);
+        v.mesh = Some(if meshes.is_empty() { "kenney/watercraft/ship-small".to_string() } else { meshes[self.rng.gen_range(0..meshes.len())].clone() });
+        self.vehicles.push(v);
     }
 
     /// Services with a `dispatch` send a vehicle now and then to one of
