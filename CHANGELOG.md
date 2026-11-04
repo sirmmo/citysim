@@ -2,7 +2,15 @@
 
 Release notes in full are on the [releases page](https://github.com/sirmmo/citysim/releases).
 
-## 0.2.24: Region server and shared culture
+## 0.2.25: Day and night, seasons and weather
+- **Day and night:** the light turns once a game month, with a warm dawn and dusk and a blue night.
+- **Seasons:** the ground colours follow the seasons, white in winter.
+- **Weather:** weekly clear, cloudy, rain, storm or snow, with falling rain and snow.
+- **Disasters:** the odds follow season and weather (storms and summer fuel fires, rain floods, winter sickness).
+- **View menu:** a switch for day and night and weather. The top bar shows the hour, season and weather.
+- **Fix:** includes the region server, whose 0.2.24 desktop build failed and was never published.
+
+## 0.2.24: Region server and shared culture (tagged, not published; in 0.2.25)
 - **`opencity-cli region-server`** hosts a region for several players.
 - **Joining:** File > Join region server… (or `--join URL --player NAME --slot x,y`) claims a town. Each month the games exchange summaries, so neighbours trade and ideas cross the borders.
 - **Shared pools:** a resource can be marked `shared`, and ideas are, in both rule sets. Every town takes in a tenth of what the rest of the region makes, alone or online.

@@ -40,13 +40,18 @@ attribute vec3 inst_pos;
 attribute vec2 inst_shear;
 attribute vec4 inst_turn;
 uniform mat4 mvp;
+uniform vec4 light;
+uniform vec4 blend;
 varying lowp vec4 color;
 varying lowp vec2 uv;
 void main() {
     vec3 p = vec3(inst_turn.x * in_pos.x - inst_turn.y * in_pos.z + inst_turn.z, in_pos.y, inst_turn.y * in_pos.x + inst_turn.x * in_pos.z + inst_turn.w);
     p.y += p.x * inst_shear.x + p.z * inst_shear.y;
     gl_Position = mvp * vec4(p + inst_pos, 1.0);
-    color = in_color / 255.0;
+    vec4 c = in_color / 255.0;
+    // The season's colour (snow, autumn) over the ground, then the light.
+    c.rgb = mix(c.rgb, blend.rgb, blend.a);
+    color = vec4(c.rgb * light.rgb, c.a);
     uv = in_uv;
 }"#;
 
@@ -65,6 +70,21 @@ void main() {
 #[repr(C)]
 struct Uniforms {
     mvp: Mat4,
+    light: Vec4,
+    blend: Vec4,
+}
+
+/// Light (rgb tint) and a colour blended in (rgb, amount) for a draw.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Tint {
+    pub light: Vec4,
+    pub blend: Vec4,
+}
+
+impl Default for Tint {
+    fn default() -> Self {
+        Self { light: Vec4::ONE, blend: Vec4::ZERO }
+    }
 }
 
 pub struct GpuMesh {
@@ -93,7 +113,16 @@ impl Gpu {
             log::info!("GPU instancing unavailable, using the compatibility renderer");
             return None;
         }
-        let meta = ShaderMeta { images: vec!["tex".to_string()], uniforms: UniformBlockLayout { uniforms: vec![UniformDesc::new("mvp", UniformType::Mat4)] } };
+        let meta = ShaderMeta {
+            images: vec!["tex".to_string()],
+            uniforms: UniformBlockLayout {
+                uniforms: vec![
+                    UniformDesc::new("mvp", UniformType::Mat4),
+                    UniformDesc::new("light", UniformType::Float4),
+                    UniformDesc::new("blend", UniformType::Float4),
+                ],
+            },
+        };
         let shader = match ctx.new_shader(ShaderSource::Glsl { vertex: VERTEX, fragment: FRAGMENT }, meta) {
             Ok(s) => s,
             Err(e) => {
@@ -147,12 +176,17 @@ impl Gpu {
     }
 
     /// Starts drawing after everything macroquad has batched so far.
-    pub fn begin(&self, mvp: Mat4) {
+    pub fn begin(&self, mvp: Mat4, tint: Tint) {
         let mut gl = unsafe { get_internal_gl() };
         gl.flush();
         gl.quad_context.begin_default_pass(PassAction::Nothing);
         gl.quad_context.apply_pipeline(&self.pipeline);
-        gl.quad_context.apply_uniforms(UniformsSource::table(&Uniforms { mvp }));
+        self.tint(mvp, tint);
+    }
+
+    /// Changes the light and blend for the draws that follow.
+    pub fn tint(&self, mvp: Mat4, tint: Tint) {
+        ctx().apply_uniforms(UniformsSource::table(&Uniforms { mvp, light: tint.light, blend: tint.blend }));
     }
 
     pub fn draw(&self, mesh: &GpuMesh, instances: Option<(BufferId, usize)>) {

@@ -69,6 +69,8 @@ pub enum Command {
     SetFunding(String, f32),
     /// Borrow from the bank.
     TakeLoan(i64),
+    /// Show day and night, seasons and weather on the map.
+    SetDayNight(bool),
     /// Switch disasters by chance on or off.
     SetDisasters(bool),
     /// Set off a disaster by hand.
@@ -137,6 +139,7 @@ pub struct EguiUi {
     show_region: bool,
     show_budget: bool,
     show_goals: bool,
+    day_night: bool,
     /// Scenarios offered in File > New scenario… (loaded when it opens).
     scenarios: Vec<opencity_core::goals::Scenario>,
     scenario_pick: usize,
@@ -233,6 +236,7 @@ impl EguiUi {
             show_region: false,
             show_budget: false,
             show_goals: false,
+            day_night: true,
             scenarios: Vec::new(),
             scenario_pick: 0,
             cheat_open: false,
@@ -472,6 +476,9 @@ impl EguiUi {
                 }
                 ui.menu_button("View", |ui| {
                     ui.checkbox(&mut self.show_city, "City panel");
+                    if ui.checkbox(&mut self.day_night, "Day and night, weather").changed() {
+                        out.push(Command::SetDayNight(self.day_night));
+                    }
                     if view.city.glassbox.is_some() {
                         ui.checkbox(&mut self.graphs.open, "GlassBox graphs (G)");
                         let mut on = view.flows.on;
@@ -525,6 +532,12 @@ impl EguiUi {
                 }
                 ui.separator();
                 ui.label(RichText::new(format!("Date {}", city.date)).monospace());
+                let h = city.hour();
+                ui.label(
+                    RichText::new(format!("{:02}:{:02} · {} · {}", h as u32, ((h.fract()) * 60.0) as u32, city.season().name(), city.weather.name()))
+                        .monospace(),
+                )
+                .on_hover_text(format!("{}, {}", city.season().name(), city.weather.name()));
                 let fund = RichText::new(format!("$ {}", city.fund)).monospace().strong();
                 ui.label(if city.fund < 0 { fund.color(Color32::from_rgb(240, 90, 80)) } else { fund });
                 ui.label(RichText::new(format!("Pop {}", city.population)).monospace());

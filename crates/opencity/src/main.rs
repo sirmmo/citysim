@@ -111,6 +111,15 @@ struct Args {
     /// Open the policy window (screenshots, docs).
     #[arg(long, hide = true)]
     show_policies: bool,
+    /// Set the hour of day (screenshots, docs).
+    #[arg(long, hide = true)]
+    at_hour: Option<f32>,
+    /// Set the weather: clear, cloudy, rain, storm, snow (screenshots, docs).
+    #[arg(long, hide = true)]
+    weather: Option<String>,
+    /// Set the month, 1-12 (screenshots, docs).
+    #[arg(long, hide = true)]
+    month: Option<u32>,
     /// Join a region server at this URL (with --player and --slot x,y).
     #[arg(long)]
     join: Option<String>,
@@ -346,6 +355,8 @@ struct Game {
     flow_hover: Option<usize>,
     /// The region being played, if any.
     region: Option<region::RegionSession>,
+    /// Day and night, seasons and weather on the map (View menu).
+    day_night: bool,
     #[cfg(not(target_os = "android"))]
     egui: Option<ui_egui::EguiUi>,
     /// Background 0 A.D. art installation, if running.
@@ -693,6 +704,7 @@ impl Game {
                 Ok(l) => self.say(format!("Borrowed ${}: ${} a month for {} months", l.amount, l.payment, l.months_left)),
                 Err(e) => self.say(e),
             },
+            Command::SetDayNight(on) => self.day_night = on,
             Command::SetDisasters(on) => {
                 if let Some(gb) = self.city.glassbox.as_mut() {
                     gb.disasters_off = !on;
@@ -940,10 +952,15 @@ impl Game {
         }
 
         // 3D scene.
+        self.renderer.atmosphere = render::Atmosphere::of(self.city.hour(), self.city.season(), self.city.weather, self.day_night);
         let sky = self.renderer.look().sky;
+        let sky = [sky[0] * self.renderer.atmosphere.sky.x, sky[1] * self.renderer.atmosphere.sky.y, sky[2] * self.renderer.atmosphere.sky.z];
         clear_background(Color::new(sky[0], sky[1], sky[2], 1.0));
         set_camera(&cam);
         self.renderer.draw_city(&self.city, &cam);
+        if let (true, Some((rain, amount))) = (self.day_night, self.renderer.atmosphere.precipitation) {
+            render::draw_precipitation(self.camera.target, get_time(), rain, amount);
+        }
         phase(2, t);
         if let (Some(li), Some(gb), Some(rules)) = (self.overlay, &self.city.glassbox, self.city.rules()) {
             if let Some(def) = rules.layers.get(li) {
@@ -1083,6 +1100,7 @@ async fn main() -> Result<()> {
         flow_key: None,
         flow_hover: None,
         region: None,
+        day_night: true,
         #[cfg(not(target_os = "android"))]
         egui: (!s.args.classic_ui).then(|| ui_egui::EguiUi::new(&s.settings.map)),
         // Never in automated runs (screenshots, benchmarks, CI).
@@ -1115,6 +1133,22 @@ async fn main() -> Result<()> {
     #[cfg(not(target_os = "android"))]
     if let (true, Some(ui)) = (s.args.show_policies, game.egui.as_mut()) {
         ui.open_policies();
+    }
+    if let Some(m) = s.args.month {
+        game.city.date.month = m.clamp(1, 12);
+    }
+    if let Some(h) = s.args.at_hour {
+        game.city.date.day = ((h.rem_euclid(24.0) / 24.0 * 30.0) as u32 + 1).min(30);
+    }
+    if let Some(w) = &s.args.weather {
+        use opencity_core::city::Weather;
+        game.city.weather = match w.as_str() {
+            "cloudy" => Weather::Cloudy,
+            "rain" => Weather::Rain,
+            "storm" => Weather::Storm,
+            "snow" => Weather::Snow,
+            _ => Weather::Clear,
+        };
     }
     #[cfg(not(target_os = "android"))]
     if let Some(url) = &s.args.join {

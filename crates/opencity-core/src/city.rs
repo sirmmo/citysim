@@ -138,6 +138,78 @@ pub struct Mafia {
     pub collected: i64,
 }
 
+/// The season of a month.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum Season {
+    Spring,
+    Summer,
+    Autumn,
+    Winter,
+}
+
+impl Season {
+    pub fn of_month(month: u32) -> Self {
+        match month {
+            3..=5 => Self::Spring,
+            6..=8 => Self::Summer,
+            9..=11 => Self::Autumn,
+            _ => Self::Winter,
+        }
+    }
+
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::Spring => "Spring",
+            Self::Summer => "Summer",
+            Self::Autumn => "Autumn",
+            Self::Winter => "Winter",
+        }
+    }
+}
+
+/// Today's weather, drawn each morning from the season's odds.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum Weather {
+    #[default]
+    Clear,
+    Cloudy,
+    Rain,
+    Storm,
+    Snow,
+}
+
+impl Weather {
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::Clear => "Clear",
+            Self::Cloudy => "Cloudy",
+            Self::Rain => "Rain",
+            Self::Storm => "Storm",
+            Self::Snow => "Snow",
+        }
+    }
+
+    pub const fn icon(self) -> &'static str {
+        match self {
+            Self::Clear => "☀",
+            Self::Cloudy => "☁",
+            Self::Rain => "🌧",
+            Self::Storm => "⛈",
+            Self::Snow => "❄",
+        }
+    }
+
+    /// Odds (percent) of clear, cloudy, rain, storm and snow in a season.
+    const fn odds(season: Season) -> [u32; 5] {
+        match season {
+            Season::Spring => [40, 25, 28, 7, 0],
+            Season::Summer => [62, 15, 12, 11, 0],
+            Season::Autumn => [30, 32, 30, 6, 2],
+            Season::Winter => [28, 30, 12, 2, 28],
+        }
+    }
+}
+
 /// A loan from the bank, repaid monthly.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Loan {
@@ -184,6 +256,9 @@ pub struct City {
     /// Last month's budget, every line together.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub last_ledger: BTreeMap<String, f64>,
+    /// Today's weather.
+    #[serde(default)]
+    pub weather: Weather,
     /// The scenario being played and its goals.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub goals: Option<crate::goals::Goals>,
@@ -230,6 +305,7 @@ impl City {
             last_ledger: BTreeMap::new(),
             loans: Vec::new(),
             goals: None,
+            weather: Weather::Clear,
             rng: Pcg32::seed_from_u64(seed),
             day_clock_ms: 0.0,
             sim_clock_ms: 0.0,
@@ -840,8 +916,71 @@ impl City {
         }
     }
 
+    /// The hour shown by day and night, 0 to 24. A game day passes in under
+    /// two seconds, so the light turns once a month instead.
+    pub fn hour(&self) -> f32 {
+        let month = (self.date.day.saturating_sub(1) as f64 + self.day_clock_ms / MS_PER_DAY) / 30.0;
+        (month * 24.0) as f32 % 24.0
+    }
+
+    pub fn season(&self) -> Season {
+        Season::of_month(self.date.month)
+    }
+
+    /// How the season and the weather change the odds of disasters that
+    /// destroy (fire), flood and sicken.
+    fn climate_odds(&self) -> [f32; 3] {
+        let s = self.season();
+        let fire = match (s, self.weather) {
+            (_, Weather::Storm) => 2.0,
+            (_, Weather::Rain | Weather::Snow) => 0.5,
+            (Season::Summer, _) => 1.5,
+            _ => 1.0,
+        };
+        let flood = match (s, self.weather) {
+            (_, Weather::Storm) => 4.0,
+            (_, Weather::Rain) => 2.5,
+            (Season::Spring, _) => 1.5,
+            (Season::Summer, Weather::Clear) => 0.3,
+            _ => 1.0,
+        };
+        let sick = if s == Season::Winter { 1.6 } else { 0.8 };
+        [fire, flood, sick]
+    }
+
     fn next_day(&mut self) {
         self.date.day += 1;
+        // Each week's weather, from the season's odds.
+        if self.date.day % 7 != 1 {
+            return self.after_weather();
+        }
+        let odds = Weather::odds(self.season());
+        let mut roll = self.rng.gen_range(0..100u32);
+        self.weather = [Weather::Clear, Weather::Cloudy, Weather::Rain, Weather::Storm, Weather::Snow]
+            .into_iter()
+            .zip(odds)
+            .find(|(_, p)| {
+                if roll < *p {
+                    true
+                } else {
+                    roll -= p;
+                    false
+                }
+            })
+            .map_or(Weather::Clear, |(w, _)| w);
+        self.after_weather();
+    }
+
+    /// Passes the weather's odds on to the simulation, then the rest of the day.
+    fn after_weather(&mut self) {
+        let odds = self.climate_odds();
+        if let Some(gb) = self.glassbox.as_mut() {
+            gb.climate = Some(odds);
+        }
+        self.end_of_day();
+    }
+
+    fn end_of_day(&mut self) {
         if self.date.day <= 30 {
             return;
         }

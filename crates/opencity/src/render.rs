@@ -127,6 +127,8 @@ pub struct Renderer {
     /// (layer revision, terrain revision) the scene was built for.
     scene_key: Option<(u64, u64)>,
     terrain_revision: u64,
+    /// Light, sky and ground of the hour, season and weather.
+    pub atmosphere: Atmosphere,
     /// Buildings grouped by model: GPU instance buffers, or CPU matrices.
     instances: Vec<(GraphicCode, Option<macroquad::miniquad::BufferId>, Vec<Instance>)>,
 }
@@ -163,6 +165,7 @@ impl Renderer {
             models: HashMap::new(),
             vehicle_meshes: HashMap::new(),
             obj_meshes: HashMap::new(),
+            atmosphere: Atmosphere::default(),
             textures: HashMap::new(),
             palette,
             white,
@@ -506,8 +509,11 @@ impl Renderer {
         self.update_scene(city);
         match &self.gpu {
             Some(g) => {
-                g.begin(camera.matrix());
+                let a = self.atmosphere;
+                let mvp = camera.matrix();
+                g.begin(mvp, crate::gpu::Tint { light: a.light, blend: a.ground });
                 self.terrain.draw(Some(g));
+                g.tint(mvp, crate::gpu::Tint { light: a.light, blend: Vec4::ZERO });
                 self.roads.draw(Some(g));
                 for (gc, buf, list) in &self.instances {
                     if let (Some(Some(model)), Some(buf)) = (self.models.get(gc), buf) {
@@ -575,7 +581,8 @@ impl Renderer {
         // Translucent water plane, drawn last.
         let (w, l) = (city.width() as f32, city.length() as f32);
         let c = self.look.water;
-        draw_plane(vec3(w / 2.0, WATER_LEVEL, l / 2.0), vec2(w / 2.0, l / 2.0), None, Color::new(c[0], c[1], c[2], c[3]));
+        let li = self.atmosphere.light;
+        draw_plane(vec3(w / 2.0, WATER_LEVEL, l / 2.0), vec2(w / 2.0, l / 2.0), None, Color::new(c[0] * li.x, c[1] * li.y, c[2] * li.z, c[3]));
     }
 
     /// A data-layer tile drawn over everything (no depth test) so values
@@ -699,4 +706,84 @@ pub fn pick_tile(camera: &Camera3D, t: &Terrain, mouse: Vec2) -> Option<(u32, u3
         p += dir * step;
     }
     None
+}
+
+/// The light of an hour, season and weather: a tint for everything, the
+/// sky's colour factor, and a colour blended over the ground (snow,
+/// autumn gold, spring green).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Atmosphere {
+    pub light: Vec4,
+    pub sky: Vec3,
+    pub ground: Vec4,
+    /// Falling rain (true) or snow (false), and how much (0..1).
+    pub precipitation: Option<(bool, f32)>,
+}
+
+impl Default for Atmosphere {
+    fn default() -> Self {
+        Self { light: Vec4::ONE, sky: Vec3::ONE, ground: Vec4::ZERO, precipitation: None }
+    }
+}
+
+impl Atmosphere {
+    pub fn of(hour: f32, season: opencity_core::city::Season, weather: opencity_core::city::Weather, day_night: bool) -> Self {
+        use opencity_core::city::{Season, Weather};
+        // Daylight: 0 at night, 1 at noon, sunrise at 6 and sunset at 18.
+        let day = if day_night { ((hour - 6.0) / 12.0 * std::f32::consts::PI).sin().max(0.0).sqrt() } else { 1.0 };
+        let night = vec3(0.42, 0.48, 0.78);
+        let noon = Vec3::ONE;
+        let mut light = night.lerp(noon, day);
+        // Warm light while the sun is low.
+        if day > 0.0 && day < 0.55 {
+            let k = 1.0 - day / 0.55;
+            light *= vec3(1.0, 1.0 - 0.18 * k, 1.0 - 0.32 * k);
+        }
+        let dim = match weather {
+            Weather::Clear => 1.0,
+            Weather::Cloudy => 0.88,
+            Weather::Rain => 0.76,
+            Weather::Storm => 0.62,
+            Weather::Snow => 0.94,
+        };
+        light *= dim;
+        let sky = light * if matches!(weather, Weather::Rain | Weather::Storm) { vec3(0.85, 0.88, 0.92) } else { Vec3::ONE };
+        let ground = match (season, weather) {
+            (_, Weather::Snow) | (Season::Winter, _) => vec4(0.93, 0.95, 1.0, if weather == Weather::Snow { 0.75 } else { 0.5 }),
+            (Season::Autumn, _) => vec4(0.72, 0.55, 0.25, 0.3),
+            (Season::Spring, _) => vec4(0.45, 0.78, 0.32, 0.12),
+            (Season::Summer, _) => Vec4::ZERO,
+        };
+        let precipitation = match weather {
+            Weather::Rain => Some((true, 0.6)),
+            Weather::Storm => Some((true, 1.0)),
+            Weather::Snow => Some((false, 0.7)),
+            _ => None,
+        };
+        Self { light: light.extend(1.0), sky, ground, precipitation }
+    }
+}
+
+/// Rain or snow falling around a point, at a moment (seconds).
+pub fn draw_precipitation(around: Vec3, time: f64, rain: bool, amount: f32) {
+    let n = (600.0 * amount) as u32;
+    let (fall, len, colour) = if rain { (9.0, 0.35, Color::new(0.75, 0.8, 0.9, 0.55)) } else { (1.2, 0.06, Color::new(1.0, 1.0, 1.0, 0.9)) };
+    for i in 0..n {
+        // An integer hash, so each drop has its own place and phase.
+        let h = |k: u32| {
+            let mut v = i.wrapping_mul(0x9E37_79B9) ^ k.wrapping_mul(0x85EB_CA6B);
+            v ^= v >> 16;
+            v = v.wrapping_mul(0x7FEB_352D);
+            v ^= v >> 15;
+            v = v.wrapping_mul(0x846C_A68B);
+            v ^= v >> 16;
+            (v % 10_000) as f32 / 10_000.0
+        };
+        let (x, z) = (around.x + (h(1) - 0.5) * 40.0, around.z + (h(2) - 0.5) * 40.0);
+        let span = 12.0;
+        let y = around.y + span - ((time as f32 * fall + h(3) * span) % span);
+        let drift = if rain { 0.0 } else { (time as f32 * 0.8 + h(4) * 6.0).sin() * 0.15 };
+        let p = vec3(x + drift, y, z);
+        draw_line_3d(p, p - vec3(0.0, len, 0.0), colour);
+    }
 }

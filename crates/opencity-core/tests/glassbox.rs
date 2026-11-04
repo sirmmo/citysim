@@ -900,3 +900,21 @@ fn ideas_spread_across_a_region() {
     }
     assert!(c.glassbox.as_ref().unwrap().pools[ideas] >= 19.0, "ideas arrived: {}", c.glassbox.as_ref().unwrap().pools[ideas]);
 }
+
+#[test]
+fn seasons_and_weather_turn() {
+    use opencity_core::city::{Season, Weather};
+    let mut c = City::new(Terrain::flat(16, 16), None, Footprints::builtin(), 4);
+    let mut seen: Vec<(Season, Weather)> = Vec::new();
+    for _ in 0..(30 * 24) {
+        c.update(opencity_core::city::MS_PER_DAY);
+        seen.push((c.season(), c.weather));
+        assert!((0.0..24.0).contains(&c.hour()));
+    }
+    assert!(seen.iter().any(|(s, w)| *s == Season::Winter && *w == Weather::Snow), "snow in winter");
+    assert!(!seen.iter().any(|(s, w)| *s == Season::Summer && *w == Weather::Snow), "never in summer");
+    assert!(seen.iter().any(|(_, w)| *w == Weather::Rain));
+    // Weather lasts a week.
+    let changes = seen.windows(2).filter(|w| w[0].1 != w[1].1).count();
+    assert!(changes < seen.len() / 5, "{changes} changes in {} days", seen.len());
+}

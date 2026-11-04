@@ -234,6 +234,23 @@ The **📜 Policies** window sets:
 - **Vehicles:** cars, taxis and trucks in modern towns (Kenney car kit); people, handcarts and horse carts before 1800. What travels where follows the rules: no cars in the Middle Ages, no carts on the highway.
 - **View > Skin:** re-dresses the city for an era or a world (see [SKINS.md](SKINS.md)).
 
+## Day and night, seasons and weather
+
+- **Day and night:** the light turns once a game month, through dawn, noon,
+  a warm dusk and a blue night. (A game day passes in under two seconds, so a
+  daily cycle would only flicker.) The top bar shows the hour, the season and
+  the weather.
+- **Seasons:** the ground greens in spring, turns gold in autumn and goes
+  white in winter.
+- **Weather:** it changes weekly with the season's odds: clear, cloudy, rain
+  and storms, and snow in winter. Rain and snow fall around you.
+- **Effects on disasters:** storms make fires likelier, as does dry summer.
+  Rain and snow damp them down. Rain and storms swell floods, and so does
+  spring. Sickness spreads more in winter.
+- **Switching it off:** **View > Day and night, weather** turns the light,
+  ground colours and falling rain and snow off. The weather's effect on
+  disasters stays.
+
 ## Budget
 
 The **💰 Budget** window, in the City panel, shows where the money goes.

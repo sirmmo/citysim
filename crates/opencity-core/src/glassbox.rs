@@ -179,6 +179,10 @@ pub struct GlassBox {
     /// Disasters switched off by the player.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub disasters_off: bool,
+    /// Season and weather factors on the odds of disasters that destroy,
+    /// flood (near water) and sicken (set by the city each day).
+    #[serde(skip)]
+    pub climate: Option<[f32; 3]>,
     /// Disasters that struck during the last tick (for notices).
     #[serde(skip)]
     pub events: Vec<DisasterEvent>,
@@ -251,6 +255,7 @@ impl GlassBox {
             ledger: BTreeMap::new(),
             funding: BTreeMap::new(),
             events: Vec::new(),
+            climate: None,
             stances: BTreeMap::new(),
             discoveries: Vec::new(),
             auto_research: false,
@@ -610,8 +615,18 @@ impl GlassBox {
         if self.disasters_off {
             return;
         }
+        let climate = self.climate.unwrap_or([1.0; 3]);
         for d in rules.disasters.iter().filter(|d| d.every > 0) {
-            if rng.gen_range(0..d.every) == 0 {
+            let factor = if d.near_water {
+                climate[1]
+            } else {
+                match d.effect {
+                    DisasterEffect::Destroy => climate[0],
+                    DisasterEffect::Sicken => climate[2],
+                    DisasterEffect::Damage => 1.0,
+                }
+            };
+            if rng.r#gen::<f32>() * (d.every as f32) < factor {
                 self.strike(&d.id, None, layer, terrain, footprints, rng);
             }
         }
