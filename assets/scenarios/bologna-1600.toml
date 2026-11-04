@@ -1,0 +1,28 @@
+id = "bologna-1600"
+name = "Bologna, 1600"
+description = "The centre of Bologna as OpenHistoricalMap knows it in 1600. Bring printing to the town within fifteen years, keep it fed, and keep the treasury out of debt."
+
+[start]
+geojson = "scenarios/bologna-center.json"
+date = "1600"
+rules = "pre-industrial"
+skin = "renaissance"
+fund = 25000
+
+[[goal]]
+name = "Bring printing to Bologna"
+metric = "research:printing"
+at_least = 1
+within_years = 15
+
+[[goal]]
+name = "Feed the town: 200 food a day"
+metric = "produced:food"
+at_least = 200
+within_years = 5
+
+[[goal]]
+name = "Never in debt"
+metric = "fund"
+at_least = 0
+always = true

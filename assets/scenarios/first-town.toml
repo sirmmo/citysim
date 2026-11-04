@@ -1,0 +1,32 @@
+# A scenario: how the city starts and what wins it. See docs/PLAYING.md#scenarios.
+id = "first-town"
+name = "First town"
+description = "A lakeside valley and $30,000. Grow a town of 2,000 people within six years without going into debt, and put the first motorway on the map."
+
+[start]
+width = 64
+length = 64
+seed = 11
+relief = "plain"
+water = "lake"
+trees = "normal"
+rules = "glassbox"
+fund = 30000
+
+[[goal]]
+name = "2,000 people"
+metric = "population"
+at_least = 2000
+within_years = 6
+
+[[goal]]
+name = "Research motorways"
+metric = "research:motorways"
+at_least = 1
+within_years = 8
+
+[[goal]]
+name = "Never in debt"
+metric = "fund"
+at_least = 0
+always = true

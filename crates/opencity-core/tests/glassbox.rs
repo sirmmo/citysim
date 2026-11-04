@@ -837,3 +837,45 @@ fn the_budget_books_every_line_and_funding_matters() {
     let upkeep = |c: &City| c.glassbox.as_ref().unwrap().ledger.get("Upkeep: Fire station").copied().unwrap_or(0.0);
     assert!(upkeep(&half) > upkeep(&c), "half the cost: {} vs {}", upkeep(&half), upkeep(&c));
 }
+
+#[test]
+fn goals_are_won_and_lost() {
+    use opencity_core::goals::{GoalDef, GoalStatus, Scenario};
+    let goal = |name: &str, metric: &str, at_least: f64, within: Option<u32>, always: bool| GoalDef {
+        name: name.into(),
+        metric: metric.into(),
+        at_least: Some(at_least),
+        at_most: None,
+        within_years: within,
+        always,
+    };
+    let scenario = |goals| Scenario { id: "t".into(), name: "Test".into(), goals, ..Default::default() };
+    let month = |c: &mut City| {
+        for _ in 0..31 {
+            c.update(opencity_core::city::MS_PER_DAY);
+        }
+    };
+    // Won: money in hand, and kept out of debt.
+    let mut c = City::new(Terrain::flat(24, 24), None, Footprints::builtin(), 1);
+    c.set_goals(&scenario(vec![goal("Rich", "fund", 1000.0, Some(2), false), goal("No debt", "fund", 0.0, None, true)]));
+    month(&mut c);
+    assert_eq!(c.goals.as_ref().unwrap().status, GoalStatus::Won);
+    assert!(c.messages.iter().any(|m| m.contains("won")));
+    // Lost: in debt.
+    let mut c = City::new(Terrain::flat(24, 24), None, Footprints::builtin(), 1);
+    c.set_goals(&scenario(vec![goal("Big", "population", 1e9, None, false), goal("No debt", "fund", 0.0, None, true)]));
+    c.fund = -5;
+    month(&mut c);
+    assert!(matches!(c.goals.as_ref().unwrap().status, GoalStatus::Lost(_)));
+    // Lost: out of time.
+    let mut c = City::new(Terrain::flat(24, 24), None, Footprints::builtin(), 1);
+    c.set_goals(&scenario(vec![goal("Big", "population", 1e9, Some(1), false)]));
+    for _ in 0..13 {
+        month(&mut c);
+    }
+    assert_eq!(c.goals.as_ref().unwrap().status, GoalStatus::Lost("Big: out of time".into()));
+    // Saves keep the goals.
+    let mut saved = Vec::new();
+    opencity_core::save::save(&c, &mut saved).unwrap();
+    assert!(opencity_core::save::load(saved.as_slice(), Footprints::builtin()).unwrap().goals.is_some());
+}

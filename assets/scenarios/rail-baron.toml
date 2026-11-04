@@ -1,0 +1,37 @@
+id = "rail-baron"
+name = "Rail baron"
+description = "Two valleys, one long map. Research railways, link the towns with at least three stations, and reach 4,000 people within twelve years."
+
+[start]
+width = 120
+length = 48
+seed = 23
+relief = "hill"
+water = "dry"
+trees = "sparse"
+rules = "glassbox"
+fund = 60000
+
+[[goal]]
+name = "Research railways"
+metric = "research:railways"
+at_least = 1
+within_years = 4
+
+[[goal]]
+name = "Three railway stations"
+metric = "structure:station"
+at_least = 3
+within_years = 8
+
+[[goal]]
+name = "4,000 people"
+metric = "population"
+at_least = 4000
+within_years = 12
+
+[[goal]]
+name = "Never in debt"
+metric = "fund"
+at_least = 0
+always = true

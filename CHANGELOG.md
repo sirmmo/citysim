@@ -2,6 +2,12 @@
 
 Release notes in full are on the [releases page](https://github.com/sirmmo/citysim/releases).
 
+## 0.2.23: Scenarios and goals
+- **File > New scenario…** and `--scenario`: three scenarios to start with: First town, Rail baron, and Bologna 1600 from OpenHistoricalMap.
+- **🎯 Goals window:** progress, deadlines, and won or lost. Goals are checked monthly and kept in saves.
+- **Scenario files** (`assets/scenarios/`) set the map or GeoJSON, rules, skin, money and goals.
+- **MCP:** `new_city { scenario }` and a `goals` tool.
+
 ## 0.2.22: Budget
 - **💰 Budget window:** last month and this month by line (taxes per tax, upkeep per service, policies, trade, loans, the family).
 - **Service funding:** 0 to 150% per kind of service, scaling both cost and coverage.

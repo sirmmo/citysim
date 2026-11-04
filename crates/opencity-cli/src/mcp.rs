@@ -94,6 +94,13 @@ impl Server {
 
     fn call(&mut self, name: &str, a: &Value) -> Result<Value> {
         match name {
+            "new_city" if a.get("scenario").is_some() => {
+                let id = str_arg(a, "scenario")?;
+                let dir = opencity_assets::find_data_dir(self.data_dir.as_deref())?;
+                let s = opencity_assets::scenario::load(&dir, id)?;
+                self.city = Some(opencity_assets::scenario::build(&dir, &s, footprints(self.data_dir.as_deref()))?);
+                Ok(json!({ "scenario": s.name, "description": s.description, "summary": self.summary() }))
+            }
             "new_city" => {
                 let enum_arg = |key: &str, default: &str| a.get(key).and_then(Value::as_str).unwrap_or(default).to_string();
                 let params = MapParams {
@@ -281,6 +288,19 @@ impl Server {
                     "funding": city.glassbox.as_ref().map(|g| g.funding.clone()),
                 }))
             }
+            "goals" => {
+                let city = self.city()?;
+                let g = city.goals.as_ref().context("no scenario: start one with new_city { scenario }")?;
+                Ok(json!({
+                    "scenario": g.name,
+                    "status": format!("{:?}", g.status),
+                    "years_played": city.date.year.saturating_sub(g.start_year),
+                    "goals": g.goals.iter().enumerate().map(|(i, goal)| json!({
+                        "name": goal.name, "metric": goal.metric, "now": city.goal_value(&goal.metric), "target": goal.target(),
+                        "within_years": goal.within_years, "always": goal.always, "reached": g.reached.get(i),
+                    })).collect::<Vec<_>>(),
+                }))
+            }
             "cheat" => {
                 let code = str_arg(a, "code")?.to_string();
                 let city = self.city()?;
@@ -427,7 +447,8 @@ fn tools() -> Value {
             "trees": { "enum": ["sparse", "normal", "dense"] },
             "rules": { "type": "string", "description": "GlassBox rules id: \"glassbox\" (modern) or \"pre-industrial\"; omit for classic OpenCity rules" },
             "flat": { "type": "boolean", "description": "A flat, empty map with no water or trees (relief, water, shape and trees are ignored)" },
-            "demo": { "type": "boolean", "description": "Lay out the demo town (roads, zones, power, services)" }
+            "demo": { "type": "boolean", "description": "Lay out the demo town (roads, zones, power, services)" },
+            "scenario": { "type": "string", "description": "Start a scenario instead (first-town, rail-baron, bologna-1600…): its map, rules and goals" }
         }), &[]),
         tool("load_city", "Open a saved city (.ocsave.json).", json!({ "path": path }), &["path"]),
         tool("save_city", "Save the open city (.ocsave.json).", json!({ "path": path }), &["path"]),
@@ -456,6 +477,7 @@ fn tools() -> Value {
         tool("budget", "Money by budget line (last month and this month so far), loans and service funding. `funding` ({unit id: percent 0-150}) changes funding; `borrow` takes a loan (6%/year over five years).", json!({
             "funding": { "type": "object", "additionalProperties": { "type": "number" } }, "borrow": { "type": "integer", "minimum": 1 }
         }), &[]),
+        tool("goals", "The scenario's goals: how far each has come, deadlines, and whether the game is won or lost.", json!({}), &[]),
         tool("cheat", "Type a cheat code, as in SimCity 3000's cheat box. Some of them have consequences.", json!({ "code": { "type": "string" } }), &["code"]),
         tool("render_map", "Write a top-down PNG of the city.", json!({ "path": path, "scale": { "type": "integer", "minimum": 1, "maximum": 32, "default": 8 } }), &["path"]),
         tool("export_geojson", "Write the city as GeoJSON.", json!({ "path": path }), &["path"])

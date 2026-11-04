@@ -184,6 +184,9 @@ pub struct City {
     /// Last month's budget, every line together.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub last_ledger: BTreeMap<String, f64>,
+    /// The scenario being played and its goals.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub goals: Option<crate::goals::Goals>,
     /// Loans being repaid.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub loans: Vec<Loan>,
@@ -226,6 +229,7 @@ impl City {
             ledger: BTreeMap::new(),
             last_ledger: BTreeMap::new(),
             loans: Vec::new(),
+            goals: None,
             rng: Pcg32::seed_from_u64(seed),
             day_clock_ms: 0.0,
             sim_clock_ms: 0.0,
@@ -849,6 +853,7 @@ impl City {
         self.date.month += 1;
         self.mafia_month();
         self.close_month();
+        self.check_goals();
         if self.date.month > 12 {
             self.date.month = 1;
             self.date.year += 1;

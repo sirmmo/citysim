@@ -1,0 +1,2 @@
+# Scenarios offered in File > New scenario…, in this order. See docs/PLAYING.md#scenarios.
+scenarios = ["first-town", "rail-baron", "bologna-1600"]

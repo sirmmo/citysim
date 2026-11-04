@@ -57,6 +57,8 @@ pub enum Command {
     OpenRegion(PathBuf),
     /// A typed cheat code.
     Cheat(String),
+    /// Start a scenario by id.
+    StartScenario(String),
     /// Funding of a service (unit id), 0..1.5.
     SetFunding(String, f32),
     /// Borrow from the bank.
@@ -105,6 +107,7 @@ enum Dialog {
     Export,
     NewRegion,
     OpenRegion,
+    NewScenario,
 }
 
 pub struct EguiUi {
@@ -126,6 +129,10 @@ pub struct EguiUi {
     show_policies: bool,
     show_region: bool,
     show_budget: bool,
+    show_goals: bool,
+    /// Scenarios offered in File > New scenario… (loaded when it opens).
+    scenarios: Vec<opencity_core::goals::Scenario>,
+    scenario_pick: usize,
     /// The cheat box (Ctrl+Shift+C), as in SimCity 3000.
     cheat_open: bool,
     cheat_text: String,
@@ -215,6 +222,9 @@ impl EguiUi {
             show_policies: false,
             show_region: false,
             show_budget: false,
+            show_goals: false,
+            scenarios: Vec::new(),
+            scenario_pick: 0,
             cheat_open: false,
             cheat_text: String::new(),
             region_name: "My region".into(),
@@ -303,6 +313,10 @@ impl EguiUi {
         });
     }
 
+    pub fn open_goals(&mut self) {
+        self.show_goals = true;
+    }
+
     pub fn open_region(&mut self) {
         self.show_region = true;
     }
@@ -344,6 +358,9 @@ impl EguiUi {
         if let (true, Some(r)) = (self.show_region, view.region) {
             crate::regionui::window(ctx, &mut self.show_region, r, view.city, &mut out);
         }
+        if self.show_goals {
+            crate::goalsui::window(ctx, &mut self.show_goals, view.city);
+        }
         if self.show_budget {
             crate::budget::window(ctx, &mut self.show_budget, view.city, &mut out);
         }
@@ -367,6 +384,12 @@ impl EguiUi {
                 ui.menu_button("File", |ui| {
                     if ui.button("New city…").clicked() {
                         self.dialog = Dialog::NewCity;
+                        ui.close_menu();
+                    }
+                    if ui.button("New scenario…").clicked() {
+                        self.scenarios = opencity_assets::scenario::load_all(&view.catalog.data_dir);
+                        self.scenario_pick = 0;
+                        self.dialog = Dialog::NewScenario;
                         ui.close_menu();
                     }
                     if ui.button("Open…").clicked() {
@@ -612,6 +635,9 @@ impl EguiUi {
                     {
                         self.show_policies = !self.show_policies;
                     }
+                    if view.city.goals.is_some() && ui.button("🎯 Goals").on_hover_text("The scenario's goals and how they are going").clicked() {
+                        self.show_goals = !self.show_goals;
+                    }
                     if ui.button("💰 Budget").on_hover_text("Money by line, service funding and loans").clicked() {
                         self.show_budget = !self.show_budget;
                     }
@@ -849,6 +875,49 @@ impl EguiUi {
                     ui.horizontal(|ui| {
                         if ui.button("Create").clicked() {
                             out.push(Command::NewCity(self.new_map.clone(), self.new_skin.clone(), self.new_rules.clone()));
+                            close = true;
+                        }
+                        if ui.button("Cancel").clicked() {
+                            close = true;
+                        }
+                    });
+                });
+            }
+            Dialog::NewScenario => {
+                egui::Window::new("New scenario").collapsible(false).resizable(false).anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0]).show(ctx, |ui| {
+                    if self.scenarios.is_empty() {
+                        ui.label("No scenarios found (assets/scenarios/index.toml).");
+                    }
+                    ui.horizontal(|ui| {
+                        ui.vertical(|ui| {
+                            for (i, s) in self.scenarios.iter().enumerate() {
+                                if ui.selectable_label(self.scenario_pick == i, &s.name).clicked() {
+                                    self.scenario_pick = i;
+                                }
+                            }
+                        });
+                        ui.separator();
+                        if let Some(s) = self.scenarios.get(self.scenario_pick) {
+                            ui.vertical(|ui| {
+                                ui.set_max_width(320.0);
+                                ui.label(RichText::new(&s.name).strong());
+                                ui.label(RichText::new(&s.description).small());
+                                ui.add_space(4.0);
+                                for g in &s.goals {
+                                    let when = match (g.always, g.within_years) {
+                                        (true, _) => " (all game long)".to_string(),
+                                        (_, Some(y)) => format!(" (within {y} years)"),
+                                        _ => String::new(),
+                                    };
+                                    ui.label(RichText::new(format!("🎯 {}{when}", g.name)).small());
+                                }
+                            });
+                        }
+                    });
+                    ui.horizontal(|ui| {
+                        if ui.add_enabled(!self.scenarios.is_empty(), egui::Button::new("Start")).clicked() {
+                            out.push(Command::StartScenario(self.scenarios[self.scenario_pick].id.clone()));
+                            self.show_goals = true;
                             close = true;
                         }
                         if ui.button("Cancel").clicked() {

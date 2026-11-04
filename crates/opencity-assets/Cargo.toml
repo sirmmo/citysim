@@ -10,6 +10,7 @@ authors.workspace = true
 [dependencies]
 opencity-core.workspace = true
 opencity-mapgen.workspace = true
+opencity-geo.workspace = true
 log.workspace = true
 roxmltree.workspace = true
 serde.workspace = true

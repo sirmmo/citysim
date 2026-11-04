@@ -9,6 +9,7 @@ pub mod ac3d;
 pub mod catalog;
 pub mod obj;
 pub mod rules;
+pub mod scenario;
 pub mod settings;
 pub mod skin;
 

@@ -7,6 +7,8 @@ mod bake;
 mod budget;
 mod camera;
 mod flows;
+#[cfg(not(target_os = "android"))]
+mod goalsui;
 mod gpu;
 #[cfg(not(target_os = "android"))]
 mod graphs;
@@ -109,6 +111,9 @@ struct Args {
     /// Open the policy window (screenshots, docs).
     #[arg(long, hide = true)]
     show_policies: bool,
+    /// Start a scenario by id (see assets/scenarios).
+    #[arg(long)]
+    scenario: Option<String>,
     /// Play a region: open the folder (or its region.json), or create a
     /// 3×3 region of 64-tile maps there with the rules of --game-rules.
     #[arg(long)]
@@ -350,6 +355,23 @@ impl Game {
     fn turn_building(&mut self, w: u32, l: u32) {
         if let Err(e) = self.city.turn_building(w, l) {
             self.say(format!("Cannot turn it: {e}"));
+        }
+    }
+
+    /// Starts a scenario: its city, rules, skin and goals.
+    fn start_scenario(&mut self, id: &str) {
+        let dir = self.base_catalog.data_dir.clone();
+        let built =
+            opencity_assets::scenario::load(&dir, id).and_then(|s| opencity_assets::scenario::build(&dir, &s, self.base_catalog.footprints()).map(|c| (s, c)));
+        match built {
+            Ok((s, c)) => {
+                self.region = None;
+                self.overlay = None;
+                self.skin_choice = s.start.skin.clone().map(Some);
+                self.set_city(c);
+                self.message = Some((format!("{}: {}", s.name, s.description), get_time() + 10.0));
+            }
+            Err(e) => self.say(format!("Cannot start the scenario: {e}")),
         }
     }
 
@@ -617,6 +639,7 @@ impl Game {
             Command::NewRegion { name, size, map_size, rules } => self.region_new(&name, size, map_size, rules),
             Command::OpenRegion(dir) => self.region_open(&dir),
             Command::RegionCity(slot) => self.region_goto(slot),
+            Command::StartScenario(id) => self.start_scenario(&id),
             Command::Cheat(code) => match self.city.cheat(&code) {
                 Some(m) => self.message = Some((m, get_time() + 8.0)),
                 None => self.say("Nothing happens."),
@@ -1052,6 +1075,13 @@ async fn main() -> Result<()> {
     #[cfg(not(target_os = "android"))]
     if let (true, Some(ui)) = (s.args.show_policies, game.egui.as_mut()) {
         ui.open_policies();
+    }
+    if let Some(id) = &s.args.scenario {
+        game.start_scenario(id);
+        #[cfg(not(target_os = "android"))]
+        if let Some(ui) = game.egui.as_mut() {
+            ui.open_goals();
+        }
     }
     if let Some(dir) = &s.args.region {
         if dir.join("region.json").is_file() || dir.is_file() {

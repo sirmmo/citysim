@@ -10,6 +10,7 @@ pub mod codes;
 pub mod footprint;
 pub mod gbx;
 pub mod glassbox;
+pub mod goals;
 pub mod layer;
 pub mod rail;
 pub mod region;
