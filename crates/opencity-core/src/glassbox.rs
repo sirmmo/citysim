@@ -164,6 +164,14 @@ pub struct GlassBox {
     pub imports: Vec<f32>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub exports: Vec<f32>,
+    /// Money this month by budget line ("Taxes: Property tax", "Upkeep:
+    /// School"…): income positive, spending negative.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub ledger: BTreeMap<String, f64>,
+    /// Funding of each service by unit id (1 = as the rules say; 0.5 half):
+    /// it scales the service's upkeep and its coverage.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub funding: BTreeMap<String, f32>,
     /// Disasters switched off by the player.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub disasters_off: bool,
@@ -235,6 +243,8 @@ impl GlassBox {
             exports: Vec::new(),
             tax_rates: BTreeMap::new(),
             disasters_off: false,
+            ledger: BTreeMap::new(),
+            funding: BTreeMap::new(),
             events: Vec::new(),
             stances: BTreeMap::new(),
             discoveries: Vec::new(),
@@ -489,6 +499,27 @@ impl GlassBox {
     }
 
     /// Runs one tick. Returns the trips made, for traffic display.
+    /// A service's funding (1 unless the player changed it).
+    pub fn funding_of(&self, unit: &str) -> f32 {
+        self.funding.get(unit).copied().unwrap_or(1.0)
+    }
+
+    /// Sets a service's funding, between 0 and 1.5.
+    pub fn set_funding(&mut self, unit: &str, f: f32) {
+        let f = if f.is_finite() { f.clamp(0.0, 1.5) } else { 1.0 };
+        if (f - 1.0).abs() < 1e-3 {
+            self.funding.remove(unit);
+        } else {
+            self.funding.insert(unit.to_string(), f);
+        }
+    }
+
+    fn book(&mut self, line: &str, amount: f64) {
+        if amount != 0.0 {
+            *self.ledger.entry(line.to_string()).or_default() += amount;
+        }
+    }
+
     /// Sets off a disaster at a spot (or a likely one). `None` when the
     /// rules have no such disaster or it finds nowhere to strike.
     #[allow(clippy::too_many_arguments)]
@@ -615,8 +646,11 @@ impl GlassBox {
             .iter()
             .map(|(p, u, _)| {
                 let mut n = vec![0.0; nres];
+                // Funding scales what a service costs (its city resources).
+                let fund = self.funding_of(&rules.units[*u].id);
                 for (r, v) in &rules.units[*u].needs {
-                    n[rules.resource(r).unwrap()] += v;
+                    let ri = rules.resource(r).unwrap();
+                    n[ri] += if rules.resources[ri].transport == Transport::City { v * fund } else { *v };
                 }
                 let st = self.units.get_mut(&idx(p.0, p.1)).unwrap();
                 for (ri, e) in st.extra.iter_mut().enumerate() {
@@ -635,6 +669,16 @@ impl GlassBox {
         // 1. Production. A resource with kinds is made as its kinds, by share.
         // Finished research adds its bonus to a resource and to its kinds.
         let boost = self.research_bonus(&rules);
+        // Budget line of each city resource a unit makes: its tax, or the resource.
+        let income_line = |u: usize, k: usize| -> String {
+            let zone = rules.zone_of_unit(&rules.units[u].id);
+            let r = &rules.resources[k];
+            match rules.taxes.iter().find(|t| t.resource == r.id && taxes_zone(t, &rules, zone)) {
+                Some(t) => format!("Taxes: {}", t.name),
+                None => format!("Income: {}", r.name),
+            }
+        };
+        let mut income: BTreeMap<String, f64> = BTreeMap::new();
         let unit_zone: Vec<Option<usize>> = rules.units.iter().map(|u| rules.zone_of_unit(&u.id)).collect();
         // Tax rates scale what each kind of unit makes, by resource.
         let unit_tax: Vec<BTreeMap<String, f32>> = rules
@@ -661,13 +705,20 @@ impl GlassBox {
                     }
                     let m = made * f;
                     match rules.resources[k].transport {
-                        Transport::City => self.treasury += m as f64,
+                        Transport::City => {
+                            self.treasury += m as f64;
+                            *income.entry(income_line(*u, k)).or_default() += m as f64;
+                        }
                         Transport::Pool => self.pools[k] += m,
                         Transport::Local | Transport::Grid => st.stock[k] = m,
                         Transport::Agents => st.stock[k] = (st.stock[k] + m).min(amount * f * 3.0),
                     }
                 }
             }
+        }
+
+        for (line, v) in income {
+            self.book(&line, v);
         }
 
         // 2. Grids. Kinds serve needs for that kind first; what is left fills
@@ -1021,6 +1072,8 @@ impl GlassBox {
             bal.exported[ri] = self.exports[ri].min(bal.undelivered[ri]);
             bal.undelivered[ri] -= bal.exported[ri];
             self.treasury += ((bal.exported[ri] - bal.imported[ri]) * rules.resources[ri].price) as f64;
+            self.book("Trade: sales", (bal.exported[ri] * rules.resources[ri].price) as f64);
+            self.book("Trade: purchases", -(bal.imported[ri] * rules.resources[ri].price) as f64);
         }
 
         // 4. Treasury.
@@ -1033,6 +1086,8 @@ impl GlassBox {
                 let st = self.units.get_mut(&idx(p.0, p.1)).unwrap();
                 if *fund > 0 || self.treasury > n as f64 {
                     self.treasury -= n as f64;
+                    let line = format!("Upkeep: {}", rules.units[units[i].1].name);
+                    *self.ledger.entry(line).or_default() -= n as f64;
                     st.received[ri] = n;
                     bal.delivered[ri] += n;
                 } else {
@@ -1057,6 +1112,11 @@ impl GlassBox {
         self.advance_research(&rules);
         // Running costs of policies (negative ones earn).
         self.treasury -= self.active_stances(&rules).map(|st| st.cost as f64).sum::<f64>();
+        let costs: Vec<(String, f64)> =
+            self.active_stances(&rules).filter(|st| st.cost != 0.0).map(|st| (format!("Policy: {}", st.name), -st.cost as f64)).collect();
+        for (line, v) in costs {
+            self.book(&line, v);
+        }
         let whole = self.treasury.trunc();
         *fund += whole as i64;
         self.treasury -= whole;
@@ -1086,7 +1146,7 @@ impl GlassBox {
             }
         }
         for (p, u, r) in &units {
-            let eff = self.units[&idx(p.0, p.1)].satisfaction.max(0.25);
+            let eff = self.units[&idx(p.0, p.1)].satisfaction.max(0.25) * self.funding_of(&rules.units[*u].id);
             for (lname, e) in &rules.units[*u].emits {
                 let li = rules.layer(lname).unwrap();
                 if e.by_road {

@@ -3,6 +3,8 @@
 mod audio;
 #[cfg(not(target_os = "android"))]
 mod bake;
+#[cfg(not(target_os = "android"))]
+mod budget;
 mod camera;
 mod flows;
 mod gpu;
@@ -618,6 +620,15 @@ impl Game {
             Command::Cheat(code) => match self.city.cheat(&code) {
                 Some(m) => self.message = Some((m, get_time() + 8.0)),
                 None => self.say("Nothing happens."),
+            },
+            Command::SetFunding(unit, f) => {
+                if let Some(gb) = self.city.glassbox.as_mut() {
+                    gb.set_funding(&unit, f);
+                }
+            }
+            Command::TakeLoan(amount) => match self.city.take_loan(amount) {
+                Ok(l) => self.say(format!("Borrowed ${}: ${} a month for {} months", l.amount, l.payment, l.months_left)),
+                Err(e) => self.say(e),
             },
             Command::SetDisasters(on) => {
                 if let Some(gb) = self.city.glassbox.as_mut() {

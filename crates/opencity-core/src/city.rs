@@ -1,6 +1,6 @@
 //! The city: terrain + buildings + economy + calendar (legacy `City`).
 
-use std::collections::VecDeque;
+use std::collections::{BTreeMap, VecDeque};
 
 use rand::{Rng, SeedableRng};
 use rand_pcg::Pcg32;
@@ -138,6 +138,21 @@ pub struct Mafia {
     pub collected: i64,
 }
 
+/// A loan from the bank, repaid monthly.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct Loan {
+    pub amount: i64,
+    /// Monthly repayment, interest included.
+    pub payment: i64,
+    pub months_left: u32,
+}
+
+/// Yearly interest on loans, and their length in months.
+pub const LOAN_RATE: f64 = 0.06;
+pub const LOAN_MONTHS: u32 = 60;
+/// Loans the bank grants at once.
+pub const MAX_LOANS: usize = 3;
+
 /// What the family collects each month at full heat.
 pub const PROTECTION_MONEY: f32 = 20_000.0;
 
@@ -162,6 +177,16 @@ pub struct City {
     /// Other news for the player (the family's visits…), oldest first.
     #[serde(skip)]
     pub messages: Vec<String>,
+    /// Money this month on the city's own lines (loans, the family,
+    /// classic maintenance and taxes); GlassBox lines are in its ledger.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub ledger: BTreeMap<String, f64>,
+    /// Last month's budget, every line together.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub last_ledger: BTreeMap<String, f64>,
+    /// Loans being repaid.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub loans: Vec<Loan>,
     /// Cousin Vinnie's family, once called (see [`City::cheat`]).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub mafia: Option<Mafia>,
@@ -198,6 +223,9 @@ impl City {
             notices: Vec::new(),
             messages: Vec::new(),
             mafia: None,
+            ledger: BTreeMap::new(),
+            last_ledger: BTreeMap::new(),
+            loans: Vec::new(),
             rng: Pcg32::seed_from_u64(seed),
             day_clock_ms: 0.0,
             sim_clock_ms: 0.0,
@@ -574,6 +602,57 @@ impl City {
         }
     }
 
+    /// Borrows from the bank: the money now, repaid over five years with
+    /// interest. Fails when three loans are outstanding.
+    pub fn take_loan(&mut self, amount: i64) -> Result<Loan, String> {
+        if self.loans.len() >= MAX_LOANS {
+            return Err(format!("The bank lends on at most {MAX_LOANS} loans at a time."));
+        }
+        if amount <= 0 {
+            return Err("Borrow something.".into());
+        }
+        let total = amount as f64 * (1.0 + LOAN_RATE * LOAN_MONTHS as f64 / 12.0);
+        let loan = Loan { amount, payment: (total / LOAN_MONTHS as f64).ceil() as i64, months_left: LOAN_MONTHS };
+        self.fund += amount;
+        self.book("Loans: borrowed", amount as f64);
+        self.loans.push(loan.clone());
+        Ok(loan)
+    }
+
+    fn book(&mut self, line: &str, amount: f64) {
+        if amount != 0.0 {
+            *self.ledger.entry(line.to_string()).or_default() += amount;
+        }
+    }
+
+    /// This month so far, every line together.
+    pub fn budget(&self) -> BTreeMap<String, f64> {
+        let mut all = self.ledger.clone();
+        if let Some(gb) = &self.glassbox {
+            for (k, v) in &gb.ledger {
+                *all.entry(k.clone()).or_default() += v;
+            }
+        }
+        all
+    }
+
+    /// Month end: loan repayments, then this month becomes last month.
+    fn close_month(&mut self) {
+        let mut repaid = 0;
+        for l in &mut self.loans {
+            repaid += l.payment;
+            l.months_left -= 1;
+        }
+        self.loans.retain(|l| l.months_left > 0);
+        self.fund -= repaid;
+        self.book("Loans: repayments", -(repaid as f64));
+        self.last_ledger = self.budget();
+        self.ledger.clear();
+        if let Some(gb) = self.glassbox.as_mut() {
+            gb.ledger.clear();
+        }
+    }
+
     /// The family's monthly visit: protection money, and police stations
     /// loosening their hold.
     fn mafia_month(&mut self) {
@@ -582,6 +661,7 @@ impl City {
         let money = (m.heat * PROTECTION_MONEY) as i64;
         self.fund -= money;
         m.collected += money;
+        *self.ledger.entry("The family: protection".into()).or_default() -= money as f64;
         m.heat -= 0.01 + 0.04 * stations;
         if m.heat <= 0.0 {
             self.messages.push(format!("The family packs up and leaves town, ${} richer.", m.collected));
@@ -768,6 +848,7 @@ impl City {
         }
         self.date.month += 1;
         self.mafia_month();
+        self.close_month();
         if self.date.month > 12 {
             self.date.month = 1;
             self.date.year += 1;
@@ -800,11 +881,13 @@ impl City {
             })
             .sum();
         self.fund -= maintenance as i64;
+        self.book("Maintenance", -(maintenance as f64));
         let v = self.values;
         self.income += (v.residential * RESIDENTIAL_TAX + v.commercial * COMMERCIAL_TAX + v.industrial * INDUSTRIAL_TAX) / 100;
         if new_year {
             self.income += self.income * INCOME_HELP / 100;
             self.fund += self.income as i64;
+            self.book("Taxes (yearly)", self.income as f64);
             log::info!(
                 "Happy new year {}! income {} fund {} R/C/I {}/{}/{}",
                 self.date.year,

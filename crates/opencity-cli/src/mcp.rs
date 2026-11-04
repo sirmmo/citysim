@@ -262,6 +262,25 @@ impl Server {
                     "disasters": rules.map(|r| r.disasters.iter().map(|d| json!({ "id": d.id, "name": d.name, "every": d.every, "radius": d.radius, "protection": d.protection })).collect::<Vec<_>>()),
                 }))
             }
+            "budget" => {
+                let city = self.city()?;
+                if let Some(f) = a.get("funding").and_then(Value::as_object) {
+                    let gb = city.glassbox.as_mut().context("funding needs GlassBox rules")?;
+                    for (unit, pct) in f {
+                        gb.set_funding(unit, pct.as_f64().context("funding is a percentage")? as f32 / 100.0);
+                    }
+                }
+                if let Some(amount) = num(a, "borrow") {
+                    city.take_loan(amount as i64).map_err(|e| anyhow!(e))?;
+                }
+                Ok(json!({
+                    "fund": city.fund,
+                    "last_month": city.last_ledger,
+                    "this_month": city.budget(),
+                    "loans": city.loans.iter().map(|l| json!({ "amount": l.amount, "payment": l.payment, "months_left": l.months_left })).collect::<Vec<_>>(),
+                    "funding": city.glassbox.as_ref().map(|g| g.funding.clone()),
+                }))
+            }
             "cheat" => {
                 let code = str_arg(a, "code")?.to_string();
                 let city = self.city()?;
@@ -433,6 +452,9 @@ fn tools() -> Value {
         }), &[]),
         tool("disaster", "List disasters; `strike` sets one off by hand (fire, flood, epidemic…), `chance` switches chance disasters on or off.", json!({
             "strike": { "type": "string" }, "chance": { "type": "boolean" }
+        }), &[]),
+        tool("budget", "Money by budget line (last month and this month so far), loans and service funding. `funding` ({unit id: percent 0-150}) changes funding; `borrow` takes a loan (6%/year over five years).", json!({
+            "funding": { "type": "object", "additionalProperties": { "type": "number" } }, "borrow": { "type": "integer", "minimum": 1 }
         }), &[]),
         tool("cheat", "Type a cheat code, as in SimCity 3000's cheat box. Some of them have consequences.", json!({ "code": { "type": "string" } }), &["code"]),
         tool("render_map", "Write a top-down PNG of the city.", json!({ "path": path, "scale": { "type": "integer", "minimum": 1, "maximum": 32, "default": 8 } }), &["path"]),

@@ -57,6 +57,10 @@ pub enum Command {
     OpenRegion(PathBuf),
     /// A typed cheat code.
     Cheat(String),
+    /// Funding of a service (unit id), 0..1.5.
+    SetFunding(String, f32),
+    /// Borrow from the bank.
+    TakeLoan(i64),
     /// Switch disasters by chance on or off.
     SetDisasters(bool),
     /// Set off a disaster by hand.
@@ -121,6 +125,7 @@ pub struct EguiUi {
     show_research: bool,
     show_policies: bool,
     show_region: bool,
+    show_budget: bool,
     /// The cheat box (Ctrl+Shift+C), as in SimCity 3000.
     cheat_open: bool,
     cheat_text: String,
@@ -209,6 +214,7 @@ impl EguiUi {
             show_research: false,
             show_policies: false,
             show_region: false,
+            show_budget: false,
             cheat_open: false,
             cheat_text: String::new(),
             region_name: "My region".into(),
@@ -337,6 +343,9 @@ impl EguiUi {
         }
         if let (true, Some(r)) = (self.show_region, view.region) {
             crate::regionui::window(ctx, &mut self.show_region, r, view.city, &mut out);
+        }
+        if self.show_budget {
+            crate::budget::window(ctx, &mut self.show_budget, view.city, &mut out);
         }
         if self.show_policies {
             crate::policies::window(ctx, &mut self.show_policies, view.city, &mut out);
@@ -602,6 +611,9 @@ impl EguiUi {
                         && ui.button("📜 Policies").on_hover_text("Set tax rates and the city's policies").clicked()
                     {
                         self.show_policies = !self.show_policies;
+                    }
+                    if ui.button("💰 Budget").on_hover_text("Money by line, service funding and loans").clicked() {
+                        self.show_budget = !self.show_budget;
                     }
                     if view.region.is_some() && ui.button("🗺 Region").on_hover_text("The region's cities and this month's trade").clicked() {
                         self.show_region = !self.show_region;

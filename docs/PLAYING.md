@@ -160,6 +160,24 @@ The **📜 Policies** window sets:
 - **Vehicles:** cars, taxis and trucks in modern towns (Kenney car kit); people, handcarts and horse carts before 1800. What travels where follows the rules: no cars in the Middle Ages, no carts on the highway.
 - **View > Skin:** re-dresses the city for an era or a world (see [SKINS.md](SKINS.md)).
 
+## Budget
+
+The **💰 Budget** window, in the City panel, shows where the money goes.
+
+- **Last month and this month so far, by line:**
+  - taxes, per tax;
+  - upkeep, per kind of service;
+  - policies, trade sales and purchases;
+  - loans, and the family (if called);
+  - under classic rules, maintenance and the yearly taxes.
+- **Service funding:** a slider per kind of service from 0 to 150%. It
+  scales both what the service costs and how strongly it covers the city,
+  so half-funded fire stations cost half and protect less.
+- **Loans:** borrow $10,000, $50,000 or $200,000 at 6% a year, repaid monthly
+  over five years, with three loans at most.
+
+The MCP server has a `budget` tool with the same lines, funding and loans.
+
 ## Cheats
 
 **Ctrl+Shift+C** opens the cheat box, as in SimCity 3000.

@@ -793,3 +793,47 @@ fn cousin_vinnie_brings_money_and_the_family() {
     let back = opencity_core::save::load(saved.as_slice(), Footprints::builtin()).unwrap();
     assert!(back.mafia.is_some());
 }
+
+#[test]
+fn the_budget_books_every_line_and_funding_matters() {
+    let r = rules();
+    let mut c = City::new(Terrain::flat(48, 32), None, Footprints::builtin(), 3);
+    c.fund = 1_000_000;
+    c.use_rules(r.clone());
+    c.research_all();
+    c.glassbox.as_mut().unwrap().disasters_off = true;
+    c.apply_tool(Tool::Road, (2, 10), (40, 10)).unwrap();
+    c.apply_tool(Tool::Road, (2, 14), (40, 14)).unwrap();
+    c.apply_tool(Tool::Road, (2, 10), (2, 14)).unwrap();
+    c.apply_tool(Tool::CoalPlant, (4, 5), (4, 5)).unwrap();
+    c.apply_tool(Tool::ZoneResidential, (3, 11), (40, 13)).unwrap();
+    c.apply_tool(Tool::FireDept, (20, 8), (20, 8)).unwrap();
+    for _ in 0..(30 * 3) {
+        c.update(opencity_core::city::MS_PER_DAY);
+    }
+    let last = c.last_ledger.clone();
+    assert!(last.keys().any(|k| k.starts_with("Taxes: Property")), "{last:?}");
+    assert!(last.keys().any(|k| k == "Upkeep: Fire station"), "{last:?}");
+    // Loans: money now, monthly repayments booked.
+    let fund = c.fund;
+    let loan = c.take_loan(50_000).unwrap();
+    assert_eq!(c.fund, fund + 50_000);
+    assert!(loan.payment * loan.months_left as i64 > 50_000, "interest is charged");
+    for _ in 0..31 {
+        c.update(opencity_core::city::MS_PER_DAY);
+    }
+    assert!(c.last_ledger.get("Loans: repayments").is_some_and(|v| *v < 0.0));
+    assert!(c.take_loan(1).is_ok() && c.take_loan(1).is_ok() && c.take_loan(1).is_err(), "three loans at most");
+    // Funding: half-funded fire stations cost less and cover less.
+    let fire = r.layer("fire_safety").unwrap();
+    let mut half = c.clone();
+    half.glassbox.as_mut().unwrap().set_funding("fire_station", 0.5);
+    for _ in 0..60 {
+        c.simulate_round();
+        half.simulate_round();
+    }
+    let cover = |c: &City| c.glassbox.as_ref().unwrap().layer_value(fire, 21, 11, c.width());
+    assert!(cover(&half) < cover(&c), "{} vs {}", cover(&half), cover(&c));
+    let upkeep = |c: &City| c.glassbox.as_ref().unwrap().ledger.get("Upkeep: Fire station").copied().unwrap_or(0.0);
+    assert!(upkeep(&half) > upkeep(&c), "half the cost: {} vs {}", upkeep(&half), upkeep(&c));
+}

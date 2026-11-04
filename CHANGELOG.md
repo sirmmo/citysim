@@ -2,6 +2,12 @@
 
 Release notes in full are on the [releases page](https://github.com/sirmmo/citysim/releases).
 
+## 0.2.22: Budget
+- **💰 Budget window:** last month and this month by line (taxes per tax, upkeep per service, policies, trade, loans, the family).
+- **Service funding:** 0 to 150% per kind of service, scaling both cost and coverage.
+- **Loans:** 6% a year over five years, three at most.
+- **MCP:** a `budget` tool.
+
 ## 0.2.21: Cousin Vinnie
 - **Cheat box:** **Ctrl+Shift+C**, as in SimCity 3000.
 - **`CallCousinVinnie`** wires $1,000,000, and the family moves in. They collect protection money monthly, police coverage falls, and blocks burn now and then, until enough police stations drive them out. The family stays in saves.
