@@ -3,7 +3,7 @@ description = "Ancient colours and names. Run scripts/bake-0ad.sh for 3D buildin
 era = "Antiquity"
 culture = "Generic (no 3D art)"
 
-disabled_tools = ["nuclear_plant", "power_line", "road", "highway"]
+disabled_tools = ["nuclear_plant", "power_line", "road", "highway", "rail", "station"]
 
 [applies]
 years = [-1000, 500]

@@ -2,7 +2,7 @@ name = "Renaissance"
 description = "Cities before the industrial revolution: warm, faded colours, no cars, water power instead of electricity."
 era = "Renaissance"
 
-disabled_tools = ["nuclear_plant", "road", "highway"]
+disabled_tools = ["nuclear_plant", "road", "highway", "rail", "station"]
 
 [applies]
 years = [1450, 1799]

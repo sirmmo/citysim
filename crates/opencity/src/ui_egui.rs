@@ -121,6 +121,7 @@ const GROUPS: &[(&str, &[ToolEntry])] = &[
             ("road_highway", Action::Tool(Some(Tool::Highway)), "Highway", ""),
             ("road_paved_street", Action::Tool(Some(Tool::PavedStreet)), "Paved street", "P"),
             ("road_dirt_road", Action::Tool(Some(Tool::DirtRoad)), "Dirt road", ""),
+            ("road_rail", Action::Tool(Some(Tool::Rail)), "Railway", ""),
             ("power_line", Action::Tool(Some(Tool::PowerLine)), "Power line", "L"),
             ("power_plant_coal", Action::Tool(Some(Tool::CoalPlant)), "Coal plant", ""),
             ("power_plant_nuclear", Action::Tool(Some(Tool::NuclearPlant)), "Nuclear plant", ""),
@@ -133,6 +134,7 @@ const GROUPS: &[(&str, &[ToolEntry])] = &[
             ("police", Action::Tool(Some(Tool::PoliceDept)), "Police", ""),
             ("hospital", Action::Tool(Some(Tool::Hospital)), "Hospital", ""),
             ("education", Action::Tool(Some(Tool::School)), "School", ""),
+            ("government", Action::Tool(Some(Tool::Station)), "Railway station", ""),
         ],
     ),
     (
@@ -875,6 +877,10 @@ fn repaint_road_icon(img: &mut image::RgbaImage, kind: opencity_core::RoadKind) 
             (K::DirtRoad, true) => [140.0, 104.0, 64.0],
             (K::PavedStreet, _) if cobble => [190.0, 182.0, 166.0],
             (K::PavedStreet, _) => [160.0, 152.0, 138.0],
+            // Sleepers across ballast, steel rails along.
+            (K::Rail, _) if x % 16 == 5 || x % 16 == 10 => [205.0, 205.0, 212.0],
+            (K::Rail, _) if y % 6 < 2 => [92.0, 64.0, 40.0],
+            (K::Rail, _) => [128.0, 120.0, 108.0],
         };
         let shade = if mark { 1.0 } else { lum.min(1.1) };
         *p = image::Rgba([(base[0] * shade).min(255.0) as u8, (base[1] * shade).min(255.0) as u8, (base[2] * shade).min(255.0) as u8, a]);
@@ -978,7 +984,13 @@ fn structure_name(catalog: &Catalog, skin: Option<&Skin>, s: &opencity_core::Str
 fn kind_line(view: &View, s: &opencity_core::Structure) -> String {
     let rules = view.city.rules();
     if s.code == StructureCode::Road {
-        return if s.road.access() { "Road".into() } else { "Road · no access for buildings".into() };
+        return if s.road.is_rail() {
+            "Track · trains only; roads cross it on level crossings".into()
+        } else if s.road.access() {
+            "Road".into()
+        } else {
+            "Road · no access for buildings".into()
+        };
     }
     if let (Some(rules), Some(u)) = (rules, s.unit) {
         let id = &rules.units[u as usize].id;

@@ -366,7 +366,7 @@ fn skin_toml(z: &ZeroAd, civ: &str, colour: [u8; 3]) -> Result<String, BakeError
     let _ = writeln!(s, "description = {}", toml_str(&format!("{name} towns built from 0 A.D. art (CC BY-SA 3.0).")));
     s.push_str("era = \"Antiquity\"\n");
     let _ = writeln!(s, "culture = {}", toml_str(&name));
-    s.push_str("disabled_tools = [\"nuclear_plant\", \"power_line\", \"road\", \"highway\"]\n\n[applies]\nyears = [-1000, 500]\n\n[look]\nsky = [0.70, 0.78, 0.88]\nsaturation = 0.95\nwater = [0.18, 0.40, 0.55, 0.60]\n");
+    s.push_str("disabled_tools = [\"nuclear_plant\", \"power_line\", \"road\", \"highway\", \"rail\", \"station\"]\n\n[applies]\nyears = [-1000, 500]\n\n[look]\nsky = [0.70, 0.78, 0.88]\nsaturation = 0.95\nwater = [0.18, 0.40, 0.55, 0.60]\n");
     let _ = writeln!(s, "ui_accent = [{}, {}, {}]", colour[0], colour[1], colour[2]);
     s.push_str("ui_panel = [36, 28, 24]\nvehicles = false\n\n[labels]\n");
     for (k, v) in labels {

@@ -58,6 +58,7 @@ fn tags(code: StructureCode, level: u8) -> Map<String, Value> {
         PoliceDept => ("police", &[("amenity", "police")]),
         Hospital => ("hospital", &[("amenity", "hospital")]),
         School => ("school", &[("amenity", "school")]),
+        Station => ("station", &[("railway", "station"), ("building", "train_station")]),
         Test | Part => ("ignore", &[]),
     };
     let mut m = Map::new();
@@ -82,7 +83,12 @@ pub fn export(city: &City, opts: &ExportOptions) -> Value {
     let mut features = Vec::new();
     for ((w, l), tile) in city.layer.tiles() {
         let TileKind::Main(s) = &tile.kind else { continue };
-        let props = tags(s.code, s.level);
+        let mut props = tags(s.code, s.level);
+        if s.code == StructureCode::Road && s.road.is_rail() {
+            props.remove("highway");
+            props.insert("opencity:build".into(), "rail".into());
+            props.insert("railway".into(), "rail".into());
+        }
         match s.code {
             StructureCode::Road | StructureCode::PowerLine => {
                 let c = |dw: f64, dl: f64| un.at(w as f64 + 0.5 + dw, l as f64 + 0.5 + dl);

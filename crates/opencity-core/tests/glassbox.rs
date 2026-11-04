@@ -506,3 +506,45 @@ fn taxes_and_policies_steer_the_city() {
     assert_eq!(gb.tax_rates.get("sales"), Some(&4.0));
     assert_eq!(gb.stances.get("growth").map(String::as_str), Some("open_city"));
 }
+
+#[test]
+fn railways_link_towns_no_road_joins() {
+    let r = rules();
+    let build = |rail: bool| {
+        let mut c = City::new(Terrain::flat(64, 24), None, Footprints::builtin(), 5);
+        c.fund = 10_000_000;
+        c.use_rules(r.clone());
+        c.research_all();
+        // West: houses. East: workshops and shops. No road between them.
+        for (w1, w2, zone) in [(2, 16, Tool::ZoneResidential), (46, 60, Tool::ZoneIndustrial)] {
+            c.apply_tool(Tool::Road, (w1, 8), (w2, 8)).unwrap();
+            c.apply_tool(Tool::Road, (w1, 12), (w2, 12)).unwrap();
+            c.apply_tool(Tool::Road, (w1, 8), (w1, 12)).unwrap();
+            c.apply_tool(zone, (w1 + 1, 9), (w2, 11)).unwrap();
+            // The plant touches the street, which carries its power.
+            c.apply_tool(Tool::CoalPlant, (w1 + 2, 5), (w1 + 2, 5)).unwrap();
+        }
+        if rail {
+            c.apply_tool(Tool::Rail, (5, 18), (58, 18)).unwrap();
+            c.apply_tool(Tool::Station, (6, 16), (6, 16)).unwrap();
+            c.apply_tool(Tool::Station, (50, 16), (50, 16)).unwrap();
+            c.apply_tool(Tool::Road, (6, 13), (6, 15)).unwrap();
+            c.apply_tool(Tool::Road, (50, 13), (50, 15)).unwrap();
+        }
+        for _ in 0..400 {
+            c.simulate_round();
+        }
+        c
+    };
+    let crossing = |c: &City| -> f32 {
+        let gb = c.glassbox.as_ref().unwrap();
+        gb.flows.iter().filter(|(l, _)| (l.from.0 < 30) != (l.to.0 < 30)).map(|(_, v)| *v).sum()
+    };
+    let (without, with) = (build(false), build(true));
+    let rail = opencity_core::rail::Railways::find(&with.layer, &with.terrain, with.footprints());
+    assert_eq!(rail.stations.len(), 2, "both stations stand by the track");
+    assert_eq!(crossing(&without), 0.0, "no road, no trips between the towns");
+    assert!(crossing(&with) > 0.0, "the railway carries trips between the towns");
+    // Cars never drive on the track; trains run between the stations.
+    assert!(with.vehicles.iter().filter(|v| v.on_rail()).all(|v| v.mesh.as_deref().is_some_and(|m| m.contains("train"))));
+}

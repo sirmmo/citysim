@@ -247,6 +247,20 @@ pub fn surface(kind: RoadKind) -> Option<Vec<u8>> {
                     let pebble = if noise(x / 2, y / 2, 7) > 0.93 { 0.08 } else { 0.0 };
                     [0, 1, 2].map(|i| earth[i] * (1.0 - verge) + grass[i] * verge + grain * 0.08 + pebble)
                 }
+                RoadKind::Rail => {
+                    // Ballast, wooden sleepers across, two steel rails along.
+                    let rail = (u - 0.32).abs() < 0.035 || (u - 0.68).abs() < 0.035;
+                    let sleeper = (v * 8.0).fract() < 0.38 && (0.16..0.84).contains(&u);
+                    if rail {
+                        let k = 0.72 + grain * 0.05;
+                        [k, k, k + 0.04]
+                    } else if sleeper {
+                        [0.36 + grain * 0.05, 0.25 + grain * 0.04, 0.16]
+                    } else {
+                        let stone = 0.47 + grain * 0.12 + noise(x / 2, y / 2, 13) * 0.08;
+                        [stone, stone - 0.02, stone - 0.05]
+                    }
+                }
                 RoadKind::PavedStreet => {
                     // Kerbs, then rows of cobbles with mortar joints, every other row offset.
                     if !(0.07..0.93).contains(&u) {
@@ -302,7 +316,7 @@ mod tests {
     #[test]
     fn surfaces_cover_every_kind_but_streets() {
         assert!(surface(RoadKind::Street).is_none());
-        for k in [RoadKind::Highway, RoadKind::DirtRoad, RoadKind::PavedStreet] {
+        for k in [RoadKind::Highway, RoadKind::DirtRoad, RoadKind::PavedStreet, RoadKind::Rail] {
             assert_eq!(surface(k).unwrap().len(), (SURFACE_SIZE * SURFACE_SIZE * 4) as usize);
         }
     }

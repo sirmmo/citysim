@@ -52,6 +52,7 @@ const TOOLS: &[(&str, Action, &str)] = &[
     ("road", Action::Tool(Some(Tool::Highway)), "Highway"),
     ("road", Action::Tool(Some(Tool::PavedStreet)), "Paved street (P)"),
     ("road", Action::Tool(Some(Tool::DirtRoad)), "Dirt road"),
+    ("road", Action::Tool(Some(Tool::Rail)), "Railway"),
     ("power_line", Action::Tool(Some(Tool::PowerLine)), "Power line (L)"),
     ("power_plant_coal", Action::Tool(Some(Tool::CoalPlant)), "Coal power plant"),
     ("power_plant_nuclear", Action::Tool(Some(Tool::NuclearPlant)), "Nuclear power plant"),
@@ -61,6 +62,7 @@ const TOOLS: &[(&str, Action, &str)] = &[
     ("police", Action::Tool(Some(Tool::PoliceDept)), "Police department"),
     ("hospital", Action::Tool(Some(Tool::Hospital)), "Hospital"),
     ("education", Action::Tool(Some(Tool::School)), "School"),
+    ("government", Action::Tool(Some(Tool::Station)), "Railway station"),
     ("raise", Action::Tool(Some(Tool::RaiseTerrain)), "Raise terrain (U)"),
     ("lower", Action::Tool(Some(Tool::LowerTerrain)), "Lower terrain (J)"),
 ];

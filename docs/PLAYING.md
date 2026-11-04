@@ -53,7 +53,14 @@ game see [RULES.md](RULES.md); for the documentation index see
   | Paved street | $3 | 0.8 | 0.7 | Cobbles of older towns |
   | Dirt road | $1 | 0.5 | 0.4 | Cheap, slow, narrow |
 
-  Dragging a road over another kind rebuilds it.
+  | Railway | $20 | 4 | 4 | Trains only; roads cross it at level crossings |
+
+  Dragging a road over another kind rebuilds it, but roads leave track alone.
+- **Railways:** lay track with the Railway tool, then put a **Railway
+  station** next to it, near a street. Places within 8 tiles of a station
+  reach places near every other station on the same line, even in another
+  town no road joins. Trains run between the stations. In the modern rules
+  rail waits for the **Railways** research project; there is none before 1800.
 - **Plants and services** (power plants, fire stations, police, hospitals, schools, wells…):
   - **Placing:** a new one turns to face the street beside it, and the preview shows the footprint it will take.
   - **Turning:** inspect it and press **⟳ Turn**, or **O**. Long buildings swap their footprint when turned.

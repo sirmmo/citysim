@@ -24,6 +24,15 @@ tier = 1
 cost = { research = 2000 }
 unlocks = ["highway"]
 
+[[tech]]
+id = "railways"
+name = "Railways"
+description = "Track, signals and stations: trains link towns far apart."
+category = "Transport"
+tier = 1
+cost = { research = 1500 }
+unlocks = ["rail", "station"]
+
 # ---------------------------------------------------------------- economy
 # The city's economic doctrine: one or the other, for good.
 [[tech]]

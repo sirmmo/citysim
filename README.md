@@ -116,6 +116,7 @@ Roads come in four kinds that connect to each other:
 | Highway | $25 | 2.5 | 3 | 1.3 tiles, 4 lanes | Buildings cannot open onto it; trips between places near one take it |
 | Paved street | $3 | 0.8 | 0.7 | ¾ tile | Cobbles and flagstones of older towns |
 | Dirt road | $1 | 0.5 | 0.4 | ½ tile | Cheap, slow, narrow |
+| Railway | $20 | 4 | 4 | 0.6 tile | Trains only; stations join it to the streets, roads cross it at level crossings |
 
 Dragging a road over another kind rebuilds it. Each age offers its own:
 asphalt streets and highways today, paved streets and dirt roads before

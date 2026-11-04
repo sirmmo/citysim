@@ -70,6 +70,7 @@ impl Footprints {
             (360, 2, 2, 1.5),
             (370, 6, 3, 2.35),
             (390, 3, 3, 1.5),
+            (395, 3, 2, 0.7),
         ] {
             f.insert(GraphicCode(gc), Footprint { width, length, height });
         }

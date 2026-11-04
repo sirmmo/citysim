@@ -170,6 +170,10 @@ const BUCKET: u32 = 8;
 /// Units this close (in tiles) to a highway can use it: their trips cost
 /// this much to get on and off, then highway speed.
 const HIGHWAY_RAMP: u32 = 4;
+/// How far (in tiles) people walk to a station.
+pub const STATION_WALK: u32 = 8;
+/// Time (in street tiles) to board and leave a train.
+const STATION_TIME: f32 = 3.0;
 
 impl GlassBox {
     pub fn new(rules: Arc<Ruleset>, width: u32, length: u32) -> Self {
@@ -620,6 +624,12 @@ impl GlassBox {
                 }
             }
         }
+        // Railways: places near stations on one line are linked, whatever
+        // the streets between them (see `rail`).
+        let rail = crate::rail::Railways::find(layer, terrain, footprints);
+        if !rail.stations.is_empty() {
+            fastest = fastest.max(RoadKind::Rail.speed());
+        }
         let fastest = fastest.max(0.1);
         let mut trips = Vec::new();
         for root in 0..nres {
@@ -633,30 +643,77 @@ impl GlassBox {
             let reach = rules.growth.road_access.max(1);
             // Network component, road speed and highway access of each unit,
             // through the nearest road it can open onto (not a highway).
-            let acc: Vec<Option<(u32, f32, bool)>> = units
+            let access: Vec<Option<(u32, (u32, u32))>> =
+                units.iter().map(|(_, _, r)| unit_component(&comps[net], r, width, length, reach, |w, l| road_at(w, l).is_none_or(|k| k.access()))).collect();
+            // Street networks joined by a railway count as one: merge their
+            // components through the stations on each line.
+            let mut merged: HashMap<u32, u32> = HashMap::new();
+            let station_comp: Vec<Option<u32>> = rail
+                .stations
                 .iter()
-                .map(|(_, _, r)| {
-                    let (c, (w, l)) = unit_component(&comps[net], r, width, length, reach, |w, l| road_at(w, l).is_none_or(|k| k.access()))?;
-                    Some((c, road_at(w, l).map_or(1.0, |k| k.speed()), near_highway.get(idx(w, l) as usize).copied().unwrap_or(false)))
+                .map(|st| {
+                    let r = Rect::sized(st.origin.0, st.origin.1, st.size.0, st.size.1);
+                    unit_component(&comps[net], &r, width, length, 2, |w, l| road_at(w, l).is_none_or(|k| k.access())).map(|(c, _)| c)
+                })
+                .collect();
+            {
+                let mut root_of_line: HashMap<u32, u32> = HashMap::new();
+                for (st, c) in rail.stations.iter().zip(&station_comp) {
+                    let Some(c) = *c else { continue };
+                    let r = *root_of_line.entry(st.line).or_insert(c);
+                    let (ra, rb) = (find_root(&merged, r), find_root(&merged, c));
+                    if ra != rb {
+                        merged.insert(rb, ra);
+                    }
+                }
+            }
+            // Component (merged and own), road speed, highway access and the
+            // nearest station (index, walk) of each unit.
+            #[allow(clippy::type_complexity)]
+            let acc: Vec<Option<(u32, u32, f32, bool, Option<(usize, u32)>, (u32, u32))>> = access
+                .iter()
+                .map(|a| {
+                    let (c, (w, l)) = (*a)?;
+                    let station = rail.nearest_station((w, l), STATION_WALK).filter(|&(i, _)| station_comp[i].is_some());
+                    Some((
+                        find_root(&merged, c),
+                        c,
+                        road_at(w, l).map_or(1.0, |k| k.speed()),
+                        near_highway.get(idx(w, l) as usize).copied().unwrap_or(false),
+                        station,
+                        (w, l),
+                    ))
                 })
                 .collect();
             // The vehicles carrying the resource cap the speed (people on
             // foot are no quicker on a paved street) and may be kept off
             // highways.
             let vehicles = rules.vehicles_for(root);
+            let road_vehicles: Vec<_> = vehicles.iter().filter(|v| !v.ways().allows(RoadKind::Rail)).collect();
             let (top, highway) = if vehicles.is_empty() {
                 (f32::INFINITY, true)
             } else {
-                (vehicles.iter().map(|v| v.top_speed()).fold(0.0, f32::max), vehicles.iter().any(|v| v.ways().allows(RoadKind::Highway)))
+                (road_vehicles.iter().map(|v| v.top_speed()).fold(0.0, f32::max), road_vehicles.iter().any(|v| v.ways().allows(RoadKind::Highway)))
             };
+            // Trains carry the resource when the network lists a rail
+            // vehicle for it, or lists no vehicles at all.
+            let by_rail = vehicles.is_empty() || vehicles.iter().any(|v| v.ways().allows(RoadKind::Rail));
             let trip_length = |s: usize, i: usize, dist: u32| -> f32 {
                 let (Some(a), Some(b)) = (acc[s], acc[i]) else { return f32::INFINITY };
-                let local = dist as f32 / a.1.min(b.1).min(top);
-                if highway && a.2 && b.2 {
-                    local.min(HIGHWAY_RAMP as f32 + dist as f32 / RoadKind::Highway.speed().min(top))
-                } else {
-                    local
+                // By road, only within one street network.
+                let mut best = if a.1 == b.1 { dist as f32 / a.2.min(b.2).min(top) } else { f32::INFINITY };
+                if highway && a.3 && b.3 && a.1 == b.1 {
+                    best = best.min(HIGHWAY_RAMP as f32 + dist as f32 / RoadKind::Highway.speed().min(top));
                 }
+                if let (true, Some((sa, wa)), Some((sb, wb))) = (by_rail, a.4, b.4) {
+                    let (x, y) = (&rail.stations[sa], &rail.stations[sb]);
+                    if sa != sb && x.line == y.line {
+                        let ride = x.platform.0.abs_diff(y.platform.0) + x.platform.1.abs_diff(y.platform.1);
+                        let walk = (wa + wb) as f32 / a.2.min(b.2).min(top).min(1.0);
+                        best = best.min(STATION_TIME + walk + ride as f32 / RoadKind::Rail.speed());
+                    }
+                }
+                best
             };
             // Which unit types send which members of the family.
             let sends_table: Vec<Vec<bool>> = rules
@@ -683,7 +740,7 @@ impl GlassBox {
                 if stock[i].iter().all(|&x| x <= 0.0) {
                     continue;
                 }
-                if let Some((c, _, _)) = acc[i] {
+                if let Some((c, ..)) = acc[i] {
                     let b = buckets.entry((c, p.0 / BUCKET, p.1 / BUCKET)).or_insert_with(|| Bucket { senders: Vec::new(), left: vec![0.0; fam.len()] });
                     b.senders.push(i);
                     b.left.iter_mut().zip(&stock[i]).for_each(|(l, x)| *l += x);
@@ -1041,12 +1098,12 @@ impl GlassBox {
         let mut all = Vec::new();
         for net in &rules.networks {
             let codes: Vec<StructureCode> = net.structures.iter().filter_map(|s| structure_code(s)).collect();
-            let conducts = |w: u32, l: u32| match layer.tile(w, l) {
+            let rail = net.structures.iter().any(|s| s == "rail");
+            let conducts = |w: u32, l: u32| match layer.structure_at(w, l) {
                 None => false,
-                Some(_) => {
-                    let code = layer.structure_at(w, l).map(|s| s.code);
-                    code.is_some_and(|c| codes.contains(&c)) || (net.through_buildings && layer.structure_at(w, l).is_some_and(|s| s.unit.is_some()))
-                }
+                // Track belongs to rail networks, not to the streets.
+                Some(s) if s.code == StructureCode::Road && s.road.is_rail() => rail || (codes.contains(&StructureCode::Road) && layer.is_level_crossing(w, l)),
+                Some(s) => codes.contains(&s.code) || (net.through_buildings && s.unit.is_some()),
             };
             let mut comp = vec![NO_COMPONENT; (width * length) as usize];
             let mut next = 0;
@@ -1372,4 +1429,15 @@ impl Structure {
 /// to every unit).
 fn taxes_zone(t: &TaxDef, rules: &Ruleset, zone: Option<usize>) -> bool {
     t.zones.is_empty() || zone.is_some_and(|z| t.zones.iter().any(|id| id == &rules.zones[z].id))
+}
+
+/// Root of a component in a union-find stored as a parent map.
+fn find_root(parent: &HashMap<u32, u32>, mut c: u32) -> u32 {
+    while let Some(&p) = parent.get(&c) {
+        if p == c {
+            break;
+        }
+        c = p;
+    }
+    c
 }

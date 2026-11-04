@@ -27,6 +27,8 @@ pub enum StructureCode {
     PoliceDept = 37,
     Hospital = 38,
     School = 40,
+    /// Railway station: joins a rail line to the streets around it.
+    Station = 41,
 }
 
 impl StructureCode {
@@ -52,6 +54,7 @@ impl StructureCode {
             37 => PoliceDept,
             38 => Hospital,
             40 => School,
+            41 => Station,
             _ => return None,
         })
     }
@@ -69,7 +72,7 @@ impl StructureCode {
     }
 
     pub const fn is_public_service(self) -> bool {
-        matches!(self, Self::FireDept | Self::PoliceDept | Self::Hospital | Self::School)
+        matches!(self, Self::FireDept | Self::PoliceDept | Self::Hospital | Self::School | Self::Station)
     }
 
     /// Structures placed as one fixed-size block (the size comes from the model).
@@ -96,6 +99,7 @@ impl StructureCode {
             PoliceDept => GraphicCode::POLICE_DEPT,
             Hospital => GraphicCode::HOSPITAL_DEPT,
             School => GraphicCode::EDUCATION_DEPT,
+            Station => GraphicCode::RAIL_STATION,
         }
     }
 
@@ -107,7 +111,7 @@ impl StructureCode {
             Industrial => StructureType::Industry,
             CoalPlant | NuclearPlant => StructureType::Electricity,
             Road | PowerLine => StructureType::Path,
-            FireDept | PoliceDept | Hospital | School => StructureType::Government,
+            FireDept | PoliceDept | Hospital | School | Station => StructureType::Government,
             Flora => StructureType::Tree,
             Part | Test => StructureType::Undefined,
         }
@@ -124,6 +128,7 @@ impl StructureCode {
             CoalPlant => 2000,
             NuclearPlant => 5000,
             FireDept | PoliceDept | Hospital | School => 1500,
+            Station => 3000,
             Test | Part => 0,
         }
     }
@@ -137,6 +142,7 @@ impl StructureCode {
             CoalPlant => 20,
             NuclearPlant => 80,
             FireDept | PoliceDept | Hospital | School => 15,
+            Station => 25,
         }
     }
 
@@ -150,7 +156,7 @@ impl StructureCode {
             Park => 10,
             PowerLine => 1,
             Road | Flora => 4,
-            Part | CoalPlant | FireDept | PoliceDept | Hospital | School => 200,
+            Part | CoalPlant | FireDept | PoliceDept | Hospital | School | Station => 200,
             NuclearPlant => 800,
             Test => 0,
         }
@@ -198,6 +204,7 @@ impl GraphicCode {
     pub const POLICE_DEPT: Self = Self(360);
     pub const HOSPITAL_DEPT: Self = Self(370);
     pub const EDUCATION_DEPT: Self = Self(390);
+    pub const RAIL_STATION: Self = Self(395);
     pub const VEHICLE_STD: Self = Self(400);
     pub const VEHICLE_PICKUP: Self = Self(440);
     pub const VEHICLE_SPORT: Self = Self(441);
@@ -298,10 +305,13 @@ pub enum RoadKind {
     DirtRoad,
     /// Cobbled or flagstone street of pre-industrial towns.
     PavedStreet,
+    /// Railway track: trains only, fast, no access for buildings. Stations
+    /// join it to the streets.
+    Rail,
 }
 
 impl RoadKind {
-    pub const ALL: [RoadKind; 4] = [RoadKind::Street, RoadKind::Highway, RoadKind::DirtRoad, RoadKind::PavedStreet];
+    pub const ALL: [RoadKind; 5] = [RoadKind::Street, RoadKind::Highway, RoadKind::DirtRoad, RoadKind::PavedStreet, RoadKind::Rail];
 
     /// Stable identifier (saves, rules, skins).
     pub const fn id(self) -> &'static str {
@@ -310,6 +320,7 @@ impl RoadKind {
             Self::Highway => "highway",
             Self::DirtRoad => "dirt_road",
             Self::PavedStreet => "paved_street",
+            Self::Rail => "rail",
         }
     }
 
@@ -323,6 +334,7 @@ impl RoadKind {
             Self::Highway => "Highway",
             Self::DirtRoad => "Dirt road",
             Self::PavedStreet => "Paved street",
+            Self::Rail => "Railway",
         }
     }
 
@@ -333,6 +345,7 @@ impl RoadKind {
             Self::Highway => 25,
             Self::DirtRoad => 1,
             Self::PavedStreet => 3,
+            Self::Rail => 20,
         }
     }
 
@@ -340,7 +353,7 @@ impl RoadKind {
     pub const fn maintenance_cost(self) -> u32 {
         match self {
             Self::Street | Self::PavedStreet => 1,
-            Self::Highway => 4,
+            Self::Highway | Self::Rail => 4,
             Self::DirtRoad => 0,
         }
     }
@@ -353,6 +366,7 @@ impl RoadKind {
             Self::Highway => 2.5,
             Self::DirtRoad => 0.5,
             Self::PavedStreet => 0.8,
+            Self::Rail => 4.0,
         }
     }
 
@@ -363,19 +377,26 @@ impl RoadKind {
             Self::Highway => 3.0,
             Self::DirtRoad => 0.4,
             Self::PavedStreet => 0.7,
+            Self::Rail => 4.0,
         }
     }
 
     /// Whether buildings can open onto it (and plots next to it develop).
     pub const fn access(self) -> bool {
-        !matches!(self, Self::Highway)
+        !matches!(self, Self::Highway | Self::Rail)
+    }
+
+    /// Whether it is track rather than road: cars never use it, and it is
+    /// not part of the street network.
+    pub const fn is_rail(self) -> bool {
+        matches!(self, Self::Rail)
     }
 
     /// Lanes, for display.
     pub const fn lanes(self) -> u8 {
         match self {
             Self::Highway => 4,
-            Self::DirtRoad => 1,
+            Self::DirtRoad | Self::Rail => 1,
             Self::Street | Self::PavedStreet => 2,
         }
     }
@@ -387,6 +408,7 @@ impl RoadKind {
             Self::Highway => 1.3,
             Self::DirtRoad => 0.5,
             Self::PavedStreet => 0.75,
+            Self::Rail => 0.6,
         }
     }
 
@@ -397,6 +419,7 @@ impl RoadKind {
             Self::Highway => Tool::Highway,
             Self::DirtRoad => Tool::DirtRoad,
             Self::PavedStreet => Tool::PavedStreet,
+            Self::Rail => Tool::Rail,
         }
     }
 }
@@ -424,10 +447,12 @@ pub enum Tool {
     Hospital,
     School,
     TestBuilding,
+    Rail,
+    Station,
 }
 
 impl Tool {
-    pub const ALL: [Tool; 20] = [
+    pub const ALL: [Tool; 22] = [
         Tool::Destroy,
         Tool::ZoneResidential,
         Tool::ZoneCommercial,
@@ -448,6 +473,8 @@ impl Tool {
         Tool::Hospital,
         Tool::School,
         Tool::TestBuilding,
+        Tool::Rail,
+        Tool::Station,
     ];
 
     /// Stable identifier, used by skins and GeoJSON rules.
@@ -473,6 +500,8 @@ impl Tool {
             Tool::Hospital => "hospital",
             Tool::School => "school",
             Tool::TestBuilding => "test_building",
+            Tool::Rail => "rail",
+            Tool::Station => "station",
         }
     }
 
@@ -483,7 +512,7 @@ impl Tool {
             Tool::ZoneResidential => S::Residential,
             Tool::ZoneCommercial => S::Commercial,
             Tool::ZoneIndustrial => S::Industrial,
-            Tool::Road | Tool::Highway | Tool::DirtRoad | Tool::PavedStreet => S::Road,
+            Tool::Road | Tool::Highway | Tool::DirtRoad | Tool::PavedStreet | Tool::Rail => S::Road,
             Tool::PowerLine => S::PowerLine,
             Tool::CoalPlant => S::CoalPlant,
             Tool::NuclearPlant => S::NuclearPlant,
@@ -494,6 +523,7 @@ impl Tool {
             Tool::Hospital => S::Hospital,
             Tool::School => S::School,
             Tool::TestBuilding => S::Test,
+            Tool::Station => S::Station,
             Tool::Destroy | Tool::RaiseTerrain | Tool::LowerTerrain => return None,
         })
     }
@@ -505,6 +535,7 @@ impl Tool {
             Tool::Highway => RoadKind::Highway,
             Tool::DirtRoad => RoadKind::DirtRoad,
             Tool::PavedStreet => RoadKind::PavedStreet,
+            Tool::Rail => RoadKind::Rail,
             _ => return None,
         })
     }
@@ -522,7 +553,7 @@ impl Tool {
             Tool::Destroy => Sound::Destroy,
             Tool::ZoneResidential | Tool::ZoneCommercial | Tool::ZoneIndustrial => Sound::Zone,
             Tool::RaiseTerrain | Tool::LowerTerrain => Sound::Terrain,
-            Tool::Road | Tool::Highway | Tool::DirtRoad | Tool::PavedStreet => Sound::Road,
+            Tool::Road | Tool::Highway | Tool::DirtRoad | Tool::PavedStreet | Tool::Rail => Sound::Road,
             Tool::PowerLine => Sound::PowerLine,
             Tool::Park | Tool::Trees => Sound::Park,
             _ => Sound::Plant,

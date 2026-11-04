@@ -2,6 +2,13 @@
 
 Release notes in full are on the [releases page](https://github.com/sirmmo/citysim/releases).
 
+## 0.2.16: Railways
+- **Track and stations:** a Railway tool lays track, and a Railway station joins it to the streets. Trains (Kenney diesel and electric trains) run between stations on one line.
+- **Linked towns:** under GlassBox rules, places near stations on one line trade as if next door, even in towns no road joins.
+- **Level crossings:** cars never use track, but cross it where a road meets it on both sides.
+- **Research and eras:** the modern rules get a station unit and a Railways research project. Rail is off before 1800.
+- **GeoJSON:** railways and stations from OpenStreetMap and OpenHistoricalMap data (`railway=rail`, `railway=station`) are imported and exported.
+
 ## 0.2.15: Kenney city kits
 - **Kenney city kits:** modern cities (1946 on, and new cities with no date) are built from the CC0 Kenney City Kit Suburban, Commercial and Industrial: houses, shops, towers, workshops, factories and the coal plant.
 - **`.obj` models in skins:** skins can use `.obj` models, scaled to fit the footprint they replace, and shared art under `models/`.

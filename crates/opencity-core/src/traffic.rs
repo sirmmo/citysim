@@ -45,7 +45,10 @@ pub fn find_path(layer: &BuildingLayer, terrain: &Terrain, from: (u32, u32), to:
 pub struct Ways(u8);
 
 impl Ways {
-    pub const ALL: Ways = Ways(0xff);
+    /// Every kind of road. Rail is not a road: only vehicles that name it
+    /// (`ways = ["rail"]`) run on track.
+    pub const ALL: Ways = Ways(!(1 << RoadKind::Rail as u8));
+    pub const RAIL: Ways = Ways(1 << RoadKind::Rail as u8);
     pub const NONE: Ways = Ways(0);
 
     pub fn of(kinds: impl IntoIterator<Item = RoadKind>) -> Self {
@@ -74,7 +77,13 @@ pub fn find_route(
     ways: &Ways,
     top_speed: f32,
 ) -> Option<Vec<(u32, u32)>> {
-    let is_road = |w, l| layer.structure_at(w, l).is_some_and(|s| s.code == StructureCode::Road && ways.allows(s.road));
+    // Road vehicles also cross track at level crossings.
+    let crosses = (0..8).any(|k| k != RoadKind::Rail as u8 && ways.0 & (1 << k) != 0);
+    let is_road = |w, l| {
+        layer
+            .structure_at(w, l)
+            .is_some_and(|s| s.code == StructureCode::Road && (ways.allows(s.road) || (crosses && s.road.is_rail() && layer.is_level_crossing(w, l))))
+    };
     if !is_road(from.0, from.1) || !is_road(to.0, to.1) {
         return None;
     }
@@ -226,6 +235,11 @@ impl Vehicle {
             })
             .collect();
         Self { kind, top_speed: None, mesh: None, route, index: 0, progress: 0.0 }
+    }
+
+    /// Whether it runs on track (a train).
+    pub fn on_rail(&self) -> bool {
+        self.route.first().is_some_and(|w| w.road == RoadKind::Rail)
     }
 
     /// Advances the vehicle; returns false once it has arrived.

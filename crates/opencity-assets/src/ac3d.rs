@@ -340,7 +340,8 @@ kids 0
         let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../assets");
         let catalog = crate::Catalog::load(&dir).unwrap();
         for (gc, entry) in &catalog.models {
-            let m = load(&entry.model).unwrap_or_else(|e| panic!("{gc:?}: {e}"));
+            let fp = (entry.footprint.width, entry.footprint.length);
+            let m = crate::load_building_model(&entry.model, fp).unwrap_or_else(|e| panic!("{gc:?}: {e}"));
             assert!(m.triangle_count() > 0, "{gc:?} has no triangles");
             for mesh in &m.meshes {
                 if let Some(t) = &mesh.texture {

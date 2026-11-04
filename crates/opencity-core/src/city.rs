@@ -411,6 +411,7 @@ impl City {
         if let Some(start) = sim::traffic_step(&mut self.layer, &self.terrain, &mut self.rng) {
             self.spawn_vehicle(start);
         }
+        self.spawn_trains();
         self.values = sim::refresh_values(&self.layer);
     }
 
@@ -432,7 +433,9 @@ impl City {
             // The rules say which vehicles carry the resource and on which
             // ways; networks without vehicles get the classic cars.
             let (kind, ways, top, cost, mesh) = match gb.rules().map(|r| r.vehicles_for(t.resource)) {
-                Some(fit) if !fit.is_empty() => {
+                // Trains run on their own (see `spawn_trains`).
+                Some(fit) if fit.iter().any(|v| !v.ways().allows(crate::RoadKind::Rail)) => {
+                    let fit: Vec<_> = fit.into_iter().filter(|v| !v.ways().allows(crate::RoadKind::Rail)).collect();
                     let total: f32 = fit.iter().map(|v| v.share).sum();
                     let mut x = self.rng.gen_range(0.0..total.max(1e-6));
                     let v = fit.iter().find(|v| {
@@ -459,6 +462,9 @@ impl City {
             }
         }
         self.values = gb.values(&self.layer);
+        self.glassbox = Some(gb);
+        self.spawn_trains();
+        let gb = self.glassbox.take().unwrap();
         if let Some(pop) = gb.rules().and_then(|r| r.population.as_deref().and_then(|p| r.resource(p))) {
             self.population = gb.local_total(pop) as u32;
         }
@@ -469,7 +475,8 @@ impl City {
     fn nearest_road(&self, p: (u32, u32)) -> Option<(u32, u32)> {
         for r in 1..=3 {
             let (w1, l1, w2, l2) = self.terrain.around(p.0, p.1, r);
-            if let Some(t) = (Rect { w1, l1, w2, l2 }).tiles().find(|&(w, l)| self.layer.code_at(w, l) == Some(StructureCode::Road)) {
+            let road = |w, l| self.layer.structure_at(w, l).is_some_and(|s| s.code == StructureCode::Road && !s.road.is_rail());
+            if let Some(t) = (Rect { w1, l1, w2, l2 }).tiles().find(|&(w, l)| road(w, l)) {
                 return Some(t);
             }
         }
@@ -486,6 +493,31 @@ impl City {
     /// Mutable access to the layer, terrain and RNG at once (for importers).
     pub fn parts_mut(&mut self) -> (&mut BuildingLayer, &mut Terrain, &Footprints, &mut Pcg32) {
         (&mut self.layer, &mut self.terrain, &self.footprints, &mut self.rng)
+    }
+
+    /// Trains between stations on one line: about one per station on the
+    /// track at a time, drawn with the rules' rail vehicle (or a diesel).
+    fn spawn_trains(&mut self) {
+        let trains = self.vehicles.iter().filter(|v| v.top_speed.is_none() && v.on_rail()).count();
+        let rail = crate::rail::Railways::find(&self.layer, &self.terrain, &self.footprints);
+        let pairs = rail.connections();
+        if pairs.is_empty() || trains >= rail.stations.len() || self.vehicles.len() >= MAX_VEHICLES || self.rng.gen_range(0..8) != 0 {
+            return;
+        }
+        let (a, b) = pairs[self.rng.gen_range(0..pairs.len())];
+        let (from, to) = (rail.stations[a].platform, rail.stations[b].platform);
+        let meshes: Vec<String> = self
+            .rules()
+            .map(|r| r.networks.iter().flat_map(|n| &n.vehicles).filter(|v| v.ways().allows(crate::RoadKind::Rail)).flat_map(|v| v.meshes.clone()).collect())
+            .unwrap_or_default();
+        let mesh = if meshes.is_empty() { "kenney/train-kit/train-diesel-a".to_string() } else { meshes[self.rng.gen_range(0..meshes.len())].clone() };
+        if let Some(path) = find_route(&self.layer, &self.terrain, from, to, crate::traffic::PathCost::Distance, &Ways::RAIL, f32::INFINITY) {
+            if path.len() > 1 {
+                let mut v = Vehicle::new(VehicleKind::Car, &path, &self.layer, &self.terrain);
+                v.mesh = Some(mesh);
+                self.vehicles.push(v);
+            }
+        }
     }
 
     fn spawn_vehicle(&mut self, start: (u32, u32)) {

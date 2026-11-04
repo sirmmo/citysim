@@ -541,6 +541,13 @@ impl Renderer {
             .to_radians();
             let m = Mat4::from_translation(vec3(p.x, p.y + 0.02, p.z)) * Mat4::from_rotation_y(angle) * Mat4::from_translation(vec3(-0.5, 0.0, -0.5));
             if let Some(meshes) = v.mesh.as_deref().and_then(|name| self.obj_mesh(name)) {
+                // Trains run down the middle of the track, and a locomotive
+                // is longer than a car.
+                let m = if v.on_rail() {
+                    m * Mat4::from_translation(vec3(0.5, 0.0, 0.5)) * Mat4::from_scale(Vec3::splat(1.8)) * Mat4::from_translation(vec3(-0.3, 0.0, -0.5))
+                } else {
+                    m
+                };
                 let gl = unsafe { get_internal_gl() }.quad_gl;
                 gl.push_model_matrix(m);
                 for mesh in meshes {

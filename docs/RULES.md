@@ -223,6 +223,39 @@ Inspecting a road lists the vehicles allowed on it. Skins that set
 `vehicles = false` hide cars and trucks only. People on foot and carts are
 always drawn.
 
+### Railways
+
+Track is a kind of road (`rail`) that only trains use. A **station** is a
+block building; a track tile beside it is its platform.
+
+- **Linked places:** places within 8 tiles of a station on a line can trade
+  with places near any other station on that line. That holds even when no
+  street joins them. The trip costs the walk to and from the stations, 3
+  tiles' worth of boarding, and the ride at speed 4.
+- **Which resources ride:** those the road network lists a rail vehicle for
+  (`ways = ["rail"]`). If the network lists no vehicles at all, every resource rides.
+- **Cars never drive on track.** Road vehicles cross it at **level
+  crossings**: a track tile with road on two opposite sides. Road tools leave
+  track alone; laying track over a street makes a crossing.
+- **Trains** run between stations on the same line, drawn with the rail
+  vehicle's `meshes`.
+- **Rules:** the modern rules have a `station` unit (workers, power, upkeep)
+  and a **Railways** research project that unlocks the `rail` and `station`
+  tools. The pre-industrial rules and the older skins disable both.
+- **GeoJSON import:** `railway=rail` becomes track and `railway=station`
+  becomes a station.
+
+```toml
+[[network.vehicle]]
+id = "train"
+name = "Train"
+model = "car"
+ways = ["rail"]
+carries = ["workers", "shoppers", "goods"]
+share = 0                          # trains do not take road trips
+meshes = ["kenney/train-kit/train-diesel-a", "kenney/train-kit/train-electric-city-a"]
+```
+
 ### Ideas and research
 
 Pooled resources build networks that are not on the map. The shipped

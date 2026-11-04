@@ -23,6 +23,8 @@ pub enum Build {
     Police,
     Hospital,
     School,
+    Rail,
+    Station,
     Ignore,
 }
 
@@ -44,6 +46,8 @@ impl Build {
             "police" => Police,
             "hospital" => Hospital,
             "school" => School,
+            "rail" => Rail,
+            "station" => Station,
             "ignore" => Ignore,
             _ => return None,
         })
@@ -66,6 +70,8 @@ impl Build {
             Police => "police",
             Hospital => "hospital",
             School => "school",
+            Rail => "rail",
+            Station => "station",
             Ignore => "ignore",
         }
     }

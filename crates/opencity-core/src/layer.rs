@@ -532,7 +532,10 @@ impl BuildingLayer {
         let mut cost = 0;
         for (w, l) in route {
             if self.tile(w, l).is_some() {
-                if let Some(s) = self.structure_mut(w, l).filter(|s| road && s.road != kind) {
+                // Roads leave track alone (it becomes a level crossing);
+                // track replaces the road it crosses.
+                let keep = |s: &Structure| s.road.is_rail() && !kind.is_rail();
+                if let Some(s) = self.structure_mut(w, l).filter(|s| road && s.road != kind && !keep(s)) {
                     s.road = kind;
                     s.traffic = 0;
                     cost += tile_cost;
@@ -554,6 +557,20 @@ impl BuildingLayer {
             }
         }
         Ok(cost)
+    }
+
+    /// Whether `(w, l)` is track with road on two opposite sides: road
+    /// traffic crosses it.
+    pub fn is_level_crossing(&self, w: u32, l: u32) -> bool {
+        let rail = |w: i64, l: i64| -> Option<bool> {
+            if w < 0 || l < 0 {
+                return None;
+            }
+            self.structure_at(w as u32, l as u32).filter(|s| s.code == StructureCode::Road).map(|s| s.road.is_rail())
+        };
+        let (x, y) = (w as i64, l as i64);
+        rail(x, y) == Some(true)
+            && ((rail(x, y - 1) == Some(false) && rail(x, y + 1) == Some(false)) || (rail(x - 1, y) == Some(false) && rail(x + 1, y) == Some(false)))
     }
 
     fn connect(&mut self, w: u32, l: u32, dir: Direction, on: bool) {

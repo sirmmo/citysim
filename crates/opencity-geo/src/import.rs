@@ -312,9 +312,10 @@ fn priority(b: Build) -> u8 {
     match b {
         Water => 0,
         Road => 1,
+        Rail => 1,
         PowerLine => 2,
         CoalPlant | NuclearPlant => 3,
-        FireStation | Police | Hospital | School => 4,
+        FireStation | Police | Hospital | School | Station => 4,
         Residential | Commercial | Industrial => 5,
         Park => 6,
         Trees => 7,
@@ -338,6 +339,8 @@ fn code_of(b: Build) -> Option<StructureCode> {
         Police => StructureCode::PoliceDept,
         Hospital => StructureCode::Hospital,
         School => StructureCode::School,
+        Rail => StructureCode::Road,
+        Station => StructureCode::Station,
         Water | Ignore => return None,
     })
 }
@@ -373,7 +376,12 @@ fn place(city: &mut City, c: &Classified, tiles: &[(u32, u32)], rules: &Rules) -
         .or_else(|| rules.first(props, &rules.levels).and_then(parse_number).map(|floors| ((floors.max(1.0) - 1.0) * 10.0 + 5.0) as u32));
     let (mut ok, mut ko) = (0, 0);
     for &(w, l) in tiles {
-        match layer.build(Rect::tile(w, l), code, terrain, footprints, rng) {
+        let built = if c.build == Build::Rail {
+            layer.build_road(Rect::tile(w, l), opencity_core::RoadKind::Rail, terrain)
+        } else {
+            layer.build(Rect::tile(w, l), code, terrain, footprints, rng)
+        };
+        match built {
             Ok(_) => {
                 ok += 1;
                 if let (Some(level), true) = (level, code.is_zone()) {
