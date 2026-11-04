@@ -79,6 +79,19 @@ p code, li code { background: var(--bg2); padding: 1px 6px; border-radius: 6px; 
 .dl strong { display: block; font-size: 17px; }
 .dl span { color: var(--muted); font-size: 14px; }
 
+.row { margin-top: 44px; }
+.row:first-of-type { margin-top: 0; }
+.row h3 { font-size: 22px; margin: 0 0 8px; letter-spacing: -0.01em; }
+.row p { color: var(--muted); margin: 0 0 14px; }
+.split.flip > :first-child { order: 2; }
+@media (max-width: 860px) { .split.flip > :first-child { order: 0; } }
+.codegrid { display: grid; gap: 18px; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
+.codegrid h3 { font-size: 16px; margin: 0 0 8px; }
+.codegrid pre { font-size: 13px; }
+.news { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }
+.news li { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px 16px; }
+.news b { color: var(--accent); margin-right: 8px; font-variant-numeric: tabular-nums; }
+
 footer { padding: 40px 0 60px; border-top: 1px solid var(--line); color: var(--muted); font-size: 14.5px; }
 footer .wrap { display: flex; flex-wrap: wrap; gap: 14px 32px; justify-content: space-between; }
 </style>
@@ -90,8 +103,11 @@ footer .wrap { display: flex; flex-wrap: wrap; gap: 14px 32px; justify-content: 
     <nav>
       <a class="opt" href="#features">Features</a>
       <a class="opt" href="#glassbox">GlassBox</a>
+      <a class="opt" href="#play">Play</a>
+      <a class="opt" href="#modding">Modding</a>
       <a class="opt" href="#maps">Maps</a>
       <a class="opt" href="#skins">Skins</a>
+      <a class="opt" href="#news">What's new</a>
       <a href="#download">Download</a>
       <a href="https://github.com/sirmmo/citysim">GitHub</a>
     </nav>
@@ -169,18 +185,7 @@ footer .wrap { display: flex; flex-wrap: wrap; gap: 14px 32px; justify-content: 
             in the past, each with its own speed, capacity and width.</li>
           <li><strong>Pre-industrial towns</strong>: huts, insulae, taverns, caravanserais, granaries and wells;
             people walk and carts carry trade.</li>
-          <li><strong>Vehicles by the rules</strong>: each network lists its vehicles, the roads each may use,
-            its top speed and what it carries. No cars in the Middle Ages, and no carts on the highway.</li>
-          <li><strong>Ideas and research</strong>: people meeting in cafés and taverns have ideas, schools turn
-            them into research points, and research unlocks highways, high-rises, cobbled streets and more.</li>
-          <li><strong>Taxes and policies</strong>: set a rate per tax and a stance per policy, from car city
-            to walkable centres, festivals to long hours, with their trade-offs.</li>
-          <li><strong>Kenney vehicles</strong>: sedans, SUVs, vans, taxis and delivery trucks from the CC0 Kenney
-            car kit; the train and watercraft kits ship too, for rail and water to come.</li>
-          <li><strong>Buildings that face the street</strong>: schools, fire stations, police stations and
-            hospitals turn to the road beside them, and can be turned by hand.</li>
-          <li><strong>Tech trees</strong>: projects in their own files, with branches, tiers, production bonuses
-            and choices for good, such as a free market or a guild charter.</li>
+          <li><strong>Run the city</strong>: research, tech trees, taxes, policies and vehicles, <a href="#play">below</a>.</li>
         </ul>
       </div>
     </div>
@@ -208,6 +213,140 @@ end</code></pre>
       Approach to Digital Twins through GlassBox Adaptation</em></a> (University of Bologna).
       Details in <a href="https://github.com/sirmmo/citysim/blob/main/docs/GLASSBOX.md">GLASSBOX.md</a> and
       <a href="https://github.com/sirmmo/citysim/blob/main/docs/RULES.md">RULES.md</a>.</p>
+  </div>
+</section>
+
+<section id="play">
+  <div class="wrap">
+    <h2>Run the city, not just the zoning</h2>
+    <p class="sub">Under GlassBox rules a town has more to decide than where to draw zones: what to research,
+      how much to tax, which policies to follow and what its streets carry.</p>
+
+    <div class="row split">
+      <figure class="shot">
+        <img src="img/research.webp" alt="The research window of a medieval town, with branches, tiers and rival charters" width="1280" height="800" loading="lazy">
+        <figcaption>A medieval town's tech tree: streets, farming, and the choice between a free market and a guild charter.</figcaption>
+      </figure>
+      <div>
+        <div class="tag">Research</div>
+        <h3>Ideas become technology</h3>
+        <p>People meeting in cafés and taverns have ideas. Schools and academies turn them into research
+          points, and research projects unlock buildings and tools: highways, high-rises and nuclear power
+          today, cobbled streets, insulae and banking in the past.</p>
+        <ul class="ticks">
+          <li><strong>Tech trees in their own files</strong>, with branches, tiers and a prerequisite graph,
+            modelled on the tree of a Stronghold-like experiment.</li>
+          <li><strong>Choices for good</strong>: a service economy or industrial policy; a free market
+            or a guild charter. Finishing one rules out the other.</li>
+          <li><strong>Bonuses</strong>: crop rotation feeds more, printing spreads ideas, computing speeds research.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="row split flip">
+      <figure class="shot">
+        <img src="img/policies.webp" alt="The policy window with tax sliders and policy stances" width="1280" height="800" loading="lazy">
+        <figcaption>Hearth tax, market tolls and guild dues; labour, provision and gate policies.</figcaption>
+      </figure>
+      <div>
+        <div class="tag">Taxes and policies</div>
+        <h3>Every rate is a trade-off</h3>
+        <p>Set a rate for each tax. Raise it and the city earns more, but fewer people want to settle in
+          the zones that pay, and those already there are less happy. Choose a stance for each policy,
+          each with its costs and gains.</p>
+        <ul class="ticks">
+          <li><strong>Modern</strong>: property, sales and business taxes; car city or walkable centres,
+            efficiency drive or atomic age, free schooling, open city or strict zoning.</li>
+          <li><strong>Pre-industrial</strong>: festivals or long hours, feasts or thrift, open gates or a town watch.</li>
+          <li><strong>Gated by research</strong>: atomic age waits for fission, festivals for the free market.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="row split">
+      <figure class="shot">
+        <img src="img/vehicles.webp" alt="Kenney cars and a delivery van on a modern street, with the road inspector open" width="1280" height="800" loading="lazy">
+        <figcaption>Sedans, SUVs, vans and delivery trucks from the CC0 Kenney car kit.</figcaption>
+      </figure>
+      <div>
+        <div class="tag">Streets</div>
+        <h3>What moves, and what faces the street</h3>
+        <p>Each road network lists its vehicles: what they look like, which roads they may use, how fast
+          they go and what they carry. Modern towns get cars, taxis and trucks; towns of the past get
+          people on foot, handcarts and horse carts.</p>
+        <ul class="ticks">
+          <li><strong>Kenney kits</strong>: car, train and watercraft models (CC0) ship with the game, ready
+            for rail and water networks.</li>
+          <li><strong>Buildings that face the street</strong>: schools, fire stations, police and hospitals
+            turn to the road beside them, and turn by hand with <kbd>O</kbd>.</li>
+          <li><strong>Four kinds of road</strong>: street, highway, paved street and dirt road, each with
+            its own speed, capacity and width.</li>
+        </ul>
+      </div>
+    </div>
+    <figure class="shot" style="max-width:720px;margin:36px auto 0">
+      <img src="img/facing.webp" alt="A school, a fire station, a police station and a hospital each facing the street beside them" width="1280" height="800" loading="lazy">
+      <figcaption>Services placed around a crossroads, each turned towards its street.</figcaption>
+    </figure>
+  </div>
+</section>
+
+<section id="modding">
+  <div class="wrap">
+    <h2>Make your own rules</h2>
+    <p class="sub">Rules, tech trees and policies are plain TOML files kept apart from each other: copy a
+      rules set, swap its tech tree, share policies between eras, or write a world of your own. Files are
+      checked on load, and errors name the faulty reference.</p>
+    <div class="codegrid">
+      <div><h3>A research project</h3>
+<pre><code># assets/techs/modern.toml
+[[tech]]
+id = "industrial_policy"
+name = "Industrial policy"
+category = "Economy"
+tier = 2
+cost = { research = 1500 }
+bonus = { goods = 0.2, fuel = 0.1 }
+excludes = ["service_economy"]</code></pre></div>
+      <div><h3>A tax and a policy</h3>
+<pre><code># assets/policies/modern.toml
+[[tax]]
+id = "property"
+name = "Property tax"
+resource = "taxes"
+zones = ["residential"]
+rate = 9
+range = [0, 20]
+demand = -0.4
+
+[[policy]]
+id = "energy"
+name = "Energy"
+[[policy.stance]]
+id = "balanced"
+name = "Balanced"
+[[policy.stance]]
+id = "atomic_age"
+name = "Atomic age"
+requires = "fission"
+bonus = { power = 0.3 }</code></pre></div>
+      <div><h3>A vehicle</h3>
+<pre><code># assets/rules/glassbox.toml
+tech_tree = "modern"
+policy_set = "modern"
+
+[[network.vehicle]]
+id = "truck"
+name = "Delivery truck"
+model = "pickup"
+carries = ["goods", "fuel"]
+direct = true
+meshes = ["kenney/car-kit/delivery",
+          "kenney/car-kit/truck"]</code></pre></div>
+    </div>
+    <p style="margin-top:22px">The full reference is in
+      <a href="https://github.com/sirmmo/citysim/blob/main/docs/RULES.md">RULES.md</a>; the rule
+      language in <a href="https://github.com/sirmmo/citysim/blob/main/docs/GLASSBOX.md">GLASSBOX.md</a>.</p>
   </div>
 </section>
 
@@ -253,6 +392,26 @@ end</code></pre>
   </div>
 </section>
 
+<section id="news">
+  <div class="wrap">
+    <h2>What's new</h2>
+    <p class="sub">A release after each finished feature. Full notes are on the
+      <a href="https://github.com/sirmmo/citysim/releases">releases page</a> and in the
+      <a href="https://github.com/sirmmo/citysim/blob/main/CHANGELOG.md">changelog</a>.</p>
+    <ul class="news">
+      <li><b>0.2.13</b>Taxes and policies: rates with trade-offs, policy stances, the Policies window.</li>
+      <li><b>0.2.12</b>Kenney vehicles: an OBJ loader, and cars, taxis and trucks from the CC0 car kit.</li>
+      <li><b>0.2.11</b>Plants and services face the street, and turn by hand.</li>
+      <li><b>0.2.10</b>Tech trees in their own files: branches, tiers, rival choices and bonuses.</li>
+      <li><b>0.2.9</b>Ideas and research: pooled resources, research projects and the Research window.</li>
+      <li><b>0.2.8</b>Vehicles by the rules: walkers and carts before 1800, no carts on highways.</li>
+      <li><b>0.2.7</b>Roads of every age, and the pre-industrial rules.</li>
+      <li><b>0.2.6</b>The resource network on the map, and resource kinds (petrol and electric cars).</li>
+      <li><b>0.2.4</b>Steady growth and GlassBox graphs.</li>
+    </ul>
+  </div>
+</section>
+
 <section id="download">
   <div class="wrap">
     <h2>Download</h2>
@@ -294,13 +453,15 @@ cargo run --release -p opencity -- --geojson data/ohm-bologna-center.json --date
     </div>
     <div class="grid" style="grid-template-columns: 1fr;">
       <div class="card"><div class="tag">Docs</div>
-        <p><a href="https://github.com/sirmmo/citysim/blob/main/README.md">README</a> ·
-          <a href="https://github.com/sirmmo/citysim/blob/main/docs/GEOJSON.md">GeoJSON import</a> ·
+        <p><a href="https://github.com/sirmmo/citysim/blob/main/docs/PLAYING.md">Player guide</a> ·
+          <a href="https://github.com/sirmmo/citysim/blob/main/docs/RULES.md">Rules, tech trees and policies</a> ·
+          <a href="https://github.com/sirmmo/citysim/blob/main/docs/GLASSBOX.md">GlassBox language</a> ·
           <a href="https://github.com/sirmmo/citysim/blob/main/docs/SKINS.md">Skins</a> ·
-          <a href="https://github.com/sirmmo/citysim/blob/main/docs/GLASSBOX.md">GlassBox rules</a> ·
-          <a href="https://github.com/sirmmo/citysim/blob/main/docs/settings.example.toml">Settings</a></p></div>
+          <a href="https://github.com/sirmmo/citysim/blob/main/docs/GEOJSON.md">GeoJSON import</a> ·
+          <a href="https://github.com/sirmmo/citysim/blob/main/docs/README.md">All docs</a> ·
+          <a href="https://github.com/sirmmo/citysim/blob/main/CHANGELOG.md">Changelog</a></p></div>
       <div class="card"><div class="tag">License</div>
-        <p>GPL-2.0-or-later, like OpenCity. 0 A.D. art is CC BY-SA 3.0 and is not part of the repository.</p></div>
+        <p>GPL-2.0-or-later, like OpenCity. Kenney models are CC0. 0 A.D. art is CC BY-SA 3.0 and is not part of the repository.</p></div>
     </div>
   </div>
 </section>

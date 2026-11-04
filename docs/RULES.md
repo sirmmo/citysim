@@ -414,19 +414,28 @@ id = "my_rules"
 name = "My rules"
 population = "residents"           # resource counted as population
 scripts = ["my_rules.gbx"]         # GlassBox rule scripts (optional)
+tech_tree = "my_tree"              # techs/my_tree.toml (optional)
+policy_set = "my_policies"         # policies/my_policies.toml (optional)
 
 [growth]                           # level_up, level_down, chance, max_new, road_access
 
 [[resource]]                       # id, name, transport, network, max_trip, colour, uses, trail
   [[resource.subtype]]             # id, name, share, max_trip, colour, uses, trail
 [[network]]                        # id, name, structures, through_buildings
-[[network.vehicle]]                # id, name, model, ways, speed, carries, share, direct
+[[network.vehicle]]                # id, name, model, ways, speed, carries, share, direct, meshes
 [[layer]]                          # id, name, diffusion, decay, colour, max
 [[zone]]                           # id, name, structure, densities, demand, base_demand
 [services]                         # tool id = unit id
 [[unit]]                           # id, name, description, graphic, produce, needs, sends, emits, requires, build_cost
 [[tech]]                           # id, name, description, category, tier, cost, requires, unlocks, bonus, excludes
+[[tax]]                            # id, name, description, resource, zones, rate, range, demand, satisfaction
+[[policy]]                         # id, name, description
+  [[policy.stance]]                # id, name, description, requires, bonus, demand, satisfaction, cost
 ```
+
+A tech tree file holds `name`, `description` and `[[tech]]` entries; a
+policy file holds `name`, `description`, `[[tax]]` and `[[policy]]`. Both
+merge with any inline entries of the rules file before it is validated.
 
 Top-level keys also include `description`, `years` (the ages the rules
 suit) and `disabled_tools` (tool ids hidden with these rules).

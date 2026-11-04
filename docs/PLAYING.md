@@ -1,0 +1,124 @@
+# Playing citysim
+
+A guide to building and running a city. For the file formats behind the
+game see [RULES.md](RULES.md); for the documentation index see
+[README.md](README.md).
+
+## Starting a city
+
+- **File > New city…** opens the new city dialog:
+  - **Map:** width, length, relief, water, shape, trees and seed (🎲 picks a random one).
+  - **Era:** Antiquity, Middle Ages, Renaissance, Industrial age or Modern, plus a culture for antiquity.
+  - **Rules:** **Classic** is OpenCity's original growth rules. **GlassBox** is the data-driven engine. Cities before 1800 default to the pre-industrial GlassBox rules.
+- **File > Import GeoJSON…** builds a city from OpenHistoryMap, OpenHistoricalMap or OpenFantasyMap data (see [GEOJSON.md](GEOJSON.md)).
+- **From the command line:** `--demo` starts a demo town and `--load FILE` opens a saved one.
+
+## Controls
+
+| Input | Action |
+|---|---|
+| Left drag | Use the selected tool. Zones and roads cover the dragged area. |
+| Right drag, Q / E, PageUp / PageDown | Rotate the view |
+| Middle drag, arrows, WASD | Pan (hold Shift or Alt to go faster) |
+| Wheel, + / −, Insert / Delete | Zoom |
+| Home / End | Tilt |
+| R, C, I | Residential, commercial, industrial zone |
+| P | The street of the age: asphalt, else paved, else dirt |
+| L, T | Power line, trees |
+| X | Bulldozer |
+| U, J | Raise, lower terrain |
+| / | Inspect a tile |
+| N | Drop the tool |
+| O | Turn the inspected plant or service a quarter |
+| G | GlassBox graphs |
+| V | Resource network on the map |
+| Space, F | Pause, fast forward |
+| Esc | Drop the tool, or open the menu (new, load, save, quit) |
+
+**On Android and other touch screens:**
+- With no tool selected, drag with one finger to pan.
+- Two fingers pan, pinch zooms and twist rotates.
+- The menu is the button under the speed control.
+
+## Building
+
+- **Zones** grow when they have a road nearby and power (in the modern rules), and are close to the other two zone types.
+  - Under GlassBox rules, pick a **density** (low, medium, high) before zoning. Denser zones cost more and grow bigger buildings.
+- **Roads** come in four kinds that connect to each other. Each era offers its own.
+
+  | Road | Cost | Speed | Capacity | Notes |
+  |---|---|---|---|---|
+  | Street | $5 | 1 | 1 | Modern asphalt |
+  | Highway | $25 | 2.5 | 3 | Buildings cannot open onto it |
+  | Paved street | $3 | 0.8 | 0.7 | Cobbles of older towns |
+  | Dirt road | $1 | 0.5 | 0.4 | Cheap, slow, narrow |
+
+  Dragging a road over another kind rebuilds it.
+- **Plants and services** (power plants, fire stations, police, hospitals, schools, wells…):
+  - **Placing:** a new one turns to face the street beside it, and the preview shows the footprint it will take.
+  - **Turning:** inspect it and press **⟳ Turn**, or **O**. Long buildings swap their footprint when turned.
+- **Locked tools** are greyed out until research unlocks them; their tooltip names the project.
+
+## The city panel
+
+The right-hand panel shows:
+- zone sizes and power;
+- demand for each zone (GlassBox), which comes from what the city lacks: jobs left open, shoppers and goods with nowhere to go;
+- what each resource delivered against what was wanted (orange when short), with taxes, upkeep and pools such as ideas;
+- metrics from the rule scripts and the last 20 years of population and funds.
+
+Click any building with the inspect tool (/) to see:
+- its zone, density and level, size and floors;
+- its satisfaction;
+- what it needs and makes, where its supplies come from and what it lacks;
+- the map layers on its tile.
+
+## Research
+
+Under GlassBox rules, ideas and research unlock buildings and tools:
+
+1. People meeting in cafés, shops and malls (taverns, inns and market squares before 1800) have **ideas**, which go into a city-wide pool.
+2. Schools (academies) turn ideas into **research points**.
+3. In the **🔬 Research** window, pick a project. It draws on the pools each tick until it is paid for.
+
+The window groups projects by branch and sorts them by tier, and shows for each one:
+- ✔ done, ▶ in progress, ○ available, 🔒 waiting for another project, ✖ ruled out;
+- its cost, what it unlocks and its production bonuses.
+
+Some projects are **rivals**: finishing one rules out the others for good.
+- Modern: a **service economy** or **industrial policy**.
+- Before 1800: a **free market** (market squares) or a **guild charter** (craft halls).
+
+Without the window (classic interface, Android), the city researches projects in order by itself. Demo towns start with everything researched.
+
+## Taxes and policies
+
+The **📜 Policies** window sets:
+- **Tax rates.** Each tax has a default rate and a range.
+  - Above the default, the zones paying it bring in more, but they want to grow less and their buildings are less satisfied.
+  - Below the default, they grow faster for less income.
+  - The window shows the effect on income, demand and satisfaction.
+- **A stance for each policy.** Every policy has a default stance and alternatives with trade-offs: production bonuses, more or less demand, happier or unhappier people, and a running cost or income.
+  - Some stances wait for research. Atomic age needs fission, Festivals the free market, Long hours the guild charter.
+
+| Rules | Taxes | Policies |
+|---|---|---|
+| Modern | Property, sales, business (9 %) | Transport, Energy, Education, Growth |
+| Pre-industrial | Hearth tax, market tolls, guild dues | Labour, Provision, Gates |
+
+## Seeing the city
+
+- **View > Data layer:** pollution, land value, air quality, noise, water, and fire, police, health and education coverage, drawn over the map.
+- **🔀 Network (V):** arcs from each sender to each receiver, coloured by resource. You can:
+  - filter by resource and hide small flows;
+  - list the busiest links and the biggest shortages;
+  - click a building to see only its flows.
+- **📈 Graphs (G):** every series the engine samples (demand, flows, satisfaction, layers, metrics, funds, growth). Zoom, smooth, normalise, compare and export CSV.
+- **Vehicles:** cars, taxis and trucks in modern towns (Kenney car kit); people, handcarts and horse carts before 1800. What travels where follows the rules: no cars in the Middle Ages, no carts on the highway.
+- **View > Skin:** re-dresses the city for an era or a world (see [SKINS.md](SKINS.md)).
+
+## Saving and sharing
+
+- **Saving:** **File > Save** writes a `.ocsave.json`. Saves keep the rules, research, tax rates, stances, building facings and vehicles.
+- **Exporting:** **File > Export GeoJSON…** writes the city back in the coordinates it was imported from.
+- **Headless:** `opencity-cli` creates, simulates, renders, imports and exports cities without a window. `opencity-cli simulate --metrics out.csv` exports every series.

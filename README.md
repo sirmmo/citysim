@@ -6,7 +6,9 @@ simulation written in C++/SDL/OpenGL by Duong Khang NGUYEN, Frédéric RODRIGO
 and contributors (2003-2015). It started as a port of OpenCity's SVN trunk
 (revision 480); see [NOTICE.md](NOTICE.md) for origins and credits.
 
-**Website:** http://ingmmo.com/citysim/
+**Website:** http://ingmmo.com/citysim/ · **Docs:** [docs/README.md](docs/README.md)
+(start with the [player guide](docs/PLAYING.md)) · **Changes:** [CHANGELOG.md](CHANGELOG.md)
+
 Build residential, commercial and industrial zones, connect them with roads
 and power, and watch them grow. The port keeps the original models, textures,
 sounds and gameplay rules, and adds GeoJSON import so cities can be rebuilt
