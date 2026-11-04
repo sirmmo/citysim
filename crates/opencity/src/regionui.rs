@@ -9,7 +9,14 @@ use crate::ui_egui::Command;
 
 pub fn window(ctx: &egui::Context, open: &mut bool, r: &RegionSession, city: &City, out: &mut Vec<Command>) {
     egui::Window::new(format!("Region: {}", r.region.name)).open(open).default_width(420.0).default_pos([220.0, 90.0]).resizable(true).show(ctx, |ui| {
-        ui.label(RichText::new("Click a city to play it (the open one is saved), or found a new one. Neighbours trade through roads, track or power lines that reach their shared edge.").small());
+        match &r.remote {
+            Some(net) => {
+                ui.label(RichText::new(format!("Online at {} as {}. Other towns are other players'; trade and ideas cross the borders monthly.", net.url, net.player)).small());
+            }
+            None => {
+                ui.label(RichText::new("Click a city to play it (the open one is saved), or found a new one. Neighbours trade through roads, track or power lines that reach their shared edge; ideas spread across the region.").small());
+            }
+        }
         ui.add_space(4.0);
         egui::Grid::new("region_grid").spacing([6.0, 6.0]).show(ui, |ui| {
             for y in 0..r.region.size[1] {
@@ -19,7 +26,10 @@ pub fn window(ctx: &egui::Context, open: &mut bool, r: &RegionSession, city: &Ci
                     let text = match r.region.city(slot) {
                         Some(c) => {
                             let pop = if current { city.population } else { c.population };
-                            format!("{}\n{} people", c.name, pop)
+                            match &c.player {
+                                Some(p) => format!("{}\n{} people\n👤 {p}", c.name, pop),
+                                None => format!("{}\n{} people", c.name, pop),
+                            }
                         }
                         None => "+ Found\na city".to_string(),
                     };
@@ -27,7 +37,9 @@ pub fn window(ctx: &egui::Context, open: &mut bool, r: &RegionSession, city: &Ci
                     if current {
                         b = b.fill(Color32::from_rgb(70, 110, 70));
                     }
-                    if ui.add(b).clicked() && !current {
+                    // Online, a player plays only the town they claimed.
+                    let taken = r.other_player(slot).is_some() || (r.remote.is_some() && r.slot != Some(slot));
+                    if ui.add_enabled(!taken, b).clicked() && !current {
                         out.push(Command::RegionCity(slot));
                     }
                 }

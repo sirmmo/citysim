@@ -164,6 +164,10 @@ pub struct GlassBox {
     pub imports: Vec<f32>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub exports: Vec<f32>,
+    /// Culture flowing in from the rest of the region, per tick and
+    /// resource (shared pools).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub culture_in: Vec<f32>,
     /// Money this month by budget line ("Taxes: Property tax", "Upkeep:
     /// School"…): income positive, spending negative.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
@@ -241,6 +245,7 @@ impl GlassBox {
             deficit: Vec::new(),
             imports: Vec::new(),
             exports: Vec::new(),
+            culture_in: Vec::new(),
             tax_rates: BTreeMap::new(),
             disasters_off: false,
             ledger: BTreeMap::new(),
@@ -719,6 +724,12 @@ impl GlassBox {
 
         for (line, v) in income {
             self.book(&line, v);
+        }
+        // Culture from the rest of the region joins the shared pools.
+        for (k, v) in self.culture_in.iter().enumerate() {
+            if k < self.pools.len() && *v > 0.0 {
+                self.pools[k] += v;
+            }
         }
 
         // 2. Grids. Kinds serve needs for that kind first; what is left fills

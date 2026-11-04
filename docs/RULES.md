@@ -251,6 +251,20 @@ near_water = false                   # only on low ground near water (floods)
 - **Shipped:** the modern rules have fire, flood and epidemic. Before 1800
   there are great fires (wider and more frequent), floods and plague.
 
+### Shared pools (culture)
+
+```toml
+[[resource]]
+id = "ideas"
+transport = "pool"
+shared = true                        # spreads across a region
+```
+
+A shared pool's production is part of each town's region summary. Each month a
+town takes in, per tick, a tenth of what the other towns of its region make of
+it. This applies in regions played alone and on a region server
+([PLAYING.md](PLAYING.md#playing-a-region-with-others)).
+
 ### Waterways and harbours
 
 Water works like rail: a **line** is one connected body of water (a lake, a

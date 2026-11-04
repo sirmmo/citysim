@@ -161,6 +161,35 @@ across their borders.
 - **Waiting towns:** neighbours keep the summary they had when you last left
   them, until you play them again.
 
+### Playing a region with others
+
+One player hosts a region server; each player plays one town of it in their
+own game.
+
+```sh
+# the host (any machine the players can reach)
+opencity-cli region-server --dir my-region --listen 0.0.0.0:8077 --name Emilia --across 3 --down 3
+```
+
+- **Joining:** each player picks **File > Join region server…** and enters
+  the server's address, a name and a free slot. You can also start the game
+  with `--join http://host:8077 --player ada --slot 1,0`.
+- **Your town** saves on your own machine. Each month your game fetches the
+  other towns' summaries, agrees trade with the neighbours, takes in their
+  ideas, and sends your town's summary back.
+- **The Region window** shows who plays which town. Online you play only
+  the town you claimed.
+- **No security:** the server keeps `region.json` and the players' tokens in
+  its folder. It has no passwords or encryption, so play with people you trust,
+  on a network you trust.
+
+### Shared culture
+
+Pooled resources marked `shared` spread across the region. **Ideas** do in
+both rule sets: every month each town takes in a tenth of the ideas the other
+towns of the region make, so a town of thinkers helps its neighbours'
+research. This happens in regions played alone and online.
+
 ## Research
 
 Under GlassBox rules, ideas and research unlock buildings and tools:

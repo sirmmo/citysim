@@ -75,6 +75,14 @@ The assistant calls these tools in turn: `new_city` (`flat`, `rules: "glassbox"`
 `apply_tool` calls, `simulate` (`years: 2`), `city_summary`, `policies`, `simulate` again,
 and `city_summary`. The summaries show what changed.
 
+## Region server
+
+`opencity-cli region-server` is a separate service. It is not part of MCP:
+it hosts a region whose towns are played by different people. See
+[PLAYING.md](PLAYING.md#playing-a-region-with-others). Its HTTP routes are
+`GET /region`, `POST /claim {slot, player}` (which returns a token) and
+`PUT /city {token, summary}`.
+
 ## Protocol
 
 - **Transport:** newline-delimited JSON-RPC 2.0 over stdio. Logs go to stderr only.

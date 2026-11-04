@@ -77,6 +77,10 @@ pub struct ResourceDef {
     /// (0: not traded).
     #[serde(default, skip_serializing_if = "is_zero_f32")]
     pub price: f32,
+    /// A pooled resource shared across a region as culture: each city takes
+    /// in a share of what the others make (ideas spreading from town to town).
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub shared: bool,
 }
 
 fn is_zero_f32(v: &f32) -> bool {
@@ -133,6 +137,7 @@ fn flatten_resources<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Vec<Resou
                 uses: k.uses.clone(),
                 trail: k.trail.clone(),
                 price: r.price,
+                shared: false,
             })
             .collect();
         out.push(r);

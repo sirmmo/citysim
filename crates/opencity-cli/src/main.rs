@@ -1,6 +1,7 @@
 //! Headless OpenCity.
 
 mod mcp;
+mod region_server;
 
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
@@ -99,6 +100,27 @@ enum Command {
         /// City to open at start (a new one can be made with the new_city tool).
         #[arg(long)]
         load: Option<PathBuf>,
+    },
+    /// Host a region for several players: each claims a town and plays it
+    /// in their own game (File > Join region server…), which sends its
+    /// summary every month; neighbours trade and share culture.
+    RegionServer {
+        /// Folder holding region.json (created if missing).
+        #[arg(long)]
+        dir: PathBuf,
+        #[arg(long, default_value = "0.0.0.0:8077")]
+        listen: String,
+        /// For a new region: its name, slots across and down, tiles per map, rules.
+        #[arg(long, default_value = "Region")]
+        name: String,
+        #[arg(long, default_value_t = 3)]
+        across: u32,
+        #[arg(long, default_value_t = 3)]
+        down: u32,
+        #[arg(long, default_value_t = 64)]
+        map_size: u32,
+        #[arg(long, default_value = "glassbox")]
+        game_rules: String,
     },
     /// Render a top-down PNG of a city (or of a freshly generated map).
     Render {
@@ -356,6 +378,15 @@ fn main() -> Result<()> {
             }
             println!("downloaded {} MB; 0 A.D. art installed in {}", report.downloaded_bytes >> 20, dir.join("skins").display());
             println!("Start citysim and pick an ancient culture in File > New city. The art is CC BY-SA 3.0 (0 A.D., Wildfire Games).");
+        }
+        Command::RegionServer { dir, listen, name, across, down, map_size, game_rules } => {
+            let state = region_server::open(dir, || {
+                let seed = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(1, |d| d.as_secs());
+                opencity_core::region::Region::new(name, [*across, *down], *map_size, seed, Some(game_rules.clone()))
+            })?;
+            let listener = std::net::TcpListener::bind(listen).with_context(|| format!("listening on {listen}"))?;
+            println!("region server on http://{} (folder {})", listener.local_addr()?, dir.display());
+            region_server::serve(listener, state)?;
         }
         Command::Mcp { load } => {
             let city = match load {

@@ -121,6 +121,8 @@ transport = "local"
 id = "ideas"
 name = "Ideas"
 transport = "pool"
+# Culture: ideas spread between the towns of a region.
+shared = true
 
 [[resource]]
 id = "research"

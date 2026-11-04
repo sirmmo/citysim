@@ -53,7 +53,16 @@ pub struct RegionCity {
     pub surplus: BTreeMap<String, f32>,
     #[serde(default)]
     pub deficit: BTreeMap<String, f32>,
+    /// What it makes of each shared pool per tick (its culture).
+    #[serde(default)]
+    pub culture: BTreeMap<String, f32>,
+    /// The player who plays it (region servers).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub player: Option<String>,
 }
+
+/// Share of the rest of the region's culture each city takes in.
+pub const CULTURE_SHARE: f32 = 0.1;
 
 /// One month's trade of the open city with one neighbour.
 #[derive(Clone, Debug, PartialEq)]
@@ -128,11 +137,27 @@ impl Region {
                 entry.surplus.insert(r.id.clone(), gb.surplus.get(i).copied().unwrap_or(0.0));
                 entry.deficit.insert(r.id.clone(), gb.deficit.get(i).copied().unwrap_or(0.0));
             }
+            for (i, r) in rules.resources.iter().enumerate().filter(|(_, r)| r.shared) {
+                entry.culture.insert(r.id.clone(), gb.balances.produced.get(i).copied().unwrap_or(0.0));
+            }
         }
+        entry.player = self.city(slot).and_then(|c| c.player.clone());
         match self.cities.iter_mut().find(|c| c.slot == slot) {
             Some(c) => *c = entry,
             None => self.cities.push(entry),
         }
+    }
+
+    /// Culture the city in `slot` takes in per tick: a share of what every
+    /// other city of the region makes of each shared pool.
+    pub fn culture_for(&self, slot: [u32; 2]) -> BTreeMap<String, f32> {
+        let mut inflow: BTreeMap<String, f32> = BTreeMap::new();
+        for c in self.cities.iter().filter(|c| c.slot != slot) {
+            for (r, v) in &c.culture {
+                *inflow.entry(r.clone()).or_default() += v * CULTURE_SHARE;
+            }
+        }
+        inflow
     }
 
     /// The open city's deals with its neighbours for the coming month:
@@ -165,6 +190,13 @@ impl Region {
 }
 
 impl City {
+    /// Sets the per-tick culture flowing in from the rest of the region.
+    pub fn apply_culture(&mut self, inflow: &BTreeMap<String, f32>) {
+        let Some(rules) = self.rules().cloned() else { return };
+        let Some(gb) = self.glassbox.as_mut() else { return };
+        gb.culture_in = rules.resources.iter().map(|r| if r.shared { inflow.get(&r.id).copied().unwrap_or(0.0) } else { 0.0 }).collect();
+    }
+
     /// Sets the per-tick imports and exports from a month's deals.
     pub fn apply_trade(&mut self, deals: &[Deal]) {
         let Some(rules) = self.rules().cloned() else { return };

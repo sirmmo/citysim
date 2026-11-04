@@ -111,6 +111,13 @@ struct Args {
     /// Open the policy window (screenshots, docs).
     #[arg(long, hide = true)]
     show_policies: bool,
+    /// Join a region server at this URL (with --player and --slot x,y).
+    #[arg(long)]
+    join: Option<String>,
+    #[arg(long, default_value = "player")]
+    player: String,
+    #[arg(long, default_value = "0,0")]
+    slot: String,
     /// Start a scenario by id (see assets/scenarios).
     #[arg(long)]
     scenario: Option<String>,
@@ -391,6 +398,10 @@ impl Game {
             self.say(format!("Save failed: {e:#}"));
             return false;
         }
+        #[cfg(not(target_os = "android"))]
+        if let Err(e) = r.push(slot) {
+            self.say(format!("Region server unreachable: {e}"));
+        }
         true
     }
 
@@ -402,8 +413,16 @@ impl Game {
         if !self.region_store() {
             return;
         }
+        if let Some(p) = self.region.as_ref().and_then(|r| r.other_player(slot)) {
+            self.say(format!("{p} plays that town."));
+            return;
+        }
+        if self.region.as_ref().is_some_and(|r| r.remote.is_some() && r.slot.is_some()) {
+            self.say("Online, you play the town you claimed. Join again to claim another.");
+            return;
+        }
         let Some(r) = self.region.as_ref() else { return };
-        let founded = r.region.city(slot).is_some();
+        let founded = r.city_path(slot).is_file();
         let city = if founded {
             load_city(&r.city_path(slot), &self.catalog)
         } else {
@@ -471,8 +490,22 @@ impl Game {
             return;
         }
         r.month = month;
+        // Over the network: the neighbours' latest summaries, then ours.
+        #[cfg(not(target_os = "android"))]
+        if r.remote.is_some() {
+            let name = r.name().unwrap_or_else(|| r.town_name(slot));
+            let file = region::RegionSession::city_file(slot);
+            if let Err(e) = r.pull() {
+                log::warn!("region server: {e}");
+            }
+            r.region.summarize(slot, &name, &file, &self.city);
+            if let Err(e) = r.push(slot) {
+                log::warn!("region server: {e}");
+            }
+        }
         r.deals = r.region.trade(slot, &self.city);
         self.city.apply_trade(&r.deals);
+        self.city.apply_culture(&r.region.culture_for(slot));
     }
 
     fn set_city(&mut self, mut city: City) {
@@ -638,6 +671,13 @@ impl Game {
             }
             Command::NewRegion { name, size, map_size, rules } => self.region_new(&name, size, map_size, rules),
             Command::OpenRegion(dir) => self.region_open(&dir),
+            Command::JoinRegion { url, player, slot } => match region::join(&save_path(), &url, &player, slot) {
+                Ok(s) => {
+                    self.region = Some(s);
+                    self.region_goto(slot);
+                }
+                Err(e) => self.say(format!("Cannot join: {e:#}")),
+            },
             Command::RegionCity(slot) => self.region_goto(slot),
             Command::StartScenario(id) => self.start_scenario(&id),
             Command::Cheat(code) => match self.city.cheat(&code) {
@@ -1075,6 +1115,21 @@ async fn main() -> Result<()> {
     #[cfg(not(target_os = "android"))]
     if let (true, Some(ui)) = (s.args.show_policies, game.egui.as_mut()) {
         ui.open_policies();
+    }
+    #[cfg(not(target_os = "android"))]
+    if let Some(url) = &s.args.join {
+        let slot: Vec<u32> = s.args.slot.split(',').filter_map(|v| v.trim().parse().ok()).collect();
+        let slot = [slot.first().copied().unwrap_or(0), slot.get(1).copied().unwrap_or(0)];
+        match region::join(&save_path(), url, &s.args.player, slot) {
+            Ok(session) => {
+                game.region = Some(session);
+                game.region_goto(slot);
+            }
+            Err(e) => game.say(format!("Cannot join: {e:#}")),
+        }
+        if let Some(ui) = game.egui.as_mut() {
+            ui.open_region();
+        }
     }
     if let Some(id) = &s.args.scenario {
         game.start_scenario(id);

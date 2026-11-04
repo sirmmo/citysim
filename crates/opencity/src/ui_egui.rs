@@ -55,6 +55,12 @@ pub enum Command {
         rules: Option<String>,
     },
     OpenRegion(PathBuf),
+    /// Join a region server: its URL, the player's name, the town's slot.
+    JoinRegion {
+        url: String,
+        player: String,
+        slot: [u32; 2],
+    },
     /// A typed cheat code.
     Cheat(String),
     /// Start a scenario by id.
@@ -108,6 +114,7 @@ enum Dialog {
     NewRegion,
     OpenRegion,
     NewScenario,
+    JoinRegion,
 }
 
 pub struct EguiUi {
@@ -137,6 +144,9 @@ pub struct EguiUi {
     cheat_open: bool,
     cheat_text: String,
     region_name: String,
+    join_url: String,
+    join_player: String,
+    join_slot: [u32; 2],
     region_size: [u32; 2],
     region_map: u32,
     /// Skin the current style and icons were built for.
@@ -228,6 +238,9 @@ impl EguiUi {
             cheat_open: false,
             cheat_text: String::new(),
             region_name: "My region".into(),
+            join_url: "http://localhost:8077".into(),
+            join_player: std::env::var("USER").unwrap_or_else(|_| "player".into()),
+            join_slot: [0, 0],
             region_size: [3, 3],
             region_map: 64,
             styled_for: None,
@@ -414,6 +427,10 @@ impl EguiUi {
                     if ui.button("Open region…").clicked() {
                         self.path = crate::region::regions_dir(&view.save_path).display().to_string();
                         self.dialog = Dialog::OpenRegion;
+                        ui.close_menu();
+                    }
+                    if ui.button("Join region server…").clicked() {
+                        self.dialog = Dialog::JoinRegion;
                         ui.close_menu();
                     }
                     if view.region.is_some() && ui.button("Save region").clicked() {
@@ -952,6 +969,35 @@ impl EguiUi {
                                 map_size: self.region_map,
                                 rules: self.new_rules.clone(),
                             });
+                            self.show_region = true;
+                            close = true;
+                        }
+                        if ui.button("Cancel").clicked() {
+                            close = true;
+                        }
+                    });
+                });
+            }
+            Dialog::JoinRegion => {
+                egui::Window::new("Join region server").collapsible(false).resizable(false).anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0]).show(ctx, |ui| {
+                    ui.label(RichText::new("Play one town of a region hosted with `opencity-cli region-server`. Neighbours are other players' towns: trade and ideas cross the borders.").small());
+                    egui::Grid::new("join").num_columns(2).show(ui, |ui| {
+                        ui.label("Server");
+                        ui.add(egui::TextEdit::singleline(&mut self.join_url).desired_width(260.0));
+                        ui.end_row();
+                        ui.label("Your name");
+                        ui.text_edit_singleline(&mut self.join_player);
+                        ui.end_row();
+                        ui.label("Town slot");
+                        ui.horizontal(|ui| {
+                            ui.add(egui::DragValue::new(&mut self.join_slot[0]).range(0..=15).prefix("x "));
+                            ui.add(egui::DragValue::new(&mut self.join_slot[1]).range(0..=15).prefix("y "));
+                        });
+                        ui.end_row();
+                    });
+                    ui.horizontal(|ui| {
+                        if ui.button("Join").clicked() {
+                            out.push(Command::JoinRegion { url: self.join_url.clone(), player: self.join_player.clone(), slot: self.join_slot });
                             self.show_region = true;
                             close = true;
                         }

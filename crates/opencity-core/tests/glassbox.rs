@@ -879,3 +879,24 @@ fn goals_are_won_and_lost() {
     opencity_core::save::save(&c, &mut saved).unwrap();
     assert!(opencity_core::save::load(saved.as_slice(), Footprints::builtin()).unwrap().goals.is_some());
 }
+
+#[test]
+fn ideas_spread_across_a_region() {
+    use opencity_core::region::{Region, RegionCity};
+    let r = rules();
+    assert!(r.resources[r.resource("ideas").unwrap()].shared);
+    let mut region = Region::new("R", [2, 1], 32, 1, Some("glassbox".into()));
+    let mut thinker = RegionCity { slot: [1, 0], name: "Athens".into(), ..Default::default() };
+    thinker.culture.insert("ideas".into(), 20.0);
+    region.cities.push(thinker);
+    let mut c = City::new(Terrain::flat(24, 24), None, Footprints::builtin(), 1);
+    c.use_rules(r.clone());
+    let ideas = r.resource("ideas").unwrap();
+    let inflow = region.culture_for([0, 0]);
+    assert!((inflow["ideas"] - 2.0).abs() < 1e-6, "a tenth of the rest of the region");
+    c.apply_culture(&inflow);
+    for _ in 0..10 {
+        c.simulate_round();
+    }
+    assert!(c.glassbox.as_ref().unwrap().pools[ideas] >= 19.0, "ideas arrived: {}", c.glassbox.as_ref().unwrap().pools[ideas]);
+}

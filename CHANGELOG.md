@@ -2,6 +2,12 @@
 
 Release notes in full are on the [releases page](https://github.com/sirmmo/citysim/releases).
 
+## 0.2.24: Region server and shared culture
+- **`opencity-cli region-server`** hosts a region for several players.
+- **Joining:** File > Join region server… (or `--join URL --player NAME --slot x,y`) claims a town. Each month the games exchange summaries, so neighbours trade and ideas cross the borders.
+- **Shared pools:** a resource can be marked `shared`, and ideas are, in both rule sets. Every town takes in a tenth of what the rest of the region makes, alone or online.
+- **Region window:** shows who plays which town.
+
 ## 0.2.23: Scenarios and goals
 - **File > New scenario…** and `--scenario`: three scenarios to start with: First town, Rail baron, and Bologna 1600 from OpenHistoricalMap.
 - **🎯 Goals window:** progress, deadlines, and won or lost. Goals are checked monthly and kept in saves.
