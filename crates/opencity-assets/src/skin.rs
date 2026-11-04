@@ -115,13 +115,15 @@ struct Index {
     skins: Vec<String>,
 }
 
-/// A skin model file: `models/…` is shared art under the data directory
-/// (the Kenney kits); anything else is relative to the skin folder.
+/// A skin model file, relative to the skin folder (the baked 0 A.D.
+/// skins keep theirs in `<skin>/models/`). A `models/…` path the skin does
+/// not have is shared art under the data directory (the Kenney kits).
 fn model_path(data_dir: &Path, dir: &Path, file: &str) -> PathBuf {
-    if file.starts_with("models/") {
+    let own = dir.join(file);
+    if file.starts_with("models/") && !own.exists() {
         data_dir.join(file)
     } else {
-        dir.join(file)
+        own
     }
 }
 
@@ -176,7 +178,11 @@ impl Skin {
     /// matched first) and `<data>/skins/index.toml`.
     pub fn load_all(data_dir: &Path) -> Vec<Self> {
         let mut out: Vec<Skin> = Vec::new();
+        let mut generated = 0;
         for file in ["generated.toml", "index.toml"] {
+            if file == "index.toml" {
+                generated = out.len();
+            }
             let Ok(text) = read_text(&data_dir.join("skins").join(file)) else { continue };
             let Ok(index) = toml::from_str::<Index>(&text) else {
                 log::warn!("invalid skins/{file}");
@@ -191,6 +197,13 @@ impl Skin {
                     Err(e) => log::warn!("skin {id}: {e}"),
                 }
             }
+        }
+        // Baked skins keep the tool list of their bake; newer tools (rail,
+        // stations) that their era rules out come from its hand-made skin.
+        for i in 0..generated {
+            let Some(base) = out[generated..].iter().find(|b| !b.era.is_empty() && b.era == out[i].era) else { continue };
+            let extra: Vec<String> = base.disabled_tools.iter().filter(|t| !out[i].disabled_tools.contains(t)).cloned().collect();
+            out[i].disabled_tools.extend(extra);
         }
         out
     }
@@ -280,6 +293,29 @@ mod tests {
         assert!(pos("Antiquity") < pos("Renaissance"));
         assert!(pos("Renaissance") < pos("Industrial age"));
         assert_eq!(eras.last(), Some(&"Fantasy"));
+    }
+
+    #[test]
+    fn baked_skin_models_live_in_the_skin_folder() {
+        let data = std::env::temp_dir().join(format!("citysim-skin-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&data);
+        let skin = data.join("skins/baked");
+        std::fs::create_dir_all(skin.join("models")).unwrap();
+        std::fs::write(skin.join("models/10.ac"), "AC3Db").unwrap();
+        // The skin's own models/ wins; shared Kenney art is the fallback.
+        assert_eq!(model_path(&data, &skin, "models/10.ac"), skin.join("models/10.ac"));
+        assert_eq!(model_path(&data, &skin, "models/kenney/a.obj"), data.join("models/kenney/a.obj"));
+        assert_eq!(model_path(&data, &skin, "house.ac"), skin.join("house.ac"));
+        let _ = std::fs::remove_dir_all(&data);
+    }
+
+    #[test]
+    fn baked_skins_follow_their_era_tools() {
+        let skins = Skin::load_all(&data_dir());
+        for s in skins.iter().filter(|s| s.id.starts_with("antiquity-")) {
+            assert!(!s.allows("rail") && !s.allows("highway"), "{} offers rail or highways", s.id);
+            assert!(s.models.values().all(|p| p.is_file()), "{} has missing models", s.id);
+        }
     }
 
     #[test]

@@ -2,6 +2,10 @@
 
 Release notes in full are on the [releases page](https://github.com/sirmmo/citysim/releases).
 
+## 0.2.26: 0 A.D. buildings fixed
+- **Fix:** the ancient cultures (Romans, Athenians, Gauls, Ptolemies, Han, Mauryas) show their 0 A.D. buildings again. Since 0.2.15 they fell back to OpenCity's original models.
+- **Fix:** the ancient cultures no longer offer highways, railways or stations, even when their art was baked before rail existed.
+
 ## 0.2.25: Day and night, seasons and weather
 - **Day and night:** the light turns once a game month, with a warm dawn and dusk and a blue night.
 - **Seasons:** the ground colours follow the seasons, white in winter.
