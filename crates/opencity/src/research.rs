@@ -2,7 +2,10 @@
 //! projects they unlock.
 
 use egui_macroquad::egui::{self, Color32, RichText};
-use opencity_core::{rules::Transport, City};
+use opencity_core::{
+    rules::{Ruleset, TechDef, Transport},
+    City,
+};
 
 use crate::ui_egui::Command;
 
@@ -21,69 +24,104 @@ pub fn window(ctx: &egui::Context, open: &mut bool, city: &City, out: &mut Vec<C
             }
         });
         ui.separator();
-        egui::ScrollArea::vertical().max_height(420.0).show(ui, |ui| {
+        egui::ScrollArea::vertical().max_height(440.0).show(ui, |ui| {
+            // Branches in the order the tree first names them; tiers within.
+            let mut categories: Vec<&str> = Vec::new();
             for t in &rules.techs {
-                let done = gb.researched.contains(&t.id);
-                let current = gb.research.as_deref() == Some(t.id.as_str());
-                let can = gb.can_research(rules, &t.id);
-                ui.horizontal(|ui| {
-                    let mark = if done {
-                        "✔"
-                    } else if current {
-                        "▶"
-                    } else if can {
-                        "○"
-                    } else {
-                        "🔒"
-                    };
-                    ui.label(RichText::new(format!("{mark} {}", t.name)).strong().color(if done {
-                        Color32::from_rgb(120, 210, 130)
-                    } else {
-                        Color32::LIGHT_GRAY
-                    }));
-                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        if current {
-                            if ui.small_button("Stop").clicked() {
-                                out.push(Command::SetResearch(None));
-                            }
-                        } else if can && ui.small_button("Research").clicked() {
-                            out.push(Command::SetResearch(Some(t.id.clone())));
-                        }
-                    });
-                });
-                if !t.description.is_empty() {
-                    ui.label(RichText::new(&t.description).italics().small());
+                if !categories.contains(&t.category.as_str()) {
+                    categories.push(&t.category);
                 }
-                let cost: Vec<String> = t
-                    .cost
-                    .iter()
-                    .map(|(r, c)| format!("{c:.0} {}", rules.resource(r).map_or(r.as_str(), |i| rules.resources[i].name.as_str()).to_lowercase()))
-                    .collect();
-                let unlocks: Vec<&str> = t.unlocks.iter().map(|u| unlock_name(rules, u)).collect();
-                ui.label(RichText::new(format!("Costs {} · unlocks {}", cost.join(" + "), unlocks.join(", "))).small().color(Color32::GRAY));
-                if !done && !can {
-                    let missing: Vec<&str> = t
-                        .requires
-                        .iter()
-                        .filter(|q| !gb.researched.contains(*q))
-                        .map(|q| rules.tech(q).map_or(q.as_str(), |i| rules.techs[i].name.as_str()))
-                        .collect();
-                    ui.label(RichText::new(format!("Needs {}", missing.join(", "))).small().color(Color32::from_rgb(240, 150, 90)));
+            }
+            for cat in categories {
+                if !cat.is_empty() {
+                    ui.label(RichText::new(cat).heading().size(15.0).color(Color32::from_rgb(200, 180, 120)));
                 }
-                if !done {
-                    let p = gb.research_progress(rules, &t.id);
-                    if p > 0.0 {
-                        ui.add(egui::ProgressBar::new(p).desired_height(6.0).show_percentage());
-                    }
+                let mut techs: Vec<&TechDef> = rules.techs.iter().filter(|t| t.category == cat).collect();
+                techs.sort_by_key(|t| t.tier);
+                for t in techs {
+                    project(ui, gb, rules, t, out);
                 }
-                ui.add_space(6.0);
             }
         });
     });
 }
 
+fn project(ui: &mut egui::Ui, gb: &opencity_core::glassbox::GlassBox, rules: &Ruleset, t: &TechDef, out: &mut Vec<Command>) {
+    let done = gb.researched.contains(&t.id);
+    let current = gb.research.as_deref() == Some(t.id.as_str());
+    let can = gb.can_research(rules, &t.id);
+    let out_ruled = gb.ruled_out(rules, &t.id);
+    ui.horizontal(|ui| {
+        let mark = if done {
+            "✔"
+        } else if current {
+            "▶"
+        } else if out_ruled {
+            "✖"
+        } else if can {
+            "○"
+        } else {
+            "🔒"
+        };
+        let colour = if done {
+            Color32::from_rgb(120, 210, 130)
+        } else if out_ruled {
+            Color32::DARK_GRAY
+        } else {
+            Color32::LIGHT_GRAY
+        };
+        ui.label(RichText::new(format!("{mark} {}", t.name)).strong().color(colour));
+        ui.label(RichText::new(format!("tier {}", t.tier)).small().color(Color32::GRAY));
+        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+            if current {
+                if ui.small_button("Stop").clicked() {
+                    out.push(Command::SetResearch(None));
+                }
+            } else if can && ui.small_button("Research").clicked() {
+                out.push(Command::SetResearch(Some(t.id.clone())));
+            }
+        });
+    });
+    if !t.description.is_empty() {
+        ui.label(RichText::new(&t.description).italics().small());
+    }
+    let name_of = |r: &str| rules.resource(r).map_or(r.to_string(), |i| rules.resources[i].name.to_lowercase());
+    let mut parts = vec![format!("Costs {}", t.cost.iter().map(|(r, c)| format!("{c:.0} {}", name_of(r))).collect::<Vec<_>>().join(" + "))];
+    if !t.unlocks.is_empty() {
+        parts.push(format!("unlocks {}", t.unlocks.iter().map(|u| unlock_name(rules, u)).collect::<Vec<_>>().join(", ")));
+    }
+    if !t.bonus.is_empty() {
+        parts.push(t.bonus.iter().map(|(r, b)| format!("{:+.0}% {}", b * 100.0, name_of(r))).collect::<Vec<_>>().join(", "));
+    }
+    ui.label(RichText::new(parts.join(" · ")).small().color(Color32::GRAY));
+    let tech_name = |q: &str| rules.tech(q).map_or(q.to_string(), |i| rules.techs[i].name.clone());
+    if out_ruled {
+        let by: Vec<String> = rules
+            .techs
+            .iter()
+            .filter(|o| gb.researched.contains(&o.id) && (o.excludes.contains(&t.id) || t.excludes.contains(&o.id)))
+            .map(|o| o.name.clone())
+            .collect();
+        ui.label(RichText::new(format!("Ruled out by {}", by.join(", "))).small().color(Color32::from_rgb(200, 110, 110)));
+    } else if !done {
+        if !t.excludes.is_empty() {
+            let rivals: Vec<String> = t.excludes.iter().map(|q| tech_name(q)).collect();
+            ui.label(RichText::new(format!("Rules out {}", rivals.join(", "))).small().color(Color32::from_rgb(230, 190, 90)));
+        }
+        if !can {
+            let missing: Vec<String> = t.requires.iter().filter(|q| !gb.researched.contains(*q)).map(|q| tech_name(q)).collect();
+            ui.label(RichText::new(format!("Needs {}", missing.join(", "))).small().color(Color32::from_rgb(240, 150, 90)));
+        }
+        let p = gb.research_progress(rules, &t.id);
+        if p > 0.0 {
+            ui.add(egui::ProgressBar::new(p).desired_height(6.0).show_percentage());
+        }
+    }
+    ui.add_space(6.0);
+}
+
 /// Display name of a unit or tool id.
-fn unlock_name<'a>(rules: &'a opencity_core::rules::Ruleset, id: &'a str) -> &'a str {
+fn unlock_name<'a>(rules: &'a Ruleset, id: &'a str) -> &'a str {
     if let Some(u) = rules.unit(id) {
         return &rules.units[u].name;
     }

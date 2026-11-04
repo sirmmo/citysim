@@ -437,9 +437,33 @@ pub struct Ruleset {
     /// Effects of moving agents (Extended GlassBox `agentRule`).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub agent_rules: Vec<AgentRule>,
-    /// Research projects.
+    /// Tech tree file (`<data>/techs/<id>.toml`) merged into `techs` on load.
+    /// Without one (and without inline `[[tech]]`), nothing is locked.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tech_tree: Option<String>,
+    /// Research projects: inline `[[tech]]` plus those of the tech tree.
     #[serde(default, rename = "tech", skip_serializing_if = "Vec::is_empty")]
     pub techs: Vec<TechDef>,
+}
+
+/// A tech tree file (`<data>/techs/<id>.toml`): research projects kept apart
+/// from the rules, so rule sets can share one, swap it or go without.
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct TechTree {
+    #[serde(default)]
+    pub name: String,
+    #[serde(default)]
+    pub description: String,
+    #[serde(default, rename = "tech")]
+    pub techs: Vec<TechDef>,
+}
+
+impl Ruleset {
+    /// Adds a tech tree's projects (call before `validate`).
+    pub fn add_tech_tree(&mut self, tree: TechTree) {
+        self.techs.extend(tree.techs);
+    }
 }
 
 /// A research project (`[[tech]]`): paid from pooled resources, it unlocks
@@ -460,6 +484,29 @@ pub struct TechDef {
     /// Unit ids and tool ids it unlocks.
     #[serde(default)]
     pub unlocks: Vec<String>,
+    /// Branch of the tree, for grouping (`"Housing"`, `"Doctrine"`).
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub category: String,
+    /// Depth shown in the tree (1 = basic). Display and ordering only:
+    /// `requires` and the cost are the gates.
+    #[serde(default = "first_tier", skip_serializing_if = "is_first_tier")]
+    pub tier: u32,
+    /// Rival projects: finishing this one rules them out for good, and
+    /// finishing one of them rules this out (a town's doctrine).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub excludes: Vec<String>,
+    /// Extra production once done, as a share per resource
+    /// (`{ goods = 0.2 }` makes 20% more goods).
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub bonus: BTreeMap<String, f32>,
+}
+
+fn first_tier() -> u32 {
+    1
+}
+
+fn is_first_tier(v: &u32) -> bool {
+    *v == 1
 }
 
 /// Comparison used by rule conditions.
@@ -624,6 +671,12 @@ impl Ruleset {
 
     pub fn tech(&self, id: &str) -> Option<usize> {
         self.techs.iter().position(|t| t.id == id)
+    }
+
+    /// Whether `tech` is ruled out by a rival among `done`.
+    pub fn tech_excluded(&self, tech: &str, done: &std::collections::BTreeSet<String>) -> bool {
+        let own = self.tech(tech).is_some_and(|t| self.techs[t].excludes.iter().any(|e| done.contains(e)));
+        own || self.techs.iter().any(|t| done.contains(&t.id) && t.excludes.iter().any(|e| e == tech))
     }
 
     /// The research projects that unlock a unit or tool id.
@@ -794,6 +847,22 @@ impl Ruleset {
                 if self.unit(u).is_none() && !crate::Tool::ALL.iter().any(|x| x.id() == u) {
                     return at(format!("unlocks unknown unit or tool {u}"));
                 }
+            }
+            for q in &t.excludes {
+                if self.tech(q).is_none() || q == &t.id {
+                    return at(format!("excludes unknown project {q}"));
+                }
+            }
+            for (r, b) in &t.bonus {
+                if self.resource(r).is_none() {
+                    return at(format!("bonus to unknown resource {r}"));
+                }
+                if !b.is_finite() || *b <= -1.0 {
+                    return at(format!("bonus to {r} must be more than -1"));
+                }
+            }
+            if self.techs.iter().filter(|o| o.id == t.id).count() > 1 {
+                return at("defined twice".into());
             }
         }
         if let Some(p) = &self.population {

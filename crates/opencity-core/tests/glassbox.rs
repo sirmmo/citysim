@@ -14,6 +14,10 @@ fn rules_named(id: &str) -> Arc<Ruleset> {
     for script in r.scripts.clone() {
         opencity_core::gbx::compile(&mut r, &script, &std::fs::read_to_string(format!("{dir}/{script}")).unwrap()).unwrap();
     }
+    if let Some(tree) = r.tech_tree.clone() {
+        let text = std::fs::read_to_string(format!("{dir}/../techs/{tree}.toml")).unwrap();
+        r.add_tech_tree(toml::from_str(&text).unwrap());
+    }
     r.validate().unwrap();
     Arc::new(r)
 }
@@ -360,4 +364,54 @@ fn ideas_become_research_that_unlocks() {
     opencity_core::save::save(&c, &mut saved).unwrap();
     let back = opencity_core::save::load(saved.as_slice(), Footprints::builtin()).unwrap();
     assert!(back.glassbox.as_ref().unwrap().researched.contains("motorways"));
+}
+
+#[test]
+fn tech_trees_choose_a_charter_and_pay_bonuses() {
+    // The projects come from techs/pre-industrial.toml, outside the rules.
+    let r = rules_named("pre-industrial");
+    assert_eq!(r.tech_tree.as_deref(), Some("pre-industrial"));
+    assert!(r.tech("free_market").is_some() && r.tech("printing").is_some());
+    let mut c = City::new(Terrain::flat(32, 32), None, Footprints::builtin(), 3);
+    c.use_rules(r.clone());
+    let gb = c.glassbox.as_mut().unwrap();
+    assert!(gb.can_research(&r, "free_market") && gb.can_research(&r, "guild_charter"));
+    assert!(!gb.unlocked(&r, "market_square") && !gb.unlocked(&r, "craft_hall"));
+    // Choosing the guild charter rules the free market out for good.
+    gb.researched.insert("guild_charter".into());
+    assert!(gb.unlocked(&r, "craft_hall") && !gb.unlocked(&r, "market_square"));
+    assert!(!gb.can_research(&r, "free_market") && gb.ruled_out(&r, "free_market"));
+    assert!(!gb.set_research(Some("free_market")));
+    assert!((gb.research_bonus(&r)[r.resource("goods").unwrap()] - 0.2).abs() < 1e-6);
+    // Researching everything still picks one charter: the first listed.
+    let mut d = City::new(Terrain::flat(32, 32), None, Footprints::builtin(), 3);
+    d.use_rules(r.clone());
+    d.research_all();
+    let done = &d.glassbox.as_ref().unwrap().researched;
+    assert!(done.contains("free_market") && !done.contains("guild_charter") && done.contains("banking"));
+}
+
+#[test]
+fn research_bonuses_raise_production() {
+    let r = rules();
+    let mut c = City::new(Terrain::flat(48, 48), None, Footprints::builtin(), 7);
+    c.use_rules(r.clone());
+    c.apply_tool(Tool::CoalPlant, (2, 2), (2, 2)).unwrap();
+    for l in [8, 12, 16] {
+        c.apply_tool(Tool::Road, (2, l), (44, l)).unwrap();
+    }
+    c.apply_tool(Tool::Road, (7, 2), (7, 8)).unwrap();
+    c.apply_tool(Tool::ZoneResidential, (2, 9), (44, 11)).unwrap();
+    c.apply_tool(Tool::ZoneIndustrial, (2, 13), (44, 15)).unwrap();
+    for _ in 0..300 {
+        c.simulate_round();
+    }
+    let goods = r.resource("goods").unwrap();
+    let mut boosted = c.clone();
+    boosted.glassbox.as_mut().unwrap().researched.insert("industrial_policy".into());
+    c.simulate_round();
+    boosted.simulate_round();
+    let (a, b) = (c.glassbox.as_ref().unwrap().balances.produced[goods], boosted.glassbox.as_ref().unwrap().balances.produced[goods]);
+    assert!(a > 0.0, "no goods made");
+    assert!((b / a - 1.2).abs() < 1e-3, "goods {a} -> {b}");
 }

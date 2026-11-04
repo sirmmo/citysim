@@ -23,7 +23,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     layer::{BuildingLayer, Rect, Structure},
-    rules::{structure_code, DemandSource, Ruleset, Transport},
+    rules::{structure_code, DemandSource, Ruleset, TechDef, Transport},
     Direction, Footprints, GraphicCode, RoadKind, StructureCode, Terrain,
 };
 
@@ -203,16 +203,50 @@ impl GlassBox {
         self.grid_cache = None;
     }
 
-    /// Whether research has unlocked a unit or tool id (anything no
-    /// project names is open from the start).
+    /// Whether research has unlocked a unit or tool id: anything no project
+    /// names is open from the start, otherwise any project naming it will do.
     pub fn unlocked(&self, rules: &Ruleset, id: &str) -> bool {
-        rules.locked_by(id).all(|t| self.researched.contains(&t.id))
+        self.locked_by(rules, id).is_none()
     }
 
-    /// Whether a project can be researched now: not done, and what it
-    /// requires is done.
+    /// The project still to research for a unit or tool id (one that is not
+    /// ruled out, when there is a choice), or None when it is open.
+    pub fn locked_by<'a>(&self, rules: &'a Ruleset, id: &'a str) -> Option<&'a TechDef> {
+        let mut naming = rules.locked_by(id).peekable();
+        naming.peek()?;
+        let naming: Vec<&TechDef> = naming.collect();
+        if naming.iter().any(|t| self.researched.contains(&t.id)) {
+            return None;
+        }
+        naming.iter().find(|t| !rules.tech_excluded(&t.id, &self.researched)).or(naming.first()).copied()
+    }
+
+    /// Whether a project can be researched now: not done, what it requires
+    /// is done, and no rival project is.
     pub fn can_research(&self, rules: &Ruleset, tech: &str) -> bool {
-        rules.tech(tech).is_some_and(|t| !self.researched.contains(tech) && rules.techs[t].requires.iter().all(|q| self.researched.contains(q)))
+        rules.tech(tech).is_some_and(|t| {
+            !self.researched.contains(tech)
+                && rules.techs[t].requires.iter().all(|q| self.researched.contains(q))
+                && !rules.tech_excluded(tech, &self.researched)
+        })
+    }
+
+    /// Whether a rival project already done rules this one out for good.
+    pub fn ruled_out(&self, rules: &Ruleset, tech: &str) -> bool {
+        !self.researched.contains(tech) && rules.tech_excluded(tech, &self.researched)
+    }
+
+    /// Extra production from finished projects, as a share per resource.
+    pub fn research_bonus(&self, rules: &Ruleset) -> Vec<f32> {
+        let mut b = vec![0.0; rules.resources.len()];
+        for t in rules.techs.iter().filter(|t| self.researched.contains(&t.id)) {
+            for (r, v) in &t.bonus {
+                if let Some(i) = rules.resource(r) {
+                    b[i] += v;
+                }
+            }
+        }
+        b
     }
 
     /// Picks the project to research (or none); false if it cannot be researched.
@@ -241,7 +275,12 @@ impl GlassBox {
     /// Marks every project done (demo towns, tests, sandbox play).
     pub fn research_all(&mut self) {
         if let Some(rules) = &self.rules {
-            self.researched.extend(rules.techs.iter().map(|t| t.id.clone()));
+            // In file order, skipping rivals of what is already chosen.
+            for t in &rules.techs {
+                if !rules.tech_excluded(&t.id, &self.researched) {
+                    self.researched.insert(t.id.clone());
+                }
+            }
         }
         self.research = None;
     }
@@ -384,6 +423,8 @@ impl GlassBox {
         let mut bal = Balances { produced: vec![0.0; nres], delivered: vec![0.0; nres], unmet: vec![0.0; nres], undelivered: vec![0.0; nres] };
 
         // 1. Production. A resource with kinds is made as its kinds, by share.
+        // Finished research adds its bonus to a resource and to its kinds.
+        let boost = self.research_bonus(&rules);
         for (p, u, _) in &units {
             let def = &rules.units[*u];
             let st = self.units.get_mut(&idx(p.0, p.1)).unwrap();
@@ -393,7 +434,8 @@ impl GlassBox {
             }
             for (r, amount) in &def.produce {
                 let ri = rules.resource(r).unwrap();
-                let made = amount * eff;
+                let up = 1.0 + boost[ri] + if rules.root(ri) != ri { boost[rules.root(ri)] } else { 0.0 };
+                let made = amount * eff * up;
                 add(&mut bal.produced, ri, rules.root(ri), made);
                 for (k, f) in split(&rules, ri) {
                     if k != ri {

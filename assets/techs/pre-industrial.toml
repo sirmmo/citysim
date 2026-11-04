@@ -1,0 +1,101 @@
+# Tech tree for the pre-industrial GlassBox rules (rules/pre-industrial.toml).
+# Same format as techs/modern.toml. An academy makes about 1.5 research
+# points a tick, some 1,800 a year.
+
+name = "Pre-industrial"
+description = "Streets, stone houses, crafts and trade for a town before steam, and the charter it lives by."
+
+# ---------------------------------------------------------------- streets
+[[tech]]
+id = "paving"
+name = "Paving"
+description = "Cut stone laid on gravel: streets that do not turn to mud."
+category = "Streets"
+tier = 1
+cost = { research = 600 }
+unlocks = ["paved_street"]
+
+# ---------------------------------------------------------------- farming
+[[tech]]
+id = "crop_rotation"
+name = "Crop rotation"
+description = "Three fields, one left fallow: more grain and more fodder."
+category = "Farming"
+tier = 1
+cost = { research = 500 }
+bonus = { food = 0.2, fodder = 0.2 }
+
+[[tech]]
+id = "horse_breeding"
+name = "Horse breeding"
+description = "Studs and stables for draught horses."
+category = "Farming"
+tier = 1
+cost = { research = 900 }
+unlocks = ["stables"]
+
+# ---------------------------------------------------------------- charter
+# The town's charter: a market town or a guild town, for good.
+[[tech]]
+id = "free_market"
+name = "Free market"
+description = "Open fairs and low tolls: grand market squares and more taxes. Rules out the guild charter."
+category = "Charter"
+tier = 2
+cost = { research = 400 }
+unlocks = ["market_square"]
+bonus = { taxes = 0.15 }
+excludes = ["guild_charter"]
+
+[[tech]]
+id = "guild_charter"
+name = "Guild charter"
+description = "Masters, apprentices and standards: craft halls and more goods. Rules out the free market."
+category = "Charter"
+tier = 2
+cost = { research = 400 }
+unlocks = ["craft_hall"]
+bonus = { goods = 0.2 }
+excludes = ["free_market"]
+
+# ---------------------------------------------------------------- housing
+[[tech]]
+id = "masonry"
+name = "Masonry"
+description = "Mortar, arches and vaults for tall stone houses."
+category = "Housing"
+tier = 2
+cost = { research = 1800 }
+requires = ["paving"]
+unlocks = ["courtyard_house", "insula"]
+
+# ---------------------------------------------------------------- civic
+[[tech]]
+id = "medicine"
+name = "Bathing & medicine"
+description = "Public baths, herbals and the first physicians."
+category = "Civic"
+tier = 2
+cost = { research = 1200 }
+unlocks = ["hospital"]
+
+[[tech]]
+id = "printing"
+name = "Printing"
+description = "Movable type: pamphlets in the taverns, books in the academy."
+category = "Civic"
+tier = 3
+cost = { research = 2400 }
+requires = ["medicine"]
+bonus = { ideas = 0.3, research = 0.15 }
+
+# ---------------------------------------------------------------- trade
+[[tech]]
+id = "banking"
+name = "Banking"
+description = "Bills of exchange, ledgers and a hall to trade them in."
+category = "Trade"
+tier = 3
+cost = { research = 3000 }
+requires = ["masonry"]
+unlocks = ["exchange"]

@@ -12,6 +12,8 @@ name = "Pre-industrial GlassBox"
 description = "Towns before steam and electricity: people walk, carts carry trade, fields feed the town, wells give water."
 population = "residents"
 scripts = ["pre-industrial.gbx"]
+# Research projects, kept in their own file: <data>/techs/pre-industrial.toml.
+tech_tree = "pre-industrial"
 years = [-9999, 1799]
 # No electricity, and no asphalt: streets are dirt or paved.
 disabled_tools = ["power_line", "nuclear_plant", "road", "highway"]
@@ -587,41 +589,3 @@ description = "Clean water for the houses around it."
 graphic = 320
 build_cost = 20
 emits = { water = { amount = 10.0, radius = 4 }, land_value = { amount = 1.0, radius = 2 } }
-
-# ---------------------------------------------------------------- research
-[[tech]]
-id = "paving"
-name = "Paving"
-description = "Cut stone laid on gravel: streets that do not turn to mud."
-cost = { research = 600 }
-unlocks = ["paved_street"]
-
-[[tech]]
-id = "horse_breeding"
-name = "Horse breeding"
-description = "Studs and stables for draught horses."
-cost = { research = 900 }
-unlocks = ["stables"]
-
-[[tech]]
-id = "medicine"
-name = "Bathing & medicine"
-description = "Public baths, herbals and the first physicians."
-cost = { research = 1200 }
-unlocks = ["hospital"]
-
-[[tech]]
-id = "masonry"
-name = "Masonry"
-description = "Mortar, arches and vaults for tall stone houses."
-cost = { research = 1800 }
-requires = ["paving"]
-unlocks = ["courtyard_house", "insula"]
-
-[[tech]]
-id = "banking"
-name = "Banking"
-description = "Bills of exchange, ledgers and a hall to trade them in."
-cost = { research = 3000 }
-requires = ["masonry"]
-unlocks = ["exchange"]

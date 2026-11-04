@@ -3,7 +3,7 @@
 use std::path::Path;
 use std::sync::Arc;
 
-use opencity_core::rules::Ruleset;
+use opencity_core::rules::{Ruleset, TechTree};
 use serde::Deserialize;
 
 use crate::{read_text, AssetError};
@@ -24,8 +24,17 @@ pub fn load(data_dir: &Path, id: &str) -> Result<Arc<Ruleset>, AssetError> {
             opencity_core::gbx::compile(&mut rules, &script, &text).map_err(|e| AssetError::Parse { path: file.clone(), line: 0, message: e.message })?;
         warnings.iter().for_each(|w| log::info!("{w}"));
     }
+    if let Some(tree) = rules.tech_tree.clone() {
+        rules.add_tech_tree(load_tech_tree(data_dir, &tree)?);
+    }
     rules.validate().map_err(|e| AssetError::Parse { path, line: 0, message: e.to_string() })?;
     Ok(Arc::new(rules))
+}
+
+/// Reads a tech tree (`<data>/techs/<id>.toml`).
+pub fn load_tech_tree(data_dir: &Path, id: &str) -> Result<TechTree, AssetError> {
+    let path = data_dir.join("techs").join(format!("{id}.toml"));
+    toml::from_str(&read_text(&path)?).map_err(|source| AssetError::Settings { path, source })
 }
 
 /// Every rules set listed in `<data>/rules/index.toml`.

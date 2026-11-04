@@ -243,7 +243,7 @@ impl City {
         let gb = self.glassbox.as_ref()?;
         let rules = gb.rules()?;
         let unit = rules.services.get(tool.id()).map(String::as_str);
-        [Some(tool.id()), unit].into_iter().flatten().flat_map(|id| rules.locked_by(id)).find(|t| !gb.researched.contains(&t.id)).map(|t| t.name.clone())
+        [Some(tool.id()), unit].into_iter().flatten().find_map(|id| gb.locked_by(rules, id)).map(|t| t.name.clone())
     }
 
     /// Finishes every research project (demo towns, sandbox play).

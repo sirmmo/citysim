@@ -12,6 +12,8 @@ years = [1800, 9999]
 population = "residents"
 # GlassBox rule scripts compiled into this set (docs/GLASSBOX.md).
 scripts = ["glassbox.gbx"]
+# Research projects, kept in their own file: <data>/techs/modern.toml.
+tech_tree = "modern"
 
 [growth]
 level_up = 0.75      # satisfaction needed to grow a level
@@ -594,37 +596,3 @@ id = "park"
 name = "Park"
 graphic = 320
 emits = { land_value = { amount = 2.0, radius = 3 } }
-
-# ---------------------------------------------------------------- research
-# A school makes about 2 research points a tick, some 2,400 a year.
-# Each project spends pooled research points and unlocks units (by id) or
-# tools. Whatever a project names stays locked until it is done.
-[[tech]]
-id = "motorways"
-name = "Motorways"
-description = "Grade-separated roads for fast traffic between districts."
-cost = { research = 2000 }
-unlocks = ["highway"]
-
-[[tech]]
-id = "steel_frame"
-name = "Steel-frame towers"
-description = "Lifts and steel skeletons let buildings rise past ten floors."
-cost = { research = 4000 }
-unlocks = ["tower_2", "tower_3", "mall_3"]
-
-[[tech]]
-id = "aeronautics"
-name = "Aeronautics"
-description = "Aircraft engineering for the heaviest industry."
-cost = { research = 5000 }
-requires = ["motorways"]
-unlocks = ["plant_3"]
-
-[[tech]]
-id = "fission"
-name = "Nuclear fission"
-description = "Power from splitting atoms: vast output, no smoke."
-cost = { research = 8000 }
-requires = ["steel_frame"]
-unlocks = ["nuclear_plant"]

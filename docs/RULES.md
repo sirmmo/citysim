@@ -224,36 +224,67 @@ cafés, restaurants, business centres ──ideas──▶ pool ──▶ school
 (taverns, coaching inns, market squares and shops before 1800; academies)
 ```
 
-A research project spends pooled resources and unlocks units and tools:
+### Tech trees
+
+Research projects live in a **tech tree file**, apart from the rules, so
+rule sets can share a tree, swap it, or go without one (then nothing is
+locked). A rules file names its tree, which is read from
+`<data>/techs/<id>.toml`:
 
 ```toml
+tech_tree = "modern"                 # rules/glassbox.toml -> techs/modern.toml
+```
+
+Inline `[[tech]]` entries in a rules file still work and are merged with
+the tree. The layout follows the tech tree of the Stronghold experiment:
+branches, tiers, a prerequisite graph, rival "doctrine" choices and bonuses.
+
+```toml
+name = "Modern"
+description = "Roads, towers, industry and power for a modern city."
+
 [[tech]]
 id = "steel_frame"
 name = "Steel-frame towers"
 description = "Lifts and steel skeletons let buildings rise past ten floors."
-cost = { research = 4000 }          # pooled resources only
-requires = ["motorways"]            # projects to finish first (optional)
+category = "Housing"                 # branch, groups the research window
+tier = 2                             # depth, for display and order only
+cost = { research = 4000 }           # pooled resources only
+requires = ["motorways"]             # projects to finish first (optional)
 unlocks = ["tower_2", "tower_3", "mall_3", "highway"]   # unit ids and tool ids
+bonus = { goods = 0.2 }              # 20% more goods once done (optional)
+excludes = ["service_economy"]       # rivals ruled out for good (optional)
 ```
 
-- **What is locked:** any unit or tool a project names stays locked until
-  that project is done.
+- **Gates:** `requires` and the cost decide when a project opens. `tier` and
+  `category` only arrange the window, so a deep project opens as soon as
+  its requirements are done.
+- **What is locked:** a unit or tool that any project names stays locked
+  until one of the projects naming it is done.
 - **Locked units:** a plot never develops into a locked unit, and buildings
   never level up into one.
 - **Locked tools:** they are greyed out in the tool bar, and their tooltip
   names the project they wait for.
 - **Services:** a service tool is locked when the unit it builds is.
-- **Choosing a project:** pick one in the 🔬 Research window. It draws on
-  the pools each tick until it is paid for, and a progress bar shows how
-  far along it is.
+- **Rival projects:** finishing a project rules out every project it
+  `excludes`, and every project that excludes it, for good. This makes a
+  city choose a doctrine: a service economy or industrial policy, a free
+  market or a guild charter.
+- **Bonuses:** a finished project's `bonus` adds that share to the
+  production of the resource (and of its kinds) in every building.
+- **Choosing a project:** pick one in the 🔬 Research window, which groups
+  projects by branch and tier and shows what each one rules out. A project
+  draws on the pools each tick until it is paid for, and a progress bar
+  shows how far along it is.
 - **Without a research window** (the classic interface, Android), the city
-  works through the projects in the order the rules list them.
-- **Demo towns** start with everything researched.
+  works through the projects in the order the tree lists them.
+- **Demo towns** start with everything researched; of rival projects they
+  take the first one listed.
 
-| Rules | Projects |
+| Tree | Branches and projects |
 |---|---|
-| GlassBox | Motorways (highway), Steel-frame towers (High-rise, Slab tower, Skyscraper), Aeronautics (Aeronautics works), Nuclear fission (nuclear plant) |
-| Pre-industrial | Paving (cobbled streets), Horse breeding (Stables), Bathing & medicine (Bathhouse), Masonry (Courtyard house, Insula block), Banking (Merchants' exchange) |
+| `modern` (GlassBox) | Transport: Motorways (highway). Economy: Service economy (+10% taxes, +30% ideas) or Industrial policy (+20% goods, +10% fuel); Computing (+25% research). Housing: Steel-frame towers (High-rise, Slab tower, Skyscraper). Industry: Aeronautics (Aeronautics works). Power: Nuclear fission (nuclear plant) |
+| `pre-industrial` | Streets: Paving (cobbled streets). Farming: Crop rotation (+20% food and fodder), Horse breeding (Stables). Charter: Free market (Market square, +15% taxes) or Guild charter (Craft hall, +20% goods). Housing: Masonry (Courtyard house, Insula block). Civic: Bathing & medicine (Bathhouse), Printing (+30% ideas, +15% research). Trade: Banking (Merchants' exchange) |
 
 A school makes about 2 research points a tick, some 2,400 a year, so a
 project takes from a few months to a few years.
@@ -325,7 +356,7 @@ scripts = ["my_rules.gbx"]         # GlassBox rule scripts (optional)
 [[zone]]                           # id, name, structure, densities, demand, base_demand
 [services]                         # tool id = unit id
 [[unit]]                           # id, name, description, graphic, produce, needs, sends, emits, requires, build_cost
-[[tech]]                           # id, name, description, cost, requires, unlocks
+[[tech]]                           # id, name, description, category, tier, cost, requires, unlocks, bonus, excludes
 ```
 
 Top-level keys also include `description`, `years` (the ages the rules

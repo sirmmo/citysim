@@ -1,0 +1,88 @@
+# Tech tree for the modern GlassBox rules (rules/glassbox.toml).
+#
+# A tech tree is kept apart from the rules: rule sets name one with
+# `tech_tree = "<id>"`, can share one, or go without (then nothing is locked).
+# Each project spends pooled resources (research points) and may:
+#   unlock   units (by id) or tools; whatever any project names stays locked
+#            until one of the projects naming it is done;
+#   bonus    add a share of production ({ goods = 0.2 } is 20% more goods);
+#   exclude  rival projects: finishing one rules the others out for good.
+# `category` and `tier` only arrange the research window; `requires` and the
+# cost are the gates, so a deep project opens as soon as its requirements do.
+# A school makes about 2 research points a tick, some 2,400 a year.
+
+name = "Modern"
+description = "Roads, towers, industry and power for a modern city, and the economy it bets on."
+
+# ---------------------------------------------------------------- transport
+[[tech]]
+id = "motorways"
+name = "Motorways"
+description = "Grade-separated roads for fast traffic between districts."
+category = "Transport"
+tier = 1
+cost = { research = 2000 }
+unlocks = ["highway"]
+
+# ---------------------------------------------------------------- economy
+# The city's economic doctrine: one or the other, for good.
+[[tech]]
+id = "service_economy"
+name = "Service economy"
+description = "Offices, shops and cafés: more taxes and far more ideas. Rules out industrial policy."
+category = "Economy"
+tier = 2
+cost = { research = 1500 }
+bonus = { taxes = 0.1, ideas = 0.3 }
+excludes = ["industrial_policy"]
+
+[[tech]]
+id = "industrial_policy"
+name = "Industrial policy"
+description = "Subsidised plants and rail sidings: more goods and fuel. Rules out the service economy."
+category = "Economy"
+tier = 2
+cost = { research = 1500 }
+bonus = { goods = 0.2, fuel = 0.1 }
+excludes = ["service_economy"]
+
+[[tech]]
+id = "computing"
+name = "Computing"
+description = "Mainframes in the schools: research comes faster."
+category = "Economy"
+tier = 2
+cost = { research = 3000 }
+bonus = { research = 0.25 }
+
+# ---------------------------------------------------------------- housing
+[[tech]]
+id = "steel_frame"
+name = "Steel-frame towers"
+description = "Lifts and steel skeletons let buildings rise past ten floors."
+category = "Housing"
+tier = 2
+cost = { research = 4000 }
+unlocks = ["tower_2", "tower_3", "mall_3"]
+
+# ---------------------------------------------------------------- industry
+[[tech]]
+id = "aeronautics"
+name = "Aeronautics"
+description = "Aircraft engineering for the heaviest industry."
+category = "Industry"
+tier = 3
+cost = { research = 5000 }
+requires = ["motorways"]
+unlocks = ["plant_3"]
+
+# ---------------------------------------------------------------- power
+[[tech]]
+id = "fission"
+name = "Nuclear fission"
+description = "Power from splitting atoms: vast output, no smoke."
+category = "Power"
+tier = 3
+cost = { research = 8000 }
+requires = ["steel_frame"]
+unlocks = ["nuclear_plant"]
