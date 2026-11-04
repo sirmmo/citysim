@@ -12,11 +12,25 @@ use macroquad::miniquad::{
 use macroquad::models::Vertex;
 use macroquad::prelude::*;
 
-/// Per-instance data: tile origin (x, base height, z) and slope shear (dy/dx, dy/dz).
-pub type Instance = [f32; 5];
+/// Per-instance data: tile origin (x, base height, z), slope shear
+/// (dy/dx, dy/dz), and a turn about the vertical axis (cos, sin, then the
+/// x, z offset that brings the turned model back onto its footprint).
+pub type Instance = [f32; 9];
 
 /// Instance that leaves geometry where it is (terrain, roads).
-pub const IDENTITY: Instance = [0.0; 5];
+pub const IDENTITY: Instance = [0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0];
+
+/// The turn part of an instance for a model of `(w, l)` tiles turned
+/// `facing` quarters clockwise (see `Structure::facing`).
+pub fn turn(facing: u8, (w, l): (u32, u32)) -> [f32; 4] {
+    let (w, l) = (w as f32, l as f32);
+    match facing % 4 {
+        0 => [1.0, 0.0, 0.0, 0.0],
+        1 => [0.0, 1.0, l, 0.0],
+        2 => [-1.0, 0.0, w, l],
+        _ => [0.0, -1.0, 0.0, w],
+    }
+}
 
 const VERTEX: &str = r#"#version 100
 attribute vec3 in_pos;
@@ -24,11 +38,12 @@ attribute vec2 in_uv;
 attribute vec4 in_color;
 attribute vec3 inst_pos;
 attribute vec2 inst_shear;
+attribute vec4 inst_turn;
 uniform mat4 mvp;
 varying lowp vec4 color;
 varying lowp vec2 uv;
 void main() {
-    vec3 p = in_pos;
+    vec3 p = vec3(inst_turn.x * in_pos.x - inst_turn.y * in_pos.z + inst_turn.z, in_pos.y, inst_turn.y * in_pos.x + inst_turn.x * in_pos.z + inst_turn.w);
     p.y += p.x * inst_shear.x + p.z * inst_shear.y;
     gl_Position = mvp * vec4(p + inst_pos, 1.0);
     color = in_color / 255.0;
@@ -97,6 +112,7 @@ impl Gpu {
                 VertexAttribute::new("in_color", VertexFormat::Byte4),
                 VertexAttribute::with_buffer("inst_pos", VertexFormat::Float3, 1),
                 VertexAttribute::with_buffer("inst_shear", VertexFormat::Float2, 1),
+                VertexAttribute::with_buffer("inst_turn", VertexFormat::Float4, 1),
             ],
             shader,
             PipelineParams { depth_test: Comparison::LessOrEqual, depth_write: true, ..Default::default() },

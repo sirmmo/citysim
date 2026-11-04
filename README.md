@@ -102,6 +102,7 @@ Android devices) fall back to the simpler renderer. Measure with
 | Wheel / + - / Insert, Delete | Zoom |
 | Home, End | Tilt |
 | R C I P L T X U J / | Residential, commercial, industrial, street (or the period's paved street), power line, trees, bulldozer, raise, lower, query |
+| O | Turn the inspected plant or service a quarter (also ⟳ Turn in the inspector) |
 | Space, F | Pause, fast forward |
 | Esc | Drop the tool, or open the menu (new, load, save, quit) |
 
@@ -117,6 +118,10 @@ Roads come in four kinds that connect to each other:
 Dragging a road over another kind rebuilds it. Each age offers its own:
 asphalt streets and highways today, paved streets and dirt roads before
 the industrial age.
+
+Plants and services (school, fire station, police, hospital…) snap to the
+street: a new one turns to face the road beside it, and the placement
+preview shows the turned footprint. Turn one by hand from the inspector.
 
 Zones grow when they are powered, near a road, and near the two other zone
 types. Power flows from plants through any chain of adjacent buildings,

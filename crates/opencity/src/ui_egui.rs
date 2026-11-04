@@ -43,6 +43,8 @@ pub enum Command {
     SetFlows(crate::flows::FlowView),
     /// Inspect the building on this tile and look at it.
     Inspect((u32, u32)),
+    /// Turn the plant or service on this tile a quarter clockwise.
+    Turn((u32, u32)),
     Quit,
 }
 
@@ -611,6 +613,13 @@ impl EguiUi {
                     ui.add_space(2.0);
                     if s.code == StructureCode::Road {
                         road_details(ui, s.road, info.traffic, rules.map(|r| &**r));
+                    } else if s.code.is_block() {
+                        ui.horizontal(|ui| {
+                            ui.label(size_line(city, s));
+                            if ui.small_button("⟳ Turn").on_hover_text("Turn it a quarter clockwise (O). New buildings face the street.").clicked() {
+                                out.push(Command::Turn(origin));
+                            }
+                        });
                     } else {
                         ui.label(size_line(city, s));
                     }
@@ -974,7 +983,7 @@ fn kind_line(view: &View, s: &opencity_core::Structure) -> String {
 /// Footprint and height of a building.
 fn size_line(city: &City, s: &opencity_core::Structure) -> String {
     let fp = city.footprints().get(s.graphic);
-    let (w, l) = (fp.width.max(1), fp.length.max(1));
+    let (w, l) = s.size(city.footprints());
     let tiles = if w * l == 1 { "1 tile".to_string() } else { format!("{w} × {l} tiles") };
     if fp.height <= 0.0 {
         return format!("Size {tiles}");

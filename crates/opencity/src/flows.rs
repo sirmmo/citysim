@@ -85,7 +85,7 @@ impl Arc {
 
 /// Centre of the building whose origin is `o`, a little above the ground.
 pub fn unit_centre(city: &City, o: (u32, u32)) -> Vec3 {
-    let (sw, sl) = city.layer.structure_at(o.0, o.1).map_or((1, 1), |s| city.footprints().size(s.graphic));
+    let (sw, sl) = city.layer.structure_at(o.0, o.1).map_or((1, 1), |s| s.size(city.footprints()));
     let (x, z) = (o.0 as f32 + sw as f32 / 2.0, o.1 as f32 + sl as f32 / 2.0);
     vec3(x, height_at(&city.terrain, x, z) + 0.7, z)
 }

@@ -415,3 +415,28 @@ fn research_bonuses_raise_production() {
     assert!(a > 0.0, "no goods made");
     assert!((b / a - 1.2).abs() < 1e-3, "goods {a} -> {b}");
 }
+
+#[test]
+fn services_face_the_street_and_turn() {
+    use opencity_core::layer::Structure;
+    let mut c = City::new(Terrain::flat(24, 24), None, Footprints::builtin(), 1);
+    // A street along the west side of where the school goes, one north of it.
+    c.apply_tool(Tool::Road, (5, 2), (5, 20)).unwrap();
+    c.apply_tool(Tool::School, (6, 8), (6, 8)).unwrap();
+    let s = c.layer.structure_at(6, 8).unwrap().clone();
+    assert_eq!(Structure::front(s.facing), (-1, 0), "the school looks onto the street to its west");
+    // Turning swaps a long footprint and keeps the origin.
+    let (w0, l0) = s.size(c.footprints());
+    let f = c.turn_building(6, 8).unwrap();
+    assert_eq!(f, (s.facing + 1) % 4);
+    let t = c.layer.structure_at(6, 8).unwrap().clone();
+    assert_eq!(t.size(c.footprints()), (l0, w0));
+    assert!(c.layer.structure_at(6 + t.size(c.footprints()).0 - 1, 8 + t.size(c.footprints()).1 - 1).is_some());
+    // Turned buildings survive a save.
+    let mut saved = Vec::new();
+    opencity_core::save::save(&c, &mut saved).unwrap();
+    let back = opencity_core::save::load(saved.as_slice(), Footprints::builtin()).unwrap();
+    assert_eq!(back.layer.structure_at(6, 8).unwrap().facing, t.facing);
+    // Roads are not turned.
+    assert!(c.turn_building(5, 3).is_err());
+}

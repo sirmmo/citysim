@@ -64,6 +64,10 @@ pub struct Structure {
     /// Kind of road (roads only).
     #[serde(default, skip_serializing_if = "is_street")]
     pub road: RoadKind,
+    /// Quarter turns of a block (plant or service) from its model's own
+    /// orientation, clockwise seen from above. Odd turns swap its footprint.
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub facing: u8,
 }
 
 fn is_zero(v: &u8) -> bool {
@@ -76,7 +80,18 @@ fn is_street(k: &RoadKind) -> bool {
 
 impl Structure {
     pub fn new(code: StructureCode) -> Self {
-        Self { code, graphic: code.base_graphic(), level: 0, connections: 0, traffic: 0, density: 0, unit: None, road: RoadKind::Street }
+        Self { code, graphic: code.base_graphic(), level: 0, connections: 0, traffic: 0, density: 0, unit: None, road: RoadKind::Street, facing: 0 }
+    }
+
+    /// Tiles covered, turned with the structure.
+    pub fn size(&self, footprints: &Footprints) -> (u32, u32) {
+        turned(footprints.size(self.graphic), self.facing)
+    }
+
+    /// The side the front of a block looks out of, as a tile step (dw, dl).
+    /// Models face +l (towards the viewer of the default camera) unturned.
+    pub fn front(facing: u8) -> (i32, i32) {
+        [(0, 1), (-1, 0), (0, -1), (1, 0)][(facing % 4) as usize]
     }
 
     /// Graphic code a zone shows at the given level.
@@ -140,6 +155,15 @@ impl Tile {
             TileKind::Main(s) => Some(s),
             TileKind::Part { .. } => None,
         }
+    }
+}
+
+/// A footprint after `facing` quarter turns.
+pub fn turned((w, l): (u32, u32), facing: u8) -> (u32, u32) {
+    if facing % 2 == 1 {
+        (l, w)
+    } else {
+        (w, l)
     }
 }
 
@@ -390,20 +414,76 @@ impl BuildingLayer {
         footprints.size(code.base_graphic())
     }
 
+    /// Where a block anchored at `(w, l)` goes, snapped to the street: of
+    /// the quarter turns that fit, the one whose front looks onto the most
+    /// road tiles (unturned on a tie).
+    pub fn block_fit(&self, w: u32, l: u32, code: StructureCode, terrain: &Terrain, footprints: &Footprints) -> Result<(u8, Rect), BuildError> {
+        let size = Self::block_size(code, footprints);
+        let mut best: Option<(usize, u8, Rect)> = None;
+        let mut out_of_bounds = true;
+        for facing in 0..4u8 {
+            let (sw, sl) = turned(size, facing);
+            let r = Rect::sized(w, l, sw, sl);
+            if !self.in_bounds(r) {
+                continue;
+            }
+            out_of_bounds = false;
+            if !self.can_build(r, code, terrain) {
+                continue;
+            }
+            let roads = self.front_roads(r, facing);
+            if best.is_none_or(|(b, _, _)| roads > b) {
+                best = Some((roads, facing, r));
+            }
+        }
+        best.map(|(_, f, r)| (f, r)).ok_or(if out_of_bounds { BuildError::OutOfBounds } else { BuildError::NotConstructible })
+    }
+
     fn build_block(&mut self, w: u32, l: u32, code: StructureCode, terrain: &Terrain, footprints: &Footprints) -> Result<u32, BuildError> {
-        let (sw, sl) = Self::block_size(code, footprints);
-        let r = Rect::sized(w, l, sw, sl);
-        if !self.in_bounds(r) {
-            return Err(BuildError::OutOfBounds);
-        }
-        if !self.can_build(r, code, terrain) {
-            return Err(BuildError::NotConstructible);
-        }
-        self.place_block(r, Structure::new(code));
+        let (facing, r) = self.block_fit(w, l, code, terrain, footprints)?;
+        self.place_block(r, Structure { facing, ..Structure::new(code) });
         if code.is_power_plant() {
             self.tile_mut(w, l).unwrap().status.set(Status::POWER);
         }
         Ok(code.build_cost())
+    }
+
+    /// Road tiles along the front edge of a block at `r`.
+    fn front_roads(&self, r: Rect, facing: u8) -> usize {
+        let (dw, dl) = Structure::front(facing);
+        let edge: Vec<(i64, i64)> = match (dw, dl) {
+            (0, 1) => (r.w1..=r.w2).map(|w| (w as i64, r.l2 as i64 + 1)).collect(),
+            (0, _) => (r.w1..=r.w2).map(|w| (w as i64, r.l1 as i64 - 1)).collect(),
+            (1, _) => (r.l1..=r.l2).map(|l| (r.w2 as i64 + 1, l as i64)).collect(),
+            _ => (r.l1..=r.l2).map(|l| (r.w1 as i64 - 1, l as i64)).collect(),
+        };
+        edge.into_iter()
+            .filter(|&(w, l)| w >= 0 && l >= 0 && (w as u32) < self.width && (l as u32) < self.length)
+            .filter(|&(w, l)| self.code_at(w as u32, l as u32) == Some(StructureCode::Road))
+            .count()
+    }
+
+    /// Turns the block covering `(w, l)` a quarter clockwise, about the same
+    /// origin. Fails when the turned footprint does not fit.
+    pub fn turn_block(&mut self, w: u32, l: u32, terrain: &Terrain, footprints: &Footprints) -> Result<u8, BuildError> {
+        let origin = self.origin_of(w, l).ok_or(BuildError::Nothing)?;
+        let s = self.structure_at(origin.0, origin.1).filter(|s| s.code.is_block()).cloned().ok_or(BuildError::Nothing)?;
+        let facing = (s.facing + 1) % 4;
+        let (sw, sl) = turned(footprints.size(s.graphic), facing);
+        let r = Rect::sized(origin.0, origin.1, sw, sl);
+        if !self.in_bounds(r) {
+            return Err(BuildError::OutOfBounds);
+        }
+        if !r.tiles().all(|(tw, tl)| (self.tile(tw, tl).is_none() || self.origin_of(tw, tl) == Some(origin)) && terrain.is_tile_flat(tw, tl)) {
+            return Err(BuildError::NotConstructible);
+        }
+        let status = self.tile(origin.0, origin.1).map(|t| t.status).unwrap_or_default();
+        self.remove_structure(origin);
+        self.place_block(r, Structure { facing, ..s });
+        if let Some(t) = self.tile_mut(origin.0, origin.1) {
+            t.status = status;
+        }
+        Ok(facing)
     }
 
     /// Puts `s` at the origin of `r` and part tiles on the rest.

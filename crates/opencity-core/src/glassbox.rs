@@ -386,7 +386,7 @@ impl GlassBox {
             .filter_map(|(p, s)| {
                 let u = s.unit? as usize;
                 (u < rules.units.len()).then(|| {
-                    let (sw, sl) = footprints.size(s.graphic);
+                    let (sw, sl) = s.size(footprints);
                     (p, u, Rect::sized(p.0, p.1, sw, sl))
                 })
             })

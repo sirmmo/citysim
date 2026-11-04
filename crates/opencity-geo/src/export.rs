@@ -103,7 +103,7 @@ pub fn export(city: &City, opts: &ExportOptions) -> Value {
             StructureCode::Flora => features.push(feature(json!({"type": "Point", "coordinates": un.at(w as f64 + 0.5, l as f64 + 0.5)}), props)),
             StructureCode::Part | StructureCode::Test => {}
             _ => {
-                let (sw, sl) = city.footprints().size(s.graphic);
+                let (sw, sl) = s.size(city.footprints());
                 features.push(feature(un.rect(w, l, sw, sl), props));
             }
         }

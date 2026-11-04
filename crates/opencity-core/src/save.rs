@@ -121,7 +121,8 @@ pub fn import_legacy(data: &[u8], footprints: Footprints) -> Result<City, SaveEr
             if !city.layer.in_bounds(rect) {
                 return Err(bad("structure outside of the map"));
             }
-            city.layer.place_block(rect, Structure { code, graphic, level, connections: 0, traffic, density: 0, unit: None, road: Default::default() });
+            city.layer
+                .place_block(rect, Structure { code, graphic, level, connections: 0, traffic, density: 0, unit: None, road: Default::default(), facing: 0 });
             city.layer.tile_mut(w, l).unwrap().status = Status(status);
         }
     }

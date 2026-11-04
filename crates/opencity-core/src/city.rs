@@ -246,6 +246,12 @@ impl City {
         [Some(tool.id()), unit].into_iter().flatten().find_map(|id| gb.locked_by(rules, id)).map(|t| t.name.clone())
     }
 
+    /// Turns the plant or service at `(w, l)` a quarter clockwise, free of
+    /// charge; returns its new facing.
+    pub fn turn_building(&mut self, w: u32, l: u32) -> Result<u8, ToolError> {
+        Ok(self.layer.turn_block(w, l, &self.terrain, &self.footprints)?)
+    }
+
     /// Finishes every research project (demo towns, sandbox play).
     pub fn research_all(&mut self) {
         if let Some(gb) = self.glassbox.as_mut() {
@@ -266,16 +272,19 @@ impl City {
         self.footprints = footprints;
     }
 
-    /// Tiles covered by a block structure placed with its origin at `(w, l)`.
+    /// Tiles a block structure placed at `(w, l)` would cover, turned to
+    /// face the street as building it would.
     pub fn block_rect(&self, code: StructureCode, w: u32, l: u32) -> Rect {
-        let (sw, sl) = BuildingLayer::block_size(code, &self.footprints);
-        Rect::sized(w, l, sw, sl)
+        self.layer.block_fit(w, l, code, &self.terrain, &self.footprints).map(|(_, r)| r).unwrap_or_else(|_| {
+            let (sw, sl) = BuildingLayer::block_size(code, &self.footprints);
+            Rect::sized(w, l, sw, sl)
+        })
     }
 
     /// Whether `tool` would succeed when anchored at `(w, l)` (build preview).
     pub fn can_place(&self, tool: Tool, w: u32, l: u32) -> bool {
         match tool.structure() {
-            Some(code) if code.is_block() => self.layer.can_build(self.block_rect(code, w, l), code, &self.terrain),
+            Some(code) if code.is_block() => self.layer.block_fit(w, l, code, &self.terrain, &self.footprints).is_ok(),
             Some(code) => self.layer.can_build(Rect::tile(w, l), code, &self.terrain),
             None => true,
         }

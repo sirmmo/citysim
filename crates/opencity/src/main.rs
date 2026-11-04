@@ -330,6 +330,13 @@ impl Game {
         self.message = Some((m.into(), get_time() + 3.0));
     }
 
+    /// Turns a plant or service a quarter clockwise.
+    fn turn_building(&mut self, w: u32, l: u32) {
+        if let Err(e) = self.city.turn_building(w, l) {
+            self.say(format!("Cannot turn it: {e}"));
+        }
+    }
+
     fn set_city(&mut self, mut city: City) {
         attach_saved_rules(&mut city, &self.rulesets);
         self.camera = OrbitCamera::new(city.width(), city.length());
@@ -462,6 +469,7 @@ impl Game {
             Command::SetOverlay(o) => self.overlay = o,
             Command::ResetCamera => self.camera = OrbitCamera::new(self.city.width(), self.city.length()),
             Command::CloseQuery => self.query = None,
+            Command::Turn((w, l)) => self.turn_building(w, l),
             Command::SetResearch(t) => {
                 if let Some(gb) = self.city.glassbox.as_mut() {
                     gb.set_research(t.as_deref());
@@ -542,7 +550,7 @@ impl Game {
                 .map(|(r, missing)| missing / def.needs.get(&rules.resources[*r].id).copied().unwrap_or(1.0).max(1e-6))
                 .fold(0.0, f32::max);
             if lack > 0.0 {
-                let (sw, sl) = self.city.footprints().size(s.graphic);
+                let (sw, sl) = s.size(self.city.footprints());
                 let colour = Color::new(1.0, 0.15, 0.1, 0.25 + 0.45 * lack.min(1.0));
                 self.renderer.draw_data_overlay_rect(&self.city.terrain, opencity_core::Rect::sized(x, l, sw, sl), colour);
             }
@@ -611,6 +619,12 @@ impl Game {
             }
             if is_key_pressed(KeyCode::F) {
                 self.handle_action(Action::ToggleFast);
+            }
+            // O turns the inspected plant or service.
+            if is_key_pressed(KeyCode::O) {
+                if let Some((_, (w, l))) = self.query {
+                    self.turn_building(w, l);
+                }
             }
             if let Some(a) = tool_key() {
                 let allowed = |t: Tool| {

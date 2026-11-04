@@ -147,7 +147,9 @@ pub fn load_texture_file(path: &Path) -> Option<Texture2D> {
 }
 
 fn instance_matrix(i: &Instance) -> Mat4 {
-    Mat4::from_cols(vec4(1.0, i[3], 0.0, 0.0), vec4(0.0, 1.0, 0.0, 0.0), vec4(0.0, i[4], 1.0, 0.0), vec4(i[0], i[1], i[2], 1.0))
+    let place = Mat4::from_cols(vec4(1.0, i[3], 0.0, 0.0), vec4(0.0, 1.0, 0.0, 0.0), vec4(0.0, i[4], 1.0, 0.0), vec4(i[0], i[1], i[2], 1.0));
+    let turn = Mat4::from_cols(vec4(i[5], 0.0, i[6], 0.0), vec4(0.0, 1.0, 0.0, 0.0), vec4(-i[6], 0.0, i[5], 0.0), vec4(i[7], 0.0, i[8], 1.0));
+    place * turn
 }
 
 impl Renderer {
@@ -327,7 +329,18 @@ impl Renderer {
                 continue;
             }
             let c = t.tile_corners(w, l);
-            groups.entry(s.graphic).or_default().push([w as f32, c[0] as f32 + MODEL_LIFT, l as f32, (c[3] - c[0]) as f32, (c[1] - c[0]) as f32]);
+            let [tc, ts, tw, tl] = crate::gpu::turn(s.facing, city.footprints().size(s.graphic));
+            groups.entry(s.graphic).or_default().push([
+                w as f32,
+                c[0] as f32 + MODEL_LIFT,
+                l as f32,
+                (c[3] - c[0]) as f32,
+                (c[1] - c[0]) as f32,
+                tc,
+                ts,
+                tw,
+                tl,
+            ]);
         }
         for (_, buf, _) in self.instances.drain(..) {
             if let (Some(b), Some(g)) = (buf, &self.gpu) {
