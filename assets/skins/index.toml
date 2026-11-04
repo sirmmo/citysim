@@ -1,2 +1,2 @@
 # Skins available to the game, in matching priority order. See docs/SKINS.md.
-skins = ["fantasy", "antiquity", "medieval", "renaissance", "industrial"]
+skins = ["fantasy", "antiquity", "medieval", "renaissance", "industrial", "modern"]

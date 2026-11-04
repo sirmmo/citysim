@@ -77,6 +77,36 @@ pub fn parse(text: &str) -> Result<ObjMesh, String> {
     Ok(mesh)
 }
 
+/// A building model from an `.obj`: scaled evenly to fit a footprint of
+/// `w` × `l` tiles (less a margin), centred on it, standing on the ground,
+/// in the frame of OpenCity's models (x along w, z along l, y up). Faces
+/// get flat normals and the kit's colour map as texture.
+pub fn to_building(obj: &ObjMesh, texture: Option<std::path::PathBuf>, (w, l): (u32, u32)) -> crate::ac3d::Model {
+    let (lo, hi) = obj.bounds();
+    let (w, l) = (w.max(1) as f32, l.max(1) as f32);
+    let size = [(hi[0] - lo[0]).max(1e-3), (hi[2] - lo[2]).max(1e-3)];
+    let margin = 0.06;
+    let s = ((w - 2.0 * margin) / size[0]).min((l - 2.0 * margin) / size[1]);
+    let (cx, cz) = ((lo[0] + hi[0]) / 2.0, (lo[2] + hi[2]) / 2.0);
+    let place = |p: [f32; 3]| [w / 2.0 + (p[0] - cx) * s, (p[1] - lo[1]) * s, l / 2.0 + (p[2] - cz) * s];
+    let mut mesh = crate::ac3d::Mesh { texture, ..Default::default() };
+    for t in &obj.triangles {
+        let p = t.map(|i| place(obj.positions[i as usize]));
+        let (a, b) = ([p[1][0] - p[0][0], p[1][1] - p[0][1], p[1][2] - p[0][2]], [p[2][0] - p[0][0], p[2][1] - p[0][1], p[2][2] - p[0][2]]);
+        let n = [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+        let len = (n[0] * n[0] + n[1] * n[1] + n[2] * n[2]).sqrt().max(1e-9);
+        let n = [n[0] / len, n[1] / len, n[2] / len];
+        for (j, pos) in p.into_iter().enumerate() {
+            mesh.indices.push(mesh.positions.len() as u32);
+            mesh.positions.push(pos);
+            mesh.normals.push(n);
+            mesh.uvs.push(obj.uvs[t[j] as usize]);
+            mesh.colors.push([1.0, 1.0, 1.0, 1.0]);
+        }
+    }
+    crate::ac3d::Model { meshes: vec![mesh] }
+}
+
 /// Reads and parses an `.obj` file.
 pub fn load(path: &Path) -> Result<ObjMesh, AssetError> {
     parse(&read_text(path)?).map_err(|message| AssetError::Parse { path: path.to_owned(), line: 0, message })
@@ -93,6 +123,16 @@ mod tests {
         assert_eq!(m.positions.len(), 4);
         assert_eq!(m.uvs[2], [1.0, 0.0]);
         assert_eq!(m.bounds(), ([0.0, 0.0, 0.0], [1.0, 0.0, 1.0]));
+    }
+
+    #[test]
+    fn buildings_fit_their_footprint() {
+        let obj = parse("v -1 0 -0.5\nv 1 0 -0.5\nv 1 2 0.5\nf 1 2 3\n").unwrap();
+        let m = to_building(&obj, None, (2, 1));
+        let (lo, hi) = m.bounds().unwrap();
+        assert!(lo[0] >= 0.0 && hi[0] <= 2.0 && lo[2] >= 0.0 && hi[2] <= 1.0 && lo[1] == 0.0, "{lo:?} {hi:?}");
+        // The tighter side (1 tile deep) sets the even scale: 0.88 after margins.
+        assert!((hi[2] - lo[2] - 0.88).abs() < 1e-3 && (hi[0] - lo[0] - 1.76).abs() < 1e-3, "{lo:?} {hi:?}");
     }
 
     #[test]

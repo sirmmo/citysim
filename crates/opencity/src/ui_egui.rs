@@ -922,7 +922,8 @@ fn era_culture_picker(ui: &mut egui::Ui, skins: &[Skin], era: &mut Option<String
                 *era = None;
                 *skin = None;
             }
-            for e in Skin::eras(skins) {
+            // "Modern" is the entry above (its default skin applies by itself).
+            for e in Skin::eras(skins).into_iter().filter(|e| *e != "Modern") {
                 if ui.selectable_label(era.as_deref() == Some(e), e).clicked() {
                     *era = Some(e.to_string());
                     *skin = skins.iter().find(|s| s.era == e).map(|s| s.id.clone());

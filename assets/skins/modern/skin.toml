@@ -1,0 +1,51 @@
+name = "Modern (Kenney)"
+description = "Today's towns built from the CC0 Kenney city kits: suburban houses, shops and towers, workshops and factories."
+era = "Modern"
+culture = "Kenney city kits"
+
+[applies]
+years = [1946, 9999]
+# New cities with no date or world use it too. View > Skin > None brings
+# back OpenCity's own buildings.
+default = true
+
+[look]
+vehicles = true
+
+# Graphic code -> model. `models/...` is shared art under the data folder:
+# Kenney City Kit Suburban, Commercial and Industrial (CC0). Each model is
+# scaled to fit the footprint of the OpenCity building it replaces.
+# Services, the nuclear plant and the park keep OpenCity's models.
+[models]
+# Residential: house_1..3, townhouse_1..3, tower_1..3 (GlassBox units).
+11 = "models/kenney/city-suburban/building-type-h.obj"
+12 = "models/kenney/city-suburban/building-type-a.obj"
+13 = "models/kenney/city-suburban/building-type-c.obj"
+14 = "models/kenney/city-suburban/building-type-b.obj"
+15 = "models/kenney/city-suburban/building-type-n.obj"
+16 = "models/kenney/city-commercial/building-g.obj"
+17 = "models/kenney/city-suburban/building-type-k.obj"
+18 = "models/kenney/city-commercial/building-l.obj"
+19 = "models/kenney/city-commercial/building-skyscraper-b.obj"
+# Commercial: shop_1..3, store_1..3, mall_1..3.
+21 = "models/kenney/city-commercial/building-c.obj"
+22 = "models/kenney/city-commercial/building-a.obj"
+23 = "models/kenney/city-commercial/building-h.obj"
+24 = "models/kenney/city-commercial/building-e.obj"
+25 = "models/kenney/city-commercial/building-n.obj"
+26 = "models/kenney/city-commercial/building-i.obj"
+27 = "models/kenney/city-commercial/building-j.obj"
+28 = "models/kenney/city-commercial/building-k.obj"
+29 = "models/kenney/city-commercial/building-skyscraper-d.obj"
+# Industrial: workshop_1..3, factory_1..3, plant_1..3.
+31 = "models/kenney/city-industrial/building-k.obj"
+32 = "models/kenney/city-industrial/building-i.obj"
+33 = "models/kenney/city-industrial/building-j.obj"
+34 = "models/kenney/city-industrial/building-h.obj"
+35 = "models/kenney/city-industrial/building-o.obj"
+36 = "models/kenney/city-industrial/building-d.obj"
+37 = "models/kenney/city-industrial/building-n.obj"
+38 = "models/kenney/city-industrial/building-l.obj"
+39 = "models/kenney/city-industrial/building-r.obj"
+# Coal power plant.
+300 = "models/kenney/city-industrial/building-f.obj"

@@ -2,6 +2,12 @@
 
 Release notes in full are on the [releases page](https://github.com/sirmmo/citysim/releases).
 
+## 0.2.15: Kenney city kits
+- **Kenney city kits:** modern cities (1946 on, and new cities with no date) are built from the CC0 Kenney City Kit Suburban, Commercial and Industrial: houses, shops, towers, workshops, factories and the coal plant.
+- **`.obj` models in skins:** skins can use `.obj` models, scaled to fit the footprint they replace, and shared art under `models/`.
+- **Default skins:** `[applies] default = true` picks a skin for cities with no date or world.
+- **View > Skin > None** shows OpenCity's original buildings.
+
 ## 0.2.14: A local MCP server
 - **`opencity-cli mcp`** serves the Model Context Protocol over stdio, so AI assistants (Claude Code, Claude Desktop…) can build, simulate and inspect a city.
 - **Tools:** new, load and save a city; summary; simulate; list and apply tools; inspect a tile; turn a building; research; taxes and policies; render a PNG; export GeoJSON.

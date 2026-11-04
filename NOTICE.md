@@ -40,9 +40,9 @@ next to the converted files, and they keep the CC BY-SA 3.0 licence.
 
 ## Kenney kits (CC0)
 
-`assets/models/kenney/` holds models from the Car Kit, Train Kit and
-Watercraft Kit by [Kenney](https://www.kenney.nl), released under CC0
-(public domain). Each folder keeps the kit's `License.txt`.
+`assets/models/kenney/` holds models from the Car Kit, Train Kit,
+Watercraft Kit and City Kits (Suburban, Commercial, Industrial) by
+[Kenney](https://www.kenney.nl), released under CC0 (public domain). Each folder keeps the kit's `License.txt`.
 
 ## License
 

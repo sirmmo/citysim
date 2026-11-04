@@ -30,7 +30,7 @@ keys group it in the new-city dialog.
 | `look.vehicles` | Hide cars, e.g. before 1900 or in a fantasy world |
 | `[labels]` | Tool names, by tool id (`coal_plant = "Watermill"`) |
 | `disabled_tools` | Tools that do not exist in that era or world |
-| `[models]` | Graphic code to replacement `.ac` model |
+| `[models]` | Graphic code to replacement model: `.ac` (AC3D) or `.obj` (Wavefront, e.g. Kenney kits). A path starting with `models/` is shared art under the data folder; any other path is relative to the skin folder |
 | any file under the skin folder | Replaces the base file with the same relative path, e.g. `skins/fantasy/graphism/gui/road.png` |
 
 Tool ids: `residential`, `commercial`, `industrial`, `road` (asphalt
@@ -44,9 +44,18 @@ and the inspector names every building as the rules do. Rules can hide tools
 too (`disabled_tools` in the rules file).
 
 Replacement models keep the footprint of the model they replace, because the
-simulation uses the base catalog's sizes.
+simulation uses the base catalog's sizes. `.obj` models are scaled evenly to
+fit that footprint, centred on it, and textured with the `colormap.png` next
+to them.
 
 ## Shipped examples
+
+* **modern** (Modern, Kenney city kits): years 1946 on, and every city with
+  no date or world (`default = true` in `[applies]`). Houses come from the CC0
+  Kenney City Kit Suburban, shops and towers from City Kit Commercial, and
+  workshops, factories and the coal plant from City Kit Industrial. The
+  services, the nuclear plant and the park keep OpenCity's models. **View >
+  Skin > None** brings back OpenCity's own buildings.
 
 * **antiquity-<civ>** (baked, see below): years -1000 to 500, one per culture.
   Towns built from **0 A.D. art**: houses, storehouses, farmsteads, civic
@@ -124,10 +133,10 @@ place. Ways to get there, roughly by effort:
 1. **More 0 A.D. cultures.** Adding a culture is one line in
    `assets/zeroad/antiquity.toml`. Medieval and
    later eras need other sources.
-2. **glTF loading plus CC0 kits.** Add a glTF loader next to the AC3D one
-   (the `gltf` crate) and map existing CC0 low-poly kits onto the graphic
-   codes through `[models]`. Kenney's town, castle and fantasy kits are
-   examples. This is the fastest route to a convincing medieval or fantasy look.
+2. **CC0 kits through `.obj`.** The OBJ loader is in place, and the modern
+   skin maps three Kenney city kits onto the graphic codes this way. Kenney's
+   town, castle and fantasy kits would give a medieval or fantasy look the
+   same way.
 3. **Procedural buildings from map tags.** OHM and OSM buildings carry
    `building:levels`, `roof:shape`, `building:material`, `building:colour`
    and `start_date`. A generator could extrude footprints with era-appropriate

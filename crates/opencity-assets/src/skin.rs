@@ -21,6 +21,9 @@ pub struct Applies {
     /// World names (case-insensitive; `*` wildcards at either end).
     #[serde(default)]
     pub worlds: Vec<String>,
+    /// Used for cities with neither a date nor a world (new modern cities).
+    #[serde(default)]
+    pub default: bool,
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq)]
@@ -112,6 +115,16 @@ struct Index {
     skins: Vec<String>,
 }
 
+/// A skin model file: `models/…` is shared art under the data directory
+/// (the Kenney kits); anything else is relative to the skin folder.
+fn model_path(data_dir: &Path, dir: &Path, file: &str) -> PathBuf {
+    if file.starts_with("models/") {
+        data_dir.join(file)
+    } else {
+        dir.join(file)
+    }
+}
+
 fn world_matches(pattern: &str, world: &str) -> bool {
     let (p, w) = (pattern.to_lowercase(), world.to_lowercase());
     match (p.strip_prefix('*'), p.strip_suffix('*')) {
@@ -137,12 +150,12 @@ impl Skin {
         let mut models = BTreeMap::new();
         for (code, file) in raw_models {
             // Art that is not baked/installed is simply not used.
-            if read_bytes(&dir.join(&file)).is_err() {
+            if read_bytes(&model_path(data_dir, &dir, &file)).is_err() {
                 log::debug!("skin {id}: missing model {file}");
                 continue;
             }
             let code = code.parse::<u16>().map_err(|_| AssetError::Parse { path: path.clone(), line: 0, message: format!("bad graphic code {code:?}") })?;
-            models.insert(code, dir.join(file));
+            models.insert(code, model_path(data_dir, &dir, &file));
         }
         Ok(Self {
             id: id.to_string(),
@@ -206,8 +219,11 @@ impl Skin {
                 return Some(s);
             }
         }
-        let y = year?;
-        skins.iter().find(|s| s.applies.years.is_some_and(|[a, b]| (a..=b).contains(&y)))
+        match year {
+            Some(y) => skins.iter().find(|s| s.applies.years.is_some_and(|[a, b]| (a..=b).contains(&y))),
+            None if world.is_none() => skins.iter().find(|s| s.applies.default),
+            None => None,
+        }
     }
 
     /// The skin's version of a data file if it has one, else the base file.
@@ -243,7 +259,12 @@ mod tests {
         assert!(skins.len() >= 3);
         assert_eq!(Skin::select(&skins, None, Some(1600), None).map(|s| s.id.as_str()), Some("renaissance"));
         assert_eq!(Skin::select(&skins, None, Some(1890), None).map(|s| s.id.as_str()), Some("industrial"));
-        assert_eq!(Skin::select(&skins, None, Some(2020), None), None);
+        // Modern dates and undated cities get the Kenney city kits.
+        assert_eq!(Skin::select(&skins, None, Some(2020), None).map(|s| s.id.as_str()), Some("modern"));
+        assert_eq!(Skin::select(&skins, None, None, None).map(|s| s.id.as_str()), Some("modern"));
+        let modern = skins.iter().find(|s| s.id == "modern").unwrap();
+        assert!(modern.models.len() >= 28, "missing Kenney models: {}", modern.models.len());
+        assert!(modern.models.values().all(|p| p.extension().is_some_and(|e| e == "obj")));
         assert_eq!(Skin::select(&skins, None, Some(1600), Some("Eldoria")).map(|s| s.id.as_str()), Some("fantasy"));
         assert_eq!(Skin::select(&skins, Some("industrial"), None, None).map(|s| s.id.as_str()), Some("industrial"));
         let r = Skin::select(&skins, None, Some(1600), None).unwrap();

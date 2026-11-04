@@ -30,6 +30,19 @@ pub enum AssetError {
     NoDataDir(String),
 }
 
+/// Loads a building model: AC3D (`.ac`) as is, or Wavefront (`.obj`, the
+/// Kenney kits) fitted to a footprint of `w` × `l` tiles, textured with the
+/// `colormap.png` next to it.
+pub fn load_building_model(path: &Path, footprint: (u32, u32)) -> Result<ac3d::Model, AssetError> {
+    if path.extension().is_some_and(|e| e.eq_ignore_ascii_case("obj")) {
+        let obj = obj::load(path)?;
+        let tex = path.parent().map(|d| d.join("colormap.png")).filter(|t| read_bytes(t).is_ok());
+        Ok(obj::to_building(&obj, tex, footprint))
+    } else {
+        ac3d::load(path)
+    }
+}
+
 /// How data files are read. Desktop builds read the filesystem; Android
 /// installs a reader for the assets packed in the APK.
 pub type FileReader = fn(&Path) -> std::io::Result<Vec<u8>>;

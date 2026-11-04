@@ -182,6 +182,10 @@ Extended GlassBox model by Costagliola, Montanari and Bellavista
 
 ## Skins
 
+New modern cities are built from the CC0 **Kenney city kits**: suburban
+houses, shops, office towers, workshops and factories (the **modern**
+skin). **View > Skin > None** shows OpenCity's original buildings.
+
 Skins re-dress the game for the **era** of a historical import or the
 **world** of a fantasy map. They change colours, names, available tools,
 icons and models. They are picked automatically from `--date` / the

@@ -10,7 +10,7 @@ use std::path::{Path, PathBuf};
 
 use macroquad::models::{draw_mesh, Mesh, Vertex};
 use macroquad::prelude::*;
-use opencity_assets::{ac3d, Catalog, Look};
+use opencity_assets::{Catalog, Look};
 use opencity_core::{layer::TileKind, terrain::HEIGHT_MAX, City, Direction, GraphicCode, Rect, RoadKind, StructureCode, Terrain};
 
 use crate::gpu::{Gpu, GpuMesh, Instance};
@@ -250,8 +250,9 @@ impl Renderer {
     }
 
     fn load_model(&mut self, gc: GraphicCode) -> Option<Model> {
-        let path = self.catalog.get(gc)?.model.clone();
-        let model = ac3d::load(&path).map_err(|e| log::warn!("{e}")).ok()?;
+        let entry = self.catalog.get(gc)?;
+        let (path, fp) = (entry.model.clone(), (entry.footprint.width, entry.footprint.length));
+        let model = opencity_assets::load_building_model(&path, fp).map_err(|e| log::warn!("{e}")).ok()?;
         let mut cpu = Vec::new();
         for m in &model.meshes {
             let texture = m.texture.as_deref().map(|p| self.texture(p));
