@@ -25,6 +25,7 @@ Buildings are **units**. Each one:
 | `grid` | Instantly within each connected part of a network; shared proportionally when short. | power |
 | `city` | Into or out of the treasury. | taxes, upkeep |
 | `local` | Stays in the unit, used for statistics. | residents |
+| `pool` | Into one city-wide stock that keeps from tick to tick. Needs draw on it and research spends it. | ideas, research points |
 
 **Kinds** (subtypes) split an `agents` or `grid` resource into variants that
 fill the same slots but weigh on different networks. `car` with kinds
@@ -213,6 +214,50 @@ Inspecting a road lists the vehicles allowed on it. Skins that set
 `vehicles = false` hide cars and trucks only. People on foot and carts are
 always drawn.
 
+### Ideas and research
+
+Pooled resources build networks that are not on the map. The shipped
+rules chain them:
+
+```
+cafés, restaurants, business centres ──ideas──▶ pool ──▶ schools ──research points──▶ pool ──▶ projects
+(taverns, coaching inns, market squares and shops before 1800; academies)
+```
+
+A research project spends pooled resources and unlocks units and tools:
+
+```toml
+[[tech]]
+id = "steel_frame"
+name = "Steel-frame towers"
+description = "Lifts and steel skeletons let buildings rise past ten floors."
+cost = { research = 4000 }          # pooled resources only
+requires = ["motorways"]            # projects to finish first (optional)
+unlocks = ["tower_2", "tower_3", "mall_3", "highway"]   # unit ids and tool ids
+```
+
+- **What is locked:** any unit or tool a project names stays locked until
+  that project is done.
+- **Locked units:** a plot never develops into a locked unit, and buildings
+  never level up into one.
+- **Locked tools:** they are greyed out in the tool bar, and their tooltip
+  names the project they wait for.
+- **Services:** a service tool is locked when the unit it builds is.
+- **Choosing a project:** pick one in the 🔬 Research window. It draws on
+  the pools each tick until it is paid for, and a progress bar shows how
+  far along it is.
+- **Without a research window** (the classic interface, Android), the city
+  works through the projects in the order the rules list them.
+- **Demo towns** start with everything researched.
+
+| Rules | Projects |
+|---|---|
+| GlassBox | Motorways (highway), Steel-frame towers (High-rise, Slab tower, Skyscraper), Aeronautics (Aeronautics works), Nuclear fission (nuclear plant) |
+| Pre-industrial | Paving (cobbled streets), Horse breeding (Stables), Bathing & medicine (Bathhouse), Masonry (Courtyard house, Insula block), Banking (Merchants' exchange) |
+
+A school makes about 2 research points a tick, some 2,400 a year, so a
+project takes from a few months to a few years.
+
 ## Playing
 
 * The zone tools show a **Low / Medium / High** density switch.
@@ -280,6 +325,7 @@ scripts = ["my_rules.gbx"]         # GlassBox rule scripts (optional)
 [[zone]]                           # id, name, structure, densities, demand, base_demand
 [services]                         # tool id = unit id
 [[unit]]                           # id, name, description, graphic, produce, needs, sends, emits, requires, build_cost
+[[tech]]                           # id, name, description, cost, requires, unlocks
 ```
 
 Top-level keys also include `description`, `years` (the ages the rules

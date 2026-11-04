@@ -37,6 +37,8 @@ pub enum Command {
     ExportGeojson(PathBuf),
     ResetCamera,
     CloseQuery,
+    /// Research project to work on (`None`: stop).
+    SetResearch(Option<String>),
     /// Network view settings (GlassBox rules).
     SetFlows(crate::flows::FlowView),
     /// Inspect the building on this tile and look at it.
@@ -89,6 +91,7 @@ pub struct EguiUi {
     show_city: bool,
     graphs: crate::graphs::Graphs,
     show_network: bool,
+    show_research: bool,
     /// Skin the current style and icons were built for.
     styled_for: Option<Option<String>>,
 }
@@ -164,6 +167,7 @@ impl EguiUi {
             show_city: true,
             graphs: Default::default(),
             show_network: false,
+            show_research: false,
             styled_for: None,
         }
     }
@@ -225,6 +229,10 @@ impl EguiUi {
         Some(tex)
     }
 
+    pub fn open_research(&mut self) {
+        self.show_research = true;
+    }
+
     pub fn open_network(&mut self) {
         self.show_network = true;
     }
@@ -249,6 +257,9 @@ impl EguiUi {
         self.graphs.show(ctx, view.city.glassbox.as_ref(), &export_dir);
         if self.show_network {
             crate::network::window(ctx, &mut self.show_network, view.city, view.flows, view.query, &mut out);
+        }
+        if self.show_research {
+            crate::research::window(ctx, &mut self.show_research, view.city, &mut out);
         }
         if let Some((link, amount)) = view.flow_hover {
             crate::network::hover_tooltip(ctx, view.city, link, amount);
@@ -403,8 +414,17 @@ impl EguiUi {
                             Some(t) => egui::Button::image_and_text(egui::Image::new((t.id(), EVec2::splat(26.0))), text),
                             None => egui::Button::new(text),
                         };
-                        let resp = ui.add_sized([166.0, 32.0], button.selected(selected));
-                        let resp = if key.is_empty() { resp } else { resp.on_hover_text(format!("Shortcut: {key}")) };
+                        // Tools waiting for research are shown, greyed out.
+                        let locked = match action {
+                            Action::Tool(Some(t)) => view.city.tool_locked_by(t),
+                            _ => None,
+                        };
+                        let resp = ui.add_enabled_ui(locked.is_none(), |ui| ui.add_sized([166.0, 32.0], button.selected(selected))).inner;
+                        let resp = match &locked {
+                            Some(tech) => resp.on_disabled_hover_text(format!("Needs research: {tech}")),
+                            None if key.is_empty() => resp,
+                            None => resp.on_hover_text(format!("Shortcut: {key}")),
+                        };
                         if resp.clicked() {
                             out.push(Command::Act(if selected { Action::Tool(None) } else { action }));
                         }
@@ -449,7 +469,7 @@ impl EguiUi {
             }
             if let (Some(gb), Some(rules)) = (&city.glassbox, city.rules()) {
                 ui.separator();
-                ui.horizontal(|ui| {
+                ui.horizontal_wrapped(|ui| {
                     if ui.button("📈 Graphs (G)").on_hover_text("Plot and analyse every GlassBox series").clicked() {
                         self.graphs.open = !self.graphs.open;
                     }
@@ -458,6 +478,11 @@ impl EguiUi {
                         if self.show_network && !view.flows.on {
                             out.push(Command::SetFlows(crate::flows::FlowView { on: true, ..view.flows.clone() }));
                         }
+                    }
+                    if !rules.techs.is_empty()
+                        && ui.button("🔬 Research").on_hover_text("Spend ideas and research points to unlock buildings and tools").clicked()
+                    {
+                        self.show_research = !self.show_research;
                     }
                 });
                 ui.label(RichText::new("Demand").small().color(Color32::GRAY));
@@ -484,6 +509,7 @@ impl EguiUi {
                             opencity_core::rules::Transport::Local => format!("{made:.0}"),
                             opencity_core::rules::Transport::City if made > 0.0 => format!("+{made:.1}"),
                             opencity_core::rules::Transport::City => format!("-{got:.1}"),
+                            opencity_core::rules::Transport::Pool => format!("+{made:.1}  ({:.0})", gb.pools.get(i).copied().unwrap_or(0.0)),
                             _ => format!("{got:.0} / {:.0}", got + missing),
                         };
                         let short = missing > (got + missing) * 0.1;

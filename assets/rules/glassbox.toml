@@ -105,6 +105,19 @@ id = "residents"
 name = "Residents"
 transport = "local"
 
+# Pooled resources gather city-wide and never travel: people meeting in
+# cafés and taverns have ideas, schools turn them into research points, and
+# research projects ([[tech]] at the end) spend those.
+[[resource]]
+id = "ideas"
+name = "Ideas"
+transport = "pool"
+
+[[resource]]
+id = "research"
+name = "Research points"
+transport = "pool"
+
 # ---------------------------------------------------------------- networks
 [[network]]
 id = "road"
@@ -356,7 +369,7 @@ id = "shop_1"
 name = "Snack bar"
 description = "Sandwiches and coffee for people on their way to work."
 graphic = 21
-produce = { taxes = 0.05 }
+produce = { taxes = 0.05, ideas = 0.3 }
 needs = { workers = 1, shoppers = 3, goods = 1, power = 1, car = 0.5 }
 emits = { land_value = { amount = 0.4, radius = 2 } }
 
@@ -392,7 +405,7 @@ id = "store_2"
 name = "Restaurant"
 description = "Dinners for the district, and a terrace in summer."
 graphic = 26
-produce = { taxes = 0.35 }
+produce = { taxes = 0.35, ideas = 1 }
 needs = { workers = 8, shoppers = 20, goods = 8, power = 4, car = 4 }
 emits = { land_value = { amount = 1.2, radius = 3 } }
 requires = { fire_safety = { min = 1 } }
@@ -422,7 +435,7 @@ id = "mall_2"
 name = "Business centre"
 description = "Offices and shops in a four-by-four block."
 graphic = 25
-produce = { taxes = 1.4 }
+produce = { taxes = 1.4, ideas = 3 }
 needs = { workers = 30, shoppers = 60, goods = 25, power = 15, car = 15 }
 emits = { land_value = { amount = 3.0, radius = 5 } }
 requires = { fire_safety = { min = 1 }, police_safety = { min = 1 } }
@@ -572,7 +585,8 @@ emits = { health = { amount = 10.0, radius = 16 } }
 id = "school"
 name = "School"
 graphic = 390
-needs = { workers = 6, power = 3, upkeep = 0.4 }
+produce = { research = 2 }
+needs = { workers = 6, power = 3, upkeep = 0.4, ideas = 1 }
 emits = { education = { amount = 10.0, radius = 14 } }
 
 [[unit]]
@@ -580,3 +594,37 @@ id = "park"
 name = "Park"
 graphic = 320
 emits = { land_value = { amount = 2.0, radius = 3 } }
+
+# ---------------------------------------------------------------- research
+# A school makes about 2 research points a tick, some 2,400 a year.
+# Each project spends pooled research points and unlocks units (by id) or
+# tools. Whatever a project names stays locked until it is done.
+[[tech]]
+id = "motorways"
+name = "Motorways"
+description = "Grade-separated roads for fast traffic between districts."
+cost = { research = 2000 }
+unlocks = ["highway"]
+
+[[tech]]
+id = "steel_frame"
+name = "Steel-frame towers"
+description = "Lifts and steel skeletons let buildings rise past ten floors."
+cost = { research = 4000 }
+unlocks = ["tower_2", "tower_3", "mall_3"]
+
+[[tech]]
+id = "aeronautics"
+name = "Aeronautics"
+description = "Aircraft engineering for the heaviest industry."
+cost = { research = 5000 }
+requires = ["motorways"]
+unlocks = ["plant_3"]
+
+[[tech]]
+id = "fission"
+name = "Nuclear fission"
+description = "Power from splitting atoms: vast output, no smoke."
+cost = { research = 8000 }
+requires = ["steel_frame"]
+unlocks = ["nuclear_plant"]

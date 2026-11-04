@@ -152,6 +152,11 @@ kinds it may use, how fast it can go and what it carries. Modern towns get
 cars and delivery trucks. Towns of the past get people on foot, handcarts
 and horse carts, and none of them may use a highway (see
 [docs/RULES.md](docs/RULES.md#vehicles)).
+Pooled resources build networks that are not on the map. People meeting
+in cafés and taverns have ideas, which schools turn into research points,
+and research projects unlock buildings and tools such as highways,
+high-rises, nuclear plants, cobbled streets and the insula
+([docs/RULES.md](docs/RULES.md#ideas-and-research)).
 Behaviour can also be scripted in the **GlassBox rule language**: `unitRule`,
 `mapRule`, `zoneRule` and `agentRule`, with the timestamped metrics of the
 Extended GlassBox model by Costagliola, Montanari and Bellavista

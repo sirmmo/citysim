@@ -34,6 +34,10 @@ pub enum Transport {
     City,
     /// Stays in the building (residents, statistics).
     Local,
+    /// Gathered city-wide into a stock that never travels and keeps from
+    /// tick to tick (ideas, research points). Needs draw on the stock, and
+    /// research spends it.
+    Pool,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -433,6 +437,29 @@ pub struct Ruleset {
     /// Effects of moving agents (Extended GlassBox `agentRule`).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub agent_rules: Vec<AgentRule>,
+    /// Research projects.
+    #[serde(default, rename = "tech", skip_serializing_if = "Vec::is_empty")]
+    pub techs: Vec<TechDef>,
+}
+
+/// A research project (`[[tech]]`): paid from pooled resources, it unlocks
+/// units and tools. A unit or tool named by any project stays locked until
+/// that project is done.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct TechDef {
+    pub id: String,
+    pub name: String,
+    #[serde(default)]
+    pub description: String,
+    /// Pooled resources to spend (`{ research = 200 }`).
+    pub cost: BTreeMap<String, f32>,
+    /// Projects to finish first.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub requires: Vec<String>,
+    /// Unit ids and tool ids it unlocks.
+    #[serde(default)]
+    pub unlocks: Vec<String>,
 }
 
 /// Comparison used by rule conditions.
@@ -595,6 +622,15 @@ impl Ruleset {
             .collect()
     }
 
+    pub fn tech(&self, id: &str) -> Option<usize> {
+        self.techs.iter().position(|t| t.id == id)
+    }
+
+    /// The research projects that unlock a unit or tool id.
+    pub fn locked_by<'a>(&'a self, id: &'a str) -> impl Iterator<Item = &'a TechDef> + 'a {
+        self.techs.iter().filter(move |t| t.unlocks.iter().any(|u| u == id))
+    }
+
     /// Whether the resource travels on a network that names its vehicles.
     pub fn vehicle_network(&self, resource: usize) -> bool {
         self.resources[resource].network.as_deref().and_then(|n| self.network(n)).is_some_and(|n| !self.networks[n].vehicles.is_empty())
@@ -734,6 +770,29 @@ impl Ruleset {
             for a in &r.areas {
                 if self.layer(&a.layer).is_none() {
                     return err(format!("agentRule {}: unknown map {}", r.name, a.layer));
+                }
+            }
+        }
+        for t in &self.techs {
+            let at = |m: String| err(format!("tech {}: {m}", t.id));
+            if t.cost.is_empty() {
+                return at("costs nothing".into());
+            }
+            for (r, v) in &t.cost {
+                match self.resource(r) {
+                    Some(i) if self.resources[i].transport == Transport::Pool && v.is_finite() && *v > 0.0 => {}
+                    Some(_) => return at(format!("cost in {r}: pooled resources only, more than 0")),
+                    None => return at(format!("unknown resource {r}")),
+                }
+            }
+            for q in &t.requires {
+                if self.tech(q).is_none() || q == &t.id {
+                    return at(format!("unknown requirement {q}"));
+                }
+            }
+            for u in &t.unlocks {
+                if self.unit(u).is_none() && !crate::Tool::ALL.iter().any(|x| x.id() == u) {
+                    return at(format!("unlocks unknown unit or tool {u}"));
                 }
             }
         }

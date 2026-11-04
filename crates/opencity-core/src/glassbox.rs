@@ -14,7 +14,7 @@
 //! 7. **Demand and growth**: zone demand from unmet and undelivered
 //!    resources; plots develop, units level up or down by density.
 
-use std::collections::{BTreeMap, HashMap, VecDeque};
+use std::collections::{BTreeMap, BTreeSet, HashMap, VecDeque};
 use std::sync::Arc;
 
 use rand::seq::SliceRandom;
@@ -125,6 +125,25 @@ pub struct GlassBox {
     /// Everything above, sampled every tick, for graphs and analysis.
     #[serde(default)]
     pub series: crate::series::Series,
+    /// Stocks of pooled resources (ideas, research points), by resource.
+    #[serde(default)]
+    pub pools: Vec<f32>,
+    /// Research projects done.
+    #[serde(default)]
+    pub researched: BTreeSet<String>,
+    /// The project being researched.
+    #[serde(default)]
+    pub research: Option<String>,
+    /// What has been spent on each project so far, by resource.
+    #[serde(default)]
+    pub progress: BTreeMap<String, BTreeMap<String, f32>>,
+    /// Picks the next project by itself when none is chosen (interfaces
+    /// without a research window).
+    #[serde(skip)]
+    pub auto_research: bool,
+    /// Projects finished during the last tick (for notices).
+    #[serde(skip)]
+    pub discoveries: Vec<String>,
     /// The resource network: amount per tick on each link, smoothed.
     #[serde(skip)]
     pub flows: HashMap<Link, f32>,
@@ -161,6 +180,12 @@ impl GlassBox {
             metric_history: VecDeque::new(),
             vacated: BTreeMap::new(),
             series: Default::default(),
+            pools: vec![0.0; rules.resources.len()],
+            researched: BTreeSet::new(),
+            research: None,
+            progress: BTreeMap::new(),
+            discoveries: Vec::new(),
+            auto_research: false,
             flows: HashMap::new(),
             churn: [0; 4],
             rules: Some(rules),
@@ -173,8 +198,81 @@ impl GlassBox {
         let n = (width * length) as usize;
         self.layers.resize(rules.layers.len(), vec![0.0; n]);
         self.demand.resize(rules.zones.len(), 0.0);
+        self.pools.resize(rules.resources.len(), 0.0);
         self.rules = Some(rules);
         self.grid_cache = None;
+    }
+
+    /// Whether research has unlocked a unit or tool id (anything no
+    /// project names is open from the start).
+    pub fn unlocked(&self, rules: &Ruleset, id: &str) -> bool {
+        rules.locked_by(id).all(|t| self.researched.contains(&t.id))
+    }
+
+    /// Whether a project can be researched now: not done, and what it
+    /// requires is done.
+    pub fn can_research(&self, rules: &Ruleset, tech: &str) -> bool {
+        rules.tech(tech).is_some_and(|t| !self.researched.contains(tech) && rules.techs[t].requires.iter().all(|q| self.researched.contains(q)))
+    }
+
+    /// Picks the project to research (or none); false if it cannot be researched.
+    pub fn set_research(&mut self, tech: Option<&str>) -> bool {
+        let Some(rules) = self.rules.clone() else { return false };
+        match tech {
+            Some(t) if !self.can_research(&rules, t) => false,
+            _ => {
+                self.research = tech.map(str::to_string);
+                true
+            }
+        }
+    }
+
+    /// Share of a project paid so far (0..1).
+    pub fn research_progress(&self, rules: &Ruleset, tech: &str) -> f32 {
+        let Some(t) = rules.tech(tech).map(|t| &rules.techs[t]) else { return 0.0 };
+        if self.researched.contains(tech) {
+            return 1.0;
+        }
+        let total: f32 = t.cost.values().sum();
+        let paid: f32 = self.progress.get(tech).map_or(0.0, |p| t.cost.iter().map(|(r, c)| p.get(r).copied().unwrap_or(0.0).min(*c)).sum());
+        paid / total.max(1e-6)
+    }
+
+    /// Marks every project done (demo towns, tests, sandbox play).
+    pub fn research_all(&mut self) {
+        if let Some(rules) = &self.rules {
+            self.researched.extend(rules.techs.iter().map(|t| t.id.clone()));
+        }
+        self.research = None;
+    }
+
+    /// Spends the pools on the current project, finishing it when paid.
+    fn advance_research(&mut self, rules: &Ruleset) {
+        self.discoveries.clear();
+        if self.research.is_none() && self.auto_research {
+            self.research = rules.techs.iter().find(|t| self.can_research(rules, &t.id)).map(|t| t.id.clone());
+        }
+        let Some(id) = self.research.clone() else { return };
+        let Some(t) = rules.tech(&id).map(|t| &rules.techs[t]) else {
+            self.research = None;
+            return;
+        };
+        let paid = self.progress.entry(id.clone()).or_default();
+        let mut done = true;
+        for (r, cost) in &t.cost {
+            let Some(ri) = rules.resource(r) else { continue };
+            let have = paid.entry(r.clone()).or_default();
+            let take = (cost - *have).max(0.0).min(self.pools[ri].max(0.0));
+            self.pools[ri] -= take;
+            *have += take;
+            done &= *have >= cost - 1e-3;
+        }
+        if done {
+            self.progress.remove(&id);
+            self.researched.insert(id.clone());
+            self.discoveries.push(id);
+            self.research = None;
+        }
     }
 
     pub fn rules(&self) -> Option<&Arc<Ruleset>> {
@@ -304,6 +402,7 @@ impl GlassBox {
                     let m = made * f;
                     match rules.resources[k].transport {
                         Transport::City => self.treasury += m as f64,
+                        Transport::Pool => self.pools[k] += m,
                         Transport::Local | Transport::Grid => st.stock[k] = m,
                         Transport::Agents => st.stock[k] = (st.stock[k] + m).min(amount * f * 3.0),
                     }
@@ -584,6 +683,21 @@ impl GlassBox {
                 }
             }
         }
+        // Pooled resources: needs draw on the city-wide stock.
+        for (i, (p, _, _)) in units.iter().enumerate() {
+            for ri in 0..nres {
+                let n = need[i][ri];
+                if n <= 0.0 || rules.resources[ri].transport != Transport::Pool {
+                    continue;
+                }
+                let got = n.min(self.pools[ri].max(0.0));
+                self.pools[ri] -= got;
+                self.units.get_mut(&idx(p.0, p.1)).unwrap().received[ri] = got;
+                bal.delivered[ri] += got;
+                bal.unmet[ri] += n - got;
+            }
+        }
+        self.advance_research(&rules);
         let whole = self.treasury.trunc();
         *fund += whole as i64;
         self.treasury -= whole;
@@ -844,6 +958,9 @@ impl GlassBox {
                 .collect();
             plots.shuffle(rng);
             let unit = rules.unit(&zr.create).unwrap();
+            if !self.unlocked(rules, &zr.create) {
+                continue;
+            }
             for (w, l) in plots.into_iter().take(zr.sample as usize) {
                 if !layer.tile(w, l).and_then(|t| t.structure()).is_some_and(|s| s.unit.is_none() && s.level == 0) {
                     continue;
@@ -904,6 +1021,9 @@ impl GlassBox {
                     }
                     let density = layer.structure_at(w, l).map_or(0, |s| s.density as usize).min(z.densities.len() - 1);
                     let unit = rules.unit(&z.densities[density].units[0]).unwrap();
+                    if !self.unlocked(rules, &rules.units[unit].id) {
+                        continue;
+                    }
                     if set_unit(layer, terrain, footprints, rng, w, l, Some(unit), 1, rules) {
                         placed += 1;
                         self.churn[0] += 1;
@@ -936,7 +1056,8 @@ impl GlassBox {
                         !(b.min.is_some_and(|m| v < m) || b.max.is_some_and(|m| v > m))
                     })
                 };
-                let next_fits = k + 1 < d.units.len() && fits(rules.unit(&d.units[k + 1]).unwrap());
+                // Nor into one research has not unlocked yet.
+                let next_fits = k + 1 < d.units.len() && fits(rules.unit(&d.units[k + 1]).unwrap()) && self.unlocked(rules, &d.units[k + 1]);
                 let changed = if up && next_fits && rng.r#gen::<f32>() < g.chance {
                     let next = rules.unit(&d.units[k + 1]).unwrap();
                     let ok = set_unit(layer, terrain, footprints, rng, p.0, p.1, Some(next), k as u8 + 2, rules);

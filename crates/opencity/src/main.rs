@@ -11,6 +11,8 @@ mod graphs;
 #[cfg(not(target_os = "android"))]
 mod network;
 mod render;
+#[cfg(not(target_os = "android"))]
+mod research;
 mod roads;
 mod ui;
 #[cfg(not(target_os = "android"))]
@@ -94,6 +96,9 @@ struct Args {
     /// Show the resource network and its panel (screenshots, docs).
     #[arg(long, hide = true)]
     show_network: bool,
+    /// Open the research window with nothing researched, researching this project (screenshots, docs).
+    #[arg(long, hide = true)]
+    show_research: Option<String>,
     /// Inspect this tile at start, "x,y" (screenshots, docs).
     #[arg(long, hide = true)]
     inspect: Option<String>,
@@ -457,6 +462,11 @@ impl Game {
             Command::SetOverlay(o) => self.overlay = o,
             Command::ResetCamera => self.camera = OrbitCamera::new(self.city.width(), self.city.length()),
             Command::CloseQuery => self.query = None,
+            Command::SetResearch(t) => {
+                if let Some(gb) = self.city.glassbox.as_mut() {
+                    gb.set_research(t.as_deref());
+                }
+            }
             Command::SetFlows(v) => self.flow_view = v,
             Command::Inspect(tile) => {
                 self.query = Some((self.last_mouse, tile));
@@ -603,7 +613,11 @@ impl Game {
                 self.handle_action(Action::ToggleFast);
             }
             if let Some(a) = tool_key() {
-                let allowed = |t: Tool| self.skin.as_ref().is_none_or(|s| s.allows(t.id())) && self.city.rules().is_none_or(|r| r.allows(t.id()));
+                let allowed = |t: Tool| {
+                    self.skin.as_ref().is_none_or(|s| s.allows(t.id()))
+                        && self.city.rules().is_none_or(|r| r.allows(t.id()))
+                        && self.city.tool_locked_by(t).is_none()
+                };
                 // P lays the street of the age: asphalt, else paved, else dirt.
                 let a = match a {
                     Action::Tool(Some(Tool::Road)) => {
@@ -634,6 +648,15 @@ impl Game {
         let speed = self.city.speed;
         if self.ui.menu_open {
             self.city.speed = Speed::Paused;
+        }
+        // Without the research window (classic interface, Android) the
+        // city researches by itself, in the order the rules list projects.
+        #[cfg(not(target_os = "android"))]
+        let auto = self.egui.is_none();
+        #[cfg(target_os = "android")]
+        let auto = true;
+        if let Some(gb) = self.city.glassbox.as_mut() {
+            gb.auto_research = auto;
         }
         let t = get_time();
         self.city.update(get_frame_time().min(0.25) as f64 * 1000.0);
@@ -834,6 +857,15 @@ async fn main() -> Result<()> {
                 game.camera.target = macroquad::prelude::vec3(x as f32 + 0.5, game.camera.target.y, y as f32 + 0.5);
                 game.camera.distance = d;
             }
+        }
+    }
+    #[cfg(not(target_os = "android"))]
+    if let (Some(tech), Some(ui)) = (&s.args.show_research, game.egui.as_mut()) {
+        ui.open_research();
+        // The demo town starts with everything researched: start over.
+        if let Some(gb) = game.city.glassbox.as_mut() {
+            gb.researched.clear();
+            gb.set_research(Some(tech));
         }
     }
     if s.args.show_network {

@@ -73,7 +73,7 @@ pub struct ToolOutcome {
     pub sound: Sound,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, thiserror::Error)]
+#[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
 pub enum ToolError {
     #[error("the city is bankrupt")]
     Bankrupt,
@@ -83,6 +83,8 @@ pub enum ToolError {
     TerrainOccupied,
     #[error("height limit reached")]
     TerrainLimit,
+    #[error("needs research: {0}")]
+    Locked(String),
 }
 
 /// What the query tool reports about a tile.
@@ -235,6 +237,22 @@ impl City {
     }
 
     /// The GlassBox ruleset in use, if any.
+    /// The research project (by name) a tool still waits for: the tool's
+    /// own id, or the unit a service tool builds.
+    pub fn tool_locked_by(&self, tool: Tool) -> Option<String> {
+        let gb = self.glassbox.as_ref()?;
+        let rules = gb.rules()?;
+        let unit = rules.services.get(tool.id()).map(String::as_str);
+        [Some(tool.id()), unit].into_iter().flatten().flat_map(|id| rules.locked_by(id)).find(|t| !gb.researched.contains(&t.id)).map(|t| t.name.clone())
+    }
+
+    /// Finishes every research project (demo towns, sandbox play).
+    pub fn research_all(&mut self) {
+        if let Some(gb) = self.glassbox.as_mut() {
+            gb.research_all();
+        }
+    }
+
     pub fn rules(&self) -> Option<&std::sync::Arc<Ruleset>> {
         self.glassbox.as_ref().and_then(|g| g.rules())
     }
@@ -267,6 +285,9 @@ impl City {
     pub fn apply_tool(&mut self, tool: Tool, a: (u32, u32), b: (u32, u32)) -> Result<ToolOutcome, ToolError> {
         if self.fund < 0 {
             return Err(ToolError::Bankrupt);
+        }
+        if let Some(t) = self.tool_locked_by(tool) {
+            return Err(ToolError::Locked(t));
         }
         let rect = Rect::new(a, b);
         let cost = match tool {

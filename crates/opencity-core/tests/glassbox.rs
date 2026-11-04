@@ -127,6 +127,7 @@ fn dense_growth_over_neighbours_does_not_panic() {
     for seed in 0..6 {
         let mut c = City::new(Terrain::flat(40, 40), None, Footprints::builtin(), seed);
         c.use_rules(rules());
+        c.research_all();
         c.fund = 1_000_000;
         c.apply_tool(Tool::CoalPlant, (2, 2), (2, 2)).unwrap();
         c.apply_tool(Tool::NuclearPlant, (30, 0), (30, 0)).unwrap();
@@ -163,6 +164,7 @@ fn dense_growth_over_neighbours_does_not_panic() {
 fn growth_settles_without_flicker() {
     let mut c = City::new(Terrain::flat(48, 48), None, Footprints::builtin(), 7);
     c.use_rules(rules());
+    c.research_all();
     c.apply_tool(Tool::CoalPlant, (2, 2), (2, 2)).unwrap();
     // Enough power that the town is limited by its plots, not its grid.
     c.apply_tool(Tool::NuclearPlant, (30, 0), (30, 0)).unwrap();
@@ -202,6 +204,7 @@ fn a_pre_industrial_town_lives_on_food_and_carts() {
     assert!(!rules().fits_year(1200));
     let mut c = City::new(Terrain::flat(48, 48), None, Footprints::builtin(), 11);
     c.use_rules(r.clone());
+    c.research_all();
     c.apply_tool(Tool::CoalPlant, (2, 2), (2, 2)).unwrap(); // the granary
     for l in [8, 16, 24] {
         c.apply_tool(Tool::PavedStreet, (2, l), (44, l)).unwrap();
@@ -250,6 +253,7 @@ fn a_pre_industrial_town_lives_on_food_and_carts() {
 fn highways_give_no_access() {
     let mut c = City::new(Terrain::flat(40, 30), None, Footprints::builtin(), 5);
     c.use_rules(rules());
+    c.research_all();
     c.apply_tool(Tool::NuclearPlant, (2, 2), (2, 2)).unwrap();
     c.apply_tool(Tool::Highway, (2, 14), (38, 14)).unwrap();
     c.apply_tool(Tool::ZoneResidential, (2, 15), (38, 16)).unwrap();
@@ -304,4 +308,56 @@ fn rules_choose_the_vehicles_of_each_age() {
         c.vehicles.clear();
     }
     assert!(seen.contains("walker") && seen.len() >= 2, "{seen:?}");
+}
+
+/// Ideas from cafés and restaurants become research points at schools, and
+/// research unlocks tools and buildings.
+#[test]
+fn ideas_become_research_that_unlocks() {
+    let r = rules();
+    let mut c = City::new(Terrain::flat(48, 48), None, Footprints::builtin(), 7);
+    c.use_rules(r.clone());
+    // Locked from the start: the highway tool, nuclear plants, and the top
+    // residential levels.
+    assert!(matches!(c.apply_tool(Tool::Highway, (2, 30), (20, 30)), Err(opencity_core::city::ToolError::Locked(_))));
+    assert_eq!(c.tool_locked_by(Tool::NuclearPlant).as_deref(), Some("Nuclear fission"));
+    {
+        let gb = c.glassbox.as_mut().unwrap();
+        assert!(!gb.unlocked(&r, "tower_2") && gb.unlocked(&r, "tower_1"));
+        assert!(!gb.can_research(&r, "fission"), "needs steel-frame towers first");
+        assert!(gb.set_research(Some("motorways")));
+    }
+    c.apply_tool(Tool::CoalPlant, (2, 2), (2, 2)).unwrap();
+    c.apply_tool(Tool::School, (10, 2), (10, 2)).unwrap();
+    for l in [8, 12, 16, 20] {
+        c.apply_tool(Tool::Road, (2, l), (44, l)).unwrap();
+    }
+    c.apply_tool(Tool::Road, (7, 2), (7, 8)).unwrap();
+    c.apply_tool(Tool::Road, (13, 2), (13, 8)).unwrap();
+    c.apply_tool(Tool::ZoneResidential, (2, 9), (44, 11)).unwrap();
+    c.apply_tool(Tool::ZoneIndustrial, (2, 13), (44, 15)).unwrap();
+    c.apply_tool(Tool::ZoneCommercial, (2, 17), (44, 19)).unwrap();
+    let mut done_at = None;
+    for t in 0..2500 {
+        c.simulate_round();
+        if done_at.is_none() && c.glassbox.as_ref().unwrap().researched.contains("motorways") {
+            done_at = Some(t);
+        }
+    }
+    let gb = c.glassbox.as_ref().unwrap();
+    let ideas = r.resource("ideas").unwrap();
+    let research = r.resource("research").unwrap();
+    println!("ideas made {} research made {} done at {done_at:?}", gb.balances.produced[ideas], gb.balances.produced[research]);
+    assert!(gb.balances.produced[ideas] > 0.0 && gb.balances.produced[research] > 0.0);
+    assert!(done_at.is_some(), "motorways never researched");
+    assert!(gb.research.is_none() && gb.pools[research] > 0.0, "points keep pooling once the project is done");
+    c.apply_tool(Tool::Highway, (2, 30), (20, 30)).unwrap();
+    // Nothing research has not unlocked grew.
+    let tower2 = r.unit("tower_2").unwrap() as u16;
+    assert!(c.layer.structures().all(|(_, s)| s.unit != Some(tower2)));
+    // Saves keep the research.
+    let mut saved = Vec::new();
+    opencity_core::save::save(&c, &mut saved).unwrap();
+    let back = opencity_core::save::load(saved.as_slice(), Footprints::builtin()).unwrap();
+    assert!(back.glassbox.as_ref().unwrap().researched.contains("motorways"));
 }

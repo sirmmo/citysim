@@ -7,6 +7,8 @@ use crate::{City, Tool};
 /// line (or a granary, wells and paved streets under rules of the past).
 /// Placements that do not fit the terrain are skipped.
 pub fn demo_town(city: &mut City) {
+    // A showcase: everything research would unlock is available.
+    city.research_all();
     let (cw, cl) = (city.width() / 2, city.length() / 2);
     let width = city.width();
     let w0 = cw.saturating_sub(14);
