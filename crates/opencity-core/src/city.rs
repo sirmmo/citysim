@@ -143,6 +143,9 @@ pub struct City {
     pub speed: Speed,
     pub values: SimValues,
     pub vehicles: Vec<Vehicle>,
+    /// Disasters that struck since the game last took them (notices).
+    #[serde(skip)]
+    pub notices: Vec<crate::glassbox::DisasterEvent>,
     pub(crate) rng: Pcg32,
     day_clock_ms: f64,
     sim_clock_ms: f64,
@@ -173,6 +176,7 @@ impl City {
             speed: Speed::Normal,
             values: SimValues::default(),
             vehicles: Vec::new(),
+            notices: Vec::new(),
             rng: Pcg32::seed_from_u64(seed),
             day_clock_ms: 0.0,
             sim_clock_ms: 0.0,
@@ -470,6 +474,10 @@ impl City {
         self.spawn_trains();
         self.spawn_boats();
         self.dispatch_services();
+        self.respond_to_disasters();
+        if let Some(gb) = &self.glassbox {
+            self.notices.extend(gb.events.iter().cloned());
+        }
         let gb = self.glassbox.take().unwrap();
         if let Some(pop) = gb.rules().and_then(|r| r.population.as_deref().and_then(|p| r.resource(p))) {
             self.population = gb.local_total(pop) as u32;
@@ -522,6 +530,45 @@ impl City {
                 let mut v = Vehicle::new(VehicleKind::Car, &path, &self.layer, &self.terrain);
                 v.mesh = Some(mesh);
                 self.vehicles.push(v);
+            }
+        }
+    }
+
+    /// Sets off a disaster by hand at a likely spot; `None` when the rules
+    /// have no such disaster or nothing it could strike.
+    pub fn strike(&mut self, id: &str) -> Option<crate::glassbox::DisasterEvent> {
+        let mut gb = self.glassbox.take()?;
+        let e = gb.strike(id, None, &mut self.layer, &self.terrain, &self.footprints, &mut self.rng);
+        self.glassbox = Some(gb);
+        if let Some(e) = &e {
+            self.respond_to_disasters();
+            self.notices.push(e.clone());
+        }
+        e
+    }
+
+    /// The nearest service covering a disaster's protection layer sends
+    /// its vehicle to the scene.
+    fn respond_to_disasters(&mut self) {
+        let Some(rules) = self.rules().cloned() else { return };
+        let events = self.glassbox.as_ref().map(|g| g.events.clone()).unwrap_or_default();
+        for e in events {
+            let Some(layer) = rules.disaster(&e.id).and_then(|d| d.protection.clone()) else { continue };
+            let responder = self
+                .layer
+                .structures()
+                .filter_map(|(p, s)| s.unit.map(|u| (p, u as usize)))
+                .filter(|(_, u)| *u < rules.units.len() && rules.units[*u].dispatch.is_some() && rules.units[*u].emits.contains_key(&layer))
+                .min_by_key(|(p, _)| p.0.abs_diff(e.at.0) + p.1.abs_diff(e.at.1));
+            let Some((p, u)) = responder else { continue };
+            let d = rules.units[u].dispatch.clone().unwrap();
+            let (Some(a), Some(b)) = (self.nearest_road(p), self.nearest_road(e.at)) else { continue };
+            if let Some(path) = find_route(&self.layer, &self.terrain, a, b, crate::traffic::PathCost::Distance, &Ways::ALL, f32::INFINITY) {
+                if path.len() > 1 && self.vehicles.len() < MAX_VEHICLES {
+                    let mut v = Vehicle::new(VehicleKind::from_id(&d.model).unwrap_or(VehicleKind::Car), &path, &self.layer, &self.terrain);
+                    v.mesh = d.meshes.first().cloned();
+                    self.vehicles.push(v);
+                }
             }
         }
     }

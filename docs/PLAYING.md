@@ -69,6 +69,11 @@ game see [RULES.md](RULES.md); for the documentation index see
   river, coast or canal trade with each other, carried by ships (rowing and
   sailing boats before 1800, at a **Quay**). The **Canal** tool digs empty
   land below the water line to join waters or bring them to a town.
+- **Disasters:** fires, floods and epidemics (great fires and plague
+  before 1800) strike now and then. Fire coverage protects against fire and
+  health coverage against sickness; floods hit low ground by the water. A
+  notice says where it struck and how many buildings it hit, and fire trucks
+  head there. The **Disasters** menu switches them off or sets one off by hand.
 - **Services cover what they can reach by road.** Fire, police and health
   coverage spreads along the streets from the building, so a station on a
   street cut off from a neighbourhood does not protect it. Fire trucks,

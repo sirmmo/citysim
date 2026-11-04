@@ -23,7 +23,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     layer::{BuildingLayer, Rect, Structure},
-    rules::{structure_code, DemandSource, Ruleset, StanceDef, TaxDef, TechDef, Transport},
+    rules::{structure_code, DemandSource, DisasterEffect, Ruleset, StanceDef, TaxDef, TechDef, Transport},
     Direction, Footprints, GraphicCode, RoadKind, StructureCode, Terrain,
 };
 
@@ -94,6 +94,15 @@ pub struct Balances {
     pub exported: Vec<f32>,
 }
 
+/// A disaster that struck: where, and how many buildings it hit.
+#[derive(Clone, Debug, PartialEq)]
+pub struct DisasterEvent {
+    pub id: String,
+    pub name: String,
+    pub at: (u32, u32),
+    pub hit: u32,
+}
+
 /// One trip made by agents this tick.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Trip {
@@ -155,6 +164,12 @@ pub struct GlassBox {
     pub imports: Vec<f32>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub exports: Vec<f32>,
+    /// Disasters switched off by the player.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub disasters_off: bool,
+    /// Disasters that struck during the last tick (for notices).
+    #[serde(skip)]
+    pub events: Vec<DisasterEvent>,
     /// Tax rates the city set, by tax id (others are at their default).
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub tax_rates: BTreeMap<String, f32>,
@@ -219,6 +234,8 @@ impl GlassBox {
             imports: Vec::new(),
             exports: Vec::new(),
             tax_rates: BTreeMap::new(),
+            disasters_off: false,
+            events: Vec::new(),
             stances: BTreeMap::new(),
             discoveries: Vec::new(),
             auto_research: false,
@@ -472,8 +489,102 @@ impl GlassBox {
     }
 
     /// Runs one tick. Returns the trips made, for traffic display.
+    /// Sets off a disaster at a spot (or a likely one). `None` when the
+    /// rules have no such disaster or it finds nowhere to strike.
+    #[allow(clippy::too_many_arguments)]
+    pub fn strike(
+        &mut self,
+        id: &str,
+        at: Option<(u32, u32)>,
+        layer: &mut BuildingLayer,
+        terrain: &Terrain,
+        footprints: &Footprints,
+        rng: &mut impl Rng,
+    ) -> Option<DisasterEvent> {
+        let rules = self.rules.clone()?;
+        let d = rules.disaster(id)?.clone();
+        let width = layer.width();
+        // Developed zone buildings it may strike.
+        let low_by_water = |w: u32, l: u32| {
+            let (w1, l1, w2, l2) = terrain.around(w, l, 3);
+            terrain.tile_max(w, l) <= 1 && (Rect { w1, l1, w2, l2 }).tiles().any(|(x, y)| terrain.is_water(x, y))
+        };
+        let candidates: Vec<(u32, u32)> =
+            layer.structures().filter(|(p, s)| s.unit.is_some() && s.code.is_zone() && (!d.near_water || low_by_water(p.0, p.1))).map(|(p, _)| p).collect();
+        let at = match at {
+            Some(p) => p,
+            None if candidates.is_empty() => return None,
+            None => candidates[rng.gen_range(0..candidates.len())],
+        };
+        let protection = d.protection.as_deref().and_then(|l| rules.layer(l));
+        let mut hit = 0;
+        for (w, l) in candidates {
+            let dist = w.abs_diff(at.0) + l.abs_diff(at.1);
+            if dist > d.radius {
+                continue;
+            }
+            let cover = protection.map_or(0.0, |li| self.layers[li][(l * width + w) as usize]);
+            let risk = (1.0 - cover / d.full).clamp(0.05, 1.0) * if dist == 0 { 1.0 } else { 0.7 };
+            if rng.r#gen::<f32>() >= risk {
+                continue;
+            }
+            let key = l * width + w;
+            let Some(s) = layer.tile(w, l).and_then(|t| t.structure()).cloned() else { continue };
+            match d.effect {
+                DisasterEffect::Destroy => {
+                    if set_unit(layer, terrain, footprints, rng, w, l, None, 0, &rules) {
+                        self.units.remove(&key);
+                        let strikes = self.vacated.get(&key).map_or(1, |v| v.strikes.saturating_add(2));
+                        self.vacated.insert(key, Vacancy { since: self.tick, strikes });
+                        self.churn[1] += 1;
+                        hit += 1;
+                    }
+                }
+                DisasterEffect::Damage => {
+                    let Some(u) = s.unit else { continue };
+                    let zone = rules.zone_for(s.code).and_then(|z| rules.zones[z].densities.get(s.density as usize));
+                    let k = zone.and_then(|z| z.units.iter().position(|x| rules.unit(x) == Some(u as usize)));
+                    let ok = match k {
+                        Some(k) if k > 0 => set_unit(layer, terrain, footprints, rng, w, l, rules.unit(&zone.unwrap().units[k - 1]), k as u8, &rules),
+                        _ => set_unit(layer, terrain, footprints, rng, w, l, None, 0, &rules),
+                    };
+                    if ok {
+                        if k.is_none_or(|k| k == 0) {
+                            self.units.remove(&key);
+                        }
+                        self.churn[3] += 1;
+                        hit += 1;
+                    }
+                }
+                DisasterEffect::Sicken => {
+                    if let Some(st) = self.units.get_mut(&key) {
+                        st.satisfaction = st.satisfaction.min(0.1);
+                        hit += 1;
+                    }
+                }
+            }
+        }
+        let event = DisasterEvent { id: d.id.clone(), name: d.name.clone(), at, hit };
+        self.events.push(event.clone());
+        Some(event)
+    }
+
+    /// Disasters striking by chance this tick.
+    fn chance_disasters(&mut self, rules: &Ruleset, layer: &mut BuildingLayer, terrain: &Terrain, footprints: &Footprints, rng: &mut impl Rng) {
+        if self.disasters_off {
+            return;
+        }
+        for d in rules.disasters.iter().filter(|d| d.every > 0) {
+            if rng.gen_range(0..d.every) == 0 {
+                self.strike(&d.id, None, layer, terrain, footprints, rng);
+            }
+        }
+    }
+
     pub fn tick(&mut self, layer: &mut BuildingLayer, terrain: &Terrain, footprints: &Footprints, fund: &mut i64, rng: &mut impl Rng) -> Vec<Trip> {
         let Some(rules) = self.rules.clone() else { return Vec::new() };
+        self.events.clear();
+        self.chance_disasters(&rules, layer, terrain, footprints, rng);
         let nres = rules.resources.len();
         let (width, length) = (layer.width(), layer.length());
         let idx = |w: u32, l: u32| l * width + w;

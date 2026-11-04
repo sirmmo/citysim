@@ -615,6 +615,16 @@ impl Game {
             Command::NewRegion { name, size, map_size, rules } => self.region_new(&name, size, map_size, rules),
             Command::OpenRegion(dir) => self.region_open(&dir),
             Command::RegionCity(slot) => self.region_goto(slot),
+            Command::SetDisasters(on) => {
+                if let Some(gb) = self.city.glassbox.as_mut() {
+                    gb.disasters_off = !on;
+                }
+            }
+            Command::Strike(id) => {
+                if self.city.strike(&id).is_none() {
+                    self.say("Nothing for it to strike here");
+                }
+            }
             Command::SaveRegion => {
                 if self.region_store() {
                     self.say("Region saved");
@@ -813,6 +823,12 @@ impl Game {
         let t = get_time();
         self.city.update(get_frame_time().min(0.25) as f64 * 1000.0);
         self.region_month();
+        // Disaster notices, with a look at the scene.
+        if let Some(e) = self.city.notices.pop() {
+            self.city.notices.clear();
+            let lost = if e.hit == 1 { "1 building hit".to_string() } else { format!("{} buildings hit", e.hit) };
+            self.message = Some((format!("{} at {}, {}: {lost}", e.name, e.at.0, e.at.1), get_time() + 6.0));
+        }
         self.city.speed = speed;
         let t = phase(0, t);
 

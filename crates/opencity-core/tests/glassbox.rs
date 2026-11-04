@@ -582,6 +582,8 @@ fn services_cover_what_they_can_drive_to_and_send_vehicles() {
     let mut seen = trucks;
     let mut c2 = c.clone();
     for _ in 0..100 {
+        // Without real time passing vehicles never arrive: make room.
+        c2.vehicles.clear();
         c2.simulate_round();
         seen += c2.vehicles.iter().filter(|v| v.mesh.as_deref() == Some("kenney/car-kit/firetruck")).count();
     }
@@ -704,4 +706,52 @@ fn canals_dig_water_through_empty_land() {
     // Not next to buildings.
     c.apply_tool(Tool::Road, (5, 15), (12, 15)).unwrap();
     assert!(c.apply_tool(Tool::Canal, (4, 14), (12, 14)).is_err());
+}
+
+#[test]
+fn disasters_strike_and_coverage_protects() {
+    let r = rules();
+    assert!(r.disaster("fire").is_some() && r.disaster("flood").is_some_and(|d| d.near_water));
+    let town = |station: bool| {
+        let mut c = City::new(Terrain::flat(48, 32), None, Footprints::builtin(), 3);
+        c.fund = 10_000_000;
+        c.use_rules(r.clone());
+        c.research_all();
+        c.glassbox.as_mut().unwrap().disasters_off = true;
+        c.apply_tool(Tool::Road, (2, 10), (40, 10)).unwrap();
+        c.apply_tool(Tool::Road, (2, 14), (40, 14)).unwrap();
+        c.apply_tool(Tool::Road, (2, 10), (2, 14)).unwrap();
+        c.apply_tool(Tool::CoalPlant, (4, 5), (4, 5)).unwrap();
+        c.apply_tool(Tool::ZoneResidential, (3, 11), (40, 13)).unwrap();
+        if station {
+            c.apply_tool(Tool::FireDept, (20, 8), (20, 8)).unwrap();
+        }
+        for _ in 0..300 {
+            c.simulate_round();
+        }
+        c
+    };
+    // Switched off, nothing strikes by chance.
+    let quiet = town(false);
+    assert!(quiet.notices.is_empty());
+    let losses = |c: &City| -> u32 {
+        (0..12u64)
+            .map(|i| {
+                let mut c = c.clone();
+                let gb = c.glassbox.as_mut().unwrap();
+                let mut rng = <rand_pcg::Pcg32 as rand::SeedableRng>::seed_from_u64(i);
+                gb.strike("fire", Some((21, 12)), &mut c.layer, &c.terrain, &Footprints::builtin(), &mut rng).unwrap().hit
+            })
+            .sum()
+    };
+    let (bare, covered) = (losses(&quiet), losses(&town(true)));
+    assert!(bare > 0, "fires burn houses");
+    assert!(covered < bare, "a fire station nearby saves houses: {covered} vs {bare}");
+    // By hand: a notice, and the fire trucks roll.
+    let mut c = town(true);
+    let e = c.strike("fire").unwrap();
+    assert_eq!(c.notices.last(), Some(&e));
+    assert!(c.vehicles.iter().any(|v| v.mesh.as_deref() == Some("kenney/car-kit/firetruck")));
+    // Floods need water nearby: none on this dry map.
+    assert!(c.strike("flood").is_none());
 }

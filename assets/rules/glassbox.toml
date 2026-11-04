@@ -195,6 +195,38 @@ name = "Power grid"
 structures = ["power_line", "road"]
 through_buildings = true
 
+
+# ---------------------------------------------------------------- disasters
+# Now and then a disaster strikes a neighbourhood (about every `every` ticks;
+# some 1,200 ticks make a year). Each building in reach is hit with a risk
+# that falls with the `protection` layer there, down to 5% at `full`.
+[[disaster]]
+id = "fire"
+name = "Fire"
+description = "A fire spreads through the blocks around it."
+every = 6000
+radius = 2
+effect = "destroy"
+protection = "fire_safety"
+
+[[disaster]]
+id = "flood"
+name = "Flood"
+description = "The water rises over the low ground along the shore."
+every = 9000
+radius = 4
+effect = "damage"
+near_water = true
+
+[[disaster]]
+id = "epidemic"
+name = "Epidemic"
+description = "A fever spreads; the sick stay home."
+every = 8000
+radius = 5
+effect = "sicken"
+protection = "health"
+
 # ---------------------------------------------------------------- map layers
 [[layer]]
 id = "pollution"

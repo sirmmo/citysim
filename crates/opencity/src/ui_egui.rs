@@ -55,6 +55,10 @@ pub enum Command {
         rules: Option<String>,
     },
     OpenRegion(PathBuf),
+    /// Switch disasters by chance on or off.
+    SetDisasters(bool),
+    /// Set off a disaster by hand.
+    Strike(String),
     /// Open or found the city in a region slot.
     RegionCity([u32; 2]),
     SaveRegion,
@@ -370,6 +374,23 @@ impl EguiUi {
                         out.push(Command::Quit);
                     }
                 });
+                if let (Some(gb), Some(rules)) = (&city.glassbox, city.rules()) {
+                    if !rules.disasters.is_empty() {
+                        ui.menu_button("Disasters", |ui| {
+                            let mut on = !gb.disasters_off;
+                            if ui.checkbox(&mut on, "Disasters strike by chance").changed() {
+                                out.push(Command::SetDisasters(on));
+                            }
+                            ui.separator();
+                            for d in &rules.disasters {
+                                if ui.button(format!("Set off: {}", d.name)).on_hover_text(&d.description).clicked() {
+                                    out.push(Command::Strike(d.id.clone()));
+                                    ui.close_menu();
+                                }
+                            }
+                        });
+                    }
+                }
                 ui.menu_button("View", |ui| {
                     ui.checkbox(&mut self.show_city, "City panel");
                     if view.city.glassbox.is_some() {

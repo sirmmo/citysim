@@ -2,6 +2,12 @@
 
 Release notes in full are on the [releases page](https://github.com/sirmmo/citysim/releases).
 
+## 0.2.20: Disasters
+- **Disasters in the rules (`[[disaster]]`):** how often, radius, effect (destroy, damage, sicken), protecting layer, near water.
+- **Shipped disasters:** the modern rules have fire, flood and epidemic. Before 1800, great fire, flood and plague.
+- **Coverage protects:** fire coverage cuts the risk from fire, health coverage the risk from sickness. Responders such as fire trucks drive to the scene.
+- **Disasters menu:** switches chance disasters off and sets one off by hand. The MCP server has a `disaster` tool.
+
 ## 0.2.19: Waterways and harbours
 - **Harbours:** a harbour on any lake, river, coast or canal links the places near harbours on the same water. Boats sail between harbours: Kenney cargo ships and tugs today, rowing and sailing boats at a Quay before 1800.
 - **Canal tool:** digs empty land below the water line.

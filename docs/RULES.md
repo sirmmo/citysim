@@ -223,6 +223,34 @@ Inspecting a road lists the vehicles allowed on it. Skins that set
 `vehicles = false` hide cars and trucks only. People on foot and carts are
 always drawn.
 
+### Disasters
+
+```toml
+[[disaster]]
+id = "fire"
+name = "Fire"
+every = 6000                         # mean ticks between strikes (0: by hand only)
+radius = 2                           # tiles around the spot
+effect = "destroy"                   # destroy | damage | sicken
+protection = "fire_safety"           # layer that protects (optional)
+full = 10.0                          # protection value that protects fully
+near_water = false                   # only on low ground near water (floods)
+```
+
+- **Where it strikes:** a developed zone building, picked at random (low and
+  near water for `near_water`). Every building within `radius` is hit with a
+  risk of `1 − protection / full`, never under 5%; neighbours of the spot take
+  70% of it.
+- **`destroy`** empties the plot, which rests longer than after an abandonment.
+- **`damage`** drops the building a level, or empties a first-level plot.
+- **`sicken`** drops its satisfaction to 0.1, so it may decline.
+- **Responders:** the nearest service whose emissions include the protection
+  layer sends its `dispatch` vehicle to the scene. Fire trucks go to fires.
+- **Player controls:** the **Disasters** menu switches chance disasters off
+  and sets any of them off by hand. The MCP server has a `disaster` tool.
+- **Shipped:** the modern rules have fire, flood and epidemic. Before 1800
+  there are great fires (wider and more frequent), floods and plague.
+
 ### Waterways and harbours
 
 Water works like rail: a **line** is one connected body of water (a lake, a

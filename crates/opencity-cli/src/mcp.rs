@@ -245,6 +245,23 @@ impl Server {
                     })).collect::<Vec<_>>(),
                 }))
             }
+            "disaster" => {
+                let city = self.city()?;
+                if let Some(on) = a.get("chance").and_then(Value::as_bool) {
+                    city.glassbox.as_mut().context("disasters need GlassBox rules")?.disasters_off = !on;
+                }
+                let strike = a.get("strike").and_then(Value::as_str).map(str::to_string);
+                let event = match strike {
+                    Some(id) => Some(city.strike(&id).with_context(|| format!("{id}: no such disaster, or nothing it could strike"))?),
+                    None => None,
+                };
+                let rules = city.rules().cloned();
+                Ok(json!({
+                    "chance": city.glassbox.as_ref().is_some_and(|g| !g.disasters_off),
+                    "struck": event.map(|e| json!({ "id": e.id, "name": e.name, "at": e.at, "hit": e.hit })),
+                    "disasters": rules.map(|r| r.disasters.iter().map(|d| json!({ "id": d.id, "name": d.name, "every": d.every, "radius": d.radius, "protection": d.protection })).collect::<Vec<_>>()),
+                }))
+            }
             "render_map" => {
                 let path = PathBuf::from(str_arg(a, "path")?);
                 let scale = num(a, "scale").unwrap_or(8.0).clamp(1.0, 32.0) as u32;
@@ -407,6 +424,9 @@ fn tools() -> Value {
         tool("policies", "List taxes and policies; pass `taxes` ({id: rate %}) and/or `stances` ({policy: stance}) to change them.", json!({
             "taxes": { "type": "object", "additionalProperties": { "type": "number" } },
             "stances": { "type": "object", "additionalProperties": { "type": "string" } }
+        }), &[]),
+        tool("disaster", "List disasters; `strike` sets one off by hand (fire, flood, epidemic…), `chance` switches chance disasters on or off.", json!({
+            "strike": { "type": "string" }, "chance": { "type": "boolean" }
         }), &[]),
         tool("render_map", "Write a top-down PNG of the city.", json!({ "path": path, "scale": { "type": "integer", "minimum": 1, "maximum": 32, "default": 8 } }), &["path"]),
         tool("export_geojson", "Write the city as GeoJSON.", json!({ "path": path }), &["path"])

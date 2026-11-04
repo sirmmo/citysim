@@ -511,6 +511,56 @@ pub struct Ruleset {
     /// Policies: axes of stances the city picks one of (`[[policy]]`).
     #[serde(default, rename = "policy", skip_serializing_if = "Vec::is_empty")]
     pub policies: Vec<PolicyDef>,
+    /// Disasters (`[[disaster]]`).
+    #[serde(default, rename = "disaster", skip_serializing_if = "Vec::is_empty")]
+    pub disasters: Vec<DisasterDef>,
+}
+
+/// A disaster (`[[disaster]]`): now and then it strikes a neighbourhood;
+/// coverage on a map layer protects the buildings there.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DisasterDef {
+    pub id: String,
+    pub name: String,
+    #[serde(default)]
+    pub description: String,
+    /// Mean ticks between strikes (0: only when set off by hand).
+    #[serde(default)]
+    pub every: u32,
+    /// Tiles around the spot it reaches.
+    #[serde(default = "default_disaster_radius")]
+    pub radius: u32,
+    pub effect: DisasterEffect,
+    /// Map layer that protects (fire coverage against fire).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub protection: Option<String>,
+    /// Layer value that protects fully (each building's risk falls with it).
+    #[serde(default = "default_disaster_full")]
+    pub full: f32,
+    /// Strikes only near water, on low ground (floods).
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub near_water: bool,
+}
+
+/// What a disaster does to a building it hits.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DisasterEffect {
+    /// Gone: the plot is empty, and rests before building again.
+    Destroy,
+    /// One level down.
+    Damage,
+    /// Its people fall ill: satisfaction drops sharply.
+    Sicken,
+}
+
+fn default_disaster_radius() -> u32 {
+    2
+}
+
+fn default_disaster_full() -> f32 {
+    10.0
 }
 
 /// A tax (`[[tax]]`): scales a city resource (taxes) made by the units of
@@ -615,6 +665,10 @@ impl Ruleset {
     pub fn add_policy_set(&mut self, set: PolicySet) {
         self.taxes.extend(set.taxes);
         self.policies.extend(set.policies);
+    }
+
+    pub fn disaster(&self, id: &str) -> Option<&DisasterDef> {
+        self.disasters.iter().find(|d| d.id == id)
     }
 
     pub fn tax(&self, id: &str) -> Option<&TaxDef> {
@@ -1033,6 +1087,14 @@ impl Ruleset {
             }
             if self.techs.iter().filter(|o| o.id == t.id).count() > 1 {
                 return at("defined twice".into());
+            }
+        }
+        for d in &self.disasters {
+            if let Some(l) = d.protection.as_ref().filter(|l| self.layer(l).is_none()) {
+                return err(format!("disaster {}: unknown protection layer {l}", d.id));
+            }
+            if !(d.full.is_finite() && d.full > 0.0) {
+                return err(format!("disaster {}: full must be above 0", d.id));
             }
         }
         for t in &self.taxes {
