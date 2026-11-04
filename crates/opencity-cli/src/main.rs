@@ -1,5 +1,7 @@
 //! Headless OpenCity.
 
+mod mcp;
+
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
 use std::path::{Path, PathBuf};
@@ -89,6 +91,14 @@ enum Command {
         /// Download cache (default: the user cache directory).
         #[arg(long)]
         cache: Option<PathBuf>,
+    },
+    /// Run a local MCP server on stdin/stdout, so AI assistants (Claude Code,
+    /// Claude Desktop, other MCP clients) can build, run and inspect cities.
+    /// Add it with `claude mcp add citysim -- opencity-cli mcp`.
+    Mcp {
+        /// City to open at start (a new one can be made with the new_city tool).
+        #[arg(long)]
+        load: Option<PathBuf>,
     },
     /// Render a top-down PNG of a city (or of a freshly generated map).
     Render {
@@ -222,8 +232,11 @@ fn footprints(data_dir: Option<&Path>) -> Footprints {
 }
 
 fn new_city(map: &MapArgs, demo: bool, fp: Footprints) -> Result<City> {
-    let params = map.params();
-    let m = opencity_mapgen::generate(&params)?;
+    new_city_from(&map.params(), demo, fp)
+}
+
+fn new_city_from(params: &MapParams, demo: bool, fp: Footprints) -> Result<City> {
+    let m = opencity_mapgen::generate(params)?;
     let terrain = Terrain::from_corner_heights(m.width, m.length, &m.corner_heights);
     let mut city = City::new(terrain, Some(&m.tree_density), fp, params.seed);
     if demo {
@@ -343,6 +356,18 @@ fn main() -> Result<()> {
             }
             println!("downloaded {} MB; 0 A.D. art installed in {}", report.downloaded_bytes >> 20, dir.join("skins").display());
             println!("Start citysim and pick an ancient culture in File > New city. The art is CC BY-SA 3.0 (0 A.D., Wildfire Games).");
+        }
+        Command::Mcp { load } => {
+            let city = match load {
+                Some(p) => {
+                    let mut c = load_city(p, fp())?;
+                    let rules = c.glassbox.as_ref().map(|g| g.rules_id.clone());
+                    attach_rules(&mut c, rules.as_deref(), cli.data_dir.as_deref())?;
+                    Some(c)
+                }
+                None => None,
+            };
+            mcp::serve(cli.data_dir.clone(), city)?;
         }
         Command::Render { load, map, scale, out } => {
             let city = match load {

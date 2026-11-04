@@ -218,6 +218,18 @@ Street junctions keep the original crossing models; each kind of road has
 its own width and surface.
 See [docs/GEOJSON.md](docs/GEOJSON.md).
 
+## AI assistants (MCP)
+
+`opencity-cli mcp` is a local [MCP](https://modelcontextprotocol.io) server:
+AI assistants can create a city, build with any tool, simulate, read
+demand and resources, and set research, taxes and policies. With Claude Code:
+
+```sh
+claude mcp add citysim -e OPENCITY_DATA="$PWD/assets" -- "$PWD/opencity-cli" mcp
+```
+
+See [docs/MCP.md](docs/MCP.md) for the tools and other clients.
+
 ## License
 
 GPL-2.0-or-later, like OpenCity. Artwork and sounds are OpenCity's (see

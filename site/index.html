@@ -347,6 +347,27 @@ meshes = ["kenney/car-kit/delivery",
     <p style="margin-top:22px">The full reference is in
       <a href="https://github.com/sirmmo/citysim/blob/main/docs/RULES.md">RULES.md</a>; the rule
       language in <a href="https://github.com/sirmmo/citysim/blob/main/docs/GLASSBOX.md">GLASSBOX.md</a>.</p>
+    <div class="split" style="margin-top:40px">
+      <div>
+        <div class="tag">MCP</div>
+        <h3 style="font-size:22px;margin:0 0 8px">Let an assistant play</h3>
+        <p style="color:var(--muted)"><code>opencity-cli mcp</code> is a local Model Context Protocol server. Claude Code,
+          Claude Desktop or any MCP client can make a city, lay roads and zones, run years, read demand
+          and shortages, and try research, taxes and policies, all from a conversation. Useful for
+          testing rules, balancing a tech tree, or asking "what holds this town back?".
+          See <a href="https://github.com/sirmmo/citysim/blob/main/docs/MCP.md">MCP.md</a>.</p>
+      </div>
+<pre><code># from the unpacked folder
+claude mcp add citysim \
+  -e OPENCITY_DATA="$PWD/assets" \
+  -- "$PWD/opencity-cli" mcp
+
+# tools: new_city, load_city, save_city,
+# city_summary, simulate, list_tools,
+# apply_tool, inspect_tile, turn_building,
+# research, policies, render_map,
+# export_geojson</code></pre>
+    </div>
   </div>
 </section>
 
@@ -399,6 +420,7 @@ meshes = ["kenney/car-kit/delivery",
       <a href="https://github.com/sirmmo/citysim/releases">releases page</a> and in the
       <a href="https://github.com/sirmmo/citysim/blob/main/CHANGELOG.md">changelog</a>.</p>
     <ul class="news">
+      <li><b>0.2.14</b>A local MCP server: <code>opencity-cli mcp</code> lets AI assistants build, run and inspect cities.</li>
       <li><b>0.2.13</b>Taxes and policies: rates with trade-offs, policy stances, the Policies window.</li>
       <li><b>0.2.12</b>Kenney vehicles: an OBJ loader, and cars, taxis and trucks from the CC0 car kit.</li>
       <li><b>0.2.11</b>Plants and services face the street, and turn by hand.</li>

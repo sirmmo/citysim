@@ -7,6 +7,7 @@
 | [GLASSBOX.md](GLASSBOX.md) | The GlassBox rule language (`.gbx`): `unitRule`, `mapRule`, `zoneRule`, `agentRule`, metrics |
 | [SKINS.md](SKINS.md) | Era and world skins: colours, names, tools, icons, models; the 0 A.D. cultures |
 | [GEOJSON.md](GEOJSON.md) | Building cities from OpenHistoryMap, OpenHistoricalMap and OpenFantasyMap data, and exporting them |
+| [MCP.md](MCP.md) | `opencity-cli mcp`: a local MCP server so AI assistants can build, run and inspect cities |
 | [PORTING.md](PORTING.md) | How OpenCity's C++ maps onto the Rust crates, and what changed |
 | [settings.example.toml](settings.example.toml) | User settings |
 | [../CHANGELOG.md](../CHANGELOG.md) | What changed in each release |

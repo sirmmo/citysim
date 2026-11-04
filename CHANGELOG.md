@@ -2,6 +2,12 @@
 
 Release notes in full are on the [releases page](https://github.com/sirmmo/citysim/releases).
 
+## 0.2.14: A local MCP server
+- **`opencity-cli mcp`** serves the Model Context Protocol over stdio, so AI assistants (Claude Code, Claude Desktop…) can build, simulate and inspect a city.
+- **Tools:** new, load and save a city; summary; simulate; list and apply tools; inspect a tile; turn a building; research; taxes and policies; render a PNG; export GeoJSON.
+- **`new_city` with `flat: true`** makes an empty flat map.
+- Setup is in [docs/MCP.md](docs/MCP.md).
+
 ## 0.2.13: Taxes and policies
 - **Policy files:** taxes and policies live in their own files (`assets/policies/<id>.toml`), named by `policy_set`.
 - **Taxes (`[[tax]]`):** each tax scales what some zones pay. Above its default rate it cuts their demand and satisfaction.
