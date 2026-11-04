@@ -448,6 +448,95 @@ pub struct Ruleset {
     /// Research projects: inline `[[tech]]` plus those of the tech tree.
     #[serde(default, rename = "tech", skip_serializing_if = "Vec::is_empty")]
     pub techs: Vec<TechDef>,
+    /// Policy file (`<data>/policies/<id>.toml`) merged into `taxes` and
+    /// `policies` on load.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub policy_set: Option<String>,
+    /// Taxes the city sets the rate of (`[[tax]]`).
+    #[serde(default, rename = "tax", skip_serializing_if = "Vec::is_empty")]
+    pub taxes: Vec<TaxDef>,
+    /// Policies: axes of stances the city picks one of (`[[policy]]`).
+    #[serde(default, rename = "policy", skip_serializing_if = "Vec::is_empty")]
+    pub policies: Vec<PolicyDef>,
+}
+
+/// A tax (`[[tax]]`): scales a city resource (taxes) made by the units of
+/// some zones. Above its default rate the zones pay more but want less.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct TaxDef {
+    pub id: String,
+    pub name: String,
+    #[serde(default)]
+    pub description: String,
+    /// The city resource it scales (`taxes`).
+    pub resource: String,
+    /// Zone ids whose units pay it; empty means every unit making `resource`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub zones: Vec<String>,
+    /// Default rate, in percent: units make `resource` as written at this
+    /// rate, and in proportion at others.
+    pub rate: f32,
+    /// Lowest and highest rate the city may set.
+    pub range: [f32; 2],
+    /// Zone demand added per point above the default (below: subtracted).
+    #[serde(default)]
+    pub demand: f32,
+    /// Satisfaction added per point above the default, for paying units.
+    #[serde(default)]
+    pub satisfaction: f32,
+}
+
+/// A policy (`[[policy]]`): an axis of stances; the first is the default.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PolicyDef {
+    pub id: String,
+    pub name: String,
+    #[serde(default)]
+    pub description: String,
+    #[serde(rename = "stance")]
+    pub stances: Vec<StanceDef>,
+}
+
+/// One stance of a policy, with its trade-offs.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct StanceDef {
+    pub id: String,
+    pub name: String,
+    #[serde(default)]
+    pub description: String,
+    /// Research project to finish before the stance can be taken.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub requires: Option<String>,
+    /// Extra production, as a share per resource (as for research).
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub bonus: BTreeMap<String, f32>,
+    /// Demand added per zone id.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub demand: BTreeMap<String, f32>,
+    /// Satisfaction added to every unit (0.05 is five points).
+    #[serde(default)]
+    pub satisfaction: f32,
+    /// Paid from the treasury each tick (negative: earned).
+    #[serde(default)]
+    pub cost: f32,
+}
+
+/// A policy file (`<data>/policies/<id>.toml`): taxes and policies kept
+/// apart from the rules, like tech trees.
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PolicySet {
+    #[serde(default)]
+    pub name: String,
+    #[serde(default)]
+    pub description: String,
+    #[serde(default, rename = "tax")]
+    pub taxes: Vec<TaxDef>,
+    #[serde(default, rename = "policy")]
+    pub policies: Vec<PolicyDef>,
 }
 
 /// A tech tree file (`<data>/techs/<id>.toml`): research projects kept apart
@@ -467,6 +556,25 @@ impl Ruleset {
     /// Adds a tech tree's projects (call before `validate`).
     pub fn add_tech_tree(&mut self, tree: TechTree) {
         self.techs.extend(tree.techs);
+    }
+
+    /// Adds a policy file's taxes and policies (call before `validate`).
+    pub fn add_policy_set(&mut self, set: PolicySet) {
+        self.taxes.extend(set.taxes);
+        self.policies.extend(set.policies);
+    }
+
+    pub fn tax(&self, id: &str) -> Option<&TaxDef> {
+        self.taxes.iter().find(|t| t.id == id)
+    }
+
+    pub fn policy(&self, id: &str) -> Option<&PolicyDef> {
+        self.policies.iter().find(|p| p.id == id)
+    }
+
+    /// Zone of a unit id, by the densities that list it.
+    pub fn zone_of_unit(&self, unit: &str) -> Option<usize> {
+        self.zones.iter().position(|z| z.densities.iter().any(|d| d.units.iter().any(|u| u == unit)))
     }
 }
 
@@ -867,6 +975,49 @@ impl Ruleset {
             }
             if self.techs.iter().filter(|o| o.id == t.id).count() > 1 {
                 return at("defined twice".into());
+            }
+        }
+        for t in &self.taxes {
+            let at = |m: String| err(format!("tax {}: {m}", t.id));
+            match self.resource(&t.resource) {
+                Some(i) if self.resources[i].transport == Transport::City => {}
+                _ => return at(format!("{} is not a city resource", t.resource)),
+            }
+            if let Some(z) = t.zones.iter().find(|z| !self.zones.iter().any(|d| &d.id == *z)) {
+                return at(format!("unknown zone {z}"));
+            }
+            let [lo, hi] = t.range;
+            if !(lo.is_finite() && hi.is_finite() && 0.0 <= lo && lo <= t.rate && t.rate <= hi && t.rate > 0.0) {
+                return at("needs 0 <= range[0] <= rate <= range[1], and a rate above 0".into());
+            }
+            if self.taxes.iter().filter(|o| o.id == t.id).count() > 1 {
+                return at("defined twice".into());
+            }
+        }
+        for p in &self.policies {
+            let at = |m: String| err(format!("policy {}: {m}", p.id));
+            if p.stances.is_empty() {
+                return at("has no stances".into());
+            }
+            if self.policies.iter().filter(|o| o.id == p.id).count() > 1 {
+                return at("defined twice".into());
+            }
+            for st in &p.stances {
+                if p.stances.iter().filter(|o| o.id == st.id).count() > 1 {
+                    return at(format!("stance {} defined twice", st.id));
+                }
+                if let Some(q) = st.requires.as_ref().filter(|q| self.tech(q).is_none()) {
+                    return at(format!("stance {} requires unknown project {q}", st.id));
+                }
+                if let Some(r) = st.bonus.keys().find(|r| self.resource(r).is_none()) {
+                    return at(format!("stance {}: bonus to unknown resource {r}", st.id));
+                }
+                if let Some(z) = st.demand.keys().find(|z| !self.zones.iter().any(|d| &d.id == *z)) {
+                    return at(format!("stance {}: demand for unknown zone {z}", st.id));
+                }
+                if !(st.satisfaction.is_finite() && st.cost.is_finite() && st.bonus.values().all(|b| b.is_finite() && *b > -1.0)) {
+                    return at(format!("stance {}: numbers out of range", st.id));
+                }
             }
         }
         if let Some(p) = &self.population {

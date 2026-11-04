@@ -3,7 +3,7 @@
 use std::path::Path;
 use std::sync::Arc;
 
-use opencity_core::rules::{Ruleset, TechTree};
+use opencity_core::rules::{PolicySet, Ruleset, TechTree};
 use serde::Deserialize;
 
 use crate::{read_text, AssetError};
@@ -27,6 +27,9 @@ pub fn load(data_dir: &Path, id: &str) -> Result<Arc<Ruleset>, AssetError> {
     if let Some(tree) = rules.tech_tree.clone() {
         rules.add_tech_tree(load_tech_tree(data_dir, &tree)?);
     }
+    if let Some(set) = rules.policy_set.clone() {
+        rules.add_policy_set(load_policy_set(data_dir, &set)?);
+    }
     rules.validate().map_err(|e| AssetError::Parse { path, line: 0, message: e.to_string() })?;
     Ok(Arc::new(rules))
 }
@@ -34,6 +37,12 @@ pub fn load(data_dir: &Path, id: &str) -> Result<Arc<Ruleset>, AssetError> {
 /// Reads a tech tree (`<data>/techs/<id>.toml`).
 pub fn load_tech_tree(data_dir: &Path, id: &str) -> Result<TechTree, AssetError> {
     let path = data_dir.join("techs").join(format!("{id}.toml"));
+    toml::from_str(&read_text(&path)?).map_err(|source| AssetError::Settings { path, source })
+}
+
+/// Reads a policy file (`<data>/policies/<id>.toml`).
+pub fn load_policy_set(data_dir: &Path, id: &str) -> Result<PolicySet, AssetError> {
+    let path = data_dir.join("policies").join(format!("{id}.toml"));
     toml::from_str(&read_text(&path)?).map_err(|source| AssetError::Settings { path, source })
 }
 

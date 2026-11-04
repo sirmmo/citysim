@@ -298,6 +298,66 @@ excludes = ["service_economy"]       # rivals ruled out for good (optional)
 A school makes about 2 research points a tick, some 2,400 a year, so a
 project takes from a few months to a few years.
 
+### Taxes and policies
+
+Taxes and policies live in a **policy file**, apart from the rules like
+tech trees. A rules file names it, and it is read from
+`<data>/policies/<id>.toml` (inline `[[tax]]` and `[[policy]]` merge with it):
+
+```toml
+policy_set = "modern"                # rules/glassbox.toml -> policies/modern.toml
+```
+
+A **tax** scales a city resource (taxes) made by the units of some zones.
+Units make what the rules write at the default rate, and in proportion at
+other rates. Each point above the default adds `demand` to those zones and
+`satisfaction` to the units paying; below the default, the opposite.
+
+```toml
+[[tax]]
+id = "property"
+name = "Property tax"
+resource = "taxes"                   # a city resource
+zones = ["residential"]              # empty: every unit making it
+rate = 9                             # default, percent
+range = [0, 20]                      # what the city may set
+demand = -0.4                        # zone demand per point above the default
+satisfaction = -0.01                 # per point above the default
+```
+
+A **policy** is an axis of stances; the first is the default. A stance can
+wait for a research project, the way the Stronghold experiment's stances
+wait for a doctrine (the free market opens Festivals, the guild charter
+Long hours):
+
+```toml
+[[policy]]
+id = "energy"
+name = "Energy"
+
+[[policy.stance]]
+id = "balanced"
+name = "Balanced"
+
+[[policy.stance]]
+id = "atomic_age"
+name = "Atomic age"
+requires = "fission"                 # research project (optional)
+bonus = { power = 0.3 }              # production share, as for research
+demand = { residential = -1.0 }      # per zone id
+satisfaction = -0.02                 # for every unit
+cost = 0.5                           # treasury per tick; negative earns
+```
+
+Set rates and stances in the 📜 **Policies** window. Without it (classic
+interface, Android) every tax stays at its default and every policy at its
+first stance. Saves keep both.
+
+| File | Taxes | Policies |
+|---|---|---|
+| `modern` | Property, sales, business (9 %, 0-20 %) | Transport (car city, walkable centres), Energy (efficiency drive, atomic age), Education (free schooling, night classes), Growth (open city, strict zoning) |
+| `pre-industrial` | Hearth tax (5 %), market tolls (8 %), guild dues (6 %) | Labour (festivals, long hours), Provision (feasts, thrift), Gates (open gates, town watch) |
+
 ## Playing
 
 * The zone tools show a **Low / Medium / High** density switch.

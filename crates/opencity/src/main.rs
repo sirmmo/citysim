@@ -10,6 +10,8 @@ mod gpu;
 mod graphs;
 #[cfg(not(target_os = "android"))]
 mod network;
+#[cfg(not(target_os = "android"))]
+mod policies;
 mod render;
 #[cfg(not(target_os = "android"))]
 mod research;
@@ -99,6 +101,9 @@ struct Args {
     /// Open the research window with nothing researched, researching this project (screenshots, docs).
     #[arg(long, hide = true)]
     show_research: Option<String>,
+    /// Open the policy window (screenshots, docs).
+    #[arg(long, hide = true)]
+    show_policies: bool,
     /// Inspect this tile at start, "x,y" (screenshots, docs).
     #[arg(long, hide = true)]
     inspect: Option<String>,
@@ -470,6 +475,18 @@ impl Game {
             Command::ResetCamera => self.camera = OrbitCamera::new(self.city.width(), self.city.length()),
             Command::CloseQuery => self.query = None,
             Command::Turn((w, l)) => self.turn_building(w, l),
+            Command::SetTax(t, rate) => {
+                if let Some(gb) = self.city.glassbox.as_mut() {
+                    gb.set_tax_rate(&t, rate);
+                }
+            }
+            Command::SetStance(p, st) => {
+                if let Some(gb) = self.city.glassbox.as_mut() {
+                    if !gb.set_stance(&p, &st) {
+                        self.say("That stance needs research first");
+                    }
+                }
+            }
             Command::SetResearch(t) => {
                 if let Some(gb) = self.city.glassbox.as_mut() {
                     gb.set_research(t.as_deref());
@@ -872,6 +889,10 @@ async fn main() -> Result<()> {
                 game.camera.distance = d;
             }
         }
+    }
+    #[cfg(not(target_os = "android"))]
+    if let (true, Some(ui)) = (s.args.show_policies, game.egui.as_mut()) {
+        ui.open_policies();
     }
     #[cfg(not(target_os = "android"))]
     if let (Some(tech), Some(ui)) = (&s.args.show_research, game.egui.as_mut()) {

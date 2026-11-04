@@ -14,6 +14,8 @@ population = "residents"
 scripts = ["glassbox.gbx"]
 # Research projects, kept in their own file: <data>/techs/modern.toml.
 tech_tree = "modern"
+# Taxes and policies, in their own file: <data>/policies/modern.toml.
+policy_set = "modern"
 
 [growth]
 level_up = 0.75      # satisfaction needed to grow a level

@@ -18,6 +18,10 @@ fn rules_named(id: &str) -> Arc<Ruleset> {
         let text = std::fs::read_to_string(format!("{dir}/../techs/{tree}.toml")).unwrap();
         r.add_tech_tree(toml::from_str(&text).unwrap());
     }
+    if let Some(set) = r.policy_set.clone() {
+        let text = std::fs::read_to_string(format!("{dir}/../policies/{set}.toml")).unwrap();
+        r.add_policy_set(toml::from_str(&text).unwrap());
+    }
     r.validate().unwrap();
     Arc::new(r)
 }
@@ -439,4 +443,66 @@ fn services_face_the_street_and_turn() {
     assert_eq!(back.layer.structure_at(6, 8).unwrap().facing, t.facing);
     // Roads are not turned.
     assert!(c.turn_building(5, 3).is_err());
+}
+
+#[test]
+fn taxes_and_policies_steer_the_city() {
+    let r = rules();
+    assert_eq!(r.policy_set.as_deref(), Some("modern"));
+    assert!(r.tax("property").is_some() && r.policy("energy").is_some());
+    let build = || {
+        let mut c = City::new(Terrain::flat(48, 48), None, Footprints::builtin(), 7);
+        c.use_rules(r.clone());
+        c.research_all();
+        c.apply_tool(Tool::CoalPlant, (2, 2), (2, 2)).unwrap();
+        for l in [8, 12, 16, 20] {
+            c.apply_tool(Tool::Road, (2, l), (44, l)).unwrap();
+        }
+        c.apply_tool(Tool::Road, (7, 2), (7, 8)).unwrap();
+        c.apply_tool(Tool::ZoneResidential, (2, 9), (44, 11)).unwrap();
+        c.apply_tool(Tool::ZoneIndustrial, (2, 13), (44, 15)).unwrap();
+        c.apply_tool(Tool::ZoneCommercial, (2, 17), (44, 19)).unwrap();
+        for _ in 0..300 {
+            c.simulate_round();
+        }
+        c
+    };
+    let mut c = build();
+    let taxes = r.resource("taxes").unwrap();
+    {
+        let gb = c.glassbox.as_mut().unwrap();
+        assert_eq!(gb.tax_rate(&r, "property"), 9.0);
+        // Rates stay within range.
+        assert!(gb.set_tax_rate("property", 50.0));
+        assert_eq!(gb.tax_rate(&r, "property"), 20.0);
+        assert!(gb.set_tax_rate("property", 9.0) && gb.tax_rates.is_empty());
+    }
+    // Doubling every tax doubles the taxes made, and cuts demand.
+    let mut doubled = c.clone();
+    for t in ["property", "sales", "business"] {
+        doubled.glassbox.as_mut().unwrap().set_tax_rate(t, 18.0);
+    }
+    c.simulate_round();
+    doubled.simulate_round();
+    let (a, b) = (c.glassbox.as_ref().unwrap(), doubled.glassbox.as_ref().unwrap());
+    assert!((b.balances.produced[taxes] / a.balances.produced[taxes] - 2.0).abs() < 1e-3, "{} -> {}", a.balances.produced[taxes], b.balances.produced[taxes]);
+    assert!(b.demand[0] < a.demand[0]);
+    // A stance that needs research waits for it; an open one takes effect.
+    let gb = c.glassbox.as_mut().unwrap();
+    gb.researched.remove("fission");
+    assert!(!gb.set_stance("energy", "atomic_age"));
+    assert!(gb.set_stance("growth", "open_city"));
+    assert_eq!(gb.stance(&r, "growth").unwrap().id, "open_city");
+    assert_eq!(gb.stance(&r, "energy").unwrap().id, "balanced");
+    let before = c.glassbox.as_ref().unwrap().demand[0];
+    c.simulate_round();
+    assert!(c.glassbox.as_ref().unwrap().demand[0] > before);
+    // Saves keep rates and stances.
+    c.glassbox.as_mut().unwrap().set_tax_rate("sales", 4.0);
+    let mut saved = Vec::new();
+    opencity_core::save::save(&c, &mut saved).unwrap();
+    let back = opencity_core::save::load(saved.as_slice(), Footprints::builtin()).unwrap();
+    let gb = back.glassbox.as_ref().unwrap();
+    assert_eq!(gb.tax_rates.get("sales"), Some(&4.0));
+    assert_eq!(gb.stances.get("growth").map(String::as_str), Some("open_city"));
 }

@@ -163,7 +163,11 @@ and research projects unlock buildings and tools such as highways,
 high-rises, nuclear plants, cobbled streets and the insula. Projects live
 in tech tree files of their own (`assets/techs/`), with branches, tiers,
 production bonuses and rival choices such as a free market or a guild
-charter ([docs/RULES.md](docs/RULES.md#tech-trees)).
+charter ([docs/RULES.md](docs/RULES.md#tech-trees)). Taxes and policies
+live in policy files (`assets/policies/`): the 📜 Policies window sets a
+rate per tax (higher rates bring income but cut demand and satisfaction)
+and a stance per policy, such as a car city or walkable centres, festivals
+or long hours ([docs/RULES.md](docs/RULES.md#taxes-and-policies)).
 Behaviour can also be scripted in the **GlassBox rule language**: `unitRule`,
 `mapRule`, `zoneRule` and `agentRule`, with the timestamped metrics of the
 Extended GlassBox model by Costagliola, Montanari and Bellavista

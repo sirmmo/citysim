@@ -39,6 +39,10 @@ pub enum Command {
     CloseQuery,
     /// Research project to work on (`None`: stop).
     SetResearch(Option<String>),
+    /// Tax rate, in percent.
+    SetTax(String, f32),
+    /// Stance taken on a policy.
+    SetStance(String, String),
     /// Network view settings (GlassBox rules).
     SetFlows(crate::flows::FlowView),
     /// Inspect the building on this tile and look at it.
@@ -94,6 +98,7 @@ pub struct EguiUi {
     graphs: crate::graphs::Graphs,
     show_network: bool,
     show_research: bool,
+    show_policies: bool,
     /// Skin the current style and icons were built for.
     styled_for: Option<Option<String>>,
 }
@@ -170,6 +175,7 @@ impl EguiUi {
             graphs: Default::default(),
             show_network: false,
             show_research: false,
+            show_policies: false,
             styled_for: None,
         }
     }
@@ -231,6 +237,10 @@ impl EguiUi {
         Some(tex)
     }
 
+    pub fn open_policies(&mut self) {
+        self.show_policies = true;
+    }
+
     pub fn open_research(&mut self) {
         self.show_research = true;
     }
@@ -259,6 +269,9 @@ impl EguiUi {
         self.graphs.show(ctx, view.city.glassbox.as_ref(), &export_dir);
         if self.show_network {
             crate::network::window(ctx, &mut self.show_network, view.city, view.flows, view.query, &mut out);
+        }
+        if self.show_policies {
+            crate::policies::window(ctx, &mut self.show_policies, view.city, &mut out);
         }
         if self.show_research {
             crate::research::window(ctx, &mut self.show_research, view.city, &mut out);
@@ -485,6 +498,11 @@ impl EguiUi {
                         && ui.button("🔬 Research").on_hover_text("Spend ideas and research points to unlock buildings and tools").clicked()
                     {
                         self.show_research = !self.show_research;
+                    }
+                    if !(rules.taxes.is_empty() && rules.policies.is_empty())
+                        && ui.button("📜 Policies").on_hover_text("Set tax rates and the city's policies").clicked()
+                    {
+                        self.show_policies = !self.show_policies;
                     }
                 });
                 ui.label(RichText::new("Demand").small().color(Color32::GRAY));

@@ -1,0 +1,149 @@
+# Taxes and policies for the modern GlassBox rules (rules/glassbox.toml).
+#
+# Kept apart from the rules like tech trees: rule sets name one with
+# `policy_set = "<id>"`, can share one, or go without.
+#
+# [[tax]]: scales a city resource made by the units of some zones. Units
+# make what the rules write at the default `rate` (percent) and in
+# proportion at other rates. Each point above the default adds `demand` to
+# those zones and `satisfaction` to paying units (below: the opposite).
+#
+# [[policy]]: an axis of stances; the first is the default. A stance may
+# need a research project (`requires`), and adds production `bonus`es,
+# zone `demand`, `satisfaction` for every unit and a running `cost` per tick
+# (negative: income). A city makes some 25-30 in taxes a tick at 1,000 people.
+
+name = "Modern"
+description = "Property, sales and business taxes; transport, energy, education and growth policies."
+
+# ---------------------------------------------------------------- taxes
+[[tax]]
+id = "property"
+name = "Property tax"
+description = "Paid by households on their homes."
+resource = "taxes"
+zones = ["residential"]
+rate = 9
+range = [0, 20]
+demand = -0.4
+satisfaction = -0.01
+
+[[tax]]
+id = "sales"
+name = "Sales tax"
+description = "Paid by shops on what they sell."
+resource = "taxes"
+zones = ["commercial"]
+rate = 9
+range = [0, 20]
+demand = -0.4
+satisfaction = -0.01
+
+[[tax]]
+id = "business"
+name = "Business tax"
+description = "Paid by workshops, factories and plants on their profits."
+resource = "taxes"
+zones = ["industrial"]
+rate = 9
+range = [0, 20]
+demand = -0.5
+satisfaction = -0.012
+
+# ---------------------------------------------------------------- policies
+[[policy]]
+id = "transport"
+name = "Transport"
+
+[[policy.stance]]
+id = "balanced"
+name = "Balanced"
+description = "Roads for cars, pavements for people."
+
+[[policy.stance]]
+id = "car_city"
+name = "Car city"
+description = "Free parking and wide roads: more car trips, more people moving in, a cost to the city."
+bonus = { car = 0.2 }
+demand = { residential = 1.5 }
+cost = 0.5
+
+[[policy.stance]]
+id = "walkable_centres"
+name = "Walkable centres"
+description = "Pedestrian streets and squares: shops thrive and people are happier, fewer cars."
+bonus = { car = -0.2, shoppers = 0.1 }
+demand = { commercial = 1.0 }
+satisfaction = 0.02
+cost = 0.3
+
+[[policy]]
+id = "energy"
+name = "Energy"
+
+[[policy.stance]]
+id = "balanced"
+name = "Balanced"
+description = "Whatever the plants make."
+
+[[policy.stance]]
+id = "efficiency"
+name = "Efficiency drive"
+description = "Grants for insulation and new turbines: more power from the same plants."
+bonus = { power = 0.15 }
+cost = 0.8
+
+[[policy.stance]]
+id = "atomic_age"
+name = "Atomic age"
+description = "The nuclear programme runs flat out: far more power, uneasy neighbours."
+requires = "fission"
+bonus = { power = 0.3 }
+satisfaction = -0.02
+
+[[policy]]
+id = "education"
+name = "Education"
+
+[[policy.stance]]
+id = "balanced"
+name = "Balanced"
+description = "Schools as they are."
+
+[[policy.stance]]
+id = "free_schooling"
+name = "Free schooling"
+description = "No fees and longer school years: more research, paid by the city."
+bonus = { research = 0.3 }
+satisfaction = 0.01
+cost = 1.0
+
+[[policy.stance]]
+id = "night_classes"
+name = "Night classes"
+description = "Lectures after work: more ideas, tired workers."
+requires = "computing"
+bonus = { ideas = 0.25, workers = -0.05 }
+
+[[policy]]
+id = "growth"
+name = "Growth"
+
+[[policy.stance]]
+id = "balanced"
+name = "Balanced"
+description = "The city grows as people come."
+
+[[policy.stance]]
+id = "open_city"
+name = "Open city"
+description = "Welcome newcomers: more people want to move in, some crowding."
+demand = { residential = 3.0 }
+satisfaction = -0.02
+
+[[policy.stance]]
+id = "strict_zoning"
+name = "Strict zoning"
+description = "Low limits and green belts: slower growth, nicer streets."
+demand = { residential = -2.0, commercial = -1.0 }
+satisfaction = 0.03

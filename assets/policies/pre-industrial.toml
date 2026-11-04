@@ -1,0 +1,114 @@
+# Taxes and policies for the pre-industrial GlassBox rules
+# (rules/pre-industrial.toml). Same format as policies/modern.toml. Some
+# stances follow the town's charter (techs/pre-industrial.toml), as the
+# Stronghold experiment's policies follow its doctrines.
+
+name = "Pre-industrial"
+description = "Hearth tax, market tolls and guild dues; labour, provision and gate policies."
+
+# ---------------------------------------------------------------- taxes
+[[tax]]
+id = "hearth"
+name = "Hearth tax"
+description = "So much a year for every hearth in town."
+resource = "taxes"
+zones = ["residential"]
+rate = 5
+range = [0, 15]
+demand = -0.5
+satisfaction = -0.015
+
+[[tax]]
+id = "market_toll"
+name = "Market tolls"
+description = "Paid at the gates and stalls on what is sold."
+resource = "taxes"
+zones = ["commercial"]
+rate = 8
+range = [0, 20]
+demand = -0.4
+satisfaction = -0.01
+
+[[tax]]
+id = "guild_dues"
+name = "Guild dues"
+description = "Paid by the crafts and the farms to the town."
+resource = "taxes"
+zones = ["industrial"]
+rate = 6
+range = [0, 15]
+demand = -0.5
+satisfaction = -0.012
+
+# ---------------------------------------------------------------- policies
+[[policy]]
+id = "labour"
+name = "Labour"
+
+[[policy.stance]]
+id = "balanced"
+name = "Customary"
+description = "A fair day's work."
+
+[[policy.stance]]
+id = "festivals"
+name = "Festivals"
+description = "Saints' days and fairs: a happier, idler town. Needs the free market."
+requires = "free_market"
+bonus = { goods = -0.1, shoppers = 0.15 }
+satisfaction = 0.04
+
+[[policy.stance]]
+id = "hard_labour"
+name = "Long hours"
+description = "Dawn to dusk in the workshops: more goods, grumbling folk. Needs the guild charter."
+requires = "guild_charter"
+bonus = { goods = 0.15 }
+satisfaction = -0.04
+
+[[policy]]
+id = "provision"
+name = "Provision"
+
+[[policy.stance]]
+id = "balanced"
+name = "Ordinary"
+description = "Ordinary bread and ale."
+
+[[policy.stance]]
+id = "feasts"
+name = "Feasts"
+description = "Open larders on feast days: content people, paid by the town."
+satisfaction = 0.05
+cost = 0.4
+
+[[policy.stance]]
+id = "thrift"
+name = "Thrift"
+description = "Lean tables and full coffers."
+satisfaction = -0.03
+cost = -0.3
+
+[[policy]]
+id = "gates"
+name = "Gates"
+
+[[policy.stance]]
+id = "balanced"
+name = "Open by day"
+description = "The gates open at dawn and close at dusk."
+
+[[policy.stance]]
+id = "open_gates"
+name = "Open gates"
+description = "Newcomers welcome: the town fills up, a little crowded."
+demand = { residential = 3.0 }
+satisfaction = -0.02
+
+[[policy.stance]]
+id = "town_watch"
+name = "Town watch"
+description = "Guarded, closed gates: fewer newcomers, a safer town, a watch to pay."
+demand = { residential = -2.0 }
+satisfaction = 0.02
+cost = 0.2

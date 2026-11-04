@@ -14,6 +14,8 @@ population = "residents"
 scripts = ["pre-industrial.gbx"]
 # Research projects, kept in their own file: <data>/techs/pre-industrial.toml.
 tech_tree = "pre-industrial"
+# Taxes and policies, in their own file: <data>/policies/pre-industrial.toml.
+policy_set = "pre-industrial"
 years = [-9999, 1799]
 # No electricity, and no asphalt: streets are dirt or paved.
 disabled_tools = ["power_line", "nuclear_plant", "road", "highway"]

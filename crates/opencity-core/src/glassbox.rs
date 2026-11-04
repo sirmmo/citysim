@@ -23,7 +23,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     layer::{BuildingLayer, Rect, Structure},
-    rules::{structure_code, DemandSource, Ruleset, TechDef, Transport},
+    rules::{structure_code, DemandSource, Ruleset, StanceDef, TaxDef, TechDef, Transport},
     Direction, Footprints, GraphicCode, RoadKind, StructureCode, Terrain,
 };
 
@@ -137,6 +137,12 @@ pub struct GlassBox {
     /// What has been spent on each project so far, by resource.
     #[serde(default)]
     pub progress: BTreeMap<String, BTreeMap<String, f32>>,
+    /// Tax rates the city set, by tax id (others are at their default).
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub tax_rates: BTreeMap<String, f32>,
+    /// Stances the city took, by policy id (others are at the first).
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub stances: BTreeMap<String, String>,
     /// Picks the next project by itself when none is chosen (interfaces
     /// without a research window).
     #[serde(skip)]
@@ -184,6 +190,8 @@ impl GlassBox {
             researched: BTreeSet::new(),
             research: None,
             progress: BTreeMap::new(),
+            tax_rates: BTreeMap::new(),
+            stances: BTreeMap::new(),
             discoveries: Vec::new(),
             auto_research: false,
             flows: HashMap::new(),
@@ -236,17 +244,79 @@ impl GlassBox {
         !self.researched.contains(tech) && rules.tech_excluded(tech, &self.researched)
     }
 
-    /// Extra production from finished projects, as a share per resource.
+    /// Extra production from finished projects and policy stances, as a
+    /// share per resource.
     pub fn research_bonus(&self, rules: &Ruleset) -> Vec<f32> {
         let mut b = vec![0.0; rules.resources.len()];
-        for t in rules.techs.iter().filter(|t| self.researched.contains(&t.id)) {
-            for (r, v) in &t.bonus {
+        let techs = rules.techs.iter().filter(|t| self.researched.contains(&t.id)).map(|t| &t.bonus);
+        for bonus in techs.chain(self.active_stances(rules).map(|s| &s.bonus)) {
+            for (r, v) in bonus {
                 if let Some(i) = rules.resource(r) {
                     b[i] += v;
                 }
             }
         }
         b
+    }
+
+    /// A tax's rate, in percent.
+    pub fn tax_rate(&self, rules: &Ruleset, tax: &str) -> f32 {
+        let Some(t) = rules.tax(tax) else { return 0.0 };
+        self.tax_rates.get(tax).copied().unwrap_or(t.rate)
+    }
+
+    /// Sets a tax's rate, kept within its range; false for an unknown tax.
+    pub fn set_tax_rate(&mut self, tax: &str, rate: f32) -> bool {
+        let Some(t) = self.rules.as_ref().and_then(|r| r.tax(tax).cloned()) else { return false };
+        let rate = if rate.is_finite() { rate.clamp(t.range[0], t.range[1]) } else { t.rate };
+        if (rate - t.rate).abs() < 1e-4 {
+            self.tax_rates.remove(tax);
+        } else {
+            self.tax_rates.insert(tax.to_string(), rate);
+        }
+        true
+    }
+
+    /// The stance taken on a policy (its first one unless chosen).
+    pub fn stance<'a>(&self, rules: &'a Ruleset, policy: &str) -> Option<&'a StanceDef> {
+        let p = rules.policy(policy)?;
+        self.stances.get(policy).and_then(|id| p.stances.iter().find(|s| &s.id == id)).or(p.stances.first())
+    }
+
+    /// Every policy's current stance.
+    pub fn active_stances<'a>(&'a self, rules: &'a Ruleset) -> impl Iterator<Item = &'a StanceDef> + 'a {
+        rules.policies.iter().filter_map(move |p| self.stance(rules, &p.id))
+    }
+
+    /// Whether a stance can be taken: its research is done.
+    pub fn stance_open(&self, stance: &StanceDef) -> bool {
+        stance.requires.as_ref().is_none_or(|q| self.researched.contains(q))
+    }
+
+    /// Takes a stance on a policy; false when unknown or still locked.
+    pub fn set_stance(&mut self, policy: &str, stance: &str) -> bool {
+        let Some(rules) = self.rules.clone() else { return false };
+        let Some(p) = rules.policy(policy) else { return false };
+        let Some(st) = p.stances.iter().find(|s| s.id == stance) else { return false };
+        if !self.stance_open(st) {
+            return false;
+        }
+        if p.stances.first().is_some_and(|f| f.id == stance) {
+            self.stances.remove(policy);
+        } else {
+            self.stances.insert(policy.to_string(), stance.to_string());
+        }
+        true
+    }
+
+    /// Share of the written amount a unit of `zone` makes of `resource`
+    /// under the tax rates (1 when no tax applies).
+    fn tax_factor(&self, rules: &Ruleset, zone: Option<usize>, resource: &str) -> f32 {
+        let mut f = 1.0;
+        for t in rules.taxes.iter().filter(|t| t.resource == resource && taxes_zone(t, rules, zone)) {
+            f *= self.tax_rate(rules, &t.id) / t.rate;
+        }
+        f
     }
 
     /// Picks the project to research (or none); false if it cannot be researched.
@@ -425,6 +495,14 @@ impl GlassBox {
         // 1. Production. A resource with kinds is made as its kinds, by share.
         // Finished research adds its bonus to a resource and to its kinds.
         let boost = self.research_bonus(&rules);
+        let unit_zone: Vec<Option<usize>> = rules.units.iter().map(|u| rules.zone_of_unit(&u.id)).collect();
+        // Tax rates scale what each kind of unit makes, by resource.
+        let unit_tax: Vec<BTreeMap<String, f32>> = rules
+            .units
+            .iter()
+            .enumerate()
+            .map(|(u, def)| def.produce.keys().map(|r| (r.clone(), self.tax_factor(&rules, unit_zone[u], r))).collect())
+            .collect();
         for (p, u, _) in &units {
             let def = &rules.units[*u];
             let st = self.units.get_mut(&idx(p.0, p.1)).unwrap();
@@ -434,7 +512,7 @@ impl GlassBox {
             }
             for (r, amount) in &def.produce {
                 let ri = rules.resource(r).unwrap();
-                let up = 1.0 + boost[ri] + if rules.root(ri) != ri { boost[rules.root(ri)] } else { 0.0 };
+                let up = (1.0 + boost[ri] + if rules.root(ri) != ri { boost[rules.root(ri)] } else { 0.0 }) * unit_tax[*u].get(r).copied().unwrap_or(1.0);
                 let made = amount * eff * up;
                 add(&mut bal.produced, ri, rules.root(ri), made);
                 for (k, f) in split(&rules, ri) {
@@ -740,6 +818,8 @@ impl GlassBox {
             }
         }
         self.advance_research(&rules);
+        // Running costs of policies (negative ones earn).
+        self.treasury -= self.active_stances(&rules).map(|st| st.cost as f64).sum::<f64>();
         let whole = self.treasury.trunc();
         *fund += whole as i64;
         self.treasury -= whole;
@@ -840,6 +920,7 @@ impl GlassBox {
         self.layers.iter_mut().flatten().for_each(|v| *v = v.max(0.0));
 
         // 6. Satisfaction: the share of needs met (own needs and those of trips).
+        let mood: f32 = self.active_stances(&rules).map(|st| st.satisfaction).sum();
         for (n, (p, u, _)) in units.iter().enumerate() {
             let def = &rules.units[*u];
             let i = idx(p.0, p.1);
@@ -853,6 +934,12 @@ impl GlassBox {
                     s *= 0.5;
                 }
             }
+            // Policies and taxes above (or below) their default rate.
+            s += mood;
+            for t in rules.taxes.iter().filter(|t| taxes_zone(t, &rules, unit_zone[*u]) && def.produce.contains_key(&t.resource)) {
+                s += t.satisfaction * (self.tax_rate(&rules, &t.id) - t.rate);
+            }
+            let s = s.clamp(0.0, 1.0);
             let g = &rules.growth;
             let st = self.units.get_mut(&i).unwrap();
             st.satisfaction = st.satisfaction * 0.7 + s * 0.3;
@@ -871,6 +958,12 @@ impl GlassBox {
                         DemandSource::Unmet => bal.unmet[ri],
                         DemandSource::Undelivered => bal.undelivered[ri],
                     };
+            }
+            for st in self.active_stances(&rules) {
+                d += st.demand.get(&z.id).copied().unwrap_or(0.0);
+            }
+            for t in rules.taxes.iter().filter(|t| taxes_zone(t, &rules, Some(zi))) {
+                d += t.demand * (self.tax_rate(&rules, &t.id) - t.rate);
             }
             self.demand[zi] = self.demand[zi] * 0.8 + d * 0.2;
         }
@@ -1273,4 +1366,10 @@ impl Structure {
     pub fn is_unit(&self) -> bool {
         self.unit.is_some()
     }
+}
+
+/// Whether a tax applies to units of `zone` (a tax naming no zones applies
+/// to every unit).
+fn taxes_zone(t: &TaxDef, rules: &Ruleset, zone: Option<usize>) -> bool {
+    t.zones.is_empty() || zone.is_some_and(|z| t.zones.iter().any(|id| id == &rules.zones[z].id))
 }
