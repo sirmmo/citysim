@@ -615,6 +615,10 @@ impl Game {
             Command::NewRegion { name, size, map_size, rules } => self.region_new(&name, size, map_size, rules),
             Command::OpenRegion(dir) => self.region_open(&dir),
             Command::RegionCity(slot) => self.region_goto(slot),
+            Command::Cheat(code) => match self.city.cheat(&code) {
+                Some(m) => self.message = Some((m, get_time() + 8.0)),
+                None => self.say("Nothing happens."),
+            },
             Command::SetDisasters(on) => {
                 if let Some(gb) = self.city.glassbox.as_mut() {
                     gb.disasters_off = !on;
@@ -823,6 +827,11 @@ impl Game {
         let t = get_time();
         self.city.update(get_frame_time().min(0.25) as f64 * 1000.0);
         self.region_month();
+        // News from the city (the family's visits…).
+        if let Some(m) = self.city.messages.pop() {
+            self.city.messages.clear();
+            self.message = Some((m, get_time() + 6.0));
+        }
         // Disaster notices, with a look at the scene.
         if let Some(e) = self.city.notices.pop() {
             self.city.notices.clear();

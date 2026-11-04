@@ -55,6 +55,8 @@ pub enum Command {
         rules: Option<String>,
     },
     OpenRegion(PathBuf),
+    /// A typed cheat code.
+    Cheat(String),
     /// Switch disasters by chance on or off.
     SetDisasters(bool),
     /// Set off a disaster by hand.
@@ -119,6 +121,9 @@ pub struct EguiUi {
     show_research: bool,
     show_policies: bool,
     show_region: bool,
+    /// The cheat box (Ctrl+Shift+C), as in SimCity 3000.
+    cheat_open: bool,
+    cheat_text: String,
     region_name: String,
     region_size: [u32; 2],
     region_map: u32,
@@ -204,6 +209,8 @@ impl EguiUi {
             show_research: false,
             show_policies: false,
             show_region: false,
+            cheat_open: false,
+            cheat_text: String::new(),
             region_name: "My region".into(),
             region_size: [3, 3],
             region_map: 64,
@@ -268,6 +275,28 @@ impl EguiUi {
         Some(tex)
     }
 
+    /// SimCity 3000's cheat box: Ctrl+Shift+C opens a line to type into.
+    fn cheat_box(&mut self, ctx: &egui::Context, out: &mut Vec<Command>) {
+        if ctx.input(|i| i.modifiers.ctrl && i.modifiers.shift && i.key_pressed(egui::Key::C)) {
+            self.cheat_open = !self.cheat_open;
+            self.cheat_text.clear();
+        }
+        if !self.cheat_open {
+            return;
+        }
+        egui::Window::new("Enter cheat code").collapsible(false).resizable(false).anchor(egui::Align2::CENTER_TOP, [0.0, 60.0]).show(ctx, |ui| {
+            let r = ui.add(egui::TextEdit::singleline(&mut self.cheat_text).desired_width(260.0));
+            r.request_focus();
+            if r.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
+                out.push(Command::Cheat(std::mem::take(&mut self.cheat_text)));
+                self.cheat_open = false;
+            }
+            if ui.input(|i| i.key_pressed(egui::Key::Escape)) {
+                self.cheat_open = false;
+            }
+        });
+    }
+
     pub fn open_region(&mut self) {
         self.show_region = true;
     }
@@ -293,6 +322,7 @@ impl EguiUi {
     pub fn show(&mut self, ctx: &egui::Context, view: &View) -> Vec<Command> {
         self.style(ctx, view.skin);
         let mut out = Vec::new();
+        self.cheat_box(ctx, &mut out);
         self.menu_bar(ctx, view, &mut out);
         self.tools(ctx, view, &mut out);
         if self.show_city {

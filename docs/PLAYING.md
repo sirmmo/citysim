@@ -160,6 +160,22 @@ The **📜 Policies** window sets:
 - **Vehicles:** cars, taxis and trucks in modern towns (Kenney car kit); people, handcarts and horse carts before 1800. What travels where follows the rules: no cars in the Middle Ages, no carts on the highway.
 - **View > Skin:** re-dresses the city for an era or a world (see [SKINS.md](SKINS.md)).
 
+## Cheats
+
+**Ctrl+Shift+C** opens the cheat box, as in SimCity 3000.
+
+- **`CallCousinVinnie`** wires **$1,000,000** to the city. But Cousin Vinnie
+  has family, and they move in:
+  - **Protection money:** every month they collect up to $20,000, scaled by
+    their hold on the city.
+  - **Crime:** police coverage falls everywhere while they are in town.
+  - **Arson:** now and then a block burns ("Somebody didn't pay").
+  - **Driving them out:** each police station loosens their hold month by
+    month, and with enough stations the family packs up and leaves. Calling
+    Vinnie again tightens their grip.
+
+The MCP server has a `cheat` tool too.
+
 ## Saving and sharing
 
 - **Saving:** **File > Save** writes a `.ocsave.json`. Saves keep the rules, research, tax rates, stances, building facings and vehicles.

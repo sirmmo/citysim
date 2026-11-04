@@ -128,6 +128,19 @@ pub struct CityMeta {
     pub world: Option<String>,
 }
 
+/// The family that came with Cousin Vinnie's money.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct Mafia {
+    /// Their hold on the city: 1 when called, gone at 0.
+    pub heat: f32,
+    /// Protection money paid so far.
+    #[serde(default)]
+    pub collected: i64,
+}
+
+/// What the family collects each month at full heat.
+pub const PROTECTION_MONEY: f32 = 20_000.0;
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct City {
     #[serde(default)]
@@ -146,6 +159,12 @@ pub struct City {
     /// Disasters that struck since the game last took them (notices).
     #[serde(skip)]
     pub notices: Vec<crate::glassbox::DisasterEvent>,
+    /// Other news for the player (the family's visits…), oldest first.
+    #[serde(skip)]
+    pub messages: Vec<String>,
+    /// Cousin Vinnie's family, once called (see [`City::cheat`]).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mafia: Option<Mafia>,
     pub(crate) rng: Pcg32,
     day_clock_ms: f64,
     sim_clock_ms: f64,
@@ -177,6 +196,8 @@ impl City {
             values: SimValues::default(),
             vehicles: Vec::new(),
             notices: Vec::new(),
+            messages: Vec::new(),
+            mafia: None,
             rng: Pcg32::seed_from_u64(seed),
             day_clock_ms: 0.0,
             sim_clock_ms: 0.0,
@@ -408,6 +429,7 @@ impl City {
 
     /// One round of every micro-simulator.
     pub fn simulate_round(&mut self) {
+        self.mafia_tick();
         if self.glassbox.is_some() {
             return self.simulate_glassbox();
         }
@@ -530,6 +552,68 @@ impl City {
                 let mut v = Vehicle::new(VehicleKind::Car, &path, &self.layer, &self.terrain);
                 v.mesh = Some(mesh);
                 self.vehicles.push(v);
+            }
+        }
+    }
+
+    /// Typed cheats (SimCity 3000's cheat box). `CallCousinVinnie` wires
+    /// $1,000,000 to the city, and the family moves in: they collect
+    /// protection money every month, crime rises (police coverage falls)
+    /// and buildings catch fire, until police stations drive them out.
+    /// Returns what happened, or `None` for an unknown code.
+    pub fn cheat(&mut self, code: &str) -> Option<String> {
+        let code: String = code.trim().trim_end_matches(';').chars().filter(|c| !c.is_whitespace()).collect::<String>().to_lowercase();
+        match code.as_str() {
+            "callcousinvinnie" => {
+                self.fund += 1_000_000;
+                let m = self.mafia.get_or_insert(Mafia { heat: 0.0, collected: 0 });
+                m.heat = (m.heat + 1.0).min(3.0);
+                Some("Cousin Vinnie wired $1,000,000. \"Don't worry about it. We'll be in touch.\"".into())
+            }
+            _ => None,
+        }
+    }
+
+    /// The family's monthly visit: protection money, and police stations
+    /// loosening their hold.
+    fn mafia_month(&mut self) {
+        let stations = self.layer.structures().filter(|(_, s)| s.code == StructureCode::PoliceDept).count() as f32;
+        let Some(m) = self.mafia.as_mut() else { return };
+        let money = (m.heat * PROTECTION_MONEY) as i64;
+        self.fund -= money;
+        m.collected += money;
+        m.heat -= 0.01 + 0.04 * stations;
+        if m.heat <= 0.0 {
+            self.messages.push(format!("The family packs up and leaves town, ${} richer.", m.collected));
+            self.mafia = None;
+        } else {
+            self.messages.push(format!("The family collected ${money} in protection money."));
+        }
+    }
+
+    /// While the family is in town: crime (police coverage falls) and arson.
+    fn mafia_tick(&mut self) {
+        let Some(heat) = self.mafia.as_ref().map(|m| m.heat) else { return };
+        let rules = self.rules().cloned();
+        if let (Some(gb), Some(rules)) = (self.glassbox.as_mut(), rules) {
+            if let Some(li) = rules.layer("police_safety") {
+                gb.layers[li].iter_mut().for_each(|v| *v = (*v - heat * 3.0).max(0.0));
+            }
+        }
+        if self.rng.gen_range(0.0..1.0) < heat / 2500.0 {
+            let fire = self.rules().and_then(|r| r.disasters.iter().find(|d| d.effect == crate::rules::DisasterEffect::Destroy).map(|d| d.id.clone()));
+            match fire {
+                Some(id) => {
+                    if let Some(e) = self.strike(&id) {
+                        self.messages.push(format!("Arson at {}, {}: {} buildings burnt. Somebody didn't pay.", e.at.0, e.at.1, e.hit));
+                    }
+                }
+                None => {
+                    if let Some((w, l)) = self.layer.random_structure(StructureCode::Commercial, &mut self.rng) {
+                        self.layer.destroy_tile(w, l);
+                        self.messages.push(format!("Arson at {w}, {l}: a shop burnt down. Somebody didn't pay."));
+                    }
+                }
             }
         }
     }
@@ -683,6 +767,7 @@ impl City {
             self.population = v.residential + v.commercial / 2 + v.industrial / 3;
         }
         self.date.month += 1;
+        self.mafia_month();
         if self.date.month > 12 {
             self.date.month = 1;
             self.date.year += 1;

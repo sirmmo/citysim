@@ -755,3 +755,41 @@ fn disasters_strike_and_coverage_protects() {
     // Floods need water nearby: none on this dry map.
     assert!(c.strike("flood").is_none());
 }
+
+#[test]
+fn cousin_vinnie_brings_money_and_the_family() {
+    let r = rules();
+    let mut c = City::new(Terrain::flat(32, 24), None, Footprints::builtin(), 3);
+    c.use_rules(r.clone());
+    c.research_all();
+    c.glassbox.as_mut().unwrap().disasters_off = true;
+    let before = c.fund;
+    assert!(c.cheat("give me money").is_none());
+    assert!(c.cheat("CallCousinVinnie;").is_some());
+    assert_eq!(c.fund, before + 1_000_000);
+    assert!(c.mafia.as_ref().is_some_and(|m| m.heat == 1.0));
+    // A month later the family collects.
+    let fund = c.fund;
+    for _ in 0..31 {
+        c.update(opencity_core::city::MS_PER_DAY);
+    }
+    let m = c.mafia.as_ref().unwrap();
+    assert!(m.collected > 0 && c.fund < fund, "protection money: {}", m.collected);
+    assert!(c.messages.iter().any(|t| t.contains("protection money")));
+    // Police stations drive them out over the months.
+    c.fund = 10_000_000;
+    c.apply_tool(Tool::Road, (2, 10), (30, 10)).unwrap();
+    for x in [4, 10, 16, 22] {
+        c.apply_tool(Tool::PoliceDept, (x, 11), (x, 11)).unwrap();
+    }
+    for _ in 0..(30 * 12) {
+        c.update(opencity_core::city::MS_PER_DAY);
+    }
+    assert!(c.mafia.is_none(), "the family left: {:?}", c.mafia);
+    // Saved and loaded, the family stays.
+    c.cheat("callcousinvinnie");
+    let mut saved = Vec::new();
+    opencity_core::save::save(&c, &mut saved).unwrap();
+    let back = opencity_core::save::load(saved.as_slice(), Footprints::builtin()).unwrap();
+    assert!(back.mafia.is_some());
+}

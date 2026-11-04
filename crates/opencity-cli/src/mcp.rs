@@ -262,6 +262,12 @@ impl Server {
                     "disasters": rules.map(|r| r.disasters.iter().map(|d| json!({ "id": d.id, "name": d.name, "every": d.every, "radius": d.radius, "protection": d.protection })).collect::<Vec<_>>()),
                 }))
             }
+            "cheat" => {
+                let code = str_arg(a, "code")?.to_string();
+                let city = self.city()?;
+                let said = city.cheat(&code).context("nothing happens")?;
+                Ok(json!({ "said": said, "fund": city.fund, "mafia": city.mafia.as_ref().map(|m| json!({ "heat": m.heat, "collected": m.collected })) }))
+            }
             "render_map" => {
                 let path = PathBuf::from(str_arg(a, "path")?);
                 let scale = num(a, "scale").unwrap_or(8.0).clamp(1.0, 32.0) as u32;
@@ -428,6 +434,7 @@ fn tools() -> Value {
         tool("disaster", "List disasters; `strike` sets one off by hand (fire, flood, epidemic…), `chance` switches chance disasters on or off.", json!({
             "strike": { "type": "string" }, "chance": { "type": "boolean" }
         }), &[]),
+        tool("cheat", "Type a cheat code, as in SimCity 3000's cheat box. Some of them have consequences.", json!({ "code": { "type": "string" } }), &["code"]),
         tool("render_map", "Write a top-down PNG of the city.", json!({ "path": path, "scale": { "type": "integer", "minimum": 1, "maximum": 32, "default": 8 } }), &["path"]),
         tool("export_geojson", "Write the city as GeoJSON.", json!({ "path": path }), &["path"])
     ])

@@ -2,6 +2,11 @@
 
 Release notes in full are on the [releases page](https://github.com/sirmmo/citysim/releases).
 
+## 0.2.21: Cousin Vinnie
+- **Cheat box:** **Ctrl+Shift+C**, as in SimCity 3000.
+- **`CallCousinVinnie`** wires $1,000,000, and the family moves in. They collect protection money monthly, police coverage falls, and blocks burn now and then, until enough police stations drive them out. The family stays in saves.
+- **MCP:** a `cheat` tool.
+
 ## 0.2.20: Disasters
 - **Disasters in the rules (`[[disaster]]`):** how often, radius, effect (destroy, damage, sicken), protecting layer, near water.
 - **Shipped disasters:** the modern rules have fire, flood and epidemic. Before 1800, great fire, flood and plague.
