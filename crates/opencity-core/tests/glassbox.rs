@@ -594,7 +594,9 @@ fn services_cover_what_they_can_drive_to_and_send_vehicles() {
 fn neighbouring_cities_trade_across_their_borders() {
     use opencity_core::region::Region;
     let r = rules();
-    let town = |zone: Tool, edge_west: bool| {
+    // `joined`: the border road meets the town's streets; `plant`: the town
+    // makes its own power.
+    let town = |zone: Tool, edge_west: bool, joined: bool, plant: bool| {
         let mut c = City::new(Terrain::flat(40, 24), None, Footprints::builtin(), 9);
         c.fund = 10_000_000;
         c.use_rules(r.clone());
@@ -603,17 +605,20 @@ fn neighbouring_cities_trade_across_their_borders() {
         c.apply_tool(Tool::Road, (4, 12), (35, 12)).unwrap();
         c.apply_tool(Tool::Road, (4, 8), (4, 12)).unwrap();
         c.apply_tool(zone, (5, 9), (33, 11)).unwrap();
-        c.apply_tool(Tool::CoalPlant, (6, 5), (6, 5)).unwrap();
+        if plant {
+            c.apply_tool(Tool::CoalPlant, (6, 5), (6, 5)).unwrap();
+        }
         // A road out to the shared edge: the border crossing.
+        let end = if joined { 4 } else { 2 };
         if edge_west {
-            c.apply_tool(Tool::Road, (0, 10), (4, 10)).unwrap();
+            c.apply_tool(Tool::Road, (0, 10), (end, 10)).unwrap();
         } else {
             c.apply_tool(Tool::Road, (35, 10), (39, 10)).unwrap();
         }
         c
     };
-    // West: a commuter town with workers to spare.
-    let mut west = town(Tool::ZoneResidential, false);
+    // West: a commuter town with workers and power to spare.
+    let mut west = town(Tool::ZoneResidential, false, true, true);
     for _ in 0..300 {
         west.simulate_round();
     }
@@ -623,28 +628,42 @@ fn neighbouring_cities_trade_across_their_borders() {
     let workers = r.resource("workers").unwrap();
     assert!(region.cities[0].surplus["workers"] > 1.0, "{:?}", region.cities[0].surplus);
     // East: workshops short of workers, trading month by month.
-    let run = |trade: bool| {
-        let mut east = town(Tool::ZoneIndustrial, true);
-        let mut imported = 0.0;
+    let run = |trade: bool, joined: bool, plant: bool| {
+        let mut east = town(Tool::ZoneIndustrial, true, joined, plant);
+        let mut imported = vec![0.0; r.resources.len()];
         for t in 0..300 {
             if trade && t % 30 == 29 {
                 let deals = region.trade([1, 0], &east);
+                assert!(deals.iter().all(|d| d.gates.iter().all(|g| g.side == 3 && g.at == 10)), "{deals:?}");
                 east.apply_trade(&deals);
             }
             east.simulate_round();
-            imported += east.glassbox.as_ref().unwrap().balances.imported[workers];
+            let gb = east.glassbox.as_ref().unwrap();
+            imported.iter_mut().zip(&gb.balances.imported).for_each(|(a, b)| *a += b);
         }
-        (east, imported)
+        // The network view: links out of the crossing's tile.
+        let from_gate = east.glassbox.as_ref().unwrap().flows.keys().filter(|l| l.from == (0, 10) && l.resource == workers).count();
+        (east, imported, from_gate)
     };
-    let (alone, none) = run(false);
-    let (trading, imported) = run(true);
-    assert_eq!(none, 0.0);
-    assert!(imported > 0.0, "commuters came over the border");
+    let (alone, none, _) = run(false, true, true);
+    let (trading, imported, from_gate) = run(true, true, true);
+    assert!(none.iter().all(|v| *v == 0.0));
+    assert!(imported[workers] > 0.0, "commuters came over the border");
+    assert!(from_gate > 0, "commuters set out from the crossing");
+    let gb = trading.glassbox.as_ref().unwrap();
+    assert!(gb.gates.iter().any(|g| g.at == (0, 10) && g.import.contains_key("workers")), "{:?}", gb.gates);
     let fill = |c: &City| {
         let gb = c.glassbox.as_ref().unwrap();
         gb.units.values().map(|u| u.satisfaction).sum::<f32>() / gb.units.len().max(1) as f32
     };
     assert!(fill(&trading) > fill(&alone), "workshops are better staffed: {} vs {}", fill(&trading), fill(&alone));
+    // A crossing the town's streets do not reach carries nothing.
+    let (_, cut, _) = run(true, false, true);
+    assert_eq!(cut[workers], 0.0, "no road from the crossing to the town");
+    // Power comes over the border along the street into a town without a plant.
+    let power = r.resource("power").unwrap();
+    let (dark, unpowered, _) = run(true, true, false);
+    assert!(unpowered[power] > 0.0, "power bought from the neighbour: {:?}", dark.glassbox.as_ref().unwrap().deficit[power]);
     // The region file round-trips.
     assert_eq!(Region::from_json(&region.to_json()).unwrap(), region);
 }

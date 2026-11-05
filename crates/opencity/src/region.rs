@@ -88,6 +88,10 @@ impl RegionSession {
 
     /// A name for a new town in a slot.
     pub fn town_name(&self, slot: [u32; 2]) -> String {
+        // A name the region file gives the slot comes first.
+        if let Some(c) = self.region.city(slot).filter(|c| !c.name.is_empty()) {
+            return c.name.clone();
+        }
         let i = (slot[1] * self.region.size[0] + slot[0]) as usize;
         NAMES[(i + self.region.seed as usize) % NAMES.len()].to_string()
     }

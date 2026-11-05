@@ -78,6 +78,10 @@ pub struct Deal {
     pub resource: String,
     /// Per tick; positive: bought (import), negative: sold (export).
     pub amount: f32,
+    /// The open city's crossings it goes through (shared out evenly):
+    /// each one is a node of the city's network that sends what is bought
+    /// in and takes what is sold out.
+    pub gates: Vec<Crossing>,
 }
 
 /// A road, track or power line on an edge tile of a map.
@@ -118,6 +122,46 @@ impl Crossing {
             Some(RoadKind::Rail) => "railway".into(),
             Some(k) => k.name().to_lowercase(),
             None => "power line".into(),
+        }
+    }
+
+    /// Whether this crossing joins the neighbour's `other` (seen from its
+    /// side): same place, and a track meets a track, a street a street, a
+    /// power line a street or a power line.
+    pub fn joins(&self, other: &Crossing) -> bool {
+        let rail = |l: &str| l == RoadKind::Rail.id();
+        let line = |l: &str| l == Tool::PowerLine.id();
+        self.side == (other.side + 2) % 4
+            && self.at == other.at
+            && match (line(&self.link), line(&other.link)) {
+                (true, true) => true,
+                (true, false) => !rail(&other.link),
+                (false, true) => !rail(&self.link),
+                (false, false) => rail(&self.link) == rail(&other.link),
+            }
+    }
+
+    /// Whether the resource can go through this crossing: its network is
+    /// made of what crosses here (power over lines and streets, trips over
+    /// streets, trains over track).
+    pub fn carries(&self, rules: &crate::rules::Ruleset, resource: usize) -> bool {
+        use crate::rules::Transport;
+        let res = &rules.resources[rules.root(resource)];
+        if !matches!(res.transport, Transport::Agents | Transport::Grid) {
+            return false;
+        }
+        let Some(net) = rules.network(res.network.as_deref().unwrap_or_default()).map(|n| &rules.networks[n]) else { return false };
+        let has = |s: &str| net.structures.iter().any(|x| x == s);
+        match RoadKind::from_id(&self.link) {
+            Some(RoadKind::Rail) => {
+                has("rail")
+                    || (res.transport == Transport::Agents && {
+                        let v = rules.vehicles_for(rules.root(resource));
+                        v.is_empty() || v.iter().any(|v| v.ways().allows(RoadKind::Rail))
+                    })
+            }
+            Some(_) => has("road"),
+            None => has("power_line"),
         }
     }
 
@@ -296,22 +340,31 @@ impl Region {
     /// both sides of each shared edge.
     pub fn trade(&self, slot: [u32; 2], city: &City) -> Vec<Deal> {
         let (Some(gb), Some(rules)) = (&city.glassbox, city.rules()) else { return Vec::new() };
-        let mine = city.borders();
+        let mine = city.crossings();
         let mut deals = Vec::new();
         for (i, r) in rules.resources.iter().enumerate().filter(|(_, r)| r.price > 0.0 && r.parent.is_none()) {
             let mut lack = gb.deficit.get(i).copied().unwrap_or(0.0);
             let mut spare = gb.surplus.get(i).copied().unwrap_or(0.0);
-            for (side, open) in mine.iter().enumerate() {
-                let Some(n) = self.neighbour(slot, side).filter(|n| *open && n.borders[(side + 2) % 4]) else { continue };
+            for side in 0..4u8 {
+                let Some(n) = self.neighbour(slot, side as usize) else { continue };
+                // Crossings joined on both sides that carry the resource.
+                let gates: Vec<Crossing> = mine
+                    .iter()
+                    .filter(|c| c.side == side && c.carries(rules, i) && n.crossings.iter().any(|o| c.joins(o) && o.carries(rules, i)))
+                    .cloned()
+                    .collect();
+                if gates.is_empty() {
+                    continue;
+                }
                 let buy = lack.min(n.surplus.get(&r.id).copied().unwrap_or(0.0));
                 if buy > 0.01 {
                     lack -= buy;
-                    deals.push(Deal { partner: n.slot, resource: r.id.clone(), amount: buy });
+                    deals.push(Deal { partner: n.slot, resource: r.id.clone(), amount: buy, gates: gates.clone() });
                 }
                 let sell = spare.min(n.deficit.get(&r.id).copied().unwrap_or(0.0));
                 if sell > 0.01 {
                     spare -= sell;
-                    deals.push(Deal { partner: n.slot, resource: r.id.clone(), amount: -sell });
+                    deals.push(Deal { partner: n.slot, resource: r.id.clone(), amount: -sell, gates });
                 }
             }
         }
@@ -327,21 +380,30 @@ impl City {
         gb.culture_in = rules.resources.iter().map(|r| if r.shared { inflow.get(&r.id).copied().unwrap_or(0.0) } else { 0.0 }).collect();
     }
 
-    /// Sets the per-tick imports and exports from a month's deals.
+    /// Opens the crossings of a month's deals as gates of the network:
+    /// each sends its share of what is bought and takes its share of what
+    /// is sold, per tick.
     pub fn apply_trade(&mut self, deals: &[Deal]) {
         let Some(rules) = self.rules().cloned() else { return };
+        let (w, l) = (self.width(), self.length());
         let Some(gb) = self.glassbox.as_mut() else { return };
-        let n = rules.resources.len();
-        gb.imports = vec![0.0; n];
-        gb.exports = vec![0.0; n];
-        for d in deals {
-            if let Some(i) = rules.resource(&d.resource) {
-                if d.amount > 0.0 {
-                    gb.imports[i] += d.amount;
-                } else {
-                    gb.exports[i] -= d.amount;
-                }
+        let mut gates: Vec<crate::glassbox::Gate> = Vec::new();
+        for d in deals.iter().filter(|d| rules.resource(&d.resource).is_some() && !d.gates.is_empty()) {
+            let share = d.amount / d.gates.len() as f32;
+            for c in &d.gates {
+                let at = c.tile(w, l);
+                let i = match gates.iter().position(|g| g.at == at) {
+                    Some(i) => i,
+                    None => {
+                        gates.push(crate::glassbox::Gate { at, link: c.link.clone(), partner: d.partner, ..Default::default() });
+                        gates.len() - 1
+                    }
+                };
+                let g = &mut gates[i];
+                let book = if share > 0.0 { &mut g.import } else { &mut g.export };
+                *book.entry(d.resource.clone()).or_default() += share.abs();
             }
         }
+        gb.gates = gates;
     }
 }

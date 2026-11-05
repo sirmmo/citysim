@@ -174,6 +174,14 @@ across their borders.
   neighbours with a surplus and sells what it has left over: workers
   commuting, shoppers, goods, fuel and power (food before 1800). Imports fill
   unmet needs and cost money; exports earn it. The window lists the deals.
+- **Crossings carry the trade:** each crossing joined on both sides is a
+  gate, a node of your town's network. Commuters, shoppers and lorries drive
+  in from the edge to the nearest places that need them, and out from the
+  places with something left over. Power runs in and out along lines and
+  streets. Trains bring what they carry to the stations on the crossing's
+  line. A crossing your streets, lines or stations don't reach carries
+  nothing, and you only pay for what actually came in. The window shows
+  what went through each crossing last tick, against what was agreed.
 - **Waiting towns:** neighbours keep the summary they had when you last left
   them, until you play them again.
 

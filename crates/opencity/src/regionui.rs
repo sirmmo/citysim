@@ -88,6 +88,27 @@ pub fn window(ctx: &egui::Context, open: &mut bool, r: &RegionSession, city: &Ci
                 }
             });
         }
+        // The gates: what went through each crossing last tick.
+        let gates = city.glassbox.as_ref().map(|g| g.gates.as_slice()).unwrap_or_default();
+        if !gates.is_empty() {
+            ui.label(RichText::new("Through the crossings (last tick)").strong());
+            let rules = city.rules();
+            let name = |id: &str| rules.and_then(|ru| ru.resource(id).map(|i| ru.resources[i].name.to_lowercase())).unwrap_or_else(|| id.to_string());
+            egui::Grid::new("gates").num_columns(3).striped(true).show(ui, |ui| {
+                for g in gates {
+                    let partner = r.region.city(g.partner).map_or("?", |c| c.name.as_str());
+                    let what = opencity_core::region::Crossing { side: 0, at: 0, link: g.link.clone() }.what();
+                    ui.label(format!("{what} at {},{} ↔ {partner}", g.at.0, g.at.1));
+                    let list = |m: &std::collections::BTreeMap<String, f32>, plan: &std::collections::BTreeMap<String, f32>| {
+                        plan.keys().map(|k| format!("{:.1}/{:.1} {}", m.get(k).copied().unwrap_or(0.0), plan[k], name(k))).collect::<Vec<_>>().join(", ")
+                    };
+                    ui.label(RichText::new(format!("in: {}", list(&g.carried_in, &g.import))).color(Color32::from_rgb(240, 170, 100)))
+                        .on_hover_text("Brought in from the neighbour / agreed, per tick. Less than agreed: nothing needing it can be reached from this crossing.");
+                    ui.label(RichText::new(format!("out: {}", list(&g.carried_out, &g.export))).color(Color32::from_rgb(120, 210, 130)));
+                    ui.end_row();
+                }
+            });
+        }
         ui.add_space(4.0);
         if ui.button("💾 Save region").clicked() {
             out.push(Command::SaveRegion);

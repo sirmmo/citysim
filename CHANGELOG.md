@@ -2,6 +2,12 @@
 
 Release notes in full are on the [releases page](https://github.com/sirmmo/citysim/releases).
 
+## 0.2.29: Border gates
+- **Crossings carry the trade:** in a region, each crossing joined on both sides is a GlassBox node. Commuters, shoppers, goods and fuel travel in from the edge to the places that need them and out from the places with a surplus. Power runs in and out along lines and streets, and trains carry trade to the stations on a railway crossing's line. You can watch the vehicles come and go at the border.
+- A crossing your network doesn't reach carries nothing, and imports are paid only for what gets through.
+- The Region window shows what went through each crossing last tick, against what was agreed.
+- A town founded in a region slot takes the name the region file gives it.
+
 ## 0.2.28: Border crossings
 - **Border crossings join up:** in a region, a road, railway or power line built to the edge of the map runs on into the neighbour. It appears on the neighbour's map at the matching place on the shared edge, free of charge. In a region played alone, it appears when that town is next opened or founded. Online, it appears in the other player's game at their next monthly update.
 - **Border gates:** each crossing gets a gate at the edge of the map: green when the neighbour has the crossing too, amber while it waits, grey at the edge of the region.

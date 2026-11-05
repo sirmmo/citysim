@@ -311,9 +311,17 @@ price = 0.02                         # per unit bought or sold
   (undelivered) and what it lacks (unmet) per tick, measured before any trade.
 - **Monthly deals:** each month the open city buys what it lacks from
   neighbours with a surplus, and sells its surplus to neighbours that lack it.
-  It trades only with neighbours that have a crossing on both sides of the
-  shared edge: a road, track or power line reaching it.
-- **Imports** fill unmet needs, first come first served, and are paid at the price.
+  It trades only through crossings joined on both sides of the shared edge
+  (the same tile along it) that carry the resource: its network is made of
+  what crosses there. Power (`power_grid`: lines and roads) crosses on lines
+  and streets, road agents on streets, and agents that trains carry on track.
+- **Gates:** each crossing of a deal becomes a node of the city's network,
+  with an even share of the deal. Every tick it sends what was bought to the
+  nearest units it reaches that still need it (by agents from the edge tile,
+  or into its grid component), and takes what was sold from the nearest
+  senders' leftovers. A street gate reaches units on its road component, a
+  track gate the units within 8 tiles of a station on its line.
+- **Imports** fill unmet needs and are paid at the price, only for what gets through.
 - **Exports** take what had nowhere to go, and earn the price.
 
 The shipped rules price workers (commuters), shoppers, goods, fuel and

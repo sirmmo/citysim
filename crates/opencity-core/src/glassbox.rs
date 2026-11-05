@@ -94,6 +94,30 @@ pub struct Balances {
     pub exported: Vec<f32>,
 }
 
+/// A border crossing working as a node of the network (regions): it sends
+/// into the city what is bought from the neighbour, by agents from the edge
+/// or into the power grid, and takes out what is sold, from the units it
+/// can reach along the crossing's network. Amounts are per tick, by
+/// resource id.
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+pub struct Gate {
+    /// The crossing's edge tile.
+    pub at: (u32, u32),
+    /// What crosses there: a road kind's id or `power_line`.
+    pub link: String,
+    /// The neighbour's slot in the region.
+    pub partner: [u32; 2],
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub import: BTreeMap<String, f32>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub export: BTreeMap<String, f32>,
+    /// What actually went through last tick, in and out.
+    #[serde(skip)]
+    pub carried_in: BTreeMap<String, f32>,
+    #[serde(skip)]
+    pub carried_out: BTreeMap<String, f32>,
+}
+
 /// A disaster that struck: where, and how many buildings it hit.
 #[derive(Clone, Debug, PartialEq)]
 pub struct DisasterEvent {
@@ -158,12 +182,10 @@ pub struct GlassBox {
     pub surplus: Vec<f32>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub deficit: Vec<f32>,
-    /// Trade agreed with the neighbours, per tick and resource: bought
-    /// (filling unmet needs) and sold (taking what had nowhere to go).
+    /// Trade agreed with the neighbours, through the border crossings:
+    /// each is a node that sends what is bought and takes what is sold.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub imports: Vec<f32>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub exports: Vec<f32>,
+    pub gates: Vec<Gate>,
     /// Culture flowing in from the rest of the region, per tick and
     /// resource (shared pools).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -247,8 +269,7 @@ impl GlassBox {
             progress: BTreeMap::new(),
             surplus: Vec::new(),
             deficit: Vec::new(),
-            imports: Vec::new(),
-            exports: Vec::new(),
+            gates: Vec::new(),
             culture_in: Vec::new(),
             tax_rates: BTreeMap::new(),
             disasters_off: false,
@@ -751,6 +772,9 @@ impl GlassBox {
         // needs for the resource (slots any kind fills), shared out evenly.
         let mut tick_flows: HashMap<Link, f32> = HashMap::new();
         let comps = self.components(&rules, layer, terrain);
+        // What each unit's grid supply left unused (unit, resource): what a
+        // gate can sell to the neighbours.
+        let mut grid_spare: HashMap<(usize, usize), f32> = HashMap::new();
         for root in 0..nres {
             let res = &rules.resources[root];
             if res.transport != Transport::Grid || res.parent.is_some() {
@@ -814,6 +838,7 @@ impl GlassBox {
                     if st.stock[k] > 0.0 {
                         let used = pool.map_or(0.0, |(_, pl)| pl.used(j));
                         add(&mut bal.undelivered, k, root, st.stock[k] * (1.0 - used));
+                        *grid_spare.entry((i, root)).or_default() += st.stock[k] * (1.0 - used);
                         st.stock[k] = 0.0;
                     }
                 }
@@ -1059,6 +1084,116 @@ impl GlassBox {
             }
         }
 
+        // Trade with neighbouring cities (regions): running averages of what
+        // is left over and lacking, then the gates (border crossings) bring
+        // in what was bought and take out what was sold, as far as their
+        // networks reach.
+        for v in [&mut self.surplus, &mut self.deficit] {
+            v.resize(nres, 0.0);
+        }
+        bal.imported = vec![0.0; nres];
+        bal.exported = vec![0.0; nres];
+        for ri in 0..nres {
+            if rules.resources[ri].price > 0.0 {
+                self.surplus[ri] = self.surplus[ri] * 0.95 + bal.undelivered[ri] * 0.05;
+                self.deficit[ri] = self.deficit[ri] * 0.95 + bal.unmet[ri] * 0.05;
+            }
+        }
+        let mut gates = std::mem::take(&mut self.gates);
+        for gate in &mut gates {
+            gate.carried_in.clear();
+            gate.carried_out.clear();
+            let wanted: BTreeSet<&String> = gate.import.keys().chain(gate.export.keys()).collect();
+            for rid in wanted {
+                let Some(ri) = rules.resource(rid) else { continue };
+                let res = &rules.resources[ri];
+                let Some(net) = rules.network(res.network.as_deref().unwrap_or_default()) else { continue };
+                let grid = res.transport == Transport::Grid;
+                // Units the gate reaches and how far, nearest first: along
+                // its network, or for track, from the stations on its line.
+                let gi = idx(gate.at.0, gate.at.1) as usize;
+                let comp = comps[net][gi];
+                let mut reach: Vec<(u32, usize)> = Vec::new();
+                for (i, (p, _, r)) in units.iter().enumerate() {
+                    let by_net = (comp != NO_COMPONENT)
+                        .then(|| unit_component(&comps[net], r, width, length, if grid { 1 } else { rules.growth.road_access.max(1) }, |_, _| true))
+                        .flatten()
+                        .filter(|(c, _)| *c == comp)
+                        .map(|(_, (w, l))| w.abs_diff(gate.at.0) + l.abs_diff(gate.at.1));
+                    let by_rail = (!grid && rail.line.get(gi).is_some_and(|&ln| ln != crate::rail::NO_LINE))
+                        .then(|| {
+                            let (s, walk) = rail.nearest_station(*p, STATION_WALK)?;
+                            let st = &rail.stations[s];
+                            (st.line == rail.line[gi]).then(|| walk + st.platform.0.abs_diff(gate.at.0) + st.platform.1.abs_diff(gate.at.1))
+                        })
+                        .flatten();
+                    if let Some(d) = by_net.into_iter().chain(by_rail).min() {
+                        reach.push((d, i));
+                    }
+                }
+                reach.sort();
+                // In: fill unmet needs, nearest first.
+                let mut budget = gate.import.get(rid).copied().unwrap_or(0.0).min(bal.unmet[ri]);
+                for &(_, i) in &reach {
+                    if budget <= 1e-4 {
+                        break;
+                    }
+                    let p = units[i].0;
+                    let st = self.units.get_mut(&idx(p.0, p.1)).unwrap();
+                    let take = (need[i][ri] - st.received[ri]).max(0.0).min(budget);
+                    if take <= 0.0 {
+                        continue;
+                    }
+                    st.received[ri] += take;
+                    budget -= take;
+                    bal.imported[ri] += take;
+                    *gate.carried_in.entry(rid.clone()).or_default() += take;
+                    if !grid {
+                        trips.push(Trip { resource: ri, from: gate.at, to: p, amount: take });
+                    }
+                    *tick_flows.entry(Link { resource: ri, from: gate.at, to: p }).or_default() += take;
+                }
+                // Out: take what had nowhere to go, nearest first.
+                let mut room = gate.export.get(rid).copied().unwrap_or(0.0).min(bal.undelivered[ri] - bal.exported[ri]);
+                for &(_, i) in &reach {
+                    if room <= 1e-4 {
+                        break;
+                    }
+                    let p = units[i].0;
+                    let spare = if grid {
+                        grid_spare.get_mut(&(i, ri))
+                    } else {
+                        self.units.get_mut(&idx(p.0, p.1)).map(|st| &mut st.stock[ri]).filter(|_| rules.units[units[i].1].sends.contains(&res.id))
+                    };
+                    let Some(spare) = spare else { continue };
+                    let take = spare.min(room);
+                    if take <= 0.0 {
+                        continue;
+                    }
+                    *spare -= take;
+                    room -= take;
+                    bal.exported[ri] += take;
+                    *gate.carried_out.entry(rid.clone()).or_default() += take;
+                    if !grid {
+                        trips.push(Trip { resource: ri, from: p, to: gate.at, amount: take });
+                    }
+                    *tick_flows.entry(Link { resource: ri, from: p, to: gate.at }).or_default() += take;
+                }
+            }
+        }
+        let gate_tiles: BTreeSet<u32> = gates.iter().map(|g| idx(g.at.0, g.at.1)).collect();
+        self.gates = gates;
+        for ri in 0..nres {
+            if bal.imported[ri] + bal.exported[ri] <= 0.0 {
+                continue;
+            }
+            bal.unmet[ri] -= bal.imported[ri];
+            bal.undelivered[ri] -= bal.exported[ri];
+            self.treasury += ((bal.exported[ri] - bal.imported[ri]) * rules.resources[ri].price) as f64;
+            self.book("Trade: sales", (bal.exported[ri] * rules.resources[ri].price) as f64);
+            self.book("Trade: purchases", -(bal.imported[ri] * rules.resources[ri].price) as f64);
+        }
+
         // The network view: links fade unless used again.
         for v in self.flows.values_mut() {
             *v *= 1.0 - FLOW_SMOOTHING;
@@ -1066,41 +1201,8 @@ impl GlassBox {
         for (k, v) in tick_flows {
             *self.flows.entry(k).or_default() += v * FLOW_SMOOTHING;
         }
-        self.flows.retain(|k, v| *v > 0.01 && present.contains(&idx(k.from.0, k.from.1)) && present.contains(&idx(k.to.0, k.to.1)));
-
-        // Trade with neighbouring cities (regions): averages first, then the
-        // agreed imports fill unmet needs and exports take the leftovers.
-        for v in [&mut self.surplus, &mut self.deficit, &mut self.imports, &mut self.exports] {
-            v.resize(nres, 0.0);
-        }
-        bal.imported = vec![0.0; nres];
-        bal.exported = vec![0.0; nres];
-        for ri in 0..nres {
-            if rules.resources[ri].price <= 0.0 {
-                continue;
-            }
-            self.surplus[ri] = self.surplus[ri] * 0.95 + bal.undelivered[ri] * 0.05;
-            self.deficit[ri] = self.deficit[ri] * 0.95 + bal.unmet[ri] * 0.05;
-            let mut budget = self.imports[ri].min(bal.unmet[ri]);
-            for (i, (p, _, _)) in units.iter().enumerate() {
-                if budget <= 0.0 {
-                    break;
-                }
-                let st = self.units.get_mut(&idx(p.0, p.1)).unwrap();
-                let take = (need[i][ri] - st.received[ri]).max(0.0).min(budget);
-                if take > 0.0 {
-                    st.received[ri] += take;
-                    budget -= take;
-                    bal.imported[ri] += take;
-                }
-            }
-            bal.unmet[ri] -= bal.imported[ri];
-            bal.exported[ri] = self.exports[ri].min(bal.undelivered[ri]);
-            bal.undelivered[ri] -= bal.exported[ri];
-            self.treasury += ((bal.exported[ri] - bal.imported[ri]) * rules.resources[ri].price) as f64;
-            self.book("Trade: sales", (bal.exported[ri] * rules.resources[ri].price) as f64);
-            self.book("Trade: purchases", -(bal.imported[ri] * rules.resources[ri].price) as f64);
-        }
+        let known = |t: (u32, u32)| present.contains(&idx(t.0, t.1)) || gate_tiles.contains(&idx(t.0, t.1));
+        self.flows.retain(|k, v| *v > 0.01 && known(k.from) && known(k.to));
 
         // 4. Treasury.
         for (i, (p, _, _)) in units.iter().enumerate() {
