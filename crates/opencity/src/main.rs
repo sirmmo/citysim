@@ -108,6 +108,9 @@ struct Args {
     /// network id shows it in the graph; `text` shows the text (screenshots, docs).
     #[arg(long, hide = true)]
     show_rules: Option<String>,
+    /// Open a sidebar submenu, e.g. "water" (screenshots, docs).
+    #[arg(long, hide = true)]
+    show_tools: Option<String>,
     /// Show the resource network and its panel (screenshots, docs).
     #[arg(long, hide = true)]
     show_network: bool,
@@ -1411,6 +1414,10 @@ async fn main() -> Result<()> {
         if let Some(ui) = game.egui.as_mut() {
             ui.rules_editor.show(&dir, &id, what);
         }
+    }
+    #[cfg(not(target_os = "android"))]
+    if let (Some(g), Some(ui)) = (&s.args.show_tools, game.egui.as_mut()) {
+        ui.open_tools(g);
     }
     if s.args.show_network {
         game.flow_view.on = true;

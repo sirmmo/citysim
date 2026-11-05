@@ -128,7 +128,20 @@ zones ──taxes──▶ treasury ──upkeep──▶ services and plants
 industry, plants ──▶ pollution ──✕ houses
 parks, shops ──▶ land value ──▶ bigger homes
 fire, police, hospital, school ──▶ coverage ──▶ medium and high density levels
+pumping stations, water towers ──water──▶ level 2+ buildings   (grid: water pipes, streets, buildings)
+treatment plants ──sewage treatment──▶ medium and high density, level 2+ (same mains)
+landfill, recycling, incinerator ──rubbish collection──▶ level 3 buildings (by road: rubbish trucks)
 ```
+
+**Water and waste.**
+- The `water` network is made of `water_pipe` and `road`, and runs through
+  connected buildings, like power.
+- `sewage` (sewage treatment) shares the water mains.
+- `waste` (rubbish collection) travels by road, at most 40 tiles, on
+  rubbish trucks (`garbage_truck`, which carries only `waste`).
+- A building's need is its power need. Sewage and rubbish need half of it.
+- The landfill lowers land value around it, and the treatment plant does too.
+- Recycling makes a little `goods`; the incinerator makes `power`.
 
 Residential demand comes from open jobs, commercial demand from shoppers and
 goods with nowhere to go, industrial demand from unemployed workers and shops

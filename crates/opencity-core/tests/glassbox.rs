@@ -994,3 +994,64 @@ fn border_crossings_join_neighbouring_maps() {
     let rail = Crossing { side: 3, at: 10, link: "rail".into() };
     assert!(east.connect_border(&rail).is_err(), "the street is in the way");
 }
+
+#[test]
+fn water_and_waste_serve_the_buildings() {
+    let r = rules();
+    let water = r.resource("water").unwrap();
+    let sewage = r.resource("sewage").unwrap();
+    let waste = r.resource("waste").unwrap();
+    // The demo town has a pumping station, a treatment plant, a water tower
+    // and a dump: the bigger buildings get water, sewage treatment and
+    // rubbish trucks.
+    let mut c = City::new(Terrain::flat(60, 60), None, Footprints::builtin(), 5);
+    c.use_rules(r.clone());
+    opencity_core::scenario::demo_town(&mut c);
+    for code in [StructureCode::PumpingStation, StructureCode::WaterTreatment, StructureCode::WaterTower, StructureCode::Dump] {
+        assert!(c.layer.structures().any(|(_, s)| s.code == code), "{code:?} placed");
+    }
+    let (mut got, mut made) = (vec![0.0f32; r.resources.len()], vec![0.0f32; r.resources.len()]);
+    for _ in 0..800 {
+        c.simulate_round();
+        let gb = c.glassbox.as_ref().unwrap();
+        got.iter_mut().zip(&gb.balances.delivered).for_each(|(a, b)| *a += b);
+        made.iter_mut().zip(&gb.balances.produced).for_each(|(a, b)| *a += b);
+    }
+    // Low-density towns need water and rubbish collection; sewage treatment
+    // waits for denser buildings, but the plant runs.
+    assert!(got[water] > 0.0 && got[waste] > 0.0, "water {} waste {}", got[water], got[waste]);
+    assert!(made[sewage] > 0.0, "the treatment plant works");
+    let gb = c.glassbox.as_ref().unwrap();
+    assert!(gb.flows.keys().any(|l| l.resource == waste), "rubbish trucks make rounds");
+
+    // A pump off the streets reaches them only along a water pipe.
+    let run = |pipe: bool| {
+        let mut c = City::new(Terrain::flat(40, 24), None, Footprints::builtin(), 3);
+        c.fund = 10_000_000;
+        c.use_rules(r.clone());
+        c.research_all();
+        c.apply_tool(Tool::Road, (4, 8), (35, 8)).unwrap();
+        c.apply_tool(Tool::Road, (4, 12), (35, 12)).unwrap();
+        c.apply_tool(Tool::Road, (4, 8), (4, 12)).unwrap();
+        c.apply_tool(Tool::ZoneResidential, (5, 9), (33, 11)).unwrap();
+        c.apply_tool(Tool::CoalPlant, (6, 3), (6, 3)).unwrap();
+        c.apply_tool(Tool::Road, (6, 6), (12, 6)).unwrap();
+        c.apply_tool(Tool::Road, (12, 6), (12, 8)).unwrap();
+        // The pump stands in a field to the south, with a road for its workers
+        // that does not join the town's streets.
+        c.apply_tool(Tool::PumpingStation, (20, 17), (20, 17)).unwrap();
+        c.apply_tool(Tool::Road, (19, 19), (25, 19)).unwrap();
+        if pipe {
+            c.apply_tool(Tool::WaterPipe, (20, 13), (20, 16)).unwrap();
+        }
+        let mut water_in = 0.0;
+        for _ in 0..300 {
+            c.simulate_round();
+            water_in += c.glassbox.as_ref().unwrap().balances.delivered[water];
+        }
+        water_in
+    };
+    let (dry, piped) = (run(false), run(true));
+    assert_eq!(dry, 0.0, "no pipe, no water");
+    assert!(piped > 0.0, "the pipe carries the pump's water to the town");
+}

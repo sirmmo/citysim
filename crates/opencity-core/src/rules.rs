@@ -1170,6 +1170,13 @@ pub fn structure_code(name: &str) -> Option<StructureCode> {
         "police" => PoliceDept,
         "hospital" => Hospital,
         "school" => School,
+        "water_pipe" => WaterPipe,
+        "pumping_station" => PumpingStation,
+        "water_tower" => WaterTower,
+        "water_treatment" => WaterTreatment,
+        "dump" => Dump,
+        "recycling" => Recycling,
+        "incinerator" => Incinerator,
         _ => return None,
     })
 }

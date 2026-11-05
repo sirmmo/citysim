@@ -65,6 +65,13 @@ const TOOLS: &[(&str, Action, &str)] = &[
     ("government", Action::Tool(Some(Tool::Station)), "Railway station"),
     ("government", Action::Tool(Some(Tool::Harbour)), "Harbour"),
     ("lower", Action::Tool(Some(Tool::Canal)), "Canal"),
+    ("water_pipe", Action::Tool(Some(Tool::WaterPipe)), "Water pipe"),
+    ("water_pump", Action::Tool(Some(Tool::PumpingStation)), "Pumping station"),
+    ("water_tower", Action::Tool(Some(Tool::WaterTower)), "Water tower"),
+    ("water_treatment", Action::Tool(Some(Tool::WaterTreatment)), "Water treatment plant"),
+    ("waste_dump", Action::Tool(Some(Tool::Dump)), "Landfill"),
+    ("waste_recycling", Action::Tool(Some(Tool::Recycling)), "Recycling centre"),
+    ("waste_incinerator", Action::Tool(Some(Tool::Incinerator)), "Incinerator"),
     ("raise", Action::Tool(Some(Tool::RaiseTerrain)), "Raise terrain (U)"),
     ("lower", Action::Tool(Some(Tool::LowerTerrain)), "Lower terrain (J)"),
 ];

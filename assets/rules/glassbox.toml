@@ -100,6 +100,29 @@ colour = [1.0, 0.95, 0.35]       # links on the network view
 price = 0.01                     # per unit traded with neighbouring cities
 
 [[resource]]
+id = "water"
+name = "Water"
+transport = "grid"
+network = "water"
+colour = [0.30, 0.60, 1.0]
+price = 0.01                     # per unit traded with neighbouring cities
+
+[[resource]]
+id = "sewage"
+name = "Sewage treatment"
+transport = "grid"
+network = "water"
+colour = [0.55, 0.45, 0.30]
+
+[[resource]]
+id = "waste"
+name = "Rubbish collection"
+transport = "agents"
+network = "road"
+max_trip = 40
+colour = [0.65, 0.55, 0.35]
+
+[[resource]]
 id = "taxes"
 name = "Taxes"
 transport = "city"
@@ -167,7 +190,16 @@ name = "Delivery truck"
 model = "pickup"
 carries = ["goods", "fuel"]
 direct = true                    # quickest route, even through traffic
-meshes = ["kenney/car-kit/delivery", "kenney/car-kit/truck", "kenney/car-kit/truck-flat", "kenney/car-kit/delivery-flat", "kenney/car-kit/garbage-truck"]
+meshes = ["kenney/car-kit/delivery", "kenney/car-kit/truck", "kenney/car-kit/truck-flat", "kenney/car-kit/delivery-flat"]
+
+# Rubbish trucks go out from dumps, recycling centres and incinerators to
+# the buildings they collect from.
+[[network.vehicle]]
+id = "garbage_truck"
+name = "Rubbish truck"
+model = "pickup"
+carries = ["waste"]
+meshes = ["kenney/car-kit/garbage-truck"]
 
 # Trains run on track between stations; places near stations on one line
 # trade as if next door (see docs/RULES.md#railways).
@@ -195,6 +227,14 @@ id = "power_grid"
 name = "Power grid"
 # Power runs along power lines and roads, and through connected buildings.
 structures = ["power_line", "road"]
+through_buildings = true
+
+[[network]]
+id = "water"
+name = "Water mains"
+# Mains run under the streets and along water pipes, and through connected
+# buildings; sewage goes back the same way to the treatment plants.
+structures = ["water_pipe", "road"]
 through_buildings = true
 
 
@@ -347,6 +387,12 @@ school = "school"
 park = "park"
 station = "station"
 harbour = "harbour"
+pumping_station = "pumping_station"
+water_tower = "water_tower"
+water_treatment = "water_treatment"
+dump = "dump"
+recycling = "recycling"
+incinerator = "incinerator"
 
 # ---------------------------------------------------------------- units
 # Residential: residents produce workers and shoppers; they need power and
@@ -367,7 +413,7 @@ name = "Kit house"
 description = "A prefabricated family home, assembled in a weekend."
 graphic = 12
 produce = { residents = 6, workers = 3, shoppers = 3, taxes = 0.06, car = 1.5 }
-needs = { power = 1 }
+needs = { power = 1, water = 1 }
 sends = ["workers", "shoppers", "car"]
 requires = { pollution = { max = 25 } }
 
@@ -377,7 +423,7 @@ name = "Family house"
 description = "A two-storey house with a garden, for a bigger family."
 graphic = 13
 produce = { residents = 8, workers = 4, shoppers = 4, taxes = 0.09, car = 2 }
-needs = { power = 2 }
+needs = { power = 2, water = 2, waste = 1 }
 sends = ["workers", "shoppers", "car"]
 requires = { pollution = { max = 20 }, land_value = { min = 2 } }
 
@@ -397,7 +443,7 @@ name = "Apartment house"
 description = "A small building of rented flats."
 graphic = 15
 produce = { residents = 18, workers = 9, shoppers = 7, taxes = 0.18, car = 4.5 }
-needs = { power = 3 }
+needs = { power = 3, water = 3, sewage = 1.5 }
 sends = ["workers", "shoppers", "car"]
 requires = { pollution = { max = 20 }, fire_safety = { min = 1 } }
 
@@ -407,7 +453,7 @@ name = "Apartment block"
 description = "Four storeys of flats around a shared staircase."
 graphic = 17
 produce = { residents = 26, workers = 13, shoppers = 10, taxes = 0.26, car = 6.5 }
-needs = { power = 4 }
+needs = { power = 4, water = 4, waste = 2, sewage = 2 }
 sends = ["workers", "shoppers", "car"]
 requires = { pollution = { max = 15 }, fire_safety = { min = 1 }, police_safety = { min = 1 } }
 
@@ -427,7 +473,7 @@ name = "High-rise"
 description = "Seven storeys of flats over a two-by-two plot."
 graphic = 18
 produce = { residents = 90, workers = 45, shoppers = 32, taxes = 0.9, car = 22.5 }
-needs = { power = 12 }
+needs = { power = 12, water = 12, sewage = 6 }
 sends = ["workers", "shoppers", "car"]
 requires = { pollution = { max = 15 }, fire_safety = { min = 1 }, police_safety = { min = 1 }, health = { min = 1 } }
 
@@ -437,7 +483,7 @@ name = "Slab tower"
 description = "A long, tall slab of flats, a neighbourhood in one building."
 graphic = 19
 produce = { residents = 160, workers = 80, shoppers = 55, taxes = 1.6, car = 40 }
-needs = { power = 20 }
+needs = { power = 20, water = 20, waste = 10, sewage = 10 }
 sends = ["workers", "shoppers", "car"]
 requires = { pollution = { max = 10 }, fire_safety = { min = 1 }, police_safety = { min = 1 }, health = { min = 1 }, education = { min = 1 }, land_value = { min = 5 } }
 
@@ -457,7 +503,7 @@ name = "Petrol station"
 description = "Fuel and a small shop by the road."
 graphic = 22
 produce = { taxes = 0.08 }
-needs = { workers = 2, shoppers = 5, goods = 2, power = 1, car = 1 }
+needs = { workers = 2, shoppers = 5, goods = 2, power = 1, car = 1, water = 1 }
 emits = { land_value = { amount = 0.6, radius = 2 } }
 
 [[unit]]
@@ -466,7 +512,7 @@ name = "Hardware store"
 description = "Tools, glue and boards for the whole neighbourhood."
 graphic = 23
 produce = { taxes = 0.12 }
-needs = { workers = 3, shoppers = 8, goods = 3, power = 2, car = 1.5 }
+needs = { workers = 3, shoppers = 8, goods = 3, power = 2, car = 1.5, water = 2, waste = 1 }
 emits = { land_value = { amount = 0.8, radius = 3 } }
 
 [[unit]]
@@ -484,7 +530,7 @@ name = "Restaurant"
 description = "Dinners for the district, and a terrace in summer."
 graphic = 26
 produce = { taxes = 0.35, ideas = 1 }
-needs = { workers = 8, shoppers = 20, goods = 8, power = 4, car = 4 }
+needs = { workers = 8, shoppers = 20, goods = 8, power = 4, car = 4, water = 4, sewage = 2 }
 emits = { land_value = { amount = 1.2, radius = 3 } }
 requires = { fire_safety = { min = 1 } }
 
@@ -494,7 +540,7 @@ name = "Hotel"
 description = "Rooms for travellers and business visitors."
 graphic = 27
 produce = { taxes = 0.5 }
-needs = { workers = 12, shoppers = 25, goods = 10, power = 6, car = 6 }
+needs = { workers = 12, shoppers = 25, goods = 10, power = 6, car = 6, water = 6, waste = 3, sewage = 3 }
 emits = { land_value = { amount = 1.5, radius = 4 } }
 requires = { fire_safety = { min = 1 }, police_safety = { min = 1 } }
 
@@ -514,7 +560,7 @@ name = "Business centre"
 description = "Offices and shops in a four-by-four block."
 graphic = 25
 produce = { taxes = 1.4, ideas = 3 }
-needs = { workers = 30, shoppers = 60, goods = 25, power = 15, car = 15 }
+needs = { workers = 30, shoppers = 60, goods = 25, power = 15, car = 15, water = 15, sewage = 7.5 }
 emits = { land_value = { amount = 3.0, radius = 5 } }
 requires = { fire_safety = { min = 1 }, police_safety = { min = 1 } }
 
@@ -524,7 +570,7 @@ name = "Skyscraper"
 description = "Sixty storeys of offices: the city's landmark."
 graphic = 29
 produce = { taxes = 2.0 }
-needs = { workers = 45, shoppers = 50, goods = 20, power = 20, car = 22.5 }
+needs = { workers = 45, shoppers = 50, goods = 20, power = 20, car = 22.5, water = 20, waste = 10, sewage = 10 }
 emits = { land_value = { amount = 4.0, radius = 6 } }
 requires = { fire_safety = { min = 1 }, police_safety = { min = 1 }, education = { min = 1 } }
 
@@ -545,7 +591,7 @@ name = "Slaughterhouse"
 description = "Meat for the city's shops."
 graphic = 32
 produce = { goods = 3, taxes = 0.06, fuel = 1.5 }
-needs = { workers = 3, power = 2, car = 1.5 }
+needs = { workers = 3, power = 2, car = 1.5, water = 2 }
 sends = ["goods", "fuel"]
 emits = { pollution = { amount = 1.5, radius = 2 } }
 
@@ -555,7 +601,7 @@ name = "Hangar"
 description = "Light assembly and storage."
 graphic = 33
 produce = { goods = 4, taxes = 0.08, fuel = 2 }
-needs = { workers = 4, power = 2, car = 2 }
+needs = { workers = 4, power = 2, car = 2, water = 2, waste = 1 }
 sends = ["goods", "fuel"]
 emits = { pollution = { amount = 2.0, radius = 2 } }
 
@@ -575,7 +621,7 @@ name = "Container yard"
 description = "Freight packed and shipped out."
 graphic = 35
 produce = { goods = 9, taxes = 0.18, fuel = 4.5 }
-needs = { workers = 8, power = 4, car = 4 }
+needs = { workers = 8, power = 4, car = 4, water = 4, sewage = 2 }
 sends = ["goods", "fuel"]
 emits = { pollution = { amount = 3.0, radius = 3 } }
 
@@ -585,7 +631,7 @@ name = "Tank farm"
 description = "Fuel stored and distributed."
 graphic = 36
 produce = { goods = 12, taxes = 0.24, fuel = 6 }
-needs = { workers = 10, power = 5, car = 5 }
+needs = { workers = 10, power = 5, car = 5, water = 5, waste = 2.5, sewage = 2.5 }
 sends = ["goods", "fuel"]
 emits = { pollution = { amount = 4.0, radius = 3 } }
 requires = { fire_safety = { min = 1 } }
@@ -606,7 +652,7 @@ name = "Steelworks"
 description = "Steel for the city's industries."
 graphic = 38
 produce = { goods = 30, taxes = 0.6, fuel = 6 }
-needs = { workers = 25, power = 12, car = 12.5 }
+needs = { workers = 25, power = 12, car = 12.5, water = 12, sewage = 6 }
 sends = ["goods", "fuel"]
 emits = { pollution = { amount = 8.0, radius = 5 } }
 requires = { fire_safety = { min = 1 } }
@@ -617,7 +663,7 @@ name = "Aeronautics works"
 description = "Aircraft parts, designed and built."
 graphic = 39
 produce = { goods = 45, taxes = 1.0, fuel = 6 }
-needs = { workers = 40, power = 20, car = 20 }
+needs = { workers = 40, power = 20, car = 20, water = 20, waste = 10, sewage = 10 }
 sends = ["goods", "fuel"]
 emits = { pollution = { amount = 6.0, radius = 4 } }
 requires = { fire_safety = { min = 1 }, education = { min = 1 } }
@@ -683,6 +729,62 @@ name = "Harbour"
 description = "Ships call here: places near harbours on one body of water trade as if next door."
 graphic = 396
 needs = { workers = 4, power = 1, upkeep = 0.4 }
+
+# Water and waste: utilities the bigger buildings need.
+[[unit]]
+id = "pumping_station"
+name = "Pumping station"
+description = "Pumps clean water into the mains; it needs clean ground around it."
+graphic = 380
+produce = { water = 300 }
+needs = { workers = 4, power = 8, upkeep = 0.3 }
+requires = { pollution = { max = 30 } }
+
+[[unit]]
+id = "water_tower"
+name = "Water tower"
+description = "A small store of water up high for the mains around it. No power needed."
+graphic = 381
+produce = { water = 50 }
+needs = { upkeep = 0.05 }
+
+[[unit]]
+id = "water_treatment"
+name = "Water treatment plant"
+description = "Cleans the sewage of the buildings on its mains."
+graphic = 382
+produce = { sewage = 300 }
+needs = { workers = 8, power = 10, upkeep = 0.5 }
+emits = { land_value = { amount = -1.0, radius = 3 } }
+
+[[unit]]
+id = "dump"
+name = "Landfill"
+description = "Rubbish trucks collect from the buildings around and bring it here. It smells."
+graphic = 383
+produce = { waste = 60 }
+sends = ["waste"]
+needs = { workers = 3, upkeep = 0.1 }
+emits = { pollution = { amount = 4.0, radius = 4 }, land_value = { amount = -2.0, radius = 5 } }
+
+[[unit]]
+id = "recycling"
+name = "Recycling centre"
+description = "Collects rubbish and sorts out materials that go back to the factories as goods."
+graphic = 384
+produce = { waste = 40, goods = 4 }
+sends = ["waste", "goods"]
+needs = { workers = 8, power = 4, upkeep = 0.4 }
+
+[[unit]]
+id = "incinerator"
+name = "Incinerator"
+description = "Burns the rubbish it collects and makes some power from it, with smoke."
+graphic = 385
+produce = { waste = 90, power = 120 }
+sends = ["waste"]
+needs = { workers = 6, upkeep = 0.6 }
+emits = { pollution = { amount = 10.0, radius = 5 } }
 
 [[unit]]
 id = "park"

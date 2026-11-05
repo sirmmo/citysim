@@ -6,7 +6,9 @@
 #
 # build = residential | commercial | industrial | road | power_line
 #       | coal_plant | nuclear_plant | park | trees | water
-#       | fire_station | police | hospital | school | rail | station | harbour | ignore
+#       | fire_station | police | hospital | school | rail | station | harbour
+#       | water_pipe | pumping_station | water_tower | water_treatment
+#       | dump | recycling | incinerator | ignore
 #
 # Copy this file, edit it and pass it with `--rules` to map other tag
 # vocabularies (for example a fantasy map with custom keys).
@@ -42,6 +44,9 @@ build = "nuclear_plant"
 [[rule]]
 when = { power = ["plant", "generator"], "generator:source" = "nuclear" }
 build = "nuclear_plant"
+[[rule]]
+when = { power = ["plant", "generator"], "plant:source" = "waste" }
+build = "incinerator"
 [[rule]]
 when = { power = ["plant", "generator"] }
 build = "coal_plant"
@@ -80,6 +85,26 @@ when = { highway = [
     "motorway_link", "trunk_link", "primary_link", "secondary_link", "tertiary_link",
 ] }
 build = "road"
+
+# --- Water and waste -------------------------------------------------------
+[[rule]]
+when = { man_made = "water_tower" }
+build = "water_tower"
+[[rule]]
+when = { man_made = ["water_works", "pumping_station", "water_well"] }
+build = "pumping_station"
+[[rule]]
+when = { man_made = "wastewater_plant" }
+build = "water_treatment"
+[[rule]]
+when = { man_made = "pipeline", substance = "water" }
+build = "water_pipe"
+[[rule]]
+when = { landuse = "landfill" }
+build = "dump"
+[[rule]]
+when = { amenity = "recycling", recycling_type = "centre" }
+build = "recycling"
 
 # --- Harbours -----------------------------------------------------------------
 [[rule]]

@@ -18,7 +18,7 @@ tech_tree = "pre-industrial"
 policy_set = "pre-industrial"
 years = [-9999, 1799]
 # No electricity, and no asphalt: streets are dirt or paved.
-disabled_tools = ["power_line", "nuclear_plant", "road", "highway", "rail", "station"]
+disabled_tools = ["power_line", "nuclear_plant", "road", "highway", "rail", "station", "water_pipe", "pumping_station", "water_tower", "water_treatment", "recycling", "incinerator"]
 
 [growth]
 level_up = 0.75
@@ -101,6 +101,14 @@ max_trip = 36
 colour = [0.85, 0.85, 0.35]
 
 [[resource]]
+id = "waste"
+name = "Refuse carting"
+transport = "agents"
+network = "road"
+max_trip = 25
+colour = [0.65, 0.55, 0.35]
+
+[[resource]]
 id = "taxes"
 name = "Taxes"
 transport = "city"
@@ -153,7 +161,7 @@ name = "Handcart"
 model = "handcart"
 ways = ["street", "paved_street", "dirt_road"]
 speed = 0.6
-carries = ["cart.handcart", "food", "goods"]
+carries = ["cart.handcart", "food", "goods", "waste"]
 
 [[network.vehicle]]
 id = "horse_cart"
@@ -319,6 +327,7 @@ police = "guard_house"
 hospital = "bathhouse"
 school = "academy"
 park = "well"
+dump = "midden"
 
 # ---------------------------------------------------------------- units
 # Residential: families eat and work; bigger houses want water and safety.
@@ -348,7 +357,7 @@ name = "Family house"
 description = "Two storeys of stone and timber; three generations under one roof."
 graphic = 13
 produce = { residents = 7, workers = 4, shoppers = 3, taxes = 0.04 }
-needs = { food = 2 }
+needs = { food = 2, waste = 1 }
 sends = ["workers", "shoppers"]
 requires = { pollution = { max = 20 }, water = { min = 1 } }
 
@@ -378,7 +387,7 @@ name = "Row houses"
 description = "A row of houses sharing walls along the street."
 graphic = 16
 produce = { residents = 20, workers = 12, shoppers = 8, taxes = 0.14 }
-needs = { food = 6 }
+needs = { food = 6, waste = 1 }
 sends = ["workers", "shoppers"]
 requires = { pollution = { max = 15 }, water = { min = 1 }, fire_safety = { min = 1 } }
 
@@ -408,7 +417,7 @@ name = "Insula block"
 description = "A long block of flats over shops, five storeys high."
 graphic = 19
 produce = { residents = 70, workers = 40, shoppers = 28, taxes = 0.6 }
-needs = { food = 20 }
+needs = { food = 20, waste = 1 }
 sends = ["workers", "shoppers"]
 requires = { water = { min = 1 }, fire_safety = { min = 1 }, police_safety = { min = 1 }, health = { min = 1 } }
 
@@ -437,7 +446,7 @@ name = "Shop & store"
 description = "Tools, pots and cloth, and a store room behind."
 graphic = 23
 produce = { taxes = 0.07, ideas = 0.2 }
-needs = { workers = 2, shoppers = 5, goods = 2, cart = 1 }
+needs = { workers = 2, shoppers = 5, goods = 2, cart = 1, waste = 1 }
 emits = { land_value = { amount = 0.5, radius = 2 } }
 
 [[unit]]
@@ -465,7 +474,7 @@ name = "Coaching inn"
 description = "Rooms for travellers and stables for their horses."
 graphic = 27
 produce = { taxes = 0.3, ideas = 1 }
-needs = { workers = 6, shoppers = 14, food = 6, fodder = 2, "cart.horse" = 1 }
+needs = { workers = 6, shoppers = 14, food = 6, fodder = 2, "cart.horse" = 1, waste = 1 }
 emits = { land_value = { amount = 1.0, radius = 3 } }
 requires = { fire_safety = { min = 1 } }
 
@@ -495,7 +504,7 @@ name = "Merchants' exchange"
 description = "Bankers and traders, under a tower seen from the whole valley."
 graphic = 29
 produce = { taxes = 1.4 }
-needs = { workers = 24, shoppers = 40, goods = 16, cart = 10 }
+needs = { workers = 24, shoppers = 40, goods = 16, cart = 10, waste = 1 }
 emits = { land_value = { amount = 3.5, radius = 6 } }
 requires = { fire_safety = { min = 1 }, police_safety = { min = 1 }, education = { min = 1 } }
 
@@ -544,7 +553,7 @@ name = "Farmstead"
 description = "A farm with granaries, a weaving shed and its own carts."
 graphic = 35
 produce = { food = 10, fodder = 4, goods = 3, cart = 3, taxes = 0.08 }
-needs = { workers = 6 }
+needs = { workers = 6, waste = 1 }
 sends = ["food", "fodder", "goods", "cart"]
 
 [[unit]]
@@ -553,7 +562,7 @@ name = "Stone works"
 description = "Masons dress the quarried stone."
 graphic = 36
 produce = { goods = 8, cart = 2, taxes = 0.12 }
-needs = { workers = 8, food = 2 }
+needs = { workers = 8, food = 2, waste = 1 }
 sends = ["goods", "cart"]
 emits = { pollution = { amount = 2.0, radius = 3 }, "Noise.level" = { amount = 1.5, radius = 2 } }
 
@@ -584,7 +593,7 @@ name = "Craft hall"
 description = "Weavers, potters and joiners of the guilds under one roof."
 graphic = 39
 produce = { goods = 24, cart = 4, taxes = 0.5 }
-needs = { workers = 24, food = 4, cart = 2 }
+needs = { workers = 24, food = 4, cart = 2, waste = 1 }
 sends = ["goods", "cart"]
 emits = { pollution = { amount = 2.0, radius = 3 } }
 requires = { fire_safety = { min = 1 }, education = { min = 1 } }
@@ -642,6 +651,17 @@ name = "Quay"
 description = "Boats tie up here: places near quays on one river, lake or coast trade as if next door."
 graphic = 396
 needs = { workers = 3, upkeep = 0.2 }
+
+[[unit]]
+id = "midden"
+name = "Midden"
+description = "The town's refuse heap: carters bring what the bigger houses throw out. It stinks."
+graphic = 383
+build_cost = 60
+produce = { waste = 30 }
+sends = ["waste"]
+needs = { workers = 2 }
+emits = { pollution = { amount = 3.0, radius = 3 }, land_value = { amount = -2.0, radius = 4 } }
 
 [[unit]]
 id = "well"

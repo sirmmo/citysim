@@ -71,7 +71,28 @@ pub fn demo_town(city: &mut City) {
         // A road too, so workers can reach the plant (needed by GlassBox rules).
         try_tool(main, (w1.saturating_sub(5), l0 - 1), (w1 - 1, l0 - 1));
     }
-    try_tool(Tool::Park, (w0 + 1, l1.saturating_sub(1)), (w0 + 3, l1.saturating_sub(1)));
+    // Water and waste (GlassBox rules): a pumping station, a treatment
+    // plant, a water tower and a dump along a street north of the grid.
+    let gb = city.glassbox.is_some();
+    let utilities = [(Tool::PumpingStation, 1, 3), (Tool::Dump, 4, 4), (Tool::WaterTreatment, 8, 4), (Tool::WaterTower, 12, 2)];
+    if gb && l0 >= 5 && utilities.iter().any(|u| allows(city, u.0)) {
+        try_tool_on(city, main, (w0, l0 - 1), (w0 + 13, l0 - 1));
+        for (tool, dw, dl) in utilities {
+            if allows(city, tool) {
+                try_tool_on(city, tool, (w0 + dw, l0 - dl), (0, 0));
+            }
+        }
+        // A water main out past the tower, across open land.
+        if allows(city, Tool::WaterPipe) {
+            try_tool_on(city, Tool::WaterPipe, (w0 + 13, l0 - 2), (w0 + 13, l0 - 6));
+            try_tool_on(city, Tool::WaterPipe, (w0 + 13, l0 - 6), (w0 + 17, l0 - 6));
+        }
+    }
+    try_tool_on(city, Tool::Park, (w0 + 1, l1.saturating_sub(1)), (w0 + 3, l1.saturating_sub(1)));
+}
+
+fn try_tool_on(city: &mut City, tool: Tool, a: (u32, u32), b: (u32, u32)) {
+    let _ = city.apply_tool(tool, a, b);
 }
 
 #[cfg(test)]

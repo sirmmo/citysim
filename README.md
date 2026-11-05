@@ -122,6 +122,16 @@ Dragging a road over another kind rebuilds it. Each age offers its own:
 asphalt streets and highways today, paved streets and dirt roads before
 the industrial age.
 
+Water and waste come with the GlassBox rules:
+- **Water:** pumping stations, water towers and treatment plants feed the
+  water mains under the streets. Water pipes cross open land.
+- **Waste:** rubbish trucks from landfills, recycling centres and
+  incinerators collect from the buildings around them.
+
+Bigger buildings need water, sewage treatment and rubbish collection to
+grow (see [docs/PLAYING.md](docs/PLAYING.md#building)). Tools are grouped
+in the sidebar: each family is one row with a submenu beside it.
+
 Plants and services (school, fire station, police, hospital…) snap to the
 street: a new one turns to face the road beside it, and the placement
 preview shows the turned footprint. Turn one by hand from the inspector.

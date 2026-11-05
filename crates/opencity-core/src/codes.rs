@@ -22,6 +22,8 @@ pub enum StructureCode {
     Road = 20,
     PowerLine = 31,
     CoalPlant = 32,
+    /// A water main across open land (streets carry their own).
+    WaterPipe = 33,
     NuclearPlant = 35,
     FireDept = 36,
     PoliceDept = 37,
@@ -31,6 +33,18 @@ pub enum StructureCode {
     Station = 41,
     /// Harbour: boats call here, linking the places along one body of water.
     Harbour = 42,
+    /// Pumps water into the mains.
+    PumpingStation = 43,
+    /// Stores water up high and feeds the mains around it.
+    WaterTower = 44,
+    /// Cleans the sewage of the buildings on its mains.
+    WaterTreatment = 45,
+    /// Landfill: where the rubbish trucks take what they collect.
+    Dump = 46,
+    /// Recycling centre: collects rubbish and sorts out materials.
+    Recycling = 47,
+    /// Burns rubbish, making some power.
+    Incinerator = 48,
 }
 
 impl StructureCode {
@@ -51,6 +65,7 @@ impl StructureCode {
             20 => Road,
             31 => PowerLine,
             32 => CoalPlant,
+            33 => WaterPipe,
             35 => NuclearPlant,
             36 => FireDept,
             37 => PoliceDept,
@@ -58,6 +73,12 @@ impl StructureCode {
             40 => School,
             41 => Station,
             42 => Harbour,
+            43 => PumpingStation,
+            44 => WaterTower,
+            45 => WaterTreatment,
+            46 => Dump,
+            47 => Recycling,
+            48 => Incinerator,
             _ => return None,
         })
     }
@@ -67,7 +88,7 @@ impl StructureCode {
     }
 
     pub const fn is_path(self) -> bool {
-        matches!(self, Self::Road | Self::PowerLine)
+        matches!(self, Self::Road | Self::PowerLine | Self::WaterPipe)
     }
 
     pub const fn is_power_plant(self) -> bool {
@@ -78,9 +99,14 @@ impl StructureCode {
         matches!(self, Self::FireDept | Self::PoliceDept | Self::Hospital | Self::School | Self::Station | Self::Harbour)
     }
 
+    /// Water and waste buildings.
+    pub const fn is_utility(self) -> bool {
+        matches!(self, Self::PumpingStation | Self::WaterTower | Self::WaterTreatment | Self::Dump | Self::Recycling | Self::Incinerator)
+    }
+
     /// Structures placed as one fixed-size block (the size comes from the model).
     pub const fn is_block(self) -> bool {
-        self.is_power_plant() || self.is_public_service()
+        self.is_power_plant() || self.is_public_service() || self.is_utility()
     }
 
     /// Default graphic code of a freshly built structure.
@@ -104,6 +130,13 @@ impl StructureCode {
             School => GraphicCode::EDUCATION_DEPT,
             Station => GraphicCode::RAIL_STATION,
             Harbour => GraphicCode::HARBOUR,
+            WaterPipe => GraphicCode::PIPE_BASE,
+            PumpingStation => GraphicCode::PUMPING_STATION,
+            WaterTower => GraphicCode::WATER_TOWER,
+            WaterTreatment => GraphicCode::WATER_TREATMENT,
+            Dump => GraphicCode::DUMP,
+            Recycling => GraphicCode::RECYCLING,
+            Incinerator => GraphicCode::INCINERATOR,
         }
     }
 
@@ -114,7 +147,9 @@ impl StructureCode {
             Commercial => StructureType::Commerce,
             Industrial => StructureType::Industry,
             CoalPlant | NuclearPlant => StructureType::Electricity,
-            Road | PowerLine => StructureType::Path,
+            Road | PowerLine | WaterPipe => StructureType::Path,
+            PumpingStation | WaterTower | WaterTreatment => StructureType::Water,
+            Dump | Recycling | Incinerator => StructureType::Government,
             FireDept | PoliceDept | Hospital | School | Station | Harbour => StructureType::Government,
             Flora => StructureType::Tree,
             Part | Test => StructureType::Undefined,
@@ -134,6 +169,13 @@ impl StructureCode {
             FireDept | PoliceDept | Hospital | School => 1500,
             Station => 3000,
             Harbour => 2500,
+            WaterPipe => 4,
+            PumpingStation => 1800,
+            WaterTower => 400,
+            WaterTreatment => 3000,
+            Dump => 600,
+            Recycling => 1500,
+            Incinerator => 2500,
             Test | Part => 0,
         }
     }
@@ -149,6 +191,13 @@ impl StructureCode {
             FireDept | PoliceDept | Hospital | School => 15,
             Station => 25,
             Harbour => 20,
+            WaterPipe => 1,
+            PumpingStation => 15,
+            WaterTower => 4,
+            WaterTreatment => 25,
+            Dump => 6,
+            Recycling => 15,
+            Incinerator => 25,
         }
     }
 
@@ -160,8 +209,9 @@ impl StructureCode {
             Residential | Commercial => 2 * (level + 1),
             Industrial => 3 * (level + 1),
             Park => 10,
-            PowerLine => 1,
+            PowerLine | WaterPipe => 1,
             Road | Flora => 4,
+            PumpingStation | WaterTower | WaterTreatment | Dump | Recycling | Incinerator => 200,
             Part | CoalPlant | FireDept | PoliceDept | Hospital | School | Station | Harbour => 200,
             NuclearPlant => 800,
             Test => 0,
@@ -212,6 +262,14 @@ impl GraphicCode {
     pub const EDUCATION_DEPT: Self = Self(390);
     pub const RAIL_STATION: Self = Self(395);
     pub const HARBOUR: Self = Self(396);
+    /// First of 15 water pipe pieces, see [`path_graphic`].
+    pub const PIPE_BASE: Self = Self(190);
+    pub const PUMPING_STATION: Self = Self(380);
+    pub const WATER_TOWER: Self = Self(381);
+    pub const WATER_TREATMENT: Self = Self(382);
+    pub const DUMP: Self = Self(383);
+    pub const RECYCLING: Self = Self(384);
+    pub const INCINERATOR: Self = Self(385);
     pub const VEHICLE_STD: Self = Self(400);
     pub const VEHICLE_PICKUP: Self = Self(440);
     pub const VEHICLE_SPORT: Self = Self(441);
@@ -458,10 +516,17 @@ pub enum Tool {
     Station,
     Harbour,
     Canal,
+    WaterPipe,
+    PumpingStation,
+    WaterTower,
+    WaterTreatment,
+    Dump,
+    Recycling,
+    Incinerator,
 }
 
 impl Tool {
-    pub const ALL: [Tool; 24] = [
+    pub const ALL: [Tool; 31] = [
         Tool::Destroy,
         Tool::ZoneResidential,
         Tool::ZoneCommercial,
@@ -486,6 +551,13 @@ impl Tool {
         Tool::Station,
         Tool::Harbour,
         Tool::Canal,
+        Tool::WaterPipe,
+        Tool::PumpingStation,
+        Tool::WaterTower,
+        Tool::WaterTreatment,
+        Tool::Dump,
+        Tool::Recycling,
+        Tool::Incinerator,
     ];
 
     /// Stable identifier, used by skins and GeoJSON rules.
@@ -515,6 +587,13 @@ impl Tool {
             Tool::Station => "station",
             Tool::Harbour => "harbour",
             Tool::Canal => "canal",
+            Tool::WaterPipe => "water_pipe",
+            Tool::PumpingStation => "pumping_station",
+            Tool::WaterTower => "water_tower",
+            Tool::WaterTreatment => "water_treatment",
+            Tool::Dump => "dump",
+            Tool::Recycling => "recycling",
+            Tool::Incinerator => "incinerator",
         }
     }
 
@@ -538,6 +617,13 @@ impl Tool {
             Tool::TestBuilding => S::Test,
             Tool::Station => S::Station,
             Tool::Harbour => S::Harbour,
+            Tool::WaterPipe => S::WaterPipe,
+            Tool::PumpingStation => S::PumpingStation,
+            Tool::WaterTower => S::WaterTower,
+            Tool::WaterTreatment => S::WaterTreatment,
+            Tool::Dump => S::Dump,
+            Tool::Recycling => S::Recycling,
+            Tool::Incinerator => S::Incinerator,
             Tool::Destroy | Tool::RaiseTerrain | Tool::LowerTerrain | Tool::Canal => return None,
         })
     }

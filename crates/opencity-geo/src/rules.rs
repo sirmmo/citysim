@@ -26,6 +26,13 @@ pub enum Build {
     Rail,
     Station,
     Harbour,
+    WaterPipe,
+    PumpingStation,
+    WaterTower,
+    WaterTreatment,
+    Dump,
+    Recycling,
+    Incinerator,
     Ignore,
 }
 
@@ -50,6 +57,13 @@ impl Build {
             "rail" => Rail,
             "station" => Station,
             "harbour" => Harbour,
+            "water_pipe" => WaterPipe,
+            "pumping_station" => PumpingStation,
+            "water_tower" => WaterTower,
+            "water_treatment" => WaterTreatment,
+            "dump" => Dump,
+            "recycling" => Recycling,
+            "incinerator" => Incinerator,
             "ignore" => Ignore,
             _ => return None,
         })
@@ -75,6 +89,13 @@ impl Build {
             Rail => "rail",
             Station => "station",
             Harbour => "harbour",
+            WaterPipe => "water_pipe",
+            PumpingStation => "pumping_station",
+            WaterTower => "water_tower",
+            WaterTreatment => "water_treatment",
+            Dump => "dump",
+            Recycling => "recycling",
+            Incinerator => "incinerator",
             Ignore => "ignore",
         }
     }

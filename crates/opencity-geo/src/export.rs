@@ -60,6 +60,13 @@ fn tags(code: StructureCode, level: u8) -> Map<String, Value> {
         School => ("school", &[("amenity", "school")]),
         Station => ("station", &[("railway", "station"), ("building", "train_station")]),
         Harbour => ("harbour", &[("landuse", "port"), ("harbour", "yes")]),
+        WaterPipe => ("water_pipe", &[("man_made", "pipeline"), ("substance", "water")]),
+        PumpingStation => ("pumping_station", &[("man_made", "water_works")]),
+        WaterTower => ("water_tower", &[("man_made", "water_tower")]),
+        WaterTreatment => ("water_treatment", &[("man_made", "wastewater_plant")]),
+        Dump => ("dump", &[("landuse", "landfill")]),
+        Recycling => ("recycling", &[("amenity", "recycling"), ("recycling_type", "centre")]),
+        Incinerator => ("incinerator", &[("power", "plant"), ("plant:source", "waste")]),
         Test | Part => ("ignore", &[]),
     };
     let mut m = Map::new();

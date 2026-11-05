@@ -42,6 +42,12 @@ game see [RULES.md](RULES.md); for the documentation index see
 
 ## Building
 
+- **The sidebar:** zones and their density at the top. Below them, each
+  family of tools is one row: **Roads, Rail and water, Power, Water,
+  Waste, Services, Land**. The icon on the left picks the last tool you used
+  from that family; the name opens a submenu beside the sidebar with all of
+  them, with their prices. A row shows the tool in use. Bulldozer and
+  Inspect stay at the bottom.
 - **Zones** grow when they have a road nearby and power (in the modern rules), and are close to the other two zone types.
   - Under GlassBox rules, pick a **density** (low, medium, high) before zoning. Denser zones cost more and grow bigger buildings.
 - **Roads** come in four kinds that connect to each other. Each era offers its own.
@@ -69,6 +75,28 @@ game see [RULES.md](RULES.md); for the documentation index see
   river, coast or canal trade with each other, carried by ships (rowing and
   sailing boats before 1800, at a **Quay**). The **Canal** tool digs empty
   land below the water line to join waters or bring them to a town.
+- **Water** (GlassBox rules): bigger buildings want water, and dense
+  ones want their sewage treated. Water mains run under every street.
+  - **Pumping station:** pumps water into the mains. It needs power and
+    clean ground around it.
+  - **Water tower:** a small store of water that needs no power.
+  - **Water treatment plant:** treats the sewage of the buildings on its
+    mains; nobody wants to live next to one.
+  - **Water pipe:** carries water across open land, to a pump or a tower
+    away from the streets.
+
+  Level-2 buildings need water. Medium and high density buildings from
+  level 2 also need sewage treatment.
+- **Waste** (GlassBox rules): rubbish trucks go out from these buildings
+  to collect from the buildings around them. Level-3 buildings need
+  collection.
+  - **Landfill:** cheap, but it smells and lowers land value nearby.
+  - **Recycling centre:** collects less, but sends materials back to the
+    shops as goods.
+  - **Incinerator:** burns rubbish and makes some power, with smoke.
+
+  Before 1800 the dump is a **Midden**, and handcarts take the refuse of
+  the biggest houses there; wells still give the water.
 - **Disasters:** fires, floods and epidemics (great fires and plague
   before 1800) strike now and then. Fire coverage protects against fire and
   health coverage against sickness; floods hit low ground by the water. A

@@ -161,11 +161,18 @@ pub struct EguiUi {
     region_map: u32,
     /// Skin the current style and icons were built for.
     styled_for: Option<Option<String>>,
+    /// The sidebar submenu open beside it, and the last tool used in each.
+    open_group: Option<&'static str>,
+    last_tool: HashMap<&'static str, Action>,
 }
 
 type ToolEntry = (&'static str, Action, &'static str, &'static str);
 
-const GROUPS: &[(&str, &[ToolEntry])] = &[
+/// A sidebar group: its name, its tools, and whether they sit in a submenu
+/// that opens beside the sidebar.
+type Group = (&'static str, &'static [ToolEntry], bool);
+
+const GROUPS: &[Group] = &[
     (
         "Zones",
         &[
@@ -173,20 +180,55 @@ const GROUPS: &[(&str, &[ToolEntry])] = &[
             ("commercial", Action::Tool(Some(Tool::ZoneCommercial)), "Commercial", "C"),
             ("industrial", Action::Tool(Some(Tool::ZoneIndustrial)), "Industrial", "I"),
         ],
+        false,
     ),
     (
-        "Networks",
+        "Roads",
         &[
             ("road", Action::Tool(Some(Tool::Road)), "Street", "P"),
             ("road_highway", Action::Tool(Some(Tool::Highway)), "Highway", ""),
             ("road_paved_street", Action::Tool(Some(Tool::PavedStreet)), "Paved street", "P"),
             ("road_dirt_road", Action::Tool(Some(Tool::DirtRoad)), "Dirt road", ""),
+        ],
+        true,
+    ),
+    (
+        "Rail and water",
+        &[
             ("road_rail", Action::Tool(Some(Tool::Rail)), "Railway", ""),
+            ("government", Action::Tool(Some(Tool::Station)), "Railway station", ""),
+            ("government", Action::Tool(Some(Tool::Harbour)), "Harbour", ""),
             ("lower", Action::Tool(Some(Tool::Canal)), "Canal", ""),
+        ],
+        true,
+    ),
+    (
+        "Power",
+        &[
             ("power_line", Action::Tool(Some(Tool::PowerLine)), "Power line", "L"),
             ("power_plant_coal", Action::Tool(Some(Tool::CoalPlant)), "Coal plant", ""),
             ("power_plant_nuclear", Action::Tool(Some(Tool::NuclearPlant)), "Nuclear plant", ""),
         ],
+        true,
+    ),
+    (
+        "Water",
+        &[
+            ("water_pipe", Action::Tool(Some(Tool::WaterPipe)), "Water pipe", ""),
+            ("water_pump", Action::Tool(Some(Tool::PumpingStation)), "Pumping station", ""),
+            ("water_tower", Action::Tool(Some(Tool::WaterTower)), "Water tower", ""),
+            ("water_treatment", Action::Tool(Some(Tool::WaterTreatment)), "Water treatment plant", ""),
+        ],
+        true,
+    ),
+    (
+        "Waste",
+        &[
+            ("waste_dump", Action::Tool(Some(Tool::Dump)), "Landfill", ""),
+            ("waste_recycling", Action::Tool(Some(Tool::Recycling)), "Recycling centre", ""),
+            ("waste_incinerator", Action::Tool(Some(Tool::Incinerator)), "Incinerator", ""),
+        ],
+        true,
     ),
     (
         "Services",
@@ -195,9 +237,8 @@ const GROUPS: &[(&str, &[ToolEntry])] = &[
             ("police", Action::Tool(Some(Tool::PoliceDept)), "Police", ""),
             ("hospital", Action::Tool(Some(Tool::Hospital)), "Hospital", ""),
             ("education", Action::Tool(Some(Tool::School)), "School", ""),
-            ("government", Action::Tool(Some(Tool::Station)), "Railway station", ""),
-            ("government", Action::Tool(Some(Tool::Harbour)), "Harbour", ""),
         ],
+        true,
     ),
     (
         "Land",
@@ -206,11 +247,16 @@ const GROUPS: &[(&str, &[ToolEntry])] = &[
             ("tree", Action::Tool(Some(Tool::Trees)), "Trees", "T"),
             ("raise", Action::Tool(Some(Tool::RaiseTerrain)), "Raise terrain", "U"),
             ("lower", Action::Tool(Some(Tool::LowerTerrain)), "Lower terrain", "J"),
-            ("bulldozer", Action::Tool(Some(Tool::Destroy)), "Bulldozer", "X"),
-            ("query", Action::Query, "Inspect", "/"),
         ],
+        true,
     ),
+    ("Tools", &[("bulldozer", Action::Tool(Some(Tool::Destroy)), "Bulldozer", "X"), ("query", Action::Query, "Inspect", "/")], false),
 ];
+
+/// Water and waste work only under GlassBox rules.
+fn needs_rules(t: Tool) -> bool {
+    matches!(t, Tool::WaterPipe | Tool::PumpingStation | Tool::WaterTower | Tool::WaterTreatment | Tool::Dump | Tool::Recycling | Tool::Incinerator)
+}
 
 fn tool_cost(a: Action) -> Option<u32> {
     match a {
@@ -240,6 +286,8 @@ impl EguiUi {
             show_network: false,
             show_research: false,
             rules_editor: Default::default(),
+            open_group: None,
+            last_tool: HashMap::new(),
             show_policies: false,
             show_region: false,
             show_budget: false,
@@ -348,6 +396,11 @@ impl EguiUi {
 
     pub fn open_policies(&mut self) {
         self.show_policies = true;
+    }
+
+    /// Opens a sidebar submenu by its group name (screenshots, docs).
+    pub fn open_tools(&mut self, group: &str) {
+        self.open_group = GROUPS.iter().find(|g| g.0.eq_ignore_ascii_case(group)).map(|g| g.0);
     }
 
     pub fn open_research(&mut self) {
@@ -599,59 +652,138 @@ impl EguiUi {
         });
     }
 
+    /// Whether a tool is offered: the skin, the rules and the kind of game allow it.
+    fn offered(view: &View, action: Action) -> bool {
+        let id = match action {
+            Action::Tool(Some(t)) => {
+                if needs_rules(t) && view.city.glassbox.is_none() {
+                    return false;
+                }
+                t.id()
+            }
+            _ => "inspect",
+        };
+        !(view.skin.is_some_and(|s| !s.allows(id)) || view.city.rules().is_some_and(|r| !r.allows(id)))
+    }
+
+    /// One tool's button; true when clicked.
+    fn tool_button(&mut self, ui: &mut egui::Ui, ctx: &egui::Context, view: &View, entry: ToolEntry, out: &mut Vec<Command>) -> bool {
+        let (icon, action, label, key) = entry;
+        let id = match action {
+            Action::Tool(Some(t)) => t.id(),
+            _ => "inspect",
+        };
+        // What the rules build names a service; skins name the rest.
+        let service = view.city.rules().and_then(|r| r.service_unit(id)).map(|u| u.name.as_str());
+        let label = service.unwrap_or_else(|| view.skin.map_or(label, |s| s.label(id, label)));
+        let selected = view.active == Some(action);
+        let tex = self.icon(ctx, view.catalog, view.skin, icon);
+        let cost = match (action, view.city.rules()) {
+            (Action::Tool(Some(t)), Some(rules)) if t.structure().is_some_and(|c| c.is_zone()) => {
+                rules.zone_for(t.structure().unwrap()).and_then(|z| rules.zones[z].densities.get(view.city.zone_density as usize)).map(|d| d.cost)
+            }
+            (Action::Tool(Some(t)), Some(rules)) if rules.service_unit(t.id()).is_some_and(|u| u.build_cost > 0) => {
+                rules.service_unit(t.id()).map(|u| u.build_cost)
+            }
+            _ => tool_cost(action),
+        };
+        let text = match cost {
+            Some(c) => format!("{label}  ${c}"),
+            None => label.to_string(),
+        };
+        let button = match &tex {
+            Some(t) => egui::Button::image_and_text(egui::Image::new((t.id(), EVec2::splat(26.0))), text),
+            None => egui::Button::new(text),
+        };
+        // Tools waiting for research are shown, greyed out.
+        let locked = match action {
+            Action::Tool(Some(t)) => view.city.tool_locked_by(t),
+            _ => None,
+        };
+        let resp = ui.add_enabled_ui(locked.is_none(), |ui| ui.add_sized([166.0, 32.0], button.selected(selected))).inner;
+        let resp = match &locked {
+            Some(tech) => resp.on_disabled_hover_text(format!("Needs research: {tech}")),
+            None if key.is_empty() => resp,
+            None => resp.on_hover_text(format!("Shortcut: {key}")),
+        };
+        if resp.clicked() {
+            out.push(Command::Act(if selected { Action::Tool(None) } else { action }));
+        }
+        resp.clicked()
+    }
+
     fn tools(&mut self, ctx: &egui::Context, view: &View, out: &mut Vec<Command>) {
+        // The submenu beside the sidebar: where it opens.
+        let mut flyout: Option<(&'static str, egui::Pos2)> = None;
         egui::SidePanel::left("tools").resizable(false).exact_width(178.0).show(ctx, |ui| {
             egui::ScrollArea::vertical().show(ui, |ui| {
-                for (group, entries) in GROUPS {
-                    ui.add_space(4.0);
-                    ui.label(RichText::new(*group).small().strong().color(Color32::GRAY));
-                    for &(icon, action, label, key) in *entries {
-                        let (id, label) = match action {
-                            Action::Tool(Some(t)) => (t.id(), label),
-                            _ => ("inspect", label),
-                        };
-                        if view.skin.is_some_and(|s| !s.allows(id)) || view.city.rules().is_some_and(|r| !r.allows(id)) {
-                            continue;
+                for &(group, entries, submenu) in GROUPS {
+                    let offered: Vec<ToolEntry> = entries.iter().copied().filter(|e| Self::offered(view, e.1)).collect();
+                    if offered.is_empty() {
+                        continue;
+                    }
+                    if !submenu {
+                        ui.add_space(4.0);
+                        ui.label(RichText::new(group).small().strong().color(Color32::GRAY));
+                        for e in offered {
+                            self.tool_button(ui, ctx, view, e, out);
                         }
-                        // What the rules build names a service; skins name the rest.
-                        let service = view.city.rules().and_then(|r| r.service_unit(id)).map(|u| u.name.as_str());
-                        let label = service.unwrap_or_else(|| view.skin.map_or(label, |s| s.label(id, label)));
-                        let selected = view.active == Some(action);
-                        let tex = self.icon(ctx, view.catalog, view.skin, icon);
-                        let cost = match (action, view.city.rules()) {
-                            (Action::Tool(Some(t)), Some(rules)) if t.structure().is_some_and(|c| c.is_zone()) => rules
-                                .zone_for(t.structure().unwrap())
-                                .and_then(|z| rules.zones[z].densities.get(view.city.zone_density as usize))
-                                .map(|d| d.cost),
-                            (Action::Tool(Some(t)), Some(rules)) if rules.service_unit(t.id()).is_some_and(|u| u.build_cost > 0) => {
-                                rules.service_unit(t.id()).map(|u| u.build_cost)
+                    } else {
+                        // The group's last tool, one click away; ▸ opens the rest.
+                        let active = offered.iter().find(|e| view.active == Some(e.1)).copied();
+                        let last = active.or_else(|| self.last_tool.get(group).and_then(|a| offered.iter().find(|e| e.1 == *a).copied())).unwrap_or(offered[0]);
+                        let open = self.open_group == Some(group);
+                        ui.add_space(2.0);
+                        let row = ui.horizontal(|ui| {
+                            ui.spacing_mut().item_spacing.x = 2.0;
+                            let tex = self.icon(ctx, view.catalog, view.skin, last.0);
+                            let quick = match &tex {
+                                Some(t) => egui::Button::image(egui::Image::new((t.id(), EVec2::splat(26.0)))),
+                                None => egui::Button::new("•"),
+                            };
+                            let locked = match last.1 {
+                                Action::Tool(Some(t)) => view.city.tool_locked_by(t).is_some(),
+                                _ => false,
+                            };
+                            let name = match last.1 {
+                                Action::Tool(Some(t)) => {
+                                    let id = t.id();
+                                    view.city
+                                        .rules()
+                                        .and_then(|r| r.service_unit(id))
+                                        .map(|u| u.name.clone())
+                                        .unwrap_or_else(|| view.skin.map_or(last.2, |s| s.label(id, last.2)).to_string())
+                                }
+                                _ => last.2.to_string(),
+                            };
+                            let q = ui.add_enabled(!locked, quick.min_size(EVec2::new(34.0, 32.0)).selected(active.is_some())).on_hover_text(&name);
+                            if q.clicked() {
+                                out.push(Command::Act(if active.is_some() { Action::Tool(None) } else { last.1 }));
                             }
-                            _ => tool_cost(action),
-                        };
-                        let text = match cost {
-                            Some(c) => format!("{label}  ${c}"),
-                            None => label.to_string(),
-                        };
-                        let button = match &tex {
-                            Some(t) => egui::Button::image_and_text(egui::Image::new((t.id(), EVec2::splat(26.0))), text),
-                            None => egui::Button::new(text),
-                        };
-                        // Tools waiting for research are shown, greyed out.
-                        let locked = match action {
-                            Action::Tool(Some(t)) => view.city.tool_locked_by(t),
-                            _ => None,
-                        };
-                        let resp = ui.add_enabled_ui(locked.is_none(), |ui| ui.add_sized([166.0, 32.0], button.selected(selected))).inner;
-                        let resp = match &locked {
-                            Some(tech) => resp.on_disabled_hover_text(format!("Needs research: {tech}")),
-                            None if key.is_empty() => resp,
-                            None => resp.on_hover_text(format!("Shortcut: {key}")),
-                        };
-                        if resp.clicked() {
-                            out.push(Command::Act(if selected { Action::Tool(None) } else { action }));
+                            let label = match active {
+                                Some(_) => RichText::new(format!("{group}: {name}")).strong(),
+                                None => RichText::new(group),
+                            };
+                            let g = ui
+                                .add_sized([128.0, 32.0], egui::Button::new(label).selected(open).wrap_mode(egui::TextWrapMode::Truncate))
+                                .on_hover_text(format!("More {}", group.to_lowercase()));
+                            ui.painter().text(
+                                g.rect.right_center() - EVec2::new(8.0, 0.0),
+                                egui::Align2::RIGHT_CENTER,
+                                "▶",
+                                egui::FontId::proportional(10.0),
+                                Color32::GRAY,
+                            );
+                            if g.clicked() {
+                                self.open_group = if open { None } else { Some(group) };
+                            }
+                            g.rect
+                        });
+                        if self.open_group == Some(group) {
+                            flyout = Some((group, egui::pos2(row.response.rect.right() + 8.0, row.inner.top())));
                         }
                     }
-                    if *group == "Zones" {
+                    if group == "Zones" {
                         if let Some(rules) = view.city.rules() {
                             let names: Vec<&str> = rules.zones.first().map(|z| z.densities.iter().map(|d| d.name.as_str()).collect()).unwrap_or_default();
                             ui.horizontal_wrapped(|ui| {
@@ -663,10 +795,32 @@ impl EguiUi {
                                 }
                             });
                         }
+                        ui.add_space(4.0);
+                        ui.label(RichText::new("Build").small().strong().color(Color32::GRAY));
                     }
                 }
             });
         });
+        // The open submenu: its tools in a column beside the sidebar.
+        let Some((group, pos)) = flyout else { return };
+        let Some(&(_, entries, _)) = GROUPS.iter().find(|g| g.0 == group) else { return };
+        let area = egui::Area::new(egui::Id::new("tool_flyout")).order(egui::Order::Foreground).fixed_pos(pos).show(ctx, |ui| {
+            egui::Frame::popup(ui.style()).show(ui, |ui| {
+                ui.label(RichText::new(group).strong());
+                for &e in entries.iter().filter(|e| Self::offered(view, e.1)) {
+                    if self.tool_button(ui, ctx, view, e, out) {
+                        self.last_tool.insert(group, e.1);
+                        self.open_group = None;
+                    }
+                }
+            });
+        });
+        // A click anywhere else closes it (the sidebar's own buttons toggle it).
+        let clicked_outside =
+            ctx.input(|i| i.pointer.any_pressed() && i.pointer.interact_pos().is_some_and(|p| !area.response.rect.contains(p) && p.x > 178.0));
+        if clicked_outside || ctx.input(|i| i.key_pressed(egui::Key::Escape)) {
+            self.open_group = None;
+        }
     }
 
     fn city_panel(&mut self, ctx: &egui::Context, view: &View, out: &mut Vec<Command>) {
@@ -860,7 +1014,7 @@ impl EguiUi {
                     if let (Some(gb), Some(rules), Some(u)) = (&city.glassbox, rules, s.unit) {
                         unit_details(ui, city, gb, rules, u as usize, origin);
                         crate::network::unit_links(ui, city, gb, rules, origin, out);
-                    } else if s.code != StructureCode::Road {
+                    } else if !s.code.is_path() {
                         ui.label(format!("Level {}", info.level));
                         ui.horizontal_wrapped(|ui| {
                             for (label, bit) in [
@@ -1352,6 +1506,8 @@ fn kind_line(view: &View, s: &opencity_core::Structure) -> String {
         return "Service".into();
     }
     match s.code {
+        StructureCode::WaterPipe => "Water main · carries water and sewage to the buildings beside it".into(),
+        StructureCode::PowerLine => "Power line".into(),
         c if c.is_zone() && s.level == 0 => format!("{c:?} zone · empty plot"),
         c if c.is_zone() => format!("{c:?} zone"),
         c => format!("{c:?}").replace("Dept", " department"),
