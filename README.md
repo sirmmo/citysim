@@ -223,6 +223,15 @@ Street junctions keep the original crossing models; each kind of road has
 its own width and surface.
 See [docs/GEOJSON.md](docs/GEOJSON.md).
 
+## Rules editor
+
+**View > Rules editor…** edits the GlassBox rules inside the game: the text,
+with colours, hints from what the rules already define and a check after
+every change, or a graph of each building, resource and network where a
+building's needs and products can be edited directly. Try the edited rules
+on the open city before saving them. See
+[docs/RULES.md](docs/RULES.md#the-rules-editor).
+
 ## Packs
 
 A pack seals a scenario with a skin and rules that cannot be changed, and

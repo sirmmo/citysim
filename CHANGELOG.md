@@ -2,6 +2,12 @@
 
 Release notes in full are on the [releases page](https://github.com/sirmmo/citysim/releases).
 
+## 0.2.32: Rules editor
+- **Rules editor** (View > Rules editor…): edit a rules set inside the game, including its rules file, scripts, tech tree and policies.
+  - **Text:** syntax colours, with every defined id in the colour of its kind. Hints come from what the rules already define, fitted to the key being written (resources for `needs`, networks for `network`, fields for a section, keywords in scripts). Every change is checked, and problems are reported with their file and line.
+  - **Graph:** a building with what it needs and makes, a resource with who makes and needs it, or a network with what it carries. A building's amounts can be changed, added or removed right on the graph; the rules file is rewritten with its comments kept.
+  - **Try on this city** runs the city on the edited rules at once; **Save** writes the files.
+
 ## 0.2.31: Packs to download
 - **Ready-made packs:** each release now includes Rail Baron and Bologna 1600 as games of their own, for Linux, Windows and both Macs. Download one from the website (Download > Packs) or the releases page, unpack it and run `opencity`: it opens straight into the pack.
 

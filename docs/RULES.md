@@ -570,6 +570,48 @@ first stance. Saves keep both.
   * **Export CSV** writes the shown series (all of them when none is shown)
     next to the save file.
 
+## The rules editor
+
+**View > Rules editor…** edits a rules set inside the game: its rules
+file, its GlassBox scripts, its tech tree and its policies. It opens on the
+city's rules; the menu at the top switches to another set.
+
+![The rules editor's graph](rules-editor.png)
+
+* **Text** shows each file in a tab, in colour. Comments, sections, keys,
+  numbers and strings each have their own colour, and every id the rules
+  define is coloured by its kind: resources, buildings, networks, map
+  layers, zones and projects.
+  * **Hints** appear under the cursor as you type, drawn from what the rules
+    already define and fitted to where you are. `needs`, `produce` and
+    `sends` offer resources; `network` offers networks; `structures` offers
+    structure names; `requires` and `emits` offer map layers (projects in a
+    `[[tech]]`); `units` offers buildings. Writing a key offers the fields of
+    the section you are in. In scripts, `appliesTo` offers buildings, `map`
+    offers layers, and keywords complete everywhere. **Tab** takes the
+    highlighted hint, **↑↓** move through them, **Esc** hides them.
+  * **Checking** runs after every change. The bar says *Valid* and counts
+    what the rules define, or names the first problem with its file and
+    line: TOML mistakes, script errors, and ids that point at nothing.
+    Click it to jump there.
+* **Graph** shows one thing at a time with what goes in and out of it.
+  Start from the overview, or type in **Find**:
+  * a **building** shows what it needs on the left and what it makes on the
+    right. The amounts can be changed by dragging, × removes one, and
+    **+ needs** / **+ makes** add a resource. The rules file is rewritten
+    in place, its comments and layout kept. A building defined by a script
+    is shown but edited in the text;
+  * a **resource** shows the buildings that make it and the ones that need
+    it, how it travels and its trade price;
+  * a **network** shows what it is made of, its vehicles and the resources
+    it carries.
+
+  Click any node to move to it. **Show in text** jumps to its definition.
+* **Try on this city** runs the open city on the edited rules at once,
+  without saving them, when they are valid. **Save** writes the files to
+  the data folder (`rules/`, `techs/`, `policies/`) and reloads them;
+  **Revert** goes back to the saved files. Packs hide the editor.
+
 ## GlassBox rule scripts
 
 Behaviour can also be written in the GlassBox rule language (`unitRule`,

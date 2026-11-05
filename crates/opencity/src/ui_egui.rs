@@ -80,6 +80,10 @@ pub enum Command {
     SaveRegion,
     /// Turn the plant or service on this tile a quarter clockwise.
     Turn((u32, u32)),
+    /// Run the city on rules from the rules editor (not saved).
+    TryRules(Arc<Ruleset>),
+    /// Write a rules set's files from the rules editor.
+    SaveRules(opencity_assets::rules::Sources),
     Quit,
 }
 
@@ -137,6 +141,7 @@ pub struct EguiUi {
     graphs: crate::graphs::Graphs,
     show_network: bool,
     show_research: bool,
+    pub rules_editor: crate::rulesedit::RulesEditor,
     show_policies: bool,
     show_region: bool,
     show_budget: bool,
@@ -234,6 +239,7 @@ impl EguiUi {
             graphs: Default::default(),
             show_network: false,
             show_research: false,
+            rules_editor: Default::default(),
             show_policies: false,
             show_region: false,
             show_budget: false,
@@ -388,6 +394,11 @@ impl EguiUi {
         if self.show_policies {
             crate::policies::window(ctx, &mut self.show_policies, view.city, &mut out);
         }
+        if self.rules_editor.open {
+            let ids: Vec<String> = view.rulesets.iter().map(|r| r.id.clone()).collect();
+            let current = view.city.rules().map(|r| r.id.clone());
+            self.rules_editor.window(ctx, &view.catalog.data_dir, &ids, current.as_deref(), &mut out);
+        }
         if self.show_research {
             crate::research::window(ctx, &mut self.show_research, view.city, &mut out);
         }
@@ -512,6 +523,13 @@ impl EguiUi {
                             out.push(Command::SetFlows(crate::flows::FlowView { on, ..view.flows.clone() }));
                         }
                         ui.checkbox(&mut self.show_network, "Resource network panel");
+                    }
+                    if view.pack.is_none()
+                        && !view.rulesets.is_empty()
+                        && ui.button("Rules editor…").on_hover_text("Edit the GlassBox rules: text with hints, or as a graph").clicked()
+                    {
+                        self.rules_editor.open = true;
+                        ui.close_menu();
                     }
                     if let Some(rules) = view.city.rules() {
                         ui.menu_button("Data layer", |ui| {

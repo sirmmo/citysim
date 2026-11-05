@@ -23,6 +23,8 @@ mod render;
 #[cfg(not(target_os = "android"))]
 mod research;
 mod roads;
+#[cfg(not(target_os = "android"))]
+mod rulesedit;
 mod ui;
 #[cfg(not(target_os = "android"))]
 mod ui_egui;
@@ -102,6 +104,10 @@ struct Args {
     /// Open the GlassBox graphs on this preset (screenshots, docs).
     #[arg(long, hide = true)]
     show_graphs: Option<String>,
+    /// Open the rules editor on the city's rules: a building, resource or
+    /// network id shows it in the graph; `text` shows the text (screenshots, docs).
+    #[arg(long, hide = true)]
+    show_rules: Option<String>,
     /// Show the resource network and its panel (screenshots, docs).
     #[arg(long, hide = true)]
     show_network: bool,
@@ -812,6 +818,31 @@ impl Game {
                 }
             }
             Command::SetFlows(v) => self.flow_view = v,
+            Command::TryRules(rules) => {
+                let name = rules.name.clone();
+                self.city.use_rules(rules);
+                self.say(format!("Trying the edited rules: {name}. Save them in the rules editor to keep them."));
+            }
+            Command::SaveRules(src) => {
+                let dir = self.base_catalog.data_dir.clone();
+                match src.write(&dir) {
+                    Ok(()) => {
+                        self.rulesets = opencity_assets::rules::load_all(&dir);
+                        let id = src.id.clone();
+                        if let Some(r) = self.rulesets.iter().find(|r| r.id == id).cloned() {
+                            if self.city.rules().is_some_and(|c| c.id == id) {
+                                self.city.use_rules(r);
+                            }
+                        }
+                        #[cfg(not(target_os = "android"))]
+                        if let Some(ui) = self.egui.as_mut() {
+                            ui.rules_editor.saved();
+                        }
+                        self.say(format!("Saved the rules {id} to {}.", dir.join("rules").display()));
+                    }
+                    Err(e) => self.say(format!("Cannot save the rules: {e}")),
+                }
+            }
             Command::Inspect(tile) => {
                 self.query = Some((self.last_mouse, tile));
                 if let Some(o) = self.city.layer.origin_of(tile.0, tile.1) {
@@ -1372,6 +1403,13 @@ async fn main() -> Result<()> {
         if let Some(gb) = game.city.glassbox.as_mut() {
             gb.researched.clear();
             gb.set_research(Some(tech));
+        }
+    }
+    #[cfg(not(target_os = "android"))]
+    if let (Some(what), Some(id)) = (&s.args.show_rules, game.city.rules().map(|r| r.id.clone())) {
+        let dir = game.base_catalog.data_dir.clone();
+        if let Some(ui) = game.egui.as_mut() {
+            ui.rules_editor.show(&dir, &id, what);
         }
     }
     if s.args.show_network {
