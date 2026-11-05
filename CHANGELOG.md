@@ -2,6 +2,12 @@
 
 Release notes in full are on the [releases page](https://github.com/sirmmo/citysim/releases).
 
+## 0.2.27: Packs
+- **Packs:** a scenario sealed with its skin and rules, as a game of its own. Use `--pack ID`, or put a `pack.toml` in the data folder. A Game menu (restart, save, quit) replaces File. Packs have no new cities, regions, imports, skin changes or cheats. The game is saved on quit and carries on at the next launch.
+- **Packs shipped:** Rail Baron and Bologna 1600.
+- **`scripts/make-pack.sh`:** turns any release download into a single-pack game.
+- **Mornings:** each month now starts at 8 in the morning, so a new city opens in daylight instead of at midnight.
+
 ## 0.2.26: 0 A.D. buildings fixed
 - **Fix:** the ancient cultures (Romans, Athenians, Gauls, Ptolemies, Han, Mauryas) show their 0 A.D. buildings again. Since 0.2.15 they fell back to OpenCity's original models.
 - **Fix:** the ancient cultures no longer offer highways, railways or stations, even when their art was baked before rail existed.

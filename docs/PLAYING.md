@@ -99,7 +99,9 @@ Click any building with the inspect tool (/) to see:
 
 **File > New scenario…** starts a game with a map, rules, money and goals.
 The 🎯 **Goals** window (in the City panel) shows how each goal is going.
-`--scenario ID` starts one from the command line.
+`--scenario ID` starts one from the command line. A **pack** goes further:
+it seals a scenario with its skin and rules, as a game of its own
+(`--pack ID`; see [PACKS.md](PACKS.md)).
 
 | Scenario | Start | Goals |
 |---|---|---|

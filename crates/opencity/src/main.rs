@@ -130,6 +130,11 @@ struct Args {
     /// Start a scenario by id (see assets/scenarios).
     #[arg(long)]
     scenario: Option<String>,
+    /// Play a pack (assets/packs/<id>.toml): its scenario with a skin and
+    /// rules that cannot be changed. A pack.toml in the data folder does
+    /// the same at every launch.
+    #[arg(long)]
+    pack: Option<String>,
     /// Play a region: open the folder (or its region.json), or create a
     /// 3×3 region of 64-tile maps there with the rules of --game-rules.
     #[arg(long)]
@@ -201,8 +206,9 @@ fn window_conf() -> macroquad::conf::Conf {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
     let s = startup();
     let (w, h) = s.args.size.unwrap_or((s.settings.window.width, s.settings.window.height));
+    let title = find_data_dir(s.args.data_dir.as_deref()).ok().and_then(|d| find_pack(&d, s.args.pack.as_deref())).map_or("OpenCity".to_owned(), |p| p.name);
     let window = Conf {
-        window_title: "OpenCity".to_owned(),
+        window_title: title,
         window_width: w as i32,
         window_height: h as i32,
         fullscreen: cfg!(target_os = "android") || (s.settings.window.fullscreen && s.args.screenshot.is_none()),
@@ -228,6 +234,15 @@ fn apk_reader(path: &Path) -> std::io::Result<Vec<u8>> {
     });
     let result = out.borrow_mut().take();
     result.unwrap_or_else(|| Err(std::io::Error::other("asset load did not complete")))
+}
+
+/// The pack to play: `--pack <id>`, else the data folder's `pack.toml`.
+fn find_pack(data_dir: &Path, id: Option<&str>) -> Option<opencity_assets::pack::Pack> {
+    let found = match id {
+        Some(id) => Some(opencity_assets::pack::Pack::load(data_dir, id)),
+        None => opencity_assets::pack::Pack::launcher(data_dir),
+    };
+    found?.map_err(|e| log::warn!("pack: {e}")).ok()
 }
 
 /// Android apps can only write to their private data directory.
@@ -357,6 +372,8 @@ struct Game {
     region: Option<region::RegionSession>,
     /// Day and night, seasons and weather on the map (View menu).
     day_night: bool,
+    /// The sealed pack being played: its skin, rules and scenario are fixed.
+    pack: Option<opencity_assets::pack::Pack>,
     #[cfg(not(target_os = "android"))]
     egui: Option<ui_egui::EguiUi>,
     /// Background 0 A.D. art installation, if running.
@@ -365,6 +382,35 @@ struct Game {
 }
 
 impl Game {
+    /// Where File > Save writes: the pack's own file while playing a pack.
+    fn save_file(&self) -> PathBuf {
+        match &self.pack {
+            Some(p) => p.save_path(&save_path()),
+            None => save_path(),
+        }
+    }
+
+    /// Whether a pack forbids this command (other cities, skins, cheats…).
+    #[cfg(not(target_os = "android"))]
+    fn pack_forbids(&self, cmd: &ui_egui::Command) -> bool {
+        use ui_egui::Command;
+        let Some(p) = &self.pack else { return false };
+        match cmd {
+            Command::NewCity(..)
+            | Command::ImportGeojson { .. }
+            | Command::SetSkin(_)
+            | Command::NewRegion { .. }
+            | Command::OpenRegion(_)
+            | Command::JoinRegion { .. }
+            | Command::RegionCity(_) => true,
+            Command::StartScenario(id) => *id != p.scenario,
+            Command::Load(path) => *path != self.save_file(),
+            Command::Cheat(_) => !p.cheats,
+            Command::SetDisasters(_) | Command::Strike(_) => !p.disaster_menu,
+            _ => false,
+        }
+    }
+
     fn say(&mut self, m: impl Into<String>) {
         self.message = Some((m.into(), get_time() + 3.0));
     }
@@ -376,16 +422,20 @@ impl Game {
         }
     }
 
-    /// Starts a scenario: its city, rules, skin and goals.
+    /// Starts a scenario: its city, rules, skin and goals (the pack's own
+    /// skin and rules for the pack's scenario).
     fn start_scenario(&mut self, id: &str) {
         let dir = self.base_catalog.data_dir.clone();
-        let built =
-            opencity_assets::scenario::load(&dir, id).and_then(|s| opencity_assets::scenario::build(&dir, &s, self.base_catalog.footprints()).map(|c| (s, c)));
+        let scenario = match self.pack.as_ref().filter(|p| p.scenario == id) {
+            Some(p) => p.scenario(&dir),
+            None => opencity_assets::scenario::load(&dir, id),
+        };
+        let built = scenario.and_then(|s| opencity_assets::scenario::build(&dir, &s, self.base_catalog.footprints()).map(|c| (s, c)));
         match built {
             Ok((s, c)) => {
                 self.region = None;
                 self.overlay = None;
-                self.skin_choice = s.start.skin.clone().map(Some);
+                self.skin_choice = s.start.skin.clone().map(|k| (k != "none").then_some(k));
                 self.set_city(c);
                 self.message = Some((format!("{}: {}", s.name, s.description), get_time() + 10.0));
             }
@@ -570,6 +620,10 @@ impl Game {
                 self.ui.menu_open = false;
                 let s = startup();
                 match item {
+                    MenuItem::New if self.pack.is_some() => {
+                        let id = self.pack.as_ref().map(|p| p.scenario.clone()).unwrap_or_default();
+                        self.start_scenario(&id);
+                    }
                     MenuItem::New => match new_city(&s.settings, macroquad::rand::rand() as u64, &self.catalog) {
                         Ok(c) => {
                             self.set_city(c);
@@ -577,11 +631,11 @@ impl Game {
                         }
                         Err(e) => self.say(format!("Cannot create city: {e}")),
                     },
-                    MenuItem::Save => match save_city(&self.city, &save_path()) {
-                        Ok(()) => self.say(format!("Saved to {}", save_path().display())),
+                    MenuItem::Save => match save_city(&self.city, &self.save_file()) {
+                        Ok(()) => self.say(format!("Saved to {}", self.save_file().display())),
                         Err(e) => self.say(format!("Save failed: {e:#}")),
                     },
-                    MenuItem::Load => match load_city(&save_path(), &self.catalog) {
+                    MenuItem::Load => match load_city(&self.save_file(), &self.catalog) {
                         Ok(c) => {
                             self.set_city(c);
                             self.say("City loaded");
@@ -599,6 +653,10 @@ impl Game {
     #[cfg(not(target_os = "android"))]
     fn run_command(&mut self, cmd: ui_egui::Command) -> bool {
         use ui_egui::Command;
+        if self.pack_forbids(&cmd) {
+            self.say("Not in this game");
+            return true;
+        }
         match cmd {
             Command::Act(a) => return self.handle_action(a),
             Command::SetSpeed(s) => self.city.speed = s,
@@ -678,6 +736,12 @@ impl Game {
             }
             Command::Quit => {
                 self.region_store();
+                // A pack carries on where it was left.
+                if self.pack.is_some() {
+                    if let Err(e) = save_city(&self.city, &self.save_file()) {
+                        log::warn!("pack save: {e:#}");
+                    }
+                }
                 return false;
             }
             Command::NewRegion { name, size, map_size, rules } => self.region_new(&name, size, map_size, rules),
@@ -815,7 +879,8 @@ impl Game {
                 hover: self.hover,
                 query: self.query.map(|(_, t)| t),
                 message: message.as_deref(),
-                save_path: save_path(),
+                save_path: self.save_file(),
+                pack: self.pack.as_ref(),
                 skin: self.skin.as_ref(),
                 skins: &self.skins,
                 skin_choice: &self.skin_choice,
@@ -1101,6 +1166,7 @@ async fn main() -> Result<()> {
         flow_hover: None,
         region: None,
         day_night: true,
+        pack: find_pack(&data_dir, s.args.pack.as_deref()),
         #[cfg(not(target_os = "android"))]
         egui: (!s.args.classic_ui).then(|| ui_egui::EguiUi::new(&s.settings.map)),
         // Never in automated runs (screenshots, benchmarks, CI).
@@ -1138,7 +1204,7 @@ async fn main() -> Result<()> {
         game.city.date.month = m.clamp(1, 12);
     }
     if let Some(h) = s.args.at_hour {
-        game.city.date.day = ((h.rem_euclid(24.0) / 24.0 * 30.0) as u32 + 1).min(30);
+        game.city.date.day = (((h - opencity_core::city::DAWN_HOUR as f32).rem_euclid(24.0) / 24.0 * 30.0) as u32 + 1).min(30);
     }
     if let Some(w) = &s.args.weather {
         use opencity_core::city::Weather;
@@ -1165,7 +1231,25 @@ async fn main() -> Result<()> {
             ui.open_region();
         }
     }
-    if let Some(id) = &s.args.scenario {
+    if let Some(pack) = game.pack.clone() {
+        log::info!("pack: {}", pack.name);
+        game.start_scenario(&pack.scenario);
+        // Carry on from the pack's save, in the pack's skin.
+        let saved = game.save_file();
+        if saved.is_file() && s.args.load.is_none() {
+            match load_city(&saved, &game.catalog) {
+                Ok(c) => {
+                    game.set_city(c);
+                    game.say(format!("Welcome back to {}", pack.name));
+                }
+                Err(e) => game.say(format!("Cannot open the saved game: {e:#}")),
+            }
+        }
+        #[cfg(not(target_os = "android"))]
+        if let Some(ui) = game.egui.as_mut() {
+            ui.open_goals();
+        }
+    } else if let Some(id) = &s.args.scenario {
         game.start_scenario(id);
         #[cfg(not(target_os = "android"))]
         if let Some(ui) = game.egui.as_mut() {

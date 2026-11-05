@@ -5,6 +5,7 @@
 | [PLAYING.md](PLAYING.md) | Starting a city, controls, building, research, taxes and policies, overlays, graphs, saving |
 | [RULES.md](RULES.md) | The GlassBox rules files: resources, networks, vehicles, layers, zones, units, services, growth, tech trees, taxes and policies |
 | [GLASSBOX.md](GLASSBOX.md) | The GlassBox rule language (`.gbx`): `unitRule`, `mapRule`, `zoneRule`, `agentRule`, metrics |
+| [PACKS.md](PACKS.md) | Packs: one scenario sealed with its skin and rules, shipped as a game of its own |
 | [SKINS.md](SKINS.md) | Era and world skins: colours, names, tools, icons, models; the 0 A.D. cultures |
 | [GEOJSON.md](GEOJSON.md) | Building cities from OpenHistoryMap, OpenHistoricalMap and OpenFantasyMap data, and exporting them |
 | [MCP.md](MCP.md) | `opencity-cli mcp`: a local MCP server so AI assistants can build, run and inspect cities |
@@ -21,6 +22,8 @@ assets/
   techs/<id>.toml        tech trees, named by a rules file's tech_tree
   policies/<id>.toml     taxes and policies, named by a rules file's policy_set
   skins/                 era and world skins
+  scenarios/<id>.toml    scenarios: a starting city and goals
+  packs/<id>.toml        packs: a scenario sealed with a skin and rules
   models/kenney/         CC0 Kenney car, train and watercraft models (.obj)
   graphism/, sound/ …    OpenCity's original art and sounds
 ```

@@ -367,6 +367,28 @@ meshes = ["kenney/car-kit/delivery",
       language in <a href="https://github.com/sirmmo/citysim/blob/main/docs/GLASSBOX.md">GLASSBOX.md</a>.</p>
     <div class="split" style="margin-top:40px">
       <div>
+        <div class="tag">Packs</div>
+        <h3 style="font-size:22px;margin:0 0 8px">Ship one campaign as a game</h3>
+        <p style="color:var(--muted)">A pack seals a scenario with its skin and rules. The game opens
+          straight into it, the look and rules cannot be changed, and progress is saved on quit.
+          <code>scripts/make-pack.sh</code> turns any release into a single-pack download for a class, a
+          museum or a game jam. See <a href="https://github.com/sirmmo/citysim/blob/main/docs/PACKS.md">PACKS.md</a>.</p>
+      </div>
+<pre><code># assets/packs/bologna-1600.toml
+name = "Bologna 1600"
+scenario = "bologna-1600"
+skin = "renaissance"
+rules = "pre-industrial"
+disaster_menu = true
+
+# play it
+opencity --pack bologna-1600
+# or seal a release to it
+scripts/make-pack.sh bologna-1600 \
+  citysim-v0.2.27-x86_64-pc-windows-msvc.zip</code></pre>
+    </div>
+    <div class="split" style="margin-top:40px">
+      <div>
         <div class="tag">MCP</div>
         <h3 style="font-size:22px;margin:0 0 8px">Let an assistant play</h3>
         <p style="color:var(--muted)"><code>opencity-cli mcp</code> is a local Model Context Protocol server. Claude Code,
@@ -438,6 +460,7 @@ claude mcp add citysim \
       <a href="https://github.com/sirmmo/citysim/releases">releases page</a> and in the
       <a href="https://github.com/sirmmo/citysim/blob/main/CHANGELOG.md">changelog</a>.</p>
     <ul class="news">
+      <li><b>0.2.27</b>Packs: one scenario sealed with its skin and rules, shipped as a game of its own.</li>
       <li><b>0.2.26</b>Fix: the ancient cultures show their 0 A.D. buildings again.</li>
       <li><b>0.2.25</b>Day and night, seasons and weather: snowy winters, golden autumns, storms that feed fires.</li>
       <li><b>0.2.24</b>Region server: play a region with friends, one town each; trade and ideas cross the borders.</li>

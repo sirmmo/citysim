@@ -23,6 +23,8 @@ pub const INDUSTRIAL_TAX: u32 = 9;
 pub const INCOME_HELP: u32 = 10;
 /// Simulated milliseconds per in-game day.
 pub const MS_PER_DAY: f64 = 1750.0;
+/// The hour of the 1st of each month (see [`City::hour`]).
+pub const DAWN_HOUR: f64 = 8.0;
 /// Years of history kept for the graphs.
 pub const HISTORY_LEN: usize = 20;
 pub const TERRAIN_COST: u32 = 5;
@@ -917,10 +919,11 @@ impl City {
     }
 
     /// The hour shown by day and night, 0 to 24. A game day passes in under
-    /// two seconds, so the light turns once a month instead.
+    /// two seconds, so the light turns once a month instead, from 8 in the
+    /// morning on the 1st (a new city opens in daylight).
     pub fn hour(&self) -> f32 {
         let month = (self.date.day.saturating_sub(1) as f64 + self.day_clock_ms / MS_PER_DAY) / 30.0;
-        (month * 24.0) as f32 % 24.0
+        (month * 24.0 + DAWN_HOUR) as f32 % 24.0
     }
 
     pub fn season(&self) -> Season {

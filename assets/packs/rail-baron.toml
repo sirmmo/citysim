@@ -1,0 +1,8 @@
+# A pack seals a scenario with its skin and rules. Run it with
+# `opencity --pack rail-baron`, or copy it to <data>/pack.toml (see
+# scripts/make-pack.sh) for a game that only plays this. See docs/PACKS.md.
+name = "Rail Baron"
+description = "Two valleys, one long map: research railways and link the towns."
+scenario = "rail-baron"
+skin = "modern"
+rules = "glassbox"

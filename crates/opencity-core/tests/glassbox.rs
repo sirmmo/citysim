@@ -905,6 +905,7 @@ fn ideas_spread_across_a_region() {
 fn seasons_and_weather_turn() {
     use opencity_core::city::{Season, Weather};
     let mut c = City::new(Terrain::flat(16, 16), None, Footprints::builtin(), 4);
+    assert!((6.0..18.0).contains(&c.hour()), "a new city opens in daylight, not at {}", c.hour());
     let mut seen: Vec<(Season, Weather)> = Vec::new();
     for _ in 0..(30 * 24) {
         c.update(opencity_core::city::MS_PER_DAY);

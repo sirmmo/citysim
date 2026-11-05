@@ -1,0 +1,7 @@
+# Bologna in 1600, as a sealed game: Renaissance look, pre-industrial rules.
+name = "Bologna 1600"
+description = "The centre of Bologna in 1600: bring printing to the town and keep it fed."
+scenario = "bologna-1600"
+skin = "renaissance"
+rules = "pre-industrial"
+disaster_menu = true

@@ -92,6 +92,8 @@ pub struct View<'a> {
     pub query: Option<(u32, u32)>,
     pub message: Option<&'a str>,
     pub save_path: PathBuf,
+    /// The sealed pack being played, if any: its menus are locked.
+    pub pack: Option<&'a opencity_assets::pack::Pack>,
     pub skin: Option<&'a Skin>,
     pub skins: &'a [Skin],
     pub skin_choice: &'a Option<Option<String>>,
@@ -359,7 +361,9 @@ impl EguiUi {
     pub fn show(&mut self, ctx: &egui::Context, view: &View) -> Vec<Command> {
         self.style(ctx, view.skin);
         let mut out = Vec::new();
-        self.cheat_box(ctx, &mut out);
+        if view.pack.is_none_or(|p| p.cheats) {
+            self.cheat_box(ctx, &mut out);
+        }
         self.menu_bar(ctx, view, &mut out);
         self.tools(ctx, view, &mut out);
         if self.show_city {
@@ -398,67 +402,89 @@ impl EguiUi {
         let city = view.city;
         egui::TopBottomPanel::top("menu").show(ctx, |ui| {
             egui::menu::bar(ui, |ui| {
-                ui.menu_button("File", |ui| {
-                    if ui.button("New city…").clicked() {
-                        self.dialog = Dialog::NewCity;
-                        ui.close_menu();
-                    }
-                    if ui.button("New scenario…").clicked() {
-                        self.scenarios = opencity_assets::scenario::load_all(&view.catalog.data_dir);
-                        self.scenario_pick = 0;
-                        self.dialog = Dialog::NewScenario;
-                        ui.close_menu();
-                    }
-                    if ui.button("Open…").clicked() {
-                        self.path = view.save_path.display().to_string();
-                        self.dialog = Dialog::Open;
-                        ui.close_menu();
-                    }
-                    if ui.button("Save").clicked() {
-                        out.push(Command::Save(view.save_path.clone()));
-                        ui.close_menu();
-                    }
-                    if ui.button("Save as…").clicked() {
-                        self.path = view.save_path.display().to_string();
-                        self.dialog = Dialog::SaveAs;
-                        ui.close_menu();
-                    }
-                    ui.separator();
-                    if ui.button("New region…").clicked() {
-                        self.dialog = Dialog::NewRegion;
-                        ui.close_menu();
-                    }
-                    if ui.button("Open region…").clicked() {
-                        self.path = crate::region::regions_dir(&view.save_path).display().to_string();
-                        self.dialog = Dialog::OpenRegion;
-                        ui.close_menu();
-                    }
-                    if ui.button("Join region server…").clicked() {
-                        self.dialog = Dialog::JoinRegion;
-                        ui.close_menu();
-                    }
-                    if view.region.is_some() && ui.button("Save region").clicked() {
-                        out.push(Command::SaveRegion);
-                        ui.close_menu();
-                    }
-                    ui.separator();
-                    if ui.button("Import GeoJSON…").clicked() {
-                        self.path.clear();
-                        self.dialog = Dialog::Import;
-                        ui.close_menu();
-                    }
-                    if ui.button("Export GeoJSON…").clicked() {
-                        self.path = "city.geojson".into();
-                        self.dialog = Dialog::Export;
-                        ui.close_menu();
-                    }
-                    ui.separator();
-                    if ui.button("Quit").clicked() {
-                        out.push(Command::Quit);
-                    }
-                });
+                if let Some(pack) = view.pack {
+                    ui.menu_button("Game", |ui| {
+                        if ui.button(format!("Restart {}", pack.name)).on_hover_text(&pack.description).clicked() {
+                            out.push(Command::StartScenario(pack.scenario.clone()));
+                            ui.close_menu();
+                        }
+                        if ui.button("Save").clicked() {
+                            out.push(Command::Save(view.save_path.clone()));
+                            ui.close_menu();
+                        }
+                        if ui.button("Back to the last save").clicked() {
+                            out.push(Command::Load(view.save_path.clone()));
+                            ui.close_menu();
+                        }
+                        ui.separator();
+                        if ui.button("Save and quit").clicked() {
+                            out.push(Command::Quit);
+                        }
+                    });
+                }
+                if view.pack.is_none() {
+                    ui.menu_button("File", |ui| {
+                        if ui.button("New city…").clicked() {
+                            self.dialog = Dialog::NewCity;
+                            ui.close_menu();
+                        }
+                        if ui.button("New scenario…").clicked() {
+                            self.scenarios = opencity_assets::scenario::load_all(&view.catalog.data_dir);
+                            self.scenario_pick = 0;
+                            self.dialog = Dialog::NewScenario;
+                            ui.close_menu();
+                        }
+                        if ui.button("Open…").clicked() {
+                            self.path = view.save_path.display().to_string();
+                            self.dialog = Dialog::Open;
+                            ui.close_menu();
+                        }
+                        if ui.button("Save").clicked() {
+                            out.push(Command::Save(view.save_path.clone()));
+                            ui.close_menu();
+                        }
+                        if ui.button("Save as…").clicked() {
+                            self.path = view.save_path.display().to_string();
+                            self.dialog = Dialog::SaveAs;
+                            ui.close_menu();
+                        }
+                        ui.separator();
+                        if ui.button("New region…").clicked() {
+                            self.dialog = Dialog::NewRegion;
+                            ui.close_menu();
+                        }
+                        if ui.button("Open region…").clicked() {
+                            self.path = crate::region::regions_dir(&view.save_path).display().to_string();
+                            self.dialog = Dialog::OpenRegion;
+                            ui.close_menu();
+                        }
+                        if ui.button("Join region server…").clicked() {
+                            self.dialog = Dialog::JoinRegion;
+                            ui.close_menu();
+                        }
+                        if view.region.is_some() && ui.button("Save region").clicked() {
+                            out.push(Command::SaveRegion);
+                            ui.close_menu();
+                        }
+                        ui.separator();
+                        if ui.button("Import GeoJSON…").clicked() {
+                            self.path.clear();
+                            self.dialog = Dialog::Import;
+                            ui.close_menu();
+                        }
+                        if ui.button("Export GeoJSON…").clicked() {
+                            self.path = "city.geojson".into();
+                            self.dialog = Dialog::Export;
+                            ui.close_menu();
+                        }
+                        ui.separator();
+                        if ui.button("Quit").clicked() {
+                            out.push(Command::Quit);
+                        }
+                    });
+                }
                 if let (Some(gb), Some(rules)) = (&city.glassbox, city.rules()) {
-                    if !rules.disasters.is_empty() {
+                    if !rules.disasters.is_empty() && view.pack.is_none_or(|p| p.disaster_menu) {
                         ui.menu_button("Disasters", |ui| {
                             let mut on = !gb.disasters_off;
                             if ui.checkbox(&mut on, "Disasters strike by chance").changed() {
@@ -501,23 +527,25 @@ impl EguiUi {
                             }
                         });
                     }
-                    ui.menu_button("Skin", |ui| {
-                        if ui.radio(view.skin_choice.is_none(), "Automatic (era / world)").clicked() {
-                            out.push(Command::SetSkin(None));
-                            ui.close_menu();
-                        }
-                        if ui.radio(*view.skin_choice == Some(None), "Classic (none)").clicked() {
-                            out.push(Command::SetSkin(Some(None)));
-                            ui.close_menu();
-                        }
-                        for s in view.skins {
-                            let chosen = *view.skin_choice == Some(Some(s.id.clone()));
-                            if ui.radio(chosen, &s.name).on_hover_text(&s.description).clicked() {
-                                out.push(Command::SetSkin(Some(Some(s.id.clone()))));
+                    if view.pack.is_none() {
+                        ui.menu_button("Skin", |ui| {
+                            if ui.radio(view.skin_choice.is_none(), "Automatic (era / world)").clicked() {
+                                out.push(Command::SetSkin(None));
                                 ui.close_menu();
                             }
-                        }
-                    });
+                            if ui.radio(*view.skin_choice == Some(None), "Classic (none)").clicked() {
+                                out.push(Command::SetSkin(Some(None)));
+                                ui.close_menu();
+                            }
+                            for s in view.skins {
+                                let chosen = *view.skin_choice == Some(Some(s.id.clone()));
+                                if ui.radio(chosen, &s.name).on_hover_text(&s.description).clicked() {
+                                    out.push(Command::SetSkin(Some(Some(s.id.clone()))));
+                                    ui.close_menu();
+                                }
+                            }
+                        });
+                    }
                     if ui.button("Reset camera").clicked() {
                         out.push(Command::ResetCamera);
                         ui.close_menu();

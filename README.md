@@ -223,6 +223,13 @@ Street junctions keep the original crossing models; each kind of road has
 its own width and surface.
 See [docs/GEOJSON.md](docs/GEOJSON.md).
 
+## Packs
+
+A pack seals a scenario with a skin and rules that cannot be changed, and
+makes it a game of its own: `opencity --pack bologna-1600`, or
+`scripts/make-pack.sh` to turn a release into a single-pack download. See
+[docs/PACKS.md](docs/PACKS.md).
+
 ## AI assistants (MCP)
 
 `opencity-cli mcp` is a local [MCP](https://modelcontextprotocol.io) server:
