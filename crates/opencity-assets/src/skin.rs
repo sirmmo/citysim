@@ -277,7 +277,7 @@ mod tests {
         assert_eq!(Skin::select(&skins, None, None, None).map(|s| s.id.as_str()), Some("modern"));
         let modern = skins.iter().find(|s| s.id == "modern").unwrap();
         assert!(modern.models.len() >= 28, "missing Kenney models: {}", modern.models.len());
-        assert!(modern.models.values().all(|p| p.extension().is_some_and(|e| e == "obj")));
+        assert!(modern.models.values().all(|p| p.extension().is_some_and(|e| e == "obj" || e == "compose")));
         assert_eq!(Skin::select(&skins, None, Some(1600), Some("Eldoria")).map(|s| s.id.as_str()), Some("fantasy"));
         assert_eq!(Skin::select(&skins, Some("industrial"), None, None).map(|s| s.id.as_str()), Some("industrial"));
         let r = Skin::select(&skins, None, Some(1600), None).unwrap();

@@ -30,7 +30,7 @@ keys group it in the new-city dialog.
 | `look.vehicles` | Hide cars, e.g. before 1900 or in a fantasy world |
 | `[labels]` | Tool names, by tool id (`coal_plant = "Watermill"`) |
 | `disabled_tools` | Tools that do not exist in that era or world |
-| `[models]` | Graphic code to replacement model: `.ac` (AC3D) or `.obj` (Wavefront, e.g. Kenney kits). A path starting with `models/` is shared art under the data folder; any other path is relative to the skin folder |
+| `[models]` | Graphic code to replacement model: `.ac` (AC3D), `.obj` (Wavefront, e.g. Kenney kits) or `.compose` (a model composed from parts, below). A path starting with `models/` is shared art under the data folder; any other path is relative to the skin folder |
 | any file under the skin folder | Replaces the base file with the same relative path, e.g. `skins/fantasy/graphism/gui/road.png` |
 
 Tool ids: `residential`, `commercial`, `industrial`, `road` (asphalt
@@ -47,6 +47,45 @@ Replacement models keep the footprint of the model they replace, because the
 simulation uses the base catalog's sizes. `.obj` models are scaled evenly to
 fit that footprint, centred on it, and textured with the `colormap.png` next
 to them.
+
+## Composed models
+
+A `.compose` file (TOML) builds a model from parts, so the buildings drawn
+with it are not all alike. It lists **slots**; each slot has parts to pick
+from (`""` is no part) and optionally colour tints. Every building gets one
+combination, picked by its tile, so it keeps its look.
+
+```toml
+variants = 16                     # combinations used at most (default 12)
+
+[[slot]]                          # the house, at the back of the plot
+parts = ["../kenney/city-suburban/building-type-h.obj", "../kenney/city-suburban/building-type-e.obj"]
+size = [0.82, 0.64]               # fitted evenly into this box, in tiles
+at = [0.09, 0.0, 0.05]            # then moved by this much (x, y, z)
+tints = [[1, 1, 1], [1.0, 0.93, 0.86], [0.9, 0.95, 1.0]]
+
+[[slot]]                          # a tree in the front yard, or nothing
+parts = ["", "../../graphism/tree/fir1/fir1.ac"]
+size = [0.24, 0.24]
+at = [0.05, 0.0, 0.71]
+```
+
+- **Paths** are relative to the `.compose` file.
+- **Fitting:** a part with `size` is scaled evenly into that box. Without
+  it, an `.obj` part fills the building's footprint and an `.ac` part keeps
+  its own size, like whole models.
+- **Front:** buildings face +z (the far end of the plot from the origin),
+  where the street usually is.
+- **Variants:** with many combinations, `variants` of them are used,
+  spread so they differ in every slot.
+- A `.conf` next to the `.compose` file gives its name and size like any
+  model's.
+
+![Composed houses in the modern skin](composed.png)
+
+The modern skin draws its little houses (11) and family houses (12) this
+way, from `models/composed/`: one of several Kenney houses, tinted, with a
+tree and a parked car or neither.
 
 ## Shipped examples
 

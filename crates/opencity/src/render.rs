@@ -106,9 +106,15 @@ struct Model {
     gpu: Vec<GpuMesh>,
 }
 
+/// A model and its variant (composed models have several, see
+/// `opencity_assets::compose`; others only 0).
+type ModelKey = (GraphicCode, u16);
+
 pub struct Renderer {
     catalog: Catalog,
-    models: HashMap<GraphicCode, Option<Model>>,
+    models: HashMap<ModelKey, Option<Model>>,
+    /// Variants of each composed model (1 for the others).
+    variants: HashMap<GraphicCode, u16>,
     /// Vehicles drawn from boxes (walkers, carts), built on first use.
     vehicle_meshes: HashMap<opencity_core::traffic::VehicleKind, Option<Mesh>>,
     /// `.obj` vehicle models by path under `<data>/models/` (None: missing).
@@ -130,7 +136,7 @@ pub struct Renderer {
     /// Light, sky and ground of the hour, season and weather.
     pub atmosphere: Atmosphere,
     /// Buildings grouped by model: GPU instance buffers, or CPU matrices.
-    instances: Vec<(GraphicCode, Option<macroquad::miniquad::BufferId>, Vec<Instance>)>,
+    instances: Vec<(ModelKey, Option<macroquad::miniquad::BufferId>, Vec<Instance>)>,
 }
 
 /// Makes a texture repeat (road surfaces run along the whole ribbon).
@@ -165,6 +171,7 @@ impl Renderer {
             models: HashMap::new(),
             vehicle_meshes: HashMap::new(),
             obj_meshes: HashMap::new(),
+            variants: HashMap::new(),
             atmosphere: Atmosphere::default(),
             textures: HashMap::new(),
             palette,
@@ -190,6 +197,7 @@ impl Renderer {
                 m.gpu.into_iter().for_each(|x| g.delete(x));
             }
         }
+        self.variants.clear();
         self.terrain_key = None;
         self.scene_key = None;
     }
@@ -244,18 +252,33 @@ impl Renderer {
         self.texture(&p)
     }
 
-    fn model(&mut self, gc: GraphicCode) -> Option<&Model> {
-        if !self.models.contains_key(&gc) {
-            let loaded = self.load_model(gc);
-            self.models.insert(gc, loaded);
+    fn model(&mut self, key: ModelKey) -> Option<&Model> {
+        if !self.models.contains_key(&key) {
+            let loaded = self.load_model(key);
+            self.models.insert(key, loaded);
         }
-        self.models.get(&gc).and_then(Option::as_ref)
+        self.models.get(&key).and_then(Option::as_ref)
     }
 
-    fn load_model(&mut self, gc: GraphicCode) -> Option<Model> {
+    /// How many variants a model has.
+    fn variant_count(&mut self, gc: GraphicCode) -> u16 {
+        if let Some(&n) = self.variants.get(&gc) {
+            return n;
+        }
+        let n = self.catalog.get(gc).map_or(1, |e| opencity_assets::compose::variants(&e.model)).clamp(1, u16::MAX as usize) as u16;
+        self.variants.insert(gc, n);
+        n
+    }
+
+    fn load_model(&mut self, (gc, variant): ModelKey) -> Option<Model> {
         let entry = self.catalog.get(gc)?;
         let (path, fp) = (entry.model.clone(), (entry.footprint.width, entry.footprint.length));
-        let model = opencity_assets::load_building_model(&path, fp).map_err(|e| log::warn!("{e}")).ok()?;
+        let model = if opencity_assets::compose::is_composed(&path) {
+            opencity_assets::compose::load_variant(&path, fp, variant as usize)
+        } else {
+            opencity_assets::load_building_model(&path, fp)
+        };
+        let model = model.map_err(|e| log::warn!("{e}")).ok()?;
         let mut cpu = Vec::new();
         for m in &model.meshes {
             let texture = m.texture.as_deref().map(|p| self.texture(p));
@@ -329,7 +352,7 @@ impl Renderer {
         self.scene_key = Some(key);
         let started = get_time();
         let t = &city.terrain;
-        let mut groups: HashMap<GraphicCode, Vec<Instance>> = HashMap::new();
+        let mut groups: HashMap<ModelKey, Vec<Instance>> = HashMap::new();
         for ((w, l), tile) in city.layer.tiles() {
             let TileKind::Main(s) = &tile.kind else { continue };
             if s.code == StructureCode::Road && !roads::uses_model(s.connections, s.road) {
@@ -337,7 +360,10 @@ impl Renderer {
             }
             let c = t.tile_corners(w, l);
             let [tc, ts, tw, tl] = crate::gpu::turn(s.facing, city.footprints().size(s.graphic));
-            groups.entry(s.graphic).or_default().push([
+            // Each plot keeps its own variant of a composed model.
+            let n = self.variant_count(s.graphic) as u32;
+            let variant = if n > 1 { (w.wrapping_mul(73_856_093) ^ l.wrapping_mul(19_349_663)) % n } else { 0 } as u16;
+            groups.entry((s.graphic, variant)).or_default().push([
                 w as f32,
                 c[0] as f32 + MODEL_LIFT,
                 l as f32,
@@ -368,7 +394,7 @@ impl Renderer {
     }
 
     fn road_texture(&mut self) -> Option<Texture2D> {
-        let tex = self.model(ROAD_TEXTURE_MODEL)?.cpu.iter().find_map(|m| m.texture.clone())?;
+        let tex = self.model((ROAD_TEXTURE_MODEL, 0))?.cpu.iter().find_map(|m| m.texture.clone())?;
         repeat(&tex);
         Some(tex)
     }
@@ -491,7 +517,7 @@ impl Renderer {
         self.obj_meshes.get(name)?.as_ref()
     }
 
-    fn draw_model_cpu(&mut self, gc: GraphicCode, matrix: Mat4) {
+    fn draw_model_cpu(&mut self, gc: ModelKey, matrix: Mat4) {
         if self.model(gc).is_none() {
             return;
         }
@@ -527,7 +553,7 @@ impl Renderer {
             None => {
                 self.terrain.draw(None);
                 self.roads.draw(None);
-                let items: Vec<(GraphicCode, Mat4)> =
+                let items: Vec<(ModelKey, Mat4)> =
                     self.instances.iter().flat_map(|(gc, _, list)| list.iter().map(move |i| (*gc, instance_matrix(i)))).collect();
                 for (gc, m) in items {
                     self.draw_model_cpu(gc, m);
@@ -566,7 +592,7 @@ impl Renderer {
                 continue;
             }
             match v.kind.graphic() {
-                Some(gc) => self.draw_model_cpu(gc, m),
+                Some(gc) => self.draw_model_cpu((gc, 0), m),
                 None => {
                     if let Some(mesh) = self.vehicle_meshes.entry(v.kind).or_insert_with(|| crate::vehicles::mesh(v.kind)) {
                         let gl = unsafe { get_internal_gl() }.quad_gl;

@@ -2,6 +2,10 @@
 
 Release notes in full are on the [releases page](https://github.com/sirmmo/citysim/releases).
 
+## 0.2.39: Composed models
+- **Models composed from parts.** A `.compose` file builds a model from slots of parts to pick from, with colour tints. Every building gets its own combination, picked by its tile, so streets stop repeating one house (docs/SKINS.md#composed-models).
+- The modern skin's little houses and family houses now vary from plot to plot: one of several Kenney houses, tinted, with a tree or a parked car in the yard.
+
 ## 0.2.38: Metro
 - **Metro** (modern GlassBox rules, after the new **Metro** research project). The **Metro line** tool bores tunnels underground, under streets, buildings or open land. **Metro stations** go over a tunnel or beside it.
 - Stations on one run of tunnels link the places around them at three times street speed, and traffic never slows them.

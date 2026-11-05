@@ -18,8 +18,10 @@ vehicles = true
 # Services, the nuclear plant and the park keep OpenCity's models.
 [models]
 # Residential: house_1..3, townhouse_1..3, tower_1..3 (GlassBox units).
-11 = "models/kenney/city-suburban/building-type-h.obj"
-12 = "models/kenney/city-suburban/building-type-a.obj"
+# Houses are composed from parts (models/composed/*.compose): one of
+# several houses, tints, trees and parked cars, picked per plot.
+11 = "models/composed/house_small.compose"
+12 = "models/composed/house_family.compose"
 13 = "models/kenney/city-suburban/building-type-c.obj"
 14 = "models/kenney/city-suburban/building-type-b.obj"
 15 = "models/kenney/city-suburban/building-type-n.obj"

@@ -1,0 +1,20 @@
+# Family house: a house from the Kenney suburban kit at the back of the plot,
+# with a tree or nothing on one side of the front yard and a car or nothing
+# on the other (see crates/opencity-assets/src/compose.rs). CC0 parts.
+variants = 16
+
+[[slot]]
+parts = ["../kenney/city-suburban/building-type-a.obj", "../kenney/city-suburban/building-type-c.obj", "../kenney/city-suburban/building-type-b.obj"]
+size = [0.82, 0.64]
+at = [0.09, 0.0, 0.05]
+tints = [[1, 1, 1], [1.0, 0.93, 0.86], [0.9, 0.95, 1.0], [0.95, 1.0, 0.92]]
+
+[[slot]]
+parts = ["", "../../graphism/tree/fir1/fir1.ac", "../../graphism/tree/tree007/tree007.ac", "../../graphism/tree/peking-willow1/peking-willow1.ac", "../../graphism/tree/pine2/pine2.ac"]
+size = [0.24, 0.24]
+at = [0.05, 0.0, 0.71]
+
+[[slot]]
+parts = ["", "../kenney/car-kit/sedan.obj", "../kenney/car-kit/suv.obj", "../kenney/car-kit/hatchback-sports.obj", "../kenney/car-kit/van.obj"]
+size = [0.14, 0.24]
+at = [0.68, 0.0, 0.71]

@@ -7,6 +7,7 @@
 
 pub mod ac3d;
 pub mod catalog;
+pub mod compose;
 pub mod obj;
 pub mod pack;
 pub mod rules;
@@ -36,7 +37,9 @@ pub enum AssetError {
 /// Kenney kits) fitted to a footprint of `w` × `l` tiles, textured with the
 /// `colormap.png` next to it.
 pub fn load_building_model(path: &Path, footprint: (u32, u32)) -> Result<ac3d::Model, AssetError> {
-    if path.extension().is_some_and(|e| e.eq_ignore_ascii_case("obj")) {
+    if compose::is_composed(path) {
+        compose::load_variant(path, footprint, 0)
+    } else if path.extension().is_some_and(|e| e.eq_ignore_ascii_case("obj")) {
         let obj = obj::load(path)?;
         let tex = path.parent().map(|d| d.join("colormap.png")).filter(|t| read_bytes(t).is_ok());
         Ok(obj::to_building(&obj, tex, footprint))
