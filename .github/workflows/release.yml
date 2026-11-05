@@ -30,9 +30,9 @@ jobs:
         include:
           # 22.04 keeps the Linux binary compatible with older glibc versions.
           - { os: ubuntu-22.04, target: x86_64-unknown-linux-gnu, archive: tar.gz, test: true }
-          - { os: macos-14, target: aarch64-apple-darwin, archive: tar.gz, test: true }
+          - { os: macos-15, target: aarch64-apple-darwin, archive: tar.gz, test: true }
           # Intel Macs: cross-compiled on Apple Silicon (GitHub retired the macos-13 runners).
-          - { os: macos-14, target: x86_64-apple-darwin, archive: tar.gz, test: false }
+          - { os: macos-15, target: x86_64-apple-darwin, archive: tar.gz, test: false }
           - { os: windows-2022, target: x86_64-pc-windows-msvc, archive: zip, test: true }
     steps:
       - uses: actions/checkout@v4.2.2

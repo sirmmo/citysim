@@ -2,7 +2,9 @@
 
 Release notes in full are on the [releases page](https://github.com/sirmmo/citysim/releases).
 
-## 0.2.35: Buses and trams
+## 0.2.36: Buses and trams
+(0.2.35 was tagged but never published: GitHub retired the macOS runners it built on. Releases now build on macOS 15.)
+
 - **Trams:** the **Tram line** tool lays tracks in streets, and cars still use them. **Tram stops** go beside the tracks. People near two stops on one line ride between them at twice street speed.
 - **Buses:** **Bus stops** go beside any street. People near two stops on one street network ride at 1.5 times street speed.
 - A ride costs the walk and boarding, so it pays on longer trips: people reach jobs and shops farther away than they could drive to. Trams and buses run between the stops on the map.
