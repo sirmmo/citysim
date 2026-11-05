@@ -67,6 +67,8 @@ fn tags(code: StructureCode, level: u8) -> Map<String, Value> {
         Dump => ("dump", &[("landuse", "landfill")]),
         Recycling => ("recycling", &[("amenity", "recycling"), ("recycling_type", "centre")]),
         Incinerator => ("incinerator", &[("power", "plant"), ("plant:source", "waste")]),
+        BusStop => ("bus_stop", &[("highway", "bus_stop"), ("shelter", "yes")]),
+        TramStop => ("tram_stop", &[("railway", "tram_stop"), ("public_transport", "platform")]),
         Test | Part => ("ignore", &[]),
     };
     let mut m = Map::new();
@@ -96,6 +98,10 @@ pub fn export(city: &City, opts: &ExportOptions) -> Value {
             props.remove("highway");
             props.insert("opencity:build".into(), "rail".into());
             props.insert("railway".into(), "rail".into());
+        }
+        if s.code == StructureCode::Road && s.road == opencity_core::RoadKind::Tram {
+            props.insert("opencity:build".into(), "tram".into());
+            props.insert("railway".into(), "tram".into());
         }
         match s.code {
             StructureCode::Road | StructureCode::PowerLine => {

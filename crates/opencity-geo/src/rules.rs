@@ -33,6 +33,9 @@ pub enum Build {
     Dump,
     Recycling,
     Incinerator,
+    Tram,
+    BusStop,
+    TramStop,
     Ignore,
 }
 
@@ -64,6 +67,9 @@ impl Build {
             "dump" => Dump,
             "recycling" => Recycling,
             "incinerator" => Incinerator,
+            "tram" => Tram,
+            "bus_stop" => BusStop,
+            "tram_stop" => TramStop,
             "ignore" => Ignore,
             _ => return None,
         })
@@ -96,6 +102,9 @@ impl Build {
             Dump => "dump",
             Recycling => "recycling",
             Incinerator => "incinerator",
+            Tram => "tram",
+            BusStop => "bus_stop",
+            TramStop => "tram_stop",
             Ignore => "ignore",
         }
     }

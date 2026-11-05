@@ -1,4 +1,5 @@
-//! Railways and waterways: lines that link the places near their stops.
+//! Railways, waterways, tram and bus lines: lines that link the places near
+//! their stops.
 //!
 //! Track is a kind of road ([`RoadKind::Rail`]) that only trains use. A
 //! station is a block building; any track tile next to it is its platform,
@@ -6,6 +7,8 @@
 //! way: a line is one connected body of water, and a harbour on its shore
 //! is the stop, with a water tile beside it as the quay. Two places near
 //! stops on the same line are linked, whatever the streets between them.
+//! Trams run on tram streets between tram stops, and buses on the streets
+//! between bus stops, the same way.
 
 use std::collections::VecDeque;
 
@@ -52,6 +55,19 @@ impl Railways {
     /// Track lines and their stations.
     pub fn find(layer: &BuildingLayer, terrain: &Terrain, footprints: &Footprints) -> Self {
         Self::build(layer, terrain, footprints, StructureCode::Station, 1, |w, l| is_track(layer, w, l))
+    }
+
+    /// Tram lines (connected tram streets) and their tram stops.
+    pub fn trams(layer: &BuildingLayer, terrain: &Terrain, footprints: &Footprints) -> Self {
+        let tram = |w, l| layer.structure_at(w, l).is_some_and(|s| s.code == StructureCode::Road && s.road == RoadKind::Tram);
+        Self::build(layer, terrain, footprints, StructureCode::TramStop, 1, tram)
+    }
+
+    /// Bus lines (each connected network of streets buildings open onto)
+    /// and their bus stops.
+    pub fn buses(layer: &BuildingLayer, terrain: &Terrain, footprints: &Footprints) -> Self {
+        let street = |w, l| layer.structure_at(w, l).is_some_and(|s| s.code == StructureCode::Road && s.road.access());
+        Self::build(layer, terrain, footprints, StructureCode::BusStop, 1, street)
     }
 
     /// Bodies of water and their harbours.

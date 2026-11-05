@@ -247,6 +247,10 @@ pub const STATION_WALK: u32 = 8;
 const STATION_TIME: f32 = 3.0;
 /// Boats cover this many tiles in the time a street takes for one.
 pub const WATER_SPEED: f32 = 2.0;
+/// Trams, in road speed units: their own tracks, right of way at lights.
+pub const TRAM_SPEED: f32 = 2.0;
+/// Buses, in road speed units: bus lanes, but stops on the way.
+pub const BUS_SPEED: f32 = 1.5;
 
 impl GlassBox {
     pub fn new(rules: Arc<Ruleset>, width: u32, length: u32) -> Self {
@@ -873,7 +877,16 @@ impl GlassBox {
         if !water.stations.is_empty() {
             fastest = fastest.max(WATER_SPEED);
         }
-        let lines = [(&rail, RoadKind::Rail.speed()), (&water, WATER_SPEED)];
+        // Tram and bus lines: stops on one tram line, or on one street
+        // network, the same way again.
+        let tram = crate::rail::Railways::trams(layer, terrain, footprints);
+        let bus = crate::rail::Railways::buses(layer, terrain, footprints);
+        for (l, speed) in [(&tram, TRAM_SPEED), (&bus, BUS_SPEED)] {
+            if !l.stations.is_empty() {
+                fastest = fastest.max(speed);
+            }
+        }
+        let lines = [(&rail, RoadKind::Rail.speed()), (&water, WATER_SPEED), (&tram, TRAM_SPEED), (&bus, BUS_SPEED)];
         let fastest = fastest.max(0.1);
         let mut trips = Vec::new();
         for root in 0..nres {
@@ -892,7 +905,7 @@ impl GlassBox {
             // Street networks joined by a railway count as one: merge their
             // components through the stations on each line.
             let mut merged: HashMap<u32, u32> = HashMap::new();
-            let station_comp: [Vec<Option<u32>>; 2] = lines.map(|(net_lines, _)| {
+            let station_comp: [Vec<Option<u32>>; 4] = lines.map(|(net_lines, _)| {
                 net_lines
                     .stations
                     .iter()
@@ -916,11 +929,11 @@ impl GlassBox {
             // Component (merged and own), road speed, highway access and the
             // nearest station (index, walk) of each unit.
             #[allow(clippy::type_complexity)]
-            let acc: Vec<Option<(u32, u32, f32, bool, [Option<(usize, u32)>; 2], (u32, u32))>> = access
+            let acc: Vec<Option<(u32, u32, f32, bool, [Option<(usize, u32)>; 4], (u32, u32))>> = access
                 .iter()
                 .map(|a| {
                     let (c, (w, l)) = (*a)?;
-                    let station = [0, 1].map(|k| lines[k].0.nearest_station((w, l), STATION_WALK).filter(|&(i, _)| station_comp[k][i].is_some()));
+                    let station = [0, 1, 2, 3].map(|k| lines[k].0.nearest_station((w, l), STATION_WALK).filter(|&(i, _)| station_comp[k][i].is_some()));
                     Some((
                         find_root(&merged, c),
                         c,
@@ -935,7 +948,7 @@ impl GlassBox {
             // foot are no quicker on a paved street) and may be kept off
             // highways.
             let vehicles = rules.vehicles_for(root);
-            let road_vehicles: Vec<_> = vehicles.iter().filter(|v| !v.ways().allows(RoadKind::Rail) && !v.ways().sails()).collect();
+            let road_vehicles: Vec<_> = vehicles.iter().filter(|v| v.door_to_door()).collect();
             let (top, highway) = if vehicles.is_empty() {
                 (f32::INFINITY, true)
             } else {
@@ -945,7 +958,8 @@ impl GlassBox {
             // vehicle for it, or lists no vehicles at all.
             let by_rail = vehicles.is_empty() || vehicles.iter().any(|v| v.ways().allows(RoadKind::Rail));
             let by_water = vehicles.is_empty() || vehicles.iter().any(|v| v.ways().sails());
-            let carried = [by_rail, by_water];
+            let on_line = |id: &str| vehicles.is_empty() || vehicles.iter().any(|v| v.line.as_deref() == Some(id));
+            let carried = [by_rail, by_water, on_line("tram"), on_line("bus")];
             let trip_length = |s: usize, i: usize, dist: u32| -> f32 {
                 let (Some(a), Some(b)) = (acc[s], acc[i]) else { return f32::INFINITY };
                 // By road, only within one street network.

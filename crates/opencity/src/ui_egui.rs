@@ -193,19 +193,21 @@ const GROUPS: &[Group] = &[
             ("road_highway", Action::Tool(Some(Tool::Highway)), "Highway", ""),
             ("road_paved_street", Action::Tool(Some(Tool::PavedStreet)), "Paved street", "P"),
             ("road_dirt_road", Action::Tool(Some(Tool::DirtRoad)), "Dirt road", ""),
+            ("bus_stop", Action::Tool(Some(Tool::BusStop)), "Bus stop", ""),
         ],
         true,
     ),
     (
-        "Rail and water",
+        "Rail",
         &[
             ("road_rail", Action::Tool(Some(Tool::Rail)), "Railway", ""),
             ("government", Action::Tool(Some(Tool::Station)), "Railway station", ""),
-            ("government", Action::Tool(Some(Tool::Harbour)), "Harbour", ""),
-            ("lower", Action::Tool(Some(Tool::Canal)), "Canal", ""),
+            ("tram_line", Action::Tool(Some(Tool::TramLine)), "Tram line", ""),
+            ("tram_stop", Action::Tool(Some(Tool::TramStop)), "Tram stop", ""),
         ],
         true,
     ),
+    ("Waterways", &[("government", Action::Tool(Some(Tool::Harbour)), "Harbour", ""), ("lower", Action::Tool(Some(Tool::Canal)), "Canal", "")], true),
     (
         "Power",
         &[
@@ -257,9 +259,21 @@ const GROUPS: &[Group] = &[
     ("Tools", &[("bulldozer", Action::Tool(Some(Tool::Destroy)), "Bulldozer", "X"), ("query", Action::Query, "Inspect", "/")], false),
 ];
 
-/// Water and waste work only under GlassBox rules.
+/// Water, waste, buses and trams work only under GlassBox rules.
 fn needs_rules(t: Tool) -> bool {
-    matches!(t, Tool::WaterPipe | Tool::PumpingStation | Tool::WaterTower | Tool::WaterTreatment | Tool::Dump | Tool::Recycling | Tool::Incinerator)
+    matches!(
+        t,
+        Tool::WaterPipe
+            | Tool::PumpingStation
+            | Tool::WaterTower
+            | Tool::WaterTreatment
+            | Tool::Dump
+            | Tool::Recycling
+            | Tool::Incinerator
+            | Tool::TramLine
+            | Tool::BusStop
+            | Tool::TramStop
+    )
 }
 
 fn tool_cost(a: Action) -> Option<u32> {
@@ -583,7 +597,7 @@ impl EguiUi {
                     }
                     let mut under = view.underground;
                     if ui
-                        .checkbox(&mut under, "Underground: water pipes (U)")
+                        .checkbox(&mut under, "Underground: water pipes (B)")
                         .on_hover_text("See the pipes under the city; the bulldozer then digs up pipes and leaves the surface")
                         .changed()
                     {
@@ -1044,7 +1058,7 @@ impl EguiUi {
                     }
                 }
                 if city.layer.has_pipe(w, l) {
-                    ui.label(RichText::new("💧 A water main runs underneath (U shows the pipes)").color(Color32::from_rgb(110, 180, 240)));
+                    ui.label(RichText::new("💧 A water main runs underneath (B shows the pipes)").color(Color32::from_rgb(110, 180, 240)));
                 }
                 ui.separator();
                 ui.label(RichText::new(format!("Tile {w}, {l} · ground height {}", city.terrain.tile_min(w, l))).small().color(Color32::GRAY));
@@ -1386,7 +1400,7 @@ fn repaint_road_icon(img: &mut image::RgbaImage, kind: opencity_core::RoadKind) 
         let mark = lum < 0.85;
         let cobble = ((x / 3) + (y / 3)) % 2 == 0;
         let base: [f32; 3] = match (kind, mark) {
-            (K::Street, _) => continue,
+            (K::Street | K::Tram, _) => continue,
             (K::Highway, false) => [95.0, 98.0, 104.0],
             (K::Highway, true) => [245.0, 245.0, 240.0],
             (K::DirtRoad, false) => [176.0, 136.0, 88.0],
@@ -1502,6 +1516,8 @@ fn kind_line(view: &View, s: &opencity_core::Structure) -> String {
     if s.code == StructureCode::Road {
         return if s.road.is_rail() {
             "Track · trains only; roads cross it on level crossings".into()
+        } else if s.road == opencity_core::RoadKind::Tram {
+            "Tram street · cars use it, and trams run between its tram stops".into()
         } else if s.road.access() {
             "Road".into()
         } else {

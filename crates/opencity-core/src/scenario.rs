@@ -21,6 +21,8 @@ pub fn demo_town(city: &mut City) {
     let (main, lane) = if modern { (Tool::Road, Tool::Road) } else { (Tool::PavedStreet, Tool::DirtRoad) };
     let highway = modern && allows(city, Tool::Highway) && w1 + 3 < width;
     let power = allows(city, Tool::PowerLine);
+    let gb = city.glassbox.is_some();
+    let (trams, buses) = (gb && allows(city, Tool::TramLine), gb && allows(city, Tool::BusStop));
     // Level the site (and the highway's strip) at its median height (at
     // least dry land), like a player would.
     let east = if highway { w1 + 3 } else { w1 };
@@ -53,6 +55,19 @@ pub fn demo_town(city: &mut City) {
             for (_, l) in (l0..l1).step_by(4).enumerate().filter(|(j, _)| (i + j) % 2 == 0) {
                 try_tool(Tool::Park, (w + 2, l + 2), (w + 2, l + 2));
             }
+        }
+    }
+    // Public transport (GlassBox rules): a tram line along the middle
+    // street with three stops, and bus stops around the grid.
+    if trams && l0 + 9 <= l1 {
+        try_tool(Tool::TramLine, (w0, l0 + 8), (w1, l0 + 8));
+        for dw in [3, 13, 23] {
+            try_tool(Tool::TramStop, (w0 + dw, l0 + 9), (0, 0));
+        }
+    }
+    if buses && l0 + 17 <= l1 {
+        for (dw, dl) in [(2, 1), (17, 1), (7, 17), (22, 17)] {
+            try_tool(Tool::BusStop, (w0 + dw, l0 + dl), (0, 0));
         }
     }
     // Mix R, C and I blocks so each zone has the others within reach.

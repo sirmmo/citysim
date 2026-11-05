@@ -45,6 +45,10 @@ pub enum StructureCode {
     Recycling = 47,
     /// Burns rubbish, making some power.
     Incinerator = 48,
+    /// Bus stop: buses link the stops along one street network.
+    BusStop = 49,
+    /// Tram stop: trams link the stops along one tram line.
+    TramStop = 50,
 }
 
 impl StructureCode {
@@ -79,6 +83,8 @@ impl StructureCode {
             46 => Dump,
             47 => Recycling,
             48 => Incinerator,
+            49 => BusStop,
+            50 => TramStop,
             _ => return None,
         })
     }
@@ -104,9 +110,14 @@ impl StructureCode {
         matches!(self, Self::PumpingStation | Self::WaterTower | Self::WaterTreatment | Self::Dump | Self::Recycling | Self::Incinerator)
     }
 
+    /// Bus and tram stops.
+    pub const fn is_stop(self) -> bool {
+        matches!(self, Self::BusStop | Self::TramStop)
+    }
+
     /// Structures placed as one fixed-size block (the size comes from the model).
     pub const fn is_block(self) -> bool {
-        self.is_power_plant() || self.is_public_service() || self.is_utility()
+        self.is_power_plant() || self.is_public_service() || self.is_utility() || self.is_stop()
     }
 
     /// Default graphic code of a freshly built structure.
@@ -137,6 +148,8 @@ impl StructureCode {
             Dump => GraphicCode::DUMP,
             Recycling => GraphicCode::RECYCLING,
             Incinerator => GraphicCode::INCINERATOR,
+            BusStop => GraphicCode::BUS_STOP,
+            TramStop => GraphicCode::TRAM_STOP,
         }
     }
 
@@ -149,7 +162,7 @@ impl StructureCode {
             CoalPlant | NuclearPlant => StructureType::Electricity,
             Road | PowerLine | WaterPipe => StructureType::Path,
             PumpingStation | WaterTower | WaterTreatment => StructureType::Water,
-            Dump | Recycling | Incinerator => StructureType::Government,
+            Dump | Recycling | Incinerator | BusStop | TramStop => StructureType::Government,
             FireDept | PoliceDept | Hospital | School | Station | Harbour => StructureType::Government,
             Flora => StructureType::Tree,
             Part | Test => StructureType::Undefined,
@@ -176,6 +189,8 @@ impl StructureCode {
             Dump => 600,
             Recycling => 1500,
             Incinerator => 2500,
+            BusStop => 150,
+            TramStop => 400,
             Test | Part => 0,
         }
     }
@@ -198,6 +213,8 @@ impl StructureCode {
             Dump => 6,
             Recycling => 15,
             Incinerator => 25,
+            BusStop => 3,
+            TramStop => 5,
         }
     }
 
@@ -214,6 +231,7 @@ impl StructureCode {
             PumpingStation | WaterTower | WaterTreatment | Dump | Recycling | Incinerator => 200,
             Part | CoalPlant | FireDept | PoliceDept | Hospital | School | Station | Harbour => 200,
             NuclearPlant => 800,
+            BusStop | TramStop => 20,
             Test => 0,
         }
     }
@@ -262,7 +280,6 @@ impl GraphicCode {
     pub const EDUCATION_DEPT: Self = Self(390);
     pub const RAIL_STATION: Self = Self(395);
     pub const HARBOUR: Self = Self(396);
-    /// First of 15 water pipe pieces, see [`path_graphic`].
     /// Surface pipe pieces of 0.2.33 (pipes now run underground, unseen).
     pub const PIPE_BASE: Self = Self(190);
     pub const PUMPING_STATION: Self = Self(380);
@@ -271,6 +288,8 @@ impl GraphicCode {
     pub const DUMP: Self = Self(383);
     pub const RECYCLING: Self = Self(384);
     pub const INCINERATOR: Self = Self(385);
+    pub const BUS_STOP: Self = Self(386);
+    pub const TRAM_STOP: Self = Self(387);
     pub const VEHICLE_STD: Self = Self(400);
     pub const VEHICLE_PICKUP: Self = Self(440);
     pub const VEHICLE_SPORT: Self = Self(441);
@@ -374,10 +393,13 @@ pub enum RoadKind {
     /// Railway track: trains only, fast, no access for buildings. Stations
     /// join it to the streets.
     Rail,
+    /// A street with tram tracks: cars use it like a street, and trams run
+    /// on it between tram stops.
+    Tram,
 }
 
 impl RoadKind {
-    pub const ALL: [RoadKind; 5] = [RoadKind::Street, RoadKind::Highway, RoadKind::DirtRoad, RoadKind::PavedStreet, RoadKind::Rail];
+    pub const ALL: [RoadKind; 6] = [RoadKind::Street, RoadKind::Highway, RoadKind::DirtRoad, RoadKind::PavedStreet, RoadKind::Rail, RoadKind::Tram];
 
     /// Stable identifier (saves, rules, skins).
     pub const fn id(self) -> &'static str {
@@ -387,6 +409,7 @@ impl RoadKind {
             Self::DirtRoad => "dirt_road",
             Self::PavedStreet => "paved_street",
             Self::Rail => "rail",
+            Self::Tram => "tram",
         }
     }
 
@@ -401,6 +424,7 @@ impl RoadKind {
             Self::DirtRoad => "Dirt road",
             Self::PavedStreet => "Paved street",
             Self::Rail => "Railway",
+            Self::Tram => "Tram street",
         }
     }
 
@@ -412,6 +436,7 @@ impl RoadKind {
             Self::DirtRoad => 1,
             Self::PavedStreet => 3,
             Self::Rail => 20,
+            Self::Tram => 15,
         }
     }
 
@@ -420,6 +445,7 @@ impl RoadKind {
         match self {
             Self::Street | Self::PavedStreet => 1,
             Self::Highway | Self::Rail => 4,
+            Self::Tram => 2,
             Self::DirtRoad => 0,
         }
     }
@@ -428,7 +454,7 @@ impl RoadKind {
     /// time a street takes for one.
     pub const fn speed(self) -> f32 {
         match self {
-            Self::Street => 1.0,
+            Self::Street | Self::Tram => 1.0,
             Self::Highway => 2.5,
             Self::DirtRoad => 0.5,
             Self::PavedStreet => 0.8,
@@ -439,7 +465,7 @@ impl RoadKind {
     /// Traffic it carries before slowing down, relative to a street.
     pub const fn capacity(self) -> f32 {
         match self {
-            Self::Street => 1.0,
+            Self::Street | Self::Tram => 1.0,
             Self::Highway => 3.0,
             Self::DirtRoad => 0.4,
             Self::PavedStreet => 0.7,
@@ -463,14 +489,14 @@ impl RoadKind {
         match self {
             Self::Highway => 4,
             Self::DirtRoad | Self::Rail => 1,
-            Self::Street | Self::PavedStreet => 2,
+            Self::Street | Self::PavedStreet | Self::Tram => 2,
         }
     }
 
     /// Paved width in tiles, for display (highways spill over their verges).
     pub const fn width(self) -> f32 {
         match self {
-            Self::Street => 1.0,
+            Self::Street | Self::Tram => 1.0,
             Self::Highway => 1.3,
             Self::DirtRoad => 0.5,
             Self::PavedStreet => 0.75,
@@ -486,6 +512,7 @@ impl RoadKind {
             Self::DirtRoad => Tool::DirtRoad,
             Self::PavedStreet => Tool::PavedStreet,
             Self::Rail => Tool::Rail,
+            Self::Tram => Tool::TramLine,
         }
     }
 }
@@ -524,10 +551,13 @@ pub enum Tool {
     Dump,
     Recycling,
     Incinerator,
+    TramLine,
+    BusStop,
+    TramStop,
 }
 
 impl Tool {
-    pub const ALL: [Tool; 31] = [
+    pub const ALL: [Tool; 34] = [
         Tool::Destroy,
         Tool::ZoneResidential,
         Tool::ZoneCommercial,
@@ -559,6 +589,9 @@ impl Tool {
         Tool::Dump,
         Tool::Recycling,
         Tool::Incinerator,
+        Tool::TramLine,
+        Tool::BusStop,
+        Tool::TramStop,
     ];
 
     /// Stable identifier, used by skins and GeoJSON rules.
@@ -595,6 +628,9 @@ impl Tool {
             Tool::Dump => "dump",
             Tool::Recycling => "recycling",
             Tool::Incinerator => "incinerator",
+            Tool::TramLine => "tram",
+            Tool::BusStop => "bus_stop",
+            Tool::TramStop => "tram_stop",
         }
     }
 
@@ -605,7 +641,7 @@ impl Tool {
             Tool::ZoneResidential => S::Residential,
             Tool::ZoneCommercial => S::Commercial,
             Tool::ZoneIndustrial => S::Industrial,
-            Tool::Road | Tool::Highway | Tool::DirtRoad | Tool::PavedStreet | Tool::Rail => S::Road,
+            Tool::Road | Tool::Highway | Tool::DirtRoad | Tool::PavedStreet | Tool::Rail | Tool::TramLine => S::Road,
             Tool::PowerLine => S::PowerLine,
             Tool::CoalPlant => S::CoalPlant,
             Tool::NuclearPlant => S::NuclearPlant,
@@ -625,6 +661,8 @@ impl Tool {
             Tool::Dump => S::Dump,
             Tool::Recycling => S::Recycling,
             Tool::Incinerator => S::Incinerator,
+            Tool::BusStop => S::BusStop,
+            Tool::TramStop => S::TramStop,
             Tool::Destroy | Tool::RaiseTerrain | Tool::LowerTerrain | Tool::Canal => return None,
         })
     }
@@ -637,6 +675,7 @@ impl Tool {
             Tool::DirtRoad => RoadKind::DirtRoad,
             Tool::PavedStreet => RoadKind::PavedStreet,
             Tool::Rail => RoadKind::Rail,
+            Tool::TramLine => RoadKind::Tram,
             _ => return None,
         })
     }
@@ -654,7 +693,7 @@ impl Tool {
             Tool::Destroy => Sound::Destroy,
             Tool::ZoneResidential | Tool::ZoneCommercial | Tool::ZoneIndustrial => Sound::Zone,
             Tool::RaiseTerrain | Tool::LowerTerrain | Tool::Canal => Sound::Terrain,
-            Tool::Road | Tool::Highway | Tool::DirtRoad | Tool::PavedStreet | Tool::Rail => Sound::Road,
+            Tool::Road | Tool::Highway | Tool::DirtRoad | Tool::PavedStreet | Tool::Rail | Tool::TramLine => Sound::Road,
             Tool::PowerLine => Sound::PowerLine,
             Tool::Park | Tool::Trees => Sound::Park,
             _ => Sound::Plant,

@@ -596,8 +596,10 @@ impl City {
             // ways; networks without vehicles get the classic cars.
             let (kind, ways, top, cost, mesh) = match gb.rules().map(|r| r.vehicles_for(t.resource)) {
                 // Trains run on their own (see `spawn_trains`).
-                Some(fit) if fit.iter().any(|v| !v.ways().allows(crate::RoadKind::Rail) && !v.ways().sails()) => {
-                    let fit: Vec<_> = fit.into_iter().filter(|v| !v.ways().allows(crate::RoadKind::Rail) && !v.ways().sails()).collect();
+                // Trains, boats, buses and trams run on their own (see
+                // `spawn_trains`, `spawn_line`).
+                Some(fit) if fit.iter().any(|v| v.door_to_door()) => {
+                    let fit: Vec<_> = fit.into_iter().filter(|v| v.door_to_door()).collect();
                     let total: f32 = fit.iter().map(|v| v.share).sum();
                     let mut x = self.rng.gen_range(0.0..total.max(1e-6));
                     let v = fit.iter().find(|v| {
@@ -627,6 +629,8 @@ impl City {
         self.glassbox = Some(gb);
         self.spawn_trains();
         self.spawn_boats();
+        self.spawn_line("tram");
+        self.spawn_line("bus");
         self.dispatch_services();
         self.respond_to_disasters();
         if let Some(gb) = &self.glassbox {
@@ -886,6 +890,38 @@ impl City {
         let mut v = Vehicle::boat(&path);
         v.mesh = Some(if meshes.is_empty() { "kenney/watercraft/ship-small".to_string() } else { meshes[self.rng.gen_range(0..meshes.len())].clone() });
         self.vehicles.push(v);
+    }
+
+    /// Buses or trams between stops on one line: about one per stop at a
+    /// time, drawn with the rules' vehicle for the line (without one, none run).
+    fn spawn_line(&mut self, id: &str) {
+        let Some(def) = self.rules().and_then(|r| r.networks.iter().flat_map(|n| &n.vehicles).find(|v| v.line.as_deref() == Some(id))).cloned() else { return };
+        let stop = if id == "tram" { StructureCode::TramStop } else { StructureCode::BusStop };
+        let running = self.vehicles.iter().filter(|v| v.line.as_deref() == Some(id)).count();
+        if self.vehicles.len() >= MAX_VEHICLES || !self.layer.structures().any(|(_, s)| s.code == stop) || self.rng.gen_range(0..6) != 0 {
+            return;
+        }
+        let lines = if id == "tram" {
+            crate::rail::Railways::trams(&self.layer, &self.terrain, &self.footprints)
+        } else {
+            crate::rail::Railways::buses(&self.layer, &self.terrain, &self.footprints)
+        };
+        let pairs = lines.connections();
+        if pairs.is_empty() || running >= lines.stations.len() {
+            return;
+        }
+        let (a, b) = pairs[self.rng.gen_range(0..pairs.len())];
+        let (from, to) = (lines.stations[a].platform, lines.stations[b].platform);
+        let ways = if id == "tram" { Ways::of([crate::RoadKind::Tram]) } else { def.ways() };
+        if let Some(path) = find_route(&self.layer, &self.terrain, from, to, crate::traffic::PathCost::Distance, &ways, def.top_speed()) {
+            if path.len() > 1 {
+                let mut v = Vehicle::new(def.kind(), &path, &self.layer, &self.terrain);
+                v.top_speed = def.speed;
+                v.mesh = (!def.meshes.is_empty()).then(|| def.meshes[self.rng.gen_range(0..def.meshes.len())].clone());
+                v.line = Some(id.to_string());
+                self.vehicles.push(v);
+            }
+        }
     }
 
     /// Services with a `dispatch` send a vehicle now and then to one of

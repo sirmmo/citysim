@@ -125,9 +125,11 @@ the industrial age.
 Water and waste come with the GlassBox rules:
 - **Water:** pumping stations, water towers and treatment plants feed the
   water pipes laid underground, under streets, buildings or open land
-  (U shows them).
+  (B shows them).
 - **Waste:** rubbish trucks from landfills, recycling centres and
   incinerators collect from the buildings around them.
+- **Buses and trams:** bus stops on the streets and tram lines laid in
+  them let people travel farther than they would drive.
 
 Bigger buildings need water, sewage treatment and rubbish collection to
 grow (see [docs/PLAYING.md](docs/PLAYING.md#building)). Tools are grouped

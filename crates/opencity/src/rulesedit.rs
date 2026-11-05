@@ -82,6 +82,15 @@ const STRUCTURES: &[&str] = &[
     "police",
     "hospital",
     "school",
+    "water_pipe",
+    "pumping_station",
+    "water_tower",
+    "water_treatment",
+    "dump",
+    "recycling",
+    "incinerator",
+    "bus_stop",
+    "tram_stop",
 ];
 
 /// GlassBox script words.
@@ -143,7 +152,7 @@ fn fields(section: &str) -> &'static [&'static str] {
         "resource.subtype" => &["id", "name", "share", "max_trip", "colour", "uses", "trail"],
         "layer" => &["id", "name", "diffusion", "decay", "colour", "max"],
         "network" => &["id", "name", "structures", "through_buildings"],
-        "network.vehicle" => &["id", "name", "model", "ways", "speed", "carries", "share", "direct", "meshes"],
+        "network.vehicle" => &["id", "name", "model", "ways", "speed", "carries", "share", "direct", "meshes", "line"],
         "unit" => &["id", "name", "description", "graphic", "produce", "needs", "sends", "emits", "requires", "build_cost", "logs", "dispatch"],
         "zone" => &["id", "name", "structure", "densities", "demand", "base_demand"],
         "growth" => &["level_up", "level_down", "chance", "max_new", "road_access", "grace", "patience", "saturation"],

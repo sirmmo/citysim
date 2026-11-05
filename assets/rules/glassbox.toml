@@ -201,6 +201,28 @@ model = "pickup"
 carries = ["waste"]
 meshes = ["kenney/car-kit/garbage-truck"]
 
+# Buses and trams run on lines between their stops (`line`), not door to
+# door: people near two stops of one line ride (docs/RULES.md#buses-and-trams).
+# Buses use the streets; trams their tram streets.
+[[network.vehicle]]
+id = "bus"
+name = "Bus"
+model = "bus"
+line = "bus"
+ways = ["street", "tram", "paved_street", "highway"]
+carries = ["workers", "shoppers"]
+share = 0
+
+[[network.vehicle]]
+id = "tram"
+name = "Tram"
+model = "car"
+line = "tram"
+ways = ["tram"]
+carries = ["workers", "shoppers"]
+share = 0
+meshes = ["kenney/train-kit/train-tram-modern", "kenney/train-kit/train-tram-classic", "kenney/train-kit/train-tram-round"]
+
 # Trains run on track between stations; places near stations on one line
 # trade as if next door (see docs/RULES.md#railways).
 [[network.vehicle]]
@@ -388,6 +410,8 @@ school = "school"
 park = "park"
 station = "station"
 harbour = "harbour"
+bus_stop = "bus_stop"
+tram_stop = "tram_stop"
 pumping_station = "pumping_station"
 water_tower = "water_tower"
 water_treatment = "water_treatment"
@@ -730,6 +754,20 @@ name = "Harbour"
 description = "Ships call here: places near harbours on one body of water trade as if next door."
 graphic = 396
 needs = { workers = 4, power = 1, upkeep = 0.4 }
+
+[[unit]]
+id = "bus_stop"
+name = "Bus stop"
+description = "Buses call here: places near stops on one street network are linked by bus."
+graphic = 386
+needs = { upkeep = 0.1 }
+
+[[unit]]
+id = "tram_stop"
+name = "Tram stop"
+description = "Trams call here: places near stops on one tram line are linked by tram."
+graphic = 387
+needs = { power = 2, upkeep = 0.2 }
 
 # Water and waste: utilities the bigger buildings need.
 [[unit]]

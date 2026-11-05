@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Generates the water and waste art: AC3D models (the buildings; pipes run underground) and
+"""Generates the water, waste and transit art: AC3D models (the buildings;
+pipes run underground) and
 sidebar icons. The models are built from simple solids in tile units (x
 east, y up, z south; a building of w x l tiles spans 0..w, 0..l), coloured
 by material, two-sided. Run from the repository root:
@@ -205,6 +206,42 @@ def incinerator():
     return m
 
 
+def bus_stop():
+    """A shelter at the back of a paved tile, the sign by the kerb (+z)."""
+    m = Model()
+    m.box(CONCRETE, 0.0, 0.0, 0.0, 1.0, 0.03, 1.0)
+    glass = (0.62, 0.78, 0.86)
+    m.box(DARK, 0.15, 0.03, 0.25, 0.85, 0.06, 0.55)  # bench plinth
+    for x in (0.15, 0.83):
+        m.box(STEEL, x, 0.03, 0.25, x + 0.02, 0.36, 0.27)
+        m.box(STEEL, x, 0.03, 0.53, x + 0.02, 0.36, 0.55)
+    m.box(glass, 0.15, 0.03, 0.24, 0.85, 0.34, 0.25)  # back pane
+    m.box(glass, 0.15, 0.03, 0.25, 0.16, 0.34, 0.55)
+    m.box(DARK, 0.12, 0.36, 0.2, 0.88, 0.39, 0.6)  # roof
+    m.box((0.82, 0.62, 0.25), 0.25, 0.06, 0.32, 0.75, 0.1, 0.42)  # bench
+    m.cylinder(STEEL, 0.9, 0.85, 0.015, 0.03, 0.5, n=6)
+    m.box((0.2, 0.45, 0.75), 0.84, 0.42, 0.84, 0.96, 0.54, 0.86, top=WHITE)
+    return m
+
+
+def tram_stop():
+    """A raised platform along the kerb with a shelter and a sign."""
+    m = Model()
+    m.box(CONCRETE, 0.0, 0.0, 0.0, 1.0, 0.03, 1.0)
+    m.box((0.70, 0.70, 0.68), 0.05, 0.03, 0.55, 0.95, 0.09, 0.98, top=(0.80, 0.80, 0.78))
+    m.box(YELLOW, 0.05, 0.09, 0.95, 0.95, 0.092, 0.98)  # edge line
+    glass = (0.62, 0.78, 0.86)
+    for x in (0.2, 0.78):
+        m.box(STEEL, x, 0.09, 0.6, x + 0.02, 0.42, 0.62)
+    m.box(glass, 0.2, 0.09, 0.59, 0.8, 0.4, 0.6)
+    m.box((0.25, 0.55, 0.35), 0.15, 0.42, 0.55, 0.85, 0.45, 0.82)  # green roof
+    m.cylinder(STEEL, 0.1, 0.9, 0.015, 0.09, 0.6, n=6)
+    m.box((0.85, 0.25, 0.20), 0.04, 0.5, 0.88, 0.16, 0.62, 0.9, top=WHITE)
+    # Ticket machine.
+    m.box(DARK, 0.85, 0.09, 0.66, 0.92, 0.3, 0.72)
+    return m
+
+
 def icons():
     try:
         from PIL import Image, ImageDraw
@@ -276,6 +313,42 @@ def icons():
     d.polygon([(20, 50), (26, 38), (32, 50)], fill=(240, 140, 40))
     save_icon("waste_incinerator", im)
 
+    grey = (170, 180, 190)
+    # Bus stop: a bus seen from the front, and the sign.
+    im, d = tile(grey)
+    d.rectangle((12, 14, 46, 52), fill=(220, 180, 50), outline=ink)
+    d.rectangle((16, 18, 42, 32), fill=(170, 210, 235), outline=ink)
+    d.rectangle((16, 40, 22, 44), fill=white)
+    d.rectangle((36, 40, 42, 44), fill=white)
+    d.rectangle((14, 52, 20, 56), fill=ink)
+    d.rectangle((38, 52, 44, 56), fill=ink)
+    d.rectangle((52, 20, 54, 56), fill=ink)
+    d.ellipse((47, 10, 59, 22), fill=(50, 110, 190), outline=white)
+    save_icon("bus_stop", im)
+    # Tram line: a street with two rails.
+    im, d = tile(grey)
+    d.rectangle((6, 18, 58, 46), fill=(90, 92, 96))
+    for y in (25, 38):
+        d.rectangle((6, y, 58, y + 2), fill=(225, 225, 230))
+    for x in range(10, 58, 9):
+        d.rectangle((x, 23, x + 3, 42), fill=(120, 100, 80))
+    for y in (25, 38):
+        d.rectangle((6, y, 58, y + 2), fill=(225, 225, 230))
+    d.line((32, 6, 32, 16), fill=ink, width=2)
+    d.line((14, 8, 50, 8), fill=ink, width=2)
+    save_icon("tram_line", im)
+    # Tram stop: a tram from the side with its pantograph.
+    im, d = tile(grey)
+    d.line((22, 12, 32, 6, 42, 12), fill=ink, width=2)
+    d.rectangle((6, 14, 58, 44), fill=(200, 50, 45), outline=ink)
+    for x in range(10, 54, 11):
+        d.rectangle((x, 18, x + 8, 28), fill=(170, 210, 235))
+    d.rectangle((6, 34, 58, 37), fill=white)
+    d.rectangle((4, 48, 60, 52), fill=(225, 225, 230))
+    for x in (14, 46):
+        d.ellipse((x - 4, 42, x + 4, 50), fill=ink)
+    save_icon("tram_stop", im)
+
 
 def main():
     save("water/pumping_station/pumping_station", pumping_station(), "Pumping station", 2, 2, 0.9, "Pumps water into the mains.")
@@ -284,6 +357,8 @@ def main():
     save("waste/dump/dump", dump(), "Landfill", 3, 3, 0.7, "Where the rubbish goes.")
     save("waste/recycling/recycling", recycling(), "Recycling centre", 2, 2, 0.66, "Sorts what can be used again.")
     save("waste/incinerator/incinerator", incinerator(), "Incinerator", 2, 2, 2.2, "Burns rubbish for power.")
+    save("transit/bus_stop/bus_stop", bus_stop(), "Bus stop", 1, 1, 0.55, "Buses call here.")
+    save("transit/tram_stop/tram_stop", tram_stop(), "Tram stop", 1, 1, 0.62, "Trams call here.")
     icons()
 
 

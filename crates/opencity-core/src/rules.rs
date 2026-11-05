@@ -225,9 +225,20 @@ pub struct VehicleDef {
     /// `.obj` files under `<data>/models/` (`"kenney/car-kit/taxi"`).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub meshes: Vec<String>,
+    /// A public transport line it runs on between stops, instead of going
+    /// door to door: `"bus"` (bus stops on the streets) or `"tram"` (tram
+    /// stops on tram streets). People near two stops of one line ride it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub line: Option<String>,
 }
 
 impl VehicleDef {
+    /// Whether it goes door to door on the roads (not trains, boats, buses
+    /// or trams, which run between stops).
+    pub fn door_to_door(&self) -> bool {
+        self.line.is_none() && !self.ways().allows(crate::RoadKind::Rail) && !self.ways().sails()
+    }
+
     pub fn kind(&self) -> crate::traffic::VehicleKind {
         crate::traffic::VehicleKind::from_id(&self.model).unwrap_or(crate::traffic::VehicleKind::Car)
     }
@@ -1177,6 +1188,8 @@ pub fn structure_code(name: &str) -> Option<StructureCode> {
         "dump" => Dump,
         "recycling" => Recycling,
         "incinerator" => Incinerator,
+        "bus_stop" => BusStop,
+        "tram_stop" => TramStop,
         _ => return None,
     })
 }

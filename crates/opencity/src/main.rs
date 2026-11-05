@@ -394,7 +394,7 @@ struct Game {
     hover: Option<(u32, u32)>,
     /// The GlassBox resource network on the map.
     flow_view: flows::FlowView,
-    /// The underground view (pipes), switched on by hand (U); water tools
+    /// The underground view (pipes), switched on by hand (B); water tools
     /// show it too.
     underground: bool,
     flow_arcs: Vec<flows::Arc>,
@@ -1039,7 +1039,7 @@ impl Game {
         if is_key_pressed(KeyCode::V) && !egui_keyboard && self.city.glassbox.is_some() {
             self.flow_view.on = !self.flow_view.on;
         }
-        if is_key_pressed(KeyCode::U) && !egui_keyboard {
+        if is_key_pressed(KeyCode::B) && !egui_keyboard {
             self.underground = !self.underground;
         }
         if is_key_pressed(KeyCode::Escape) && !egui_keyboard {

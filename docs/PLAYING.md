@@ -32,7 +32,7 @@ game see [RULES.md](RULES.md); for the documentation index see
 | O | Turn the inspected plant or service a quarter |
 | G | GlassBox graphs |
 | V | Resource network on the map |
-| U | Underground view: water pipes |
+| B | Underground view: water pipes |
 | Space, F | Pause, fast forward |
 | Esc | Drop the tool, or open the menu (new, load, save, quit) |
 
@@ -44,7 +44,7 @@ game see [RULES.md](RULES.md); for the documentation index see
 ## Building
 
 - **The sidebar:** zones and their density at the top. Below them, each
-  family of tools is one row: **Roads, Rail and water, Power, Water,
+  family of tools is one row: **Roads, Rail, Waterways, Power, Water,
   Waste, Services, Land**. The icon on the left picks the last tool you used
   from that family; the name opens a submenu beside the sidebar with all of
   them, with their prices. A row shows the tool in use. Bulldozer and
@@ -61,6 +61,7 @@ game see [RULES.md](RULES.md); for the documentation index see
   | Dirt road | $1 | 0.5 | 0.4 | Cheap, slow, narrow |
 
   | Railway | $20 | 4 | 4 | Trains only; roads cross it at level crossings |
+  | Tram line | $15 | 1 | 1 | A street with tram tracks: cars use it too |
 
   Dragging a road over another kind rebuilds it, but roads leave track alone.
 - **Railways:** lay track with the Railway tool, then put a **Railway
@@ -68,6 +69,21 @@ game see [RULES.md](RULES.md); for the documentation index see
   reach places near every other station on the same line, even in another
   town no road joins. Trains run between the stations. In the modern rules
   rail waits for the **Railways** research project; there is none before 1800.
+- **Buses and trams** (modern GlassBox rules, after the **Public
+  transport** research project):
+  - **Trams:** drag the **Tram line** tool (Rail) along streets to lay
+    tracks in them. Cars still drive there. Put **Tram stops** beside the
+    tram street. Places within 8 tiles of a stop reach places near every
+    other stop on the same line, at twice street speed.
+  - **Buses:** put **Bus stops** (Roads) beside any streets. Places near
+    two bus stops on one street network reach each other at 1.5 times
+    street speed.
+  - A ride costs the walk to and from the stops and 3 tiles' worth of
+    boarding, so it pays for longer trips: people reach work and shops
+    farther away than they could drive to. Trams and buses run between
+    the stops on the map.
+
+  ![A tram stop beside a tram street](transit.png)
 - **Plants and services** (power plants, fire stations, police, hospitals, schools, wells…):
   - **Placing:** a new one turns to face the street beside it, and the preview shows the footprint it will take.
   - **Turning:** inspect it and press **⟳ Turn**, or **O**. Long buildings swap their footprint when turned.
@@ -89,7 +105,7 @@ game see [RULES.md](RULES.md); for the documentation index see
     building gets water from a pipe under it, or under the street beside
     it, and passes it on to the buildings it touches.
 
-  **Underground view:** press **U** (or View > Underground), or pick
+  **Underground view:** press **B** (or View > Underground), or pick
   any Water tool, to fade the city and see the pipes. In this view the
   bulldozer digs up pipes and leaves everything above them; outside it,
   the bulldozer never touches pipes. The inspector says when a water

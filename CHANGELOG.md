@@ -2,6 +2,17 @@
 
 Release notes in full are on the [releases page](https://github.com/sirmmo/citysim/releases).
 
+## 0.2.35: Buses and trams
+- **Trams:** the **Tram line** tool lays tracks in streets, and cars still use them. **Tram stops** go beside the tracks. People near two stops on one line ride between them at twice street speed.
+- **Buses:** **Bus stops** go beside any street. People near two stops on one street network ride at 1.5 times street speed.
+- A ride costs the walk and boarding, so it pays on longer trips: people reach jobs and shops farther away than they could drive to. Trams and buses run between the stops on the map.
+- Modern GlassBox rules, unlocked by the new **Public transport** research project. They are not available before 1800.
+- **Sidebar:** Rail and Waterways are now separate groups. Rail has the railway, stations, tram lines and tram stops; Waterways has harbours and canals. Bus stops are under Roads.
+- The underground view moves from **U** (which raises terrain) to **B**.
+- The demo town has a tram line with three stops and four bus stops.
+- Rules: a vehicle with `line = "bus"` or `"tram"` runs between stops. New `tram` road kind, `bus` vehicle model.
+- GeoJSON imports and exports `highway=bus_stop`, `railway=tram_stop` and `railway=tram`.
+
 ## 0.2.34: Pipes underground
 - **Water pipes run underground.** Lay them under streets, buildings or open land. Streets no longer carry water by themselves, so lay mains under them.
 - **Underground view** (U, or View > Underground, and whenever a Water tool is in hand): the city fades and the pipes show through it. In this view the bulldozer digs up pipes and leaves the surface alone. Outside it, the bulldozer never touches pipes.

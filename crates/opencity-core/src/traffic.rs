@@ -47,7 +47,7 @@ pub struct Ways(u8);
 impl Ways {
     /// Every kind of road. Rail is not a road: only vehicles that name it
     /// (`ways = ["rail"]`) run on track.
-    pub const ALL: Ways = Ways(0b1_1111 & !(1 << RoadKind::Rail as u8));
+    pub const ALL: Ways = Ways(0b11_1111 & !(1 << RoadKind::Rail as u8));
     pub const RAIL: Ways = Ways(1 << RoadKind::Rail as u8);
     /// Open water: boats sail between harbours (no road kind).
     pub const WATER: Ways = Ways(1 << 7);
@@ -153,10 +153,11 @@ pub enum VehicleKind {
     Walker,
     Handcart,
     HorseCart,
+    Bus,
 }
 
 impl VehicleKind {
-    pub const ALL: [VehicleKind; 6] = [Self::Car, Self::Pickup, Self::Sports, Self::Walker, Self::Handcart, Self::HorseCart];
+    pub const ALL: [VehicleKind; 7] = [Self::Car, Self::Pickup, Self::Sports, Self::Walker, Self::Handcart, Self::HorseCart, Self::Bus];
     /// The vehicles of rules that name none (and of the classic simulation).
     pub const MOTOR: [VehicleKind; 3] = [Self::Car, Self::Pickup, Self::Sports];
 
@@ -169,6 +170,7 @@ impl VehicleKind {
             Self::Walker => "walker",
             Self::Handcart => "handcart",
             Self::HorseCart => "horse_cart",
+            Self::Bus => "bus",
         }
     }
 
@@ -218,6 +220,9 @@ pub struct Vehicle {
     /// `.obj` model it is drawn with (see `VehicleDef::meshes`).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub mesh: Option<String>,
+    /// The public transport line it serves (`"bus"`, `"tram"`), if any.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub line: Option<String>,
     pub route: Vec<Waypoint>,
     /// Index of the waypoint the vehicle is leaving.
     pub index: usize,
@@ -247,7 +252,7 @@ impl Vehicle {
                 road: layer.structure_at(w, l).map_or(RoadKind::Street, |s| s.road),
             })
             .collect();
-        Self { kind, top_speed: None, water: false, mesh: None, route, index: 0, progress: 0.0 }
+        Self { kind, top_speed: None, water: false, mesh: None, line: None, route, index: 0, progress: 0.0 }
     }
 
     /// Whether it runs on track (a train).
@@ -258,7 +263,7 @@ impl Vehicle {
     /// A boat following water tiles at the water's surface.
     pub fn boat(path: &[(u32, u32)]) -> Self {
         let route = path.iter().map(|&(w, l)| Waypoint { w, l, height_min: 0, height_max: 0, traffic: 0, road: RoadKind::Street }).collect();
-        Self { kind: VehicleKind::Car, top_speed: Some(1.2), water: true, mesh: None, route, index: 0, progress: 0.0 }
+        Self { kind: VehicleKind::Car, top_speed: Some(1.2), water: true, mesh: None, line: None, route, index: 0, progress: 0.0 }
     }
 
     /// Advances the vehicle; returns false once it has arrived.

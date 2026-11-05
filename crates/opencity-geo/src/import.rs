@@ -313,9 +313,10 @@ fn priority(b: Build) -> u8 {
         Water => 0,
         Road => 1,
         Rail => 1,
-        PowerLine | WaterPipe => 2,
+        PowerLine | WaterPipe | Tram => 2,
         CoalPlant | NuclearPlant => 3,
-        FireStation | Police | Hospital | School | Station | Harbour | PumpingStation | WaterTower | WaterTreatment | Dump | Recycling | Incinerator => 4,
+        FireStation | Police | Hospital | School | Station | Harbour | PumpingStation | WaterTower | WaterTreatment | Dump | Recycling | Incinerator
+        | BusStop | TramStop => 4,
         Residential | Commercial | Industrial => 5,
         Park => 6,
         Trees => 7,
@@ -339,7 +340,7 @@ fn code_of(b: Build) -> Option<StructureCode> {
         Police => StructureCode::PoliceDept,
         Hospital => StructureCode::Hospital,
         School => StructureCode::School,
-        Rail => StructureCode::Road,
+        Rail | Tram => StructureCode::Road,
         Station => StructureCode::Station,
         Harbour => StructureCode::Harbour,
         WaterPipe => StructureCode::WaterPipe,
@@ -349,6 +350,8 @@ fn code_of(b: Build) -> Option<StructureCode> {
         Dump => StructureCode::Dump,
         Recycling => StructureCode::Recycling,
         Incinerator => StructureCode::Incinerator,
+        BusStop => StructureCode::BusStop,
+        TramStop => StructureCode::TramStop,
         Water | Ignore => return None,
     })
 }
@@ -386,6 +389,8 @@ fn place(city: &mut City, c: &Classified, tiles: &[(u32, u32)], rules: &Rules) -
     for &(w, l) in tiles {
         let built = if c.build == Build::Rail {
             layer.build_road(Rect::tile(w, l), opencity_core::RoadKind::Rail, terrain)
+        } else if c.build == Build::Tram {
+            layer.build_road(Rect::tile(w, l), opencity_core::RoadKind::Tram, terrain)
         } else {
             layer.build(Rect::tile(w, l), code, terrain, footprints, rng)
         };

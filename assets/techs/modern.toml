@@ -33,6 +33,15 @@ tier = 1
 cost = { research = 1500 }
 unlocks = ["rail", "station"]
 
+[[tech]]
+id = "public_transport"
+name = "Public transport"
+description = "Bus routes on the streets, and trams on tracks laid in them."
+category = "Transport"
+tier = 1
+cost = { research = 1200 }
+unlocks = ["bus_stop", "tram", "tram_stop"]
+
 # ---------------------------------------------------------------- economy
 # The city's economic doctrine: one or the other, for good.
 [[tech]]

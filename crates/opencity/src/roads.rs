@@ -261,6 +261,29 @@ pub fn surface(kind: RoadKind) -> Option<Vec<u8>> {
                         [stone, stone - 0.02, stone - 0.05]
                     }
                 }
+                RoadKind::Tram => {
+                    // Asphalt between kerbs, with a track in each lane: two
+                    // grooved rails set flush in a paler concrete strip.
+                    let asphalt = 0.33 + grain * 0.06;
+                    let lane = |c: f32| (u - c).abs();
+                    let near = lane(0.3).min(lane(0.7));
+                    if !(0.04..0.96).contains(&u) {
+                        let k = 0.66 + grain * 0.04;
+                        [k, k, k - 0.02]
+                    } else if (near - 0.075).abs() < 0.014 {
+                        let k = 0.78 + grain * 0.05;
+                        [k, k, k + 0.03]
+                    } else if (near - 0.075).abs() < 0.024 {
+                        [0.2, 0.2, 0.21]
+                    } else if near < 0.11 {
+                        let k = 0.45 + grain * 0.05;
+                        [k, k - 0.005, k - 0.015]
+                    } else if (0.495..0.505).contains(&u) && v < 0.5 {
+                        [0.92, 0.92, 0.9]
+                    } else {
+                        [asphalt, asphalt + 0.005, asphalt + 0.015]
+                    }
+                }
                 RoadKind::PavedStreet => {
                     // Kerbs, then rows of cobbles with mortar joints, every other row offset.
                     if !(0.07..0.93).contains(&u) {
@@ -316,7 +339,7 @@ mod tests {
     #[test]
     fn surfaces_cover_every_kind_but_streets() {
         assert!(surface(RoadKind::Street).is_none());
-        for k in [RoadKind::Highway, RoadKind::DirtRoad, RoadKind::PavedStreet, RoadKind::Rail] {
+        for k in [RoadKind::Highway, RoadKind::DirtRoad, RoadKind::PavedStreet, RoadKind::Rail, RoadKind::Tram] {
             assert_eq!(surface(k).unwrap().len(), (SURFACE_SIZE * SURFACE_SIZE * 4) as usize);
         }
     }

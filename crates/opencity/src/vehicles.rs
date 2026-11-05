@@ -99,6 +99,18 @@ pub fn mesh(kind: VehicleKind) -> Option<Mesh> {
             b.cuboid(vec3(0.28, 0.13, 0.72), vec3(0.32, 0.2, 0.77), HORSE);
             b.cuboid(vec3(0.285, 0.17, 0.76), vec3(0.315, 0.2, 0.82), [0.3, 0.2, 0.12]);
         }
+        VehicleKind::Bus => {
+            // A long single-decker: yellow body, a band of windows, dark
+            // roof edge and wheels, the windscreen at the front (+z).
+            let (x0, x1, z0, z1) = (0.21, 0.39, 0.12, 0.88);
+            b.wheels(x0 + 0.01, x1 - 0.01, 0.25, 0.04);
+            b.wheels(x0 + 0.01, x1 - 0.01, 0.75, 0.04);
+            b.cuboid(vec3(x0, 0.035, z0), vec3(x1, 0.12, z1), [0.92, 0.72, 0.18]);
+            b.cuboid(vec3(x0 - 0.002, 0.12, z0 + 0.03), vec3(x1 + 0.002, 0.2, z1 - 0.06), [0.32, 0.45, 0.55]);
+            b.cuboid(vec3(x0, 0.12, z1 - 0.06), vec3(x1, 0.2, z1), [0.45, 0.6, 0.7]);
+            b.cuboid(vec3(x0, 0.12, z0), vec3(x1, 0.2, z0 + 0.03), [0.92, 0.72, 0.18]);
+            b.cuboid(vec3(x0, 0.2, z0), vec3(x1, 0.23, z1), [0.95, 0.95, 0.93]);
+        }
         _ => return None,
     }
     Some(b.build())

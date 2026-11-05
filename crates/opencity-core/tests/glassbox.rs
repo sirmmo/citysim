@@ -553,6 +553,57 @@ fn railways_link_towns_no_road_joins() {
 }
 
 #[test]
+fn trams_and_buses_carry_people_farther() {
+    let r = rules();
+    // Two towns on one long street, too far apart to drive to work.
+    let build = |line: Option<Tool>| {
+        let mut c = City::new(Terrain::flat(64, 24), None, Footprints::builtin(), 5);
+        c.fund = 10_000_000;
+        c.use_rules(r.clone());
+        c.research_all();
+        for (w1, w2, zone) in [(2, 12, Tool::ZoneResidential), (44, 58, Tool::ZoneIndustrial)] {
+            c.apply_tool(Tool::Road, (w1, 8), (w2, 8)).unwrap();
+            c.apply_tool(Tool::Road, (w1, 8), (w1, 12)).unwrap();
+            c.apply_tool(zone, (w1 + 1, 9), (w2, 11)).unwrap();
+            c.apply_tool(Tool::CoalPlant, (w1 + 2, 5), (w1 + 2, 5)).unwrap();
+        }
+        c.apply_tool(Tool::Road, (2, 12), (58, 12)).unwrap();
+        match line {
+            Some(Tool::TramStop) => {
+                c.apply_tool(Tool::TramLine, (2, 12), (58, 12)).unwrap();
+                c.apply_tool(Tool::TramStop, (11, 13), (11, 13)).unwrap();
+                c.apply_tool(Tool::TramStop, (45, 13), (45, 13)).unwrap();
+            }
+            Some(stop) => {
+                c.apply_tool(stop, (11, 13), (11, 13)).unwrap();
+                c.apply_tool(stop, (45, 13), (45, 13)).unwrap();
+            }
+            None => {}
+        }
+        for _ in 0..400 {
+            c.simulate_round();
+        }
+        c
+    };
+    let workers = r.resource("workers").unwrap();
+    let crossing = |c: &City| -> f32 {
+        let gb = c.glassbox.as_ref().unwrap();
+        gb.flows.iter().filter(|(l, _)| l.resource == workers && (l.from.0 < 30) != (l.to.0 < 30)).map(|(_, v)| *v).sum()
+    };
+    let (none, tram, bus) = (build(None), build(Some(Tool::TramStop)), build(Some(Tool::BusStop)));
+    assert_eq!(crossing(&none), 0.0, "too far to drive to work");
+    let trams = opencity_core::rail::Railways::trams(&tram.layer, &tram.terrain, tram.footprints());
+    assert_eq!(trams.stations.len(), 2, "both stops stand by the tram line");
+    assert!(crossing(&tram) > 0.0, "the tram carries people to work");
+    assert!(crossing(&bus) > 0.0, "so does the bus");
+    // Cars still use the tram street; trams and buses run between the stops.
+    assert_eq!(tram.layer.structure_at(30, 12).map(|s| s.road), Some(RoadKind::Tram));
+    assert!(tram.vehicles.iter().filter(|v| v.line.as_deref() == Some("tram")).all(|v| v.mesh.as_deref().is_some_and(|m| m.contains("tram"))));
+    assert!(tram.vehicles.iter().any(|v| v.line.as_deref() == Some("tram")), "trams run");
+    assert!(bus.vehicles.iter().any(|v| v.line.as_deref() == Some("bus") && v.kind == opencity_core::traffic::VehicleKind::Bus), "buses run");
+}
+
+#[test]
 fn services_cover_what_they_can_drive_to_and_send_vehicles() {
     let r = rules();
     let mut c = City::new(Terrain::flat(48, 32), None, Footprints::builtin(), 3);

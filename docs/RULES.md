@@ -175,8 +175,8 @@ Bathhouse, Academy, and the Public well (the park tool).
 
 ### Roads
 
-The road network has four kinds of road (`road`, `highway`, `paved_street`,
-`dirt_road`). They connect to each other. Agent trips are measured in street
+The road network has five kinds of road (`road`, `highway`, `paved_street`,
+`dirt_road` and `tram`, a street with tram tracks). They connect to each other. Agent trips are measured in street
 tiles, so slower roads shorten their reach: a dirt road (speed 0.5) halves
 it. Units connect through the nearest road they can open onto, which is
 never a highway. Between two units within 4 tiles of a highway, a trip costs
@@ -191,7 +191,7 @@ rules then decide what moves along it and where:
 [[network.vehicle]]
 id = "horse_cart"
 name = "Horse cart"
-model = "horse_cart"     # car, pickup, sports_car, walker, handcart, horse_cart
+model = "horse_cart"     # car, pickup, sports_car, walker, handcart, horse_cart, bus
 ways = ["street", "paved_street", "dirt_road"]   # road kinds it may use; none = all
 speed = 1.0              # top speed, in street speeds; none = no limit
 carries = ["cart.horse", "food", "goods", "fodder"]   # none = any resource on the network
@@ -395,6 +395,51 @@ ways = ["rail"]
 carries = ["workers", "shoppers", "goods"]
 share = 0                          # trains do not take road trips
 meshes = ["kenney/train-kit/train-diesel-a", "kenney/train-kit/train-electric-city-a"]
+```
+
+### Buses and trams
+
+Buses and trams work like trains, on lines of their own. A vehicle with a
+`line` runs between stops instead of going door to door:
+
+- **Tram lines:** a tram street (`tram`, a road kind) is a street with
+  tracks. Cars and every other road vehicle use it like a street. A
+  **line** is one connected run of tram streets, and a **tram stop** beside
+  it is a stop on that line. Trams ride at speed 2.
+- **Bus lines:** a **bus stop** beside a street is a stop on that street
+  network (the streets buildings open onto, joined). Buses ride at speed 1.5.
+- **Linked places:** places within 8 tiles of a stop reach places near any
+  other stop on the same line. The trip costs the walk to and from the
+  stops, 3 tiles' worth of boarding, and the ride. A ride is worth it for
+  longer trips, so it extends how far people go (`max_trip`).
+- **Which resources ride:** those a vehicle with that `line` carries. If
+  the network lists no vehicles at all, every resource rides.
+- **Rules:** the modern rules have `bus_stop` and `tram_stop` units (the
+  tram stop needs power) and a **Public transport** research project that
+  unlocks the `bus_stop`, `tram` and `tram_stop` tools. The pre-industrial
+  rules disable all three.
+- **GeoJSON:** `highway=bus_stop`, `railway=tram_stop` and `railway=tram`
+  are imported and exported.
+
+```toml
+[[network.vehicle]]
+id = "bus"
+name = "Bus"
+model = "bus"                       # drawn as a bus
+line = "bus"                        # runs between bus stops
+ways = ["street", "tram", "paved_street", "highway"]
+carries = ["workers", "shoppers"]
+share = 0
+
+[[network.vehicle]]
+id = "tram"
+name = "Tram"
+model = "car"
+line = "tram"                       # runs between tram stops
+ways = ["tram"]
+carries = ["workers", "shoppers"]
+share = 0
+meshes = ["kenney/train-kit/train-tram-modern"]
 ```
 
 ### Ideas and research
