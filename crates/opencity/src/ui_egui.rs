@@ -101,7 +101,7 @@ pub struct View<'a> {
     pub overlay: Option<usize>,
     pub flows: &'a crate::flows::FlowView,
     /// The network link under the mouse and its amount per tick.
-    pub flow_hover: Option<(opencity_core::glassbox::Link, f32)>,
+    pub flow_hover: Option<opencity_core::netmap::Stretch>,
     /// The region being played, if any.
     pub region: Option<&'a crate::region::RegionSession>,
 }
@@ -391,8 +391,8 @@ impl EguiUi {
         if self.show_research {
             crate::research::window(ctx, &mut self.show_research, view.city, &mut out);
         }
-        if let Some((link, amount)) = view.flow_hover {
-            crate::network::hover_tooltip(ctx, view.city, link, amount);
+        if let Some(stretch) = view.flow_hover {
+            crate::network::hover_tooltip(ctx, view.city, stretch);
         }
         self.dialogs(ctx, view, &mut out);
         out

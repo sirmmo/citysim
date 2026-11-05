@@ -1,11 +1,15 @@
-//! The GlassBox resource network drawn on the map: one arc per link
-//! (sender to receiver), coloured by resource, as thick as its flow.
+//! The GlassBox resource network drawn on the map as an overlay of its own
+//! networks: what moves is followed along the streets, track, water and
+//! grid that carry it (see [`opencity_core::netmap`]) and drawn per
+//! stretch, coloured by resource, as thick as its flow, keeping to the
+//! right of the way it travels.
 
 use std::collections::BTreeSet;
 
 use macroquad::color::hsl_to_rgb;
 use macroquad::prelude::*;
 use opencity_core::glassbox::Link;
+use opencity_core::netmap::{Stretch, Way};
 use opencity_core::rules::{Ruleset, Transport};
 use opencity_core::City;
 
@@ -57,16 +61,13 @@ pub fn resource_colour(rules: &Ruleset, resource: usize) -> Color {
     }
 }
 
-/// One link ready to draw.
+/// One stretch ready to draw.
 #[derive(Clone, Debug)]
 pub struct Arc {
-    pub link: Link,
-    pub amount: f32,
+    pub stretch: Stretch,
     pub a: Vec3,
     pub b: Vec3,
-    /// Sideways shift at mid-arc, so links of different resources between
-    /// the same two buildings do not overlap.
-    pub side: Vec3,
+    /// Bulge upwards at mid-way (only for links drawn straight across).
     pub height: f32,
     pub colour: Color,
     pub width: f32,
@@ -74,12 +75,11 @@ pub struct Arc {
 
 impl Arc {
     pub fn point(&self, t: f32) -> Vec3 {
-        let s = (t * std::f32::consts::PI).sin();
-        self.a.lerp(self.b, t) + self.side * s + Vec3::Y * self.height * 4.0 * t * (1.0 - t)
+        self.a.lerp(self.b, t) + Vec3::Y * self.height * 4.0 * t * (1.0 - t)
     }
 
     pub fn tiles(&self) -> u32 {
-        self.link.from.0.abs_diff(self.link.to.0) + self.link.from.1.abs_diff(self.link.to.1)
+        self.stretch.tiles()
     }
 }
 
@@ -90,40 +90,66 @@ pub fn unit_centre(city: &City, o: (u32, u32)) -> Vec3 {
     vec3(x, height_at(&city.terrain, x, z) + 0.7, z)
 }
 
-/// The arcs to draw. `focus` is the inspected tile (any tile of a building).
+/// Height of each way above the ground: lines hang high.
+fn lift(way: Way) -> f32 {
+    match way {
+        Way::Street | Way::Walk => 0.12,
+        Way::Rail => 0.2,
+        Way::Water => 0.1,
+        Way::Grid => 0.55,
+    }
+}
+
+/// The stretches to draw. `focus` is the inspected tile (any tile of a building).
 pub fn arcs(city: &City, view: &FlowView, focus: Option<(u32, u32)>) -> Vec<Arc> {
     let (Some(gb), Some(rules)) = (&city.glassbox, city.rules()) else { return Vec::new() };
     let focus = focus.and_then(|(w, l)| city.layer.origin_of(w, l));
-    let mut biggest = vec![0f32; rules.resources.len()];
-    for (k, v) in &gb.flows {
-        biggest[k.resource] = biggest[k.resource].max(*v);
-    }
     let shown: Vec<usize> = (0..rules.resources.len()).filter(|&r| view.shows(rules, r)).collect();
-    let mut out: Vec<Arc> = gb
+    let links: Vec<(Link, f32)> = gb
         .flows
         .iter()
-        .filter(|(k, v)| **v >= view.min_amount && shown.contains(&k.resource))
+        .filter(|(k, _)| shown.contains(&k.resource))
         .filter(|(k, _)| !view.focus_only || focus.is_none_or(|f| k.from == f || k.to == f))
-        .map(|(k, v)| {
-            let (a, b) = (unit_centre(city, k.from), unit_centre(city, k.to));
+        .map(|(k, v)| (*k, *v))
+        .collect();
+    let stretches: Vec<Stretch> = city.network_stretches(&links).into_iter().filter(|s| s.amount >= view.min_amount).collect();
+    let mut biggest = vec![0f32; rules.resources.len()];
+    for s in &stretches {
+        biggest[s.resource] = biggest[s.resource].max(s.amount);
+    }
+    let point = |p: (u32, u32), way: Way| {
+        // A building's own tile: its centre; a network tile: the tile's middle.
+        let unit = city.layer.structure_at(p.0, p.1).is_some_and(|s| s.unit.is_some()) && city.layer.origin_of(p.0, p.1) == Some(p);
+        if unit && way != Way::Grid {
+            let c = unit_centre(city, p);
+            return vec3(c.x, c.y - 0.7 + lift(way), c.z);
+        }
+        let (x, z) = (p.0 as f32 + 0.5, p.1 as f32 + 0.5);
+        vec3(x, height_at(&city.terrain, x, z) + lift(way), z)
+    };
+    let mut out: Vec<Arc> = stretches
+        .iter()
+        .map(|s| {
+            let (a, b) = (point(s.from, s.way), point(s.to, s.way));
             let d = b - a;
-            let flat = vec3(d.z, 0.0, -d.x).normalize_or_zero();
-            let slot = shown.iter().position(|&r| r == k.resource).unwrap_or(0) as f32 - (shown.len() as f32 - 1.0) / 2.0;
-            let len = d.length();
+            let flat = vec3(-d.z, 0.0, d.x).normalize_or_zero();
+            let slot = shown.iter().position(|&r| r == s.resource).unwrap_or(0) as f32;
+            // Each resource its own lane; what travels keeps to the right
+            // (power has no direction of travel to keep to).
+            let lane = if s.way == Way::Grid { (slot - (shown.len() as f32 - 1.0) / 2.0) * 0.06 } else { 0.1 + slot * 0.06 };
+            let straight = s.way == Way::Walk && s.tiles() > 3;
             Arc {
-                link: *k,
-                amount: *v,
-                a,
-                b,
-                side: flat * slot * 0.12,
-                height: (0.4 + len * 0.12).min(5.0),
-                colour: resource_colour(rules, k.resource),
-                width: 0.025 + 0.11 * (v / biggest[k.resource].max(1e-6)).sqrt(),
+                stretch: *s,
+                a: a + flat * lane,
+                b: b + flat * lane,
+                height: if straight { (0.4 + d.length() * 0.12).min(5.0) } else { 0.0 },
+                colour: resource_colour(rules, s.resource),
+                width: 0.02 + 0.09 * (s.amount / biggest[s.resource].max(1e-6)).sqrt(),
             }
         })
         .collect();
-    // Thin links first, so busy ones are drawn on top.
-    out.sort_by(|x, y| x.width.total_cmp(&y.width).then(x.link.cmp(&y.link)));
+    // Thin stretches first, so busy ones are drawn on top.
+    out.sort_by(|x, y| x.width.total_cmp(&y.width).then(x.stretch.from.cmp(&y.stretch.from)));
     out
 }
 

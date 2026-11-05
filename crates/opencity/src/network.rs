@@ -156,14 +156,13 @@ fn shortages(ui: &mut egui::Ui, city: &City, gb: &GlassBox, rules: &Ruleset, v: 
 }
 
 /// Tooltip for the link under the mouse.
-pub fn hover_tooltip(ctx: &egui::Context, city: &City, link: Link, amount: f32) {
+pub fn hover_tooltip(ctx: &egui::Context, city: &City, s: opencity_core::netmap::Stretch) {
     let Some(rules) = city.rules() else { return };
-    let r = &rules.resources[link.resource];
+    let r = &rules.resources[s.resource];
     egui::show_tooltip_at_pointer(ctx, egui::LayerId::background(), egui::Id::new("flow_tip"), |ui| {
-        ui.label(RichText::new(&r.name).strong().color(colour32(resource_colour(rules, link.resource))));
-        ui.label(format!("from {}", unit_label(city, rules, link.from)));
-        ui.label(format!("to {}", unit_label(city, rules, link.to)));
-        ui.label(RichText::new(format!("{amount:.2} per tick · {} tiles", tiles(&link))).monospace());
+        ui.label(RichText::new(&r.name).strong().color(colour32(resource_colour(rules, s.resource))));
+        ui.label(s.way.name());
+        ui.label(RichText::new(format!("{:.2} per tick", s.amount)).monospace());
     });
 }
 

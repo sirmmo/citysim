@@ -590,6 +590,11 @@ fn services_cover_what_they_can_drive_to_and_send_vehicles() {
     assert!(seen > 0, "no fire truck was sent");
 }
 
+/// How far from a street a building may stand (its walk to the network).
+fn rules_reach(r: &opencity_core::rules::Ruleset) -> u32 {
+    r.growth.road_access.max(1) * 2 + 3
+}
+
 #[test]
 fn neighbouring_cities_trade_across_their_borders() {
     use opencity_core::region::Region;
@@ -657,6 +662,17 @@ fn neighbouring_cities_trade_across_their_borders() {
         gb.units.values().map(|u| u.satisfaction).sum::<f32>() / gb.units.len().max(1) as f32
     };
     assert!(fill(&trading) > fill(&alone), "workshops are better staffed: {} vs {}", fill(&trading), fill(&alone));
+    // The network view follows the streets: commuters leave the gate along
+    // the border road, tile by tile, and every street stretch joins
+    // neighbouring tiles.
+    use opencity_core::netmap::Way;
+    let links: Vec<_> = gb.flows.iter().map(|(k, v)| (*k, *v)).collect();
+    let stretches = trading.network_stretches(&links);
+    assert!(
+        stretches.iter().any(|s| s.from == (0, 10) && s.to == (1, 10) && s.resource == workers && s.way == Way::Street),
+        "commuters drive in along the border road"
+    );
+    assert!(stretches.iter().filter(|s| s.way == Way::Street).all(|s| s.tiles() <= rules_reach(&r) + 2), "street stretches are short steps");
     // A crossing the town's streets do not reach carries nothing.
     let (_, cut, _) = run(true, false, true);
     assert_eq!(cut[workers], 0.0, "no road from the crossing to the town");
@@ -664,6 +680,10 @@ fn neighbouring_cities_trade_across_their_borders() {
     let power = r.resource("power").unwrap();
     let (dark, unpowered, _) = run(true, true, false);
     assert!(unpowered[power] > 0.0, "power bought from the neighbour: {:?}", dark.glassbox.as_ref().unwrap().deficit[power]);
+    let gb = dark.glassbox.as_ref().unwrap();
+    let links: Vec<_> = gb.flows.iter().filter(|(k, _)| k.resource == power).map(|(k, v)| (*k, *v)).collect();
+    let grid = dark.network_stretches(&links);
+    assert!(grid.iter().any(|s| s.from == (0, 10) && s.way == Way::Grid), "power runs in from the gate through the grid: {:?}", &grid[..grid.len().min(5)]);
     // The region file round-trips.
     assert_eq!(Region::from_json(&region.to_json()).unwrap(), region);
 }

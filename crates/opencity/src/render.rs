@@ -618,23 +618,32 @@ impl Renderer {
         for (i, arc) in arcs.iter().enumerate() {
             let hot = hovered == Some(i);
             let width = if hot { arc.width * 1.8 + 0.05 } else { arc.width };
-            let pts: Vec<Vec3> = (0..=SEGMENTS).map(|k| arc.point(k as f32 / SEGMENTS as f32)).collect();
-            for k in 0..SEGMENTS {
+            // Stretches along the network are straight; only links drawn
+            // straight across bulge.
+            let segs = if arc.height > 0.0 { SEGMENTS } else { 1 };
+            let pts: Vec<Vec3> = (0..=segs).map(|k| arc.point(k as f32 / segs as f32)).collect();
+            for k in 0..segs {
                 let (p, q) = (pts[k], pts[k + 1]);
                 let side = (q - p).cross(view_dir).normalize_or_zero() * width * 0.5;
-                let t = k as f32 / SEGMENTS as f32;
+                let t = k as f32 / segs as f32;
                 let mut c = arc.colour;
                 if hot {
                     c = Color::new(c.r * 0.5 + 0.5, c.g * 0.5 + 0.5, c.b * 0.5 + 0.5, 1.0);
                 }
-                let (c0, c1) = (Color { a: 0.3 + 0.6 * t, ..c }, Color { a: 0.3 + 0.6 * (t + 1.0 / SEGMENTS as f32), ..c });
+                let fade = |t: f32| if segs > 1 { 0.3 + 0.6 * t } else { 0.75 };
+                let (c0, c1) = (Color { a: fade(t), ..c }, Color { a: fade(t + 1.0 / segs as f32), ..c });
                 gl.geometry(&[vert(p - side, c0), vert(p + side, c0), vert(q + side, c1), vert(q - side, c1)], &[0, 1, 2, 0, 2, 3]);
             }
             // Travelling dots: more on longer links, faster on busier ones.
+            // Along the network the dots keep step from stretch to stretch,
+            // a steady stream; power has none (it does not travel).
+            if arc.stretch.way == opencity_core::netmap::Way::Grid {
+                continue;
+            }
             let dots = 1 + arc.tiles() / 8;
-            let speed = 0.25 + arc.width;
+            let speed = (0.8 / arc.tiles().max(1) as f32).max(0.1);
             for d in 0..dots {
-                let t = ((time as f32 * speed + d as f32 / dots as f32 + (arc.link.from.0 * 7 + arc.link.to.1 * 13) as f32 * 0.037) % 1.0).abs();
+                let t = ((time as f32 * speed + d as f32 / dots as f32) % 1.0).abs();
                 let p = arc.point(t);
                 // A small hexagon facing the camera.
                 let r = 0.035 + width * 0.6;

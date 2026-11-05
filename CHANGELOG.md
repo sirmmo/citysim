@@ -2,6 +2,14 @@
 
 Release notes in full are on the [releases page](https://github.com/sirmmo/citysim/releases).
 
+## 0.2.30: The network on its networks
+- **Resource network view, redrawn:** flows no longer jump from building to building in arcs. Each link follows the network that carries it, summed per stretch:
+  - people, cars, lorries and buses along the streets;
+  - trains on the track and boats on the water;
+  - power along lines, streets and the buildings it runs through.
+- Each resource runs in its own lane on the right of the way it travels, as thick as the flow. A border gate is just one more node feeding its lane at the edge.
+- Hovering a stretch shows the resource, the way and the amount per tick.
+
 ## 0.2.29: Border gates
 - **Crossings carry the trade:** in a region, each crossing joined on both sides is a GlassBox node. Commuters, shoppers, goods and fuel travel in from the edge to the places that need them and out from the places with a surplus. Power runs in and out along lines and streets, and trains carry trade to the stations on a railway crossing's line. You can watch the vehicles come and go at the border.
 - A crossing your network doesn't reach carries nothing, and imports are paid only for what gets through.

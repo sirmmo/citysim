@@ -528,15 +528,25 @@ first stance. Saves keep both.
   its kind, speed, capacity, lanes, cost and traffic.
 * **View > Data layer** draws pollution, land value or a service's coverage over the map.
 * **Resource network** (`V`, **View > Resource network**, or **Network** in the
-  City panel) draws who sends what to whom on the map. Each link (a sender
-  building to a receiver) is an arc in its resource's colour (`colour` in
-  `[[resource]]`). Arcs are as thick as the flow, smoothed over recent ticks,
-  with dots travelling towards the receiver. Power links run from plants to
-  the consumers of their grid. Buildings that lack a shown resource are
-  tinted red by how much they lack. Hover an arc to read the resource, both
-  ends, the amount per tick and the distance.
+  City panel) lays the GlassBox network over the map, on the networks
+  that carry it. Each link (a sender to a receiver) is followed along its
+  own network and summed per stretch:
+  * people, cars, lorries and buses along the streets (every kind of road),
+    joining each building at its nearest street tile;
+  * trains along the track between stations, and boats over the water
+    between harbours (the walk to the stop is drawn straight);
+  * power along power lines, streets and the buildings it runs through
+    (whatever the grid network lists, `through_buildings` included), drawn
+    higher, without travelling dots;
+  * a border gate is one more node: its trips start or end on its edge tile.
+
+  Each resource has its own lane in its colour (`colour` in `[[resource]]`),
+  on the right of the way it travels. Lanes are as thick as the flow,
+  smoothed over recent ticks, with dots streaming along them. Buildings that
+  lack a shown resource are tinted red by how much they lack. Hover a
+  stretch to read the resource, the way and the amount per tick.
   * The panel toggles each resource. Workers, shoppers and goods are on by
-    default; power is off. It hides links under an amount and switches the
+    default; power is off. It hides stretches under an amount and switches the
     shortage tint. **Only the inspected building's links** isolates one
     building.
   * Per resource, it lists links, amount per tick, mean trip length, the share

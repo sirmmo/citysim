@@ -1469,14 +1469,7 @@ impl GlassBox {
         let (width, length) = (layer.width(), layer.length());
         let mut all = Vec::new();
         for net in &rules.networks {
-            let codes: Vec<StructureCode> = net.structures.iter().filter_map(|s| structure_code(s)).collect();
-            let rail = net.structures.iter().any(|s| s == "rail");
-            let conducts = |w: u32, l: u32| match layer.structure_at(w, l) {
-                None => false,
-                // Track belongs to rail networks, not to the streets.
-                Some(s) if s.code == StructureCode::Road && s.road.is_rail() => rail || (codes.contains(&StructureCode::Road) && layer.is_level_crossing(w, l)),
-                Some(s) => codes.contains(&s.code) || (net.through_buildings && s.unit.is_some()),
-            };
+            let conducts = |w: u32, l: u32| conducts(net, layer, w, l);
             let mut comp = vec![NO_COMPONENT; (width * length) as usize];
             let mut next = 0;
             for l in 0..length {
@@ -1842,6 +1835,21 @@ impl Pool {
 /// to `reach` around it, nearest rings first.
 /// Also returns the tile it connects through; `usable` filters the tiles
 /// it may connect through.
+/// Whether a tile is part of a network: one of its structures (and the
+/// zones it lists), track only for rail networks (streets keep their level
+/// crossings), and any building when the network runs through buildings.
+pub fn conducts(net: &crate::rules::NetworkDef, layer: &BuildingLayer, w: u32, l: u32) -> bool {
+    let has = |code: StructureCode| net.structures.iter().any(|s| structure_code(s) == Some(code));
+    match layer.structure_at(w, l) {
+        None => false,
+        // Track belongs to rail networks, not to the streets.
+        Some(s) if s.code == StructureCode::Road && s.road.is_rail() => {
+            net.structures.iter().any(|s| s == "rail") || (has(StructureCode::Road) && layer.is_level_crossing(w, l))
+        }
+        Some(s) => has(s.code) || (net.through_buildings && s.unit.is_some()),
+    }
+}
+
 fn unit_component(comp: &[u32], r: &Rect, width: u32, length: u32, reach: u32, usable: impl Fn(u32, u32) -> bool) -> Option<(u32, (u32, u32))> {
     (0..=reach).find_map(|d| {
         let w1 = r.w1.saturating_sub(d);

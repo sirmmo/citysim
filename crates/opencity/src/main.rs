@@ -971,7 +971,7 @@ impl Game {
                 rulesets: &self.rulesets,
                 overlay: self.overlay,
                 flows: &self.flow_view,
-                flow_hover: self.flow_hover.and_then(|i| self.flow_arcs.get(i)).map(|a| (a.link, a.amount)),
+                flow_hover: self.flow_hover.and_then(|i| self.flow_arcs.get(i)).map(|a| a.stretch),
                 region: self.region.as_ref(),
             };
             let mut commands = Vec::new();
@@ -1358,7 +1358,7 @@ async fn main() -> Result<()> {
     if let Some((x, y)) = s.args.inspect.as_deref().and_then(|v| v.split_once(',')) {
         if let (Ok(x), Ok(y)) = (x.trim().parse(), y.trim().parse()) {
             game.run_command(ui_egui::Command::Inspect((x, y)));
-            game.flow_view.focus_only = true;
+            game.flow_view.focus_only = !s.args.show_network;
             if let Some(d) = s.args.zoom {
                 game.camera.target = macroquad::prelude::vec3(x as f32 + 0.5, game.camera.target.y, y as f32 + 0.5);
                 game.camera.distance = d;

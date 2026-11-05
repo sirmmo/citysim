@@ -12,6 +12,7 @@ pub mod gbx;
 pub mod glassbox;
 pub mod goals;
 pub mod layer;
+pub mod netmap;
 pub mod rail;
 pub mod region;
 pub mod rules;
