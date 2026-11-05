@@ -242,6 +242,29 @@ def tram_stop():
     return m
 
 
+def metro_station():
+    """Stairs going down under a glass canopy, with the red M sign."""
+    m = Model()
+    m.box(CONCRETE, 0.0, 0.0, 0.0, 1.0, 0.03, 1.0)
+    # The stairwell: dark opening with steps, walled on three sides.
+    m.box(DARK, 0.3, 0.0, 0.25, 0.7, 0.031, 0.85)
+    for i in range(5):
+        z = 0.3 + i * 0.1
+        m.box((0.55, 0.55, 0.55), 0.32, 0.031, z, 0.68, 0.032 + 0.0, z + 0.04)
+    for x0, x1 in ((0.25, 0.3), (0.7, 0.75)):
+        m.box(STEEL, x0, 0.03, 0.25, x1, 0.12, 0.85)
+    m.box(STEEL, 0.25, 0.03, 0.2, 0.75, 0.12, 0.25)
+    # Glass canopy on four posts.
+    for x, z in ((0.27, 0.22), (0.73, 0.22), (0.27, 0.6), (0.73, 0.6)):
+        m.box(STEEL, x - 0.015, 0.12, z - 0.015, x + 0.015, 0.42, z + 0.015)
+    m.box((0.62, 0.78, 0.86), 0.22, 0.42, 0.18, 0.78, 0.44, 0.66)
+    # The sign on a post by the street (+z).
+    m.cylinder(STEEL, 0.85, 0.88, 0.02, 0.03, 0.62, n=6)
+    m.box((0.85, 0.15, 0.15), 0.77, 0.62, 0.86, 0.93, 0.78, 0.9, top=WHITE)
+    m.box(WHITE, 0.81, 0.66, 0.9, 0.89, 0.74, 0.905)
+    return m
+
+
 def icons():
     try:
         from PIL import Image, ImageDraw
@@ -348,6 +371,23 @@ def icons():
     for x in (14, 46):
         d.ellipse((x - 4, 42, x + 4, 50), fill=ink)
     save_icon("tram_stop", im)
+    # Metro line: a tunnel mouth with track going in.
+    im, d = tile(grey)
+    d.ellipse((10, 10, 54, 54), fill=(60, 62, 68), outline=ink)
+    d.rectangle((10, 32, 54, 54), fill=(60, 62, 68))
+    d.rectangle((6, 50, 58, 54), fill=(120, 110, 100))
+    d.ellipse((18, 18, 46, 46), fill=(20, 22, 26))
+    d.rectangle((18, 32, 46, 50), fill=(20, 22, 26))
+    d.polygon([(24, 50), (29, 32), (35, 32), (40, 50)], fill=(150, 140, 120))
+    d.line((26, 50, 30, 32), fill=(225, 225, 230), width=2)
+    d.line((38, 50, 34, 32), fill=(225, 225, 230), width=2)
+    save_icon("metro_line", im)
+    # Metro station: the red M sign.
+    im, d = tile(grey)
+    d.rectangle((14, 12, 50, 46), fill=(200, 40, 40), outline=ink)
+    d.polygon([(20, 40), (20, 18), (26, 18), (32, 28), (38, 18), (44, 18), (44, 40), (39, 40), (39, 27), (32, 37), (25, 27), (25, 40)], fill=white)
+    d.rectangle((30, 46, 34, 58), fill=ink)
+    save_icon("metro_station", im)
 
 
 def main():
@@ -359,6 +399,7 @@ def main():
     save("waste/incinerator/incinerator", incinerator(), "Incinerator", 2, 2, 2.2, "Burns rubbish for power.")
     save("transit/bus_stop/bus_stop", bus_stop(), "Bus stop", 1, 1, 0.55, "Buses call here.")
     save("transit/tram_stop/tram_stop", tram_stop(), "Tram stop", 1, 1, 0.62, "Trams call here.")
+    save("transit/metro_station/metro_station", metro_station(), "Metro station", 1, 1, 0.78, "Stairs down to the metro.")
     icons()
 
 

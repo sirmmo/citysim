@@ -42,6 +42,16 @@ tier = 1
 cost = { research = 1200 }
 unlocks = ["bus_stop", "tram", "tram_stop"]
 
+[[tech]]
+id = "metro"
+name = "Metro"
+description = "Tunnels bored under the city, with trains every few minutes."
+category = "Transport"
+tier = 2
+requires = ["public_transport"]
+cost = { research = 3000 }
+unlocks = ["metro", "metro_station"]
+
 # ---------------------------------------------------------------- economy
 # The city's economic doctrine: one or the other, for good.
 [[tech]]

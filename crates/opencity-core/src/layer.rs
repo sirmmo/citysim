@@ -17,6 +17,9 @@ use crate::{codes::path_graphic, Direction, Footprints, GraphicCode, RoadKind, S
 pub const LEVEL_MAX: u8 = 99;
 /// Levels per graphic step (legacy `OC_STRUCTURE_LEVEL_RATIO`).
 pub const LEVEL_RATIO: u8 = 10;
+/// Cost of a metro tunnel tile, and of filling one in.
+pub const TUNNEL_COST: u32 = 40;
+pub const TUNNEL_DIG_COST: u32 = 10;
 /// Largest model side, in tiles, the layer supports.
 pub const MAX_FOOTPRINT: u32 = 16;
 
@@ -238,13 +241,16 @@ pub struct BuildingLayer {
     /// open land can stand over them.
     #[serde(default, skip_serializing_if = "BTreeSet::is_empty")]
     pipes: BTreeSet<u32>,
+    /// Metro tunnels underground (tile indices), like the pipes.
+    #[serde(default, skip_serializing_if = "BTreeSet::is_empty")]
+    tunnels: BTreeSet<u32>,
     #[serde(skip)]
     revision: Revision,
 }
 
 impl BuildingLayer {
     pub fn new(width: u32, length: u32) -> Self {
-        Self { width, length, tiles: vec![None; (width * length) as usize], pipes: BTreeSet::new(), revision: Revision(1) }
+        Self { width, length, tiles: vec![None; (width * length) as usize], pipes: BTreeSet::new(), tunnels: BTreeSet::new(), revision: Revision(1) }
     }
 
     /// Increases whenever a structure, its graphic or its level changes.
@@ -339,33 +345,59 @@ impl BuildingLayer {
         self.pipes.iter().map(|&i| (i % self.width, i / self.width))
     }
 
+    /// Whether a metro tunnel runs under `(w, l)`.
+    pub fn has_tunnel(&self, w: u32, l: u32) -> bool {
+        w < self.width && l < self.length && self.tunnels.contains(&(l * self.width + w))
+    }
+
+    /// Every tile with a metro tunnel under it.
+    pub fn tunnels(&self) -> impl Iterator<Item = (u32, u32)> + '_ {
+        self.tunnels.iter().map(|&i| (i % self.width, i / self.width))
+    }
+
     /// Lays pipe underground along the path route of `r`, under whatever
     /// stands there; returns the cost of the new stretches.
     pub fn lay_pipes(&mut self, r: Rect) -> Result<u32, BuildError> {
+        self.lay_underground(r, false).map(|n| n * StructureCode::WaterPipe.build_cost())
+    }
+
+    /// Bores a metro tunnel along the path route of `r`, under whatever
+    /// stands there; returns the cost of the new stretches.
+    pub fn lay_tunnel(&mut self, r: Rect) -> Result<u32, BuildError> {
+        self.lay_underground(r, true).map(|n| n * TUNNEL_COST)
+    }
+
+    fn lay_underground(&mut self, r: Rect, tunnel: bool) -> Result<u32, BuildError> {
         if !self.in_bounds(r) {
             return Err(BuildError::OutOfBounds);
         }
         let width = self.width;
-        let new = Self::path_route(r).into_iter().filter(|&(w, l)| self.pipes.insert(l * width + w)).count() as u32;
+        let set = if tunnel { &mut self.tunnels } else { &mut self.pipes };
+        let new = Self::path_route(r).into_iter().filter(|&(w, l)| set.insert(l * width + w)).count() as u32;
         if new == 0 {
             return Err(BuildError::Nothing);
         }
         self.touch();
-        Ok(new * StructureCode::WaterPipe.build_cost())
+        Ok(new)
     }
 
-    /// Digs up the pipes under `r`, leaving the surface alone; returns the cost.
-    pub fn dig_up_pipes(&mut self, r: Rect) -> Result<u32, BuildError> {
+    /// Digs up the pipes and tunnels under `r`, leaving the surface alone;
+    /// returns the cost.
+    pub fn dig_up(&mut self, r: Rect) -> Result<u32, BuildError> {
         if !self.in_bounds(r) {
             return Err(BuildError::OutOfBounds);
         }
         let width = self.width;
-        let gone = r.tiles().filter(|&(w, l)| self.pipes.remove(&(l * width + w))).count() as u32;
-        if gone == 0 {
+        let mut cost = 0;
+        for (w, l) in r.tiles() {
+            let i = l * width + w;
+            cost += self.pipes.remove(&i) as u32 * StructureCode::WaterPipe.destroy_cost(0) + self.tunnels.remove(&i) as u32 * TUNNEL_DIG_COST;
+        }
+        if cost == 0 {
             return Err(BuildError::Nothing);
         }
         self.touch();
-        Ok(gone * StructureCode::WaterPipe.destroy_cost(0))
+        Ok(cost)
     }
 
     /// Moves pipes saved as surface pieces (0.2.33) underground.

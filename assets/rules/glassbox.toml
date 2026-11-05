@@ -223,6 +223,15 @@ carries = ["workers", "shoppers"]
 share = 0
 meshes = ["kenney/train-kit/train-tram-modern", "kenney/train-kit/train-tram-classic", "kenney/train-kit/train-tram-round"]
 
+# Metro trains run in the tunnels between metro stations, out of sight.
+[[network.vehicle]]
+id = "metro"
+name = "Metro"
+model = "car"
+line = "metro"
+carries = ["workers", "shoppers"]
+share = 0
+
 # Trains run on track between stations; places near stations on one line
 # trade as if next door (see docs/RULES.md#railways).
 [[network.vehicle]]
@@ -412,6 +421,7 @@ station = "station"
 harbour = "harbour"
 bus_stop = "bus_stop"
 tram_stop = "tram_stop"
+metro_station = "metro_station"
 pumping_station = "pumping_station"
 water_tower = "water_tower"
 water_treatment = "water_treatment"
@@ -768,6 +778,13 @@ name = "Tram stop"
 description = "Trams call here: places near stops on one tram line are linked by tram."
 graphic = 387
 needs = { power = 2, upkeep = 0.2 }
+
+[[unit]]
+id = "metro_station"
+name = "Metro station"
+description = "Stairs down to the metro: places near stations on one line of tunnels are linked by metro."
+graphic = 388
+needs = { workers = 2, power = 3, upkeep = 0.5 }
 
 # Water and waste: utilities the bigger buildings need.
 [[unit]]

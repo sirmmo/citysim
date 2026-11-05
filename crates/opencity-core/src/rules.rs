@@ -1190,6 +1190,7 @@ pub fn structure_code(name: &str) -> Option<StructureCode> {
         "incinerator" => Incinerator,
         "bus_stop" => BusStop,
         "tram_stop" => TramStop,
+        "metro_station" => MetroStation,
         _ => return None,
     })
 }

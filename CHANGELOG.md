@@ -2,6 +2,14 @@
 
 Release notes in full are on the [releases page](https://github.com/sirmmo/citysim/releases).
 
+## 0.2.38: Metro
+- **Metro** (modern GlassBox rules, after the new **Metro** research project). The **Metro line** tool bores tunnels underground, under streets, buildings or open land. **Metro stations** go over a tunnel or beside it.
+- Stations on one run of tunnels link the places around them at three times street speed, and traffic never slows them.
+- The underground view (**B**) shows the tunnels in orange beside the blue water pipes, and also opens with the metro tools. There, the bulldozer digs up tunnels as well as pipes.
+- The inspector says when a metro tunnel runs under a tile.
+- The demo town has a metro line with three stations.
+- GeoJSON imports and exports `railway=subway` (tunnels) and `railway=subway_entrance`.
+
 ## 0.2.37: Traffic
 - **Traffic slows trips** (GlassBox rules). Trips by road load the streets they cross, and busy areas make road trips take up to three times longer. A jammed town reaches fewer jobs and shops.
 - Trams, trains and boats are not slowed and highways bypass traffic; buses feel half of it. Public transport now relieves the streets as well as reaching farther.

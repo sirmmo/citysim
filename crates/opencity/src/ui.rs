@@ -68,6 +68,8 @@ const TOOLS: &[(&str, Action, &str)] = &[
     ("bus_stop", Action::Tool(Some(Tool::BusStop)), "Bus stop"),
     ("tram_line", Action::Tool(Some(Tool::TramLine)), "Tram line"),
     ("tram_stop", Action::Tool(Some(Tool::TramStop)), "Tram stop"),
+    ("metro_line", Action::Tool(Some(Tool::MetroLine)), "Metro line"),
+    ("metro_station", Action::Tool(Some(Tool::MetroStation)), "Metro station"),
     ("water_pipe", Action::Tool(Some(Tool::WaterPipe)), "Water pipe"),
     ("water_pump", Action::Tool(Some(Tool::PumpingStation)), "Pumping station"),
     ("water_tower", Action::Tool(Some(Tool::WaterTower)), "Water tower"),

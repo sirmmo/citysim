@@ -256,6 +256,8 @@ pub const WATER_SPEED: f32 = 2.0;
 pub const TRAM_SPEED: f32 = 2.0;
 /// Buses, in road speed units: bus lanes, but stops on the way.
 pub const BUS_SPEED: f32 = 1.5;
+/// Metro trains underground, in road speed units.
+pub const METRO_SPEED: f32 = 3.0;
 /// Road trips a road tile of capacity 1 carries in a tick before it is full.
 pub const ROAD_TRIPS: f32 = 20.0;
 /// How much longer a trip across full roads takes: × (1 + this × congestion).
@@ -910,12 +912,14 @@ impl GlassBox {
         // network, the same way again.
         let tram = crate::rail::Railways::trams(layer, terrain, footprints);
         let bus = crate::rail::Railways::buses(layer, terrain, footprints);
-        for (l, speed) in [(&tram, TRAM_SPEED), (&bus, BUS_SPEED)] {
+        // Metro lines: stations on one run of tunnels.
+        let metro = crate::rail::Railways::metro(layer, terrain, footprints);
+        for (l, speed) in [(&tram, TRAM_SPEED), (&bus, BUS_SPEED), (&metro, METRO_SPEED)] {
             if !l.stations.is_empty() {
                 fastest = fastest.max(speed);
             }
         }
-        let lines = [(&rail, RoadKind::Rail.speed()), (&water, WATER_SPEED), (&tram, TRAM_SPEED), (&bus, BUS_SPEED)];
+        let lines = [(&rail, RoadKind::Rail.speed()), (&water, WATER_SPEED), (&tram, TRAM_SPEED), (&bus, BUS_SPEED), (&metro, METRO_SPEED)];
         let fastest = fastest.max(0.1);
         // Congestion: road capacity per cell, last ticks' traffic, and this
         // tick's load from the trips made by road.
@@ -955,7 +959,7 @@ impl GlassBox {
             // Street networks joined by a railway count as one: merge their
             // components through the stations on each line.
             let mut merged: HashMap<u32, u32> = HashMap::new();
-            let station_comp: [Vec<Option<u32>>; 4] = lines.map(|(net_lines, _)| {
+            let station_comp: [Vec<Option<u32>>; 5] = lines.map(|(net_lines, _)| {
                 net_lines
                     .stations
                     .iter()
@@ -979,11 +983,11 @@ impl GlassBox {
             // Component (merged and own), road speed, highway access and the
             // nearest station (index, walk) of each unit.
             #[allow(clippy::type_complexity)]
-            let acc: Vec<Option<(u32, u32, f32, bool, [Option<(usize, u32)>; 4], (u32, u32))>> = access
+            let acc: Vec<Option<(u32, u32, f32, bool, [Option<(usize, u32)>; 5], (u32, u32))>> = access
                 .iter()
                 .map(|a| {
                     let (c, (w, l)) = (*a)?;
-                    let station = [0, 1, 2, 3].map(|k| lines[k].0.nearest_station((w, l), STATION_WALK).filter(|&(i, _)| station_comp[k][i].is_some()));
+                    let station = [0, 1, 2, 3, 4].map(|k| lines[k].0.nearest_station((w, l), STATION_WALK).filter(|&(i, _)| station_comp[k][i].is_some()));
                     Some((
                         find_root(&merged, c),
                         c,
@@ -1009,7 +1013,7 @@ impl GlassBox {
             let by_rail = vehicles.is_empty() || vehicles.iter().any(|v| v.ways().allows(RoadKind::Rail));
             let by_water = vehicles.is_empty() || vehicles.iter().any(|v| v.ways().sails());
             let on_line = |id: &str| vehicles.is_empty() || vehicles.iter().any(|v| v.line.as_deref() == Some(id));
-            let carried = [by_rail, by_water, on_line("tram"), on_line("bus")];
+            let carried = [by_rail, by_water, on_line("tram"), on_line("bus"), on_line("metro")];
             // A trip's length in street tiles and how it goes: `ROAD`,
             // `HIGHWAY` or `LINE + k` (the line kind in `lines`).
             const ROAD: usize = 0;

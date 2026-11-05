@@ -466,6 +466,7 @@ impl City {
         let cost = match tool {
             Tool::Destroy => self.layer.destroy(rect)?,
             Tool::Canal => self.dig_canal(rect)?,
+            Tool::MetroLine => self.layer.lay_tunnel(rect)?,
             Tool::RaiseTerrain | Tool::LowerTerrain => {
                 let (w1, l1, w2, l2) = self.terrain.around(a.0, a.1, 1);
                 if self.layer.contains(Rect { w1, l1, w2, l2 }, Query::Any) {
@@ -482,13 +483,13 @@ impl City {
         Ok(ToolOutcome { cost, sound: tool.sound() })
     }
 
-    /// The bulldozer in the underground view: digs up the water pipes
-    /// under the rectangle, leaving what stands on them.
-    pub fn dig_up_pipes(&mut self, a: (u32, u32), b: (u32, u32)) -> Result<ToolOutcome, ToolError> {
+    /// The bulldozer in the underground view: digs up the water pipes and
+    /// metro tunnels under the rectangle, leaving what stands on them.
+    pub fn dig_up(&mut self, a: (u32, u32), b: (u32, u32)) -> Result<ToolOutcome, ToolError> {
         if self.fund < 0 {
             return Err(ToolError::Bankrupt);
         }
-        let cost = self.layer.dig_up_pipes(Rect::new(a, b))?;
+        let cost = self.layer.dig_up(Rect::new(a, b))?;
         self.fund -= cost as i64;
         Ok(ToolOutcome { cost, sound: Tool::Destroy.sound() })
     }

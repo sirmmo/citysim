@@ -313,10 +313,10 @@ fn priority(b: Build) -> u8 {
         Water => 0,
         Road => 1,
         Rail => 1,
-        PowerLine | WaterPipe | Tram => 2,
+        PowerLine | WaterPipe | Tram | Metro => 2,
         CoalPlant | NuclearPlant => 3,
         FireStation | Police | Hospital | School | Station | Harbour | PumpingStation | WaterTower | WaterTreatment | Dump | Recycling | Incinerator
-        | BusStop | TramStop => 4,
+        | BusStop | TramStop | MetroStation => 4,
         Residential | Commercial | Industrial => 5,
         Park => 6,
         Trees => 7,
@@ -352,12 +352,18 @@ fn code_of(b: Build) -> Option<StructureCode> {
         Incinerator => StructureCode::Incinerator,
         BusStop => StructureCode::BusStop,
         TramStop => StructureCode::TramStop,
-        Water | Ignore => return None,
+        MetroStation => StructureCode::MetroStation,
+        Water | Metro | Ignore => return None,
     })
 }
 
 /// Places one feature; returns (tiles placed, tiles refused).
 fn place(city: &mut City, c: &Classified, tiles: &[(u32, u32)], rules: &Rules) -> (usize, usize) {
+    if c.build == Build::Metro {
+        // Tunnels run under whatever is there.
+        let ok = tiles.iter().filter(|&&(w, l)| city.layer.lay_tunnel(Rect::tile(w, l)).is_ok()).count();
+        return (ok, tiles.len() - ok);
+    }
     let Some(code) = code_of(c.build) else { return (tiles.len(), 0) };
     let props = &c.feature.properties;
     let (layer, terrain, footprints, rng) = city.parts_mut();

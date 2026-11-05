@@ -435,8 +435,17 @@ Buses and trams work like trains, on lines of their own. A vehicle with a
   tram stop needs power) and a **Public transport** research project that
   unlocks the `bus_stop`, `tram` and `tram_stop` tools. The pre-industrial
   rules disable all three.
-- **GeoJSON:** `highway=bus_stop`, `railway=tram_stop` and `railway=tram`
-  are imported and exported.
+- **Metro:** tunnels lie underground, like water pipes, so anything can
+  stand over them. A **line** is one connected run of tunnels, and a
+  **metro station** over a tunnel tile or beside one is a stop on it.
+  Metro trains ride at speed 3 and are never slowed by traffic. They run
+  out of sight (`line = "metro"`, no meshes needed). The modern rules have a
+  `metro_station` unit (workers, power, upkeep) and a **Metro** research
+  project (after Public transport) unlocking the `metro` and
+  `metro_station` tools. A tunnel tile costs $40.
+- **GeoJSON:** `highway=bus_stop`, `railway=tram_stop`, `railway=tram`,
+  `railway=subway` (tunnels) and `railway=subway_entrance` are imported
+  and exported.
 
 ```toml
 [[network.vehicle]]

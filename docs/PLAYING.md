@@ -32,7 +32,7 @@ game see [RULES.md](RULES.md); for the documentation index see
 | O | Turn the inspected plant or service a quarter |
 | G | GlassBox graphs |
 | V | Resource network on the map |
-| B | Underground view: water pipes |
+| B | Underground view: water pipes and metro tunnels |
 | Space, F | Pause, fast forward |
 | Esc | Drop the tool, or open the menu (new, load, save, quit) |
 
@@ -78,6 +78,15 @@ game see [RULES.md](RULES.md); for the documentation index see
   - **Buses:** put **Bus stops** (Roads) beside any streets. Places near
     two bus stops on one street network reach each other at 1.5 times
     street speed.
+  - **Metro** (after the **Metro** research project): drag the **Metro
+    line** tool (Rail) to bore tunnels under anything: streets, buildings,
+    open land. Put a **Metro station** over the tunnel or right beside it.
+    Stations on one run of tunnels link the places around them at three
+    times street speed, and traffic never slows them. The underground view
+    (**B**) shows the tunnels in orange beside the blue water pipes; there
+    the bulldozer digs up both.
+
+    ![The underground view: a metro tunnel (orange) and the water mains](metro.png)
   - Busy streets slow trips by car (inspect a road to see how full it
     is). Trams and trains run on their own tracks, buses feel half the
     traffic, and highways bypass it.

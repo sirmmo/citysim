@@ -49,6 +49,8 @@ pub enum StructureCode {
     BusStop = 49,
     /// Tram stop: trams link the stops along one tram line.
     TramStop = 50,
+    /// Metro station: the entrance to a metro line underground.
+    MetroStation = 51,
 }
 
 impl StructureCode {
@@ -85,6 +87,7 @@ impl StructureCode {
             48 => Incinerator,
             49 => BusStop,
             50 => TramStop,
+            51 => MetroStation,
             _ => return None,
         })
     }
@@ -112,7 +115,7 @@ impl StructureCode {
 
     /// Bus and tram stops.
     pub const fn is_stop(self) -> bool {
-        matches!(self, Self::BusStop | Self::TramStop)
+        matches!(self, Self::BusStop | Self::TramStop | Self::MetroStation)
     }
 
     /// Structures placed as one fixed-size block (the size comes from the model).
@@ -150,6 +153,7 @@ impl StructureCode {
             Incinerator => GraphicCode::INCINERATOR,
             BusStop => GraphicCode::BUS_STOP,
             TramStop => GraphicCode::TRAM_STOP,
+            MetroStation => GraphicCode::METRO_STATION,
         }
     }
 
@@ -162,7 +166,7 @@ impl StructureCode {
             CoalPlant | NuclearPlant => StructureType::Electricity,
             Road | PowerLine | WaterPipe => StructureType::Path,
             PumpingStation | WaterTower | WaterTreatment => StructureType::Water,
-            Dump | Recycling | Incinerator | BusStop | TramStop => StructureType::Government,
+            Dump | Recycling | Incinerator | BusStop | TramStop | MetroStation => StructureType::Government,
             FireDept | PoliceDept | Hospital | School | Station | Harbour => StructureType::Government,
             Flora => StructureType::Tree,
             Part | Test => StructureType::Undefined,
@@ -191,6 +195,7 @@ impl StructureCode {
             Incinerator => 2500,
             BusStop => 150,
             TramStop => 400,
+            MetroStation => 2500,
             Test | Part => 0,
         }
     }
@@ -215,6 +220,7 @@ impl StructureCode {
             Incinerator => 25,
             BusStop => 3,
             TramStop => 5,
+            MetroStation => 20,
         }
     }
 
@@ -232,6 +238,7 @@ impl StructureCode {
             Part | CoalPlant | FireDept | PoliceDept | Hospital | School | Station | Harbour => 200,
             NuclearPlant => 800,
             BusStop | TramStop => 20,
+            MetroStation => 200,
             Test => 0,
         }
     }
@@ -290,6 +297,7 @@ impl GraphicCode {
     pub const INCINERATOR: Self = Self(385);
     pub const BUS_STOP: Self = Self(386);
     pub const TRAM_STOP: Self = Self(387);
+    pub const METRO_STATION: Self = Self(388);
     pub const VEHICLE_STD: Self = Self(400);
     pub const VEHICLE_PICKUP: Self = Self(440);
     pub const VEHICLE_SPORT: Self = Self(441);
@@ -554,10 +562,12 @@ pub enum Tool {
     TramLine,
     BusStop,
     TramStop,
+    MetroLine,
+    MetroStation,
 }
 
 impl Tool {
-    pub const ALL: [Tool; 34] = [
+    pub const ALL: [Tool; 36] = [
         Tool::Destroy,
         Tool::ZoneResidential,
         Tool::ZoneCommercial,
@@ -592,6 +602,8 @@ impl Tool {
         Tool::TramLine,
         Tool::BusStop,
         Tool::TramStop,
+        Tool::MetroLine,
+        Tool::MetroStation,
     ];
 
     /// Stable identifier, used by skins and GeoJSON rules.
@@ -631,6 +643,8 @@ impl Tool {
             Tool::TramLine => "tram",
             Tool::BusStop => "bus_stop",
             Tool::TramStop => "tram_stop",
+            Tool::MetroLine => "metro",
+            Tool::MetroStation => "metro_station",
         }
     }
 
@@ -663,7 +677,9 @@ impl Tool {
             Tool::Incinerator => S::Incinerator,
             Tool::BusStop => S::BusStop,
             Tool::TramStop => S::TramStop,
-            Tool::Destroy | Tool::RaiseTerrain | Tool::LowerTerrain | Tool::Canal => return None,
+            Tool::MetroStation => S::MetroStation,
+            // Metro tunnels run underground, under whatever stands there.
+            Tool::Destroy | Tool::RaiseTerrain | Tool::LowerTerrain | Tool::Canal | Tool::MetroLine => return None,
         })
     }
 
@@ -684,7 +700,7 @@ impl Tool {
     pub const fn is_area(self) -> bool {
         match self.structure() {
             Some(s) => !s.is_block(),
-            None => matches!(self, Tool::Destroy | Tool::Canal),
+            None => matches!(self, Tool::Destroy | Tool::Canal | Tool::MetroLine),
         }
     }
 

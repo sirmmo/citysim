@@ -659,11 +659,28 @@ impl Renderer {
         gl.depth_test(true);
     }
 
-    /// The water pipes underground, seen through everything: a dark-edged
-    /// blue main from tile centre to tile centre, with a joint at each tile.
+    /// What runs underground, seen through everything: water mains (blue)
+    /// and metro tunnels (orange, wider, a little lower), dark-edged, from
+    /// tile centre to tile centre with a joint at each tile.
     pub fn draw_pipes(&self, city: &City) {
-        let t = &city.terrain;
         let layer = &city.layer;
+        let tunnel = [Color::new(0.20, 0.08, 0.02, 0.95), Color::new(0.95, 0.55, 0.20, 1.0)];
+        self.draw_underground(city, |w, l| layer.has_tunnel(w, l), layer.tunnels(), [0.2, 0.14], tunnel, 0.03);
+        let pipe = [Color::new(0.02, 0.10, 0.20, 0.95), Color::new(0.30, 0.70, 1.00, 1.0)];
+        self.draw_underground(city, |w, l| layer.has_pipe(w, l), layer.pipes(), [0.13, 0.08], pipe, 0.06);
+    }
+
+    fn draw_underground(
+        &self,
+        city: &City,
+        has: impl Fn(u32, u32) -> bool,
+        tiles: impl Iterator<Item = (u32, u32)>,
+        halves: [f32; 2],
+        colours: [Color; 2],
+        lift: f32,
+    ) {
+        let t = &city.terrain;
+        let tiles: Vec<(u32, u32)> = tiles.collect();
         let gl = unsafe { get_internal_gl() }.quad_gl;
         gl.depth_test(false);
         gl.texture(None);
@@ -671,15 +688,13 @@ impl Renderer {
         let vert = |p: Vec3, c: Color| Vertex { position: p, uv: Vec2::ZERO, color: c.into(), normal: Vec4::ZERO };
         let centre = |w: u32, l: u32| {
             let (x, z) = (w as f32 + 0.5, l as f32 + 0.5);
-            vec3(x, height_at(t, x, z).max(WATER_LEVEL) + 0.06, z)
+            vec3(x, height_at(t, x, z).max(WATER_LEVEL) + lift, z)
         };
-        let edge = Color::new(0.02, 0.10, 0.20, 0.95);
-        let core = Color::new(0.30, 0.70, 1.00, 1.0);
-        for (half, c) in [(0.13, edge), (0.08, core)] {
-            for (w, l) in layer.pipes() {
+        for (half, c) in halves.into_iter().zip(colours) {
+            for &(w, l) in &tiles {
                 let p = centre(w, l);
                 for (dw, dl) in [(1, 0), (0, 1)] {
-                    if !layer.has_pipe(w + dw, l + dl) {
+                    if !has(w + dw, l + dl) {
                         continue;
                     }
                     let q = centre(w + dw, l + dl);

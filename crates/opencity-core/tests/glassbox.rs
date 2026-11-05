@@ -569,6 +569,13 @@ fn trams_and_buses_carry_people_farther() {
         }
         c.apply_tool(Tool::Road, (2, 12), (58, 12)).unwrap();
         match line {
+            Some(Tool::MetroStation) => {
+                // Under the houses and the workshops, then up to the stations.
+                c.apply_tool(Tool::MetroLine, (11, 10), (45, 13)).unwrap();
+                c.apply_tool(Tool::MetroLine, (11, 10), (11, 13)).unwrap();
+                c.apply_tool(Tool::MetroStation, (11, 13), (11, 13)).unwrap();
+                c.apply_tool(Tool::MetroStation, (45, 13), (45, 13)).unwrap();
+            }
             Some(Tool::TramStop) => {
                 c.apply_tool(Tool::TramLine, (2, 12), (58, 12)).unwrap();
                 c.apply_tool(Tool::TramStop, (11, 13), (11, 13)).unwrap();
@@ -590,12 +597,16 @@ fn trams_and_buses_carry_people_farther() {
         let gb = c.glassbox.as_ref().unwrap();
         gb.flows.iter().filter(|(l, _)| l.resource == workers && (l.from.0 < 30) != (l.to.0 < 30)).map(|(_, v)| *v).sum()
     };
-    let (none, tram, bus) = (build(None), build(Some(Tool::TramStop)), build(Some(Tool::BusStop)));
+    let (none, tram, bus, metro) = (build(None), build(Some(Tool::TramStop)), build(Some(Tool::BusStop)), build(Some(Tool::MetroStation)));
     assert_eq!(crossing(&none), 0.0, "too far to drive to work");
     let trams = opencity_core::rail::Railways::trams(&tram.layer, &tram.terrain, tram.footprints());
     assert_eq!(trams.stations.len(), 2, "both stops stand by the tram line");
     assert!(crossing(&tram) > 0.0, "the tram carries people to work");
     assert!(crossing(&bus) > 0.0, "so does the bus");
+    let m = opencity_core::rail::Railways::metro(&metro.layer, &metro.terrain, metro.footprints());
+    assert_eq!(m.stations.len(), 2, "both stations stand over the tunnel");
+    assert!(metro.layer.has_tunnel(12, 10) && metro.layer.structure_at(12, 10).is_some(), "the tunnel runs under the buildings");
+    assert!(crossing(&metro) > 0.0, "and so does the metro");
     // Cars still use the tram street; trams and buses run between the stops.
     assert_eq!(tram.layer.structure_at(30, 12).map(|s| s.road), Some(RoadKind::Tram));
     assert!(tram.vehicles.iter().filter(|v| v.line.as_deref() == Some("tram")).all(|v| v.mesh.as_deref().is_some_and(|m| m.contains("tram"))));
@@ -1121,8 +1132,13 @@ fn water_and_waste_serve_the_buildings() {
     assert!(c.apply_tool(Tool::WaterPipe, (2, 5), (15, 5)).is_err(), "already piped");
     c.apply_tool(Tool::Destroy, (8, 5), (8, 5)).unwrap();
     assert!(c.layer.has_pipe(8, 5), "the bulldozer leaves the pipe under a street");
-    c.dig_up_pipes((6, 5), (9, 5)).unwrap();
+    c.dig_up((6, 5), (9, 5)).unwrap();
     assert!(!c.layer.has_pipe(7, 5) && c.layer.code_at(7, 5) == Some(StructureCode::Road));
+    // Metro tunnels too: under the street, dug up the same way.
+    c.apply_tool(Tool::MetroLine, (2, 5), (15, 5)).unwrap();
+    assert!(c.layer.has_tunnel(3, 5) && c.layer.has_pipe(3, 5));
+    c.dig_up((3, 5), (3, 5)).unwrap();
+    assert!(!c.layer.has_tunnel(3, 5) && !c.layer.has_pipe(3, 5) && c.layer.code_at(3, 5) == Some(StructureCode::Road));
     assert_eq!(dry, 0.0, "no pipe, no water");
     assert!(piped > 0.0, "the pipe carries the pump's water to the town");
 }

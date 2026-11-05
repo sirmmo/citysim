@@ -23,6 +23,11 @@ pub fn demo_town(city: &mut City) {
     let power = allows(city, Tool::PowerLine);
     let gb = city.glassbox.is_some();
     let (trams, buses) = (gb && allows(city, Tool::TramLine), gb && allows(city, Tool::BusStop));
+    let metro = gb && allows(city, Tool::MetroLine);
+    if metro {
+        // A showcase: the city gets what its metro costs.
+        city.fund += 12_000;
+    }
     // Level the site (and the highway's strip) at its median height (at
     // least dry land), like a player would.
     let east = if highway { w1 + 3 } else { w1 };
@@ -68,6 +73,13 @@ pub fn demo_town(city: &mut City) {
     if buses && l0 + 17 <= l1 {
         for (dw, dl) in [(2, 1), (17, 1), (7, 17), (22, 17)] {
             try_tool(Tool::BusStop, (w0 + dw, l0 + dl), (0, 0));
+        }
+    }
+    // A metro line across the grid, under the blocks, with three stations.
+    if metro && w0 + 26 < w1 && l0 + 18 < l1 {
+        try_tool(Tool::MetroLine, (w0 + 2, l0 + 2), (w0 + 26, l0 + 18));
+        for (dw, dl) in [(2, 2), (16, 2), (26, 18)] {
+            try_tool(Tool::MetroStation, (w0 + dw, l0 + dl), (0, 0));
         }
     }
     // Mix R, C and I blocks so each zone has the others within reach.

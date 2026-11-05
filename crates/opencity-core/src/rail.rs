@@ -54,30 +54,46 @@ fn is_track(layer: &BuildingLayer, w: u32, l: u32) -> bool {
 impl Railways {
     /// Track lines and their stations.
     pub fn find(layer: &BuildingLayer, terrain: &Terrain, footprints: &Footprints) -> Self {
-        Self::build(layer, terrain, footprints, StructureCode::Station, 1, |w, l| is_track(layer, w, l))
+        Self::build(layer, terrain, footprints, StructureCode::Station, 1, 1, |w, l| is_track(layer, w, l))
     }
 
     /// Tram lines (connected tram streets) and their tram stops.
     pub fn trams(layer: &BuildingLayer, terrain: &Terrain, footprints: &Footprints) -> Self {
         let tram = |w, l| layer.structure_at(w, l).is_some_and(|s| s.code == StructureCode::Road && s.road == RoadKind::Tram);
-        Self::build(layer, terrain, footprints, StructureCode::TramStop, 1, tram)
+        Self::build(layer, terrain, footprints, StructureCode::TramStop, 1, 1, tram)
     }
 
     /// Bus lines (each connected network of streets buildings open onto)
     /// and their bus stops.
     pub fn buses(layer: &BuildingLayer, terrain: &Terrain, footprints: &Footprints) -> Self {
         let street = |w, l| layer.structure_at(w, l).is_some_and(|s| s.code == StructureCode::Road && s.road.access());
-        Self::build(layer, terrain, footprints, StructureCode::BusStop, 1, street)
+        Self::build(layer, terrain, footprints, StructureCode::BusStop, 1, 1, street)
+    }
+
+    /// Metro lines (connected tunnels) and their stations: the platform is
+    /// the tunnel under the entrance or beside it.
+    pub fn metro(layer: &BuildingLayer, terrain: &Terrain, footprints: &Footprints) -> Self {
+        Self::build(layer, terrain, footprints, StructureCode::MetroStation, 0, 1, |w, l| layer.has_tunnel(w, l))
     }
 
     /// Bodies of water and their harbours.
     pub fn water(layer: &BuildingLayer, terrain: &Terrain, footprints: &Footprints) -> Self {
         // The shore between flat land and water is a slope, so the quay may
         // be two tiles out.
-        Self::build(layer, terrain, footprints, StructureCode::Harbour, 2, |w, l| terrain.is_water(w, l) && layer.tile(w, l).is_none())
+        Self::build(layer, terrain, footprints, StructureCode::Harbour, 1, 2, |w, l| terrain.is_water(w, l) && layer.tile(w, l).is_none())
     }
 
-    fn build(layer: &BuildingLayer, terrain: &Terrain, footprints: &Footprints, stop: StructureCode, reach: u32, on_line: impl Fn(u32, u32) -> bool) -> Self {
+    /// Lines of `on_line` tiles, and the `stop` buildings with a line tile
+    /// `near..=reach` tiles from them.
+    fn build(
+        layer: &BuildingLayer,
+        terrain: &Terrain,
+        footprints: &Footprints,
+        stop: StructureCode,
+        near: u32,
+        reach: u32,
+        on_line: impl Fn(u32, u32) -> bool,
+    ) -> Self {
         let (width, length) = (layer.width(), layer.length());
         let mut line = vec![NO_LINE; (width * length) as usize];
         let mut next = 0;
@@ -115,7 +131,7 @@ impl Railways {
                 .flat_map(|y| (w1..=w2).map(move |x| (x, y)))
                 .filter(|&(x, y)| x >= 0 && y >= 0 && (x as u32) < width && (y as u32) < length)
                 .map(|(x, y)| (x as u32, y as u32))
-                .filter(|&p| (1..=reach).contains(&st.distance(p)) && line[(p.1 * width + p.0) as usize] != NO_LINE)
+                .filter(|&p| (near..=reach).contains(&st.distance(p)) && line[(p.1 * width + p.0) as usize] != NO_LINE)
                 .min_by_key(|&p| (st.distance(p), p.1, p.0));
             if let Some(p) = platform {
                 stations.push(Station { origin, size, platform: p, line: line[(p.1 * width + p.0) as usize] });

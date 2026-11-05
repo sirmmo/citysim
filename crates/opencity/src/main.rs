@@ -960,10 +960,16 @@ impl Game {
     }
 
     /// Tints buildings that lack a shown resource, by how much they lack.
-    /// Whether the pipes underground are shown (and bulldozed): by hand,
-    /// or while a water tool is in hand.
+    /// Whether the pipes and tunnels underground are shown (and
+    /// bulldozed): by hand, or while a water or metro tool is in hand.
     fn underground_view(&self) -> bool {
-        self.underground || matches!(self.active, Some(Action::Tool(Some(Tool::WaterPipe | Tool::PumpingStation | Tool::WaterTower | Tool::WaterTreatment))))
+        self.underground
+            || matches!(
+                self.active,
+                Some(Action::Tool(Some(
+                    Tool::WaterPipe | Tool::PumpingStation | Tool::WaterTower | Tool::WaterTreatment | Tool::MetroLine | Tool::MetroStation
+                )))
+            )
     }
 
     fn draw_shortages(&self) {
@@ -1146,8 +1152,7 @@ impl Game {
             if let (Some(start), Some(Action::Tool(Some(tool)))) = (self.drag_start.take(), self.active) {
                 let end = if tool.is_area() { hover.unwrap_or(start) } else { start };
                 // Underground, the bulldozer digs up pipes and leaves the surface.
-                let done =
-                    if tool == Tool::Destroy && self.underground_view() { self.city.dig_up_pipes(start, end) } else { self.city.apply_tool(tool, start, end) };
+                let done = if tool == Tool::Destroy && self.underground_view() { self.city.dig_up(start, end) } else { self.city.apply_tool(tool, start, end) };
                 match done {
                     Ok(o) => self.audio.play(o.sound),
                     Err(e) => self.say(e.to_string()),
@@ -1197,7 +1202,7 @@ impl Game {
         if let Some(Action::Tool(Some(tool))) = self.active {
             if let (Some(start), Some(cur)) = (self.drag_start, hover) {
                 let code = tool.structure();
-                if code.is_some_and(|c| c.is_path()) {
+                if code.is_some_and(|c| c.is_path()) || tool == Tool::MetroLine {
                     for (w, l) in BuildingLayer::path_route(opencity_core::Rect::new(start, cur)) {
                         self.renderer.draw_overlay(&self.city.terrain, opencity_core::Rect::tile(w, l), Color::new(1.0, 1.0, 0.2, 0.45));
                     }

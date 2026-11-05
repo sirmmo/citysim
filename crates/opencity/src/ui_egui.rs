@@ -204,6 +204,8 @@ const GROUPS: &[Group] = &[
             ("government", Action::Tool(Some(Tool::Station)), "Railway station", ""),
             ("tram_line", Action::Tool(Some(Tool::TramLine)), "Tram line", ""),
             ("tram_stop", Action::Tool(Some(Tool::TramStop)), "Tram stop", ""),
+            ("metro_line", Action::Tool(Some(Tool::MetroLine)), "Metro line", ""),
+            ("metro_station", Action::Tool(Some(Tool::MetroStation)), "Metro station", ""),
         ],
         true,
     ),
@@ -273,6 +275,8 @@ fn needs_rules(t: Tool) -> bool {
             | Tool::TramLine
             | Tool::BusStop
             | Tool::TramStop
+            | Tool::MetroLine
+            | Tool::MetroStation
     )
 }
 
@@ -597,8 +601,8 @@ impl EguiUi {
                     }
                     let mut under = view.underground;
                     if ui
-                        .checkbox(&mut under, "Underground: water pipes (B)")
-                        .on_hover_text("See the pipes under the city; the bulldozer then digs up pipes and leaves the surface")
+                        .checkbox(&mut under, "Underground: pipes and metro (B)")
+                        .on_hover_text("See the pipes and metro tunnels under the city; the bulldozer then digs them up and leaves the surface")
                         .changed()
                     {
                         out.push(Command::SetUnderground(under));
@@ -1059,6 +1063,9 @@ impl EguiUi {
                 }
                 if city.layer.has_pipe(w, l) {
                     ui.label(RichText::new("💧 A water main runs underneath (B shows the pipes)").color(Color32::from_rgb(110, 180, 240)));
+                }
+                if city.layer.has_tunnel(w, l) {
+                    ui.label(RichText::new("Ⓜ A metro tunnel runs underneath (B shows it)").color(Color32::from_rgb(240, 150, 90)));
                 }
                 ui.separator();
                 ui.label(RichText::new(format!("Tile {w}, {l} · ground height {}", city.terrain.tile_min(w, l))).small().color(Color32::GRAY));

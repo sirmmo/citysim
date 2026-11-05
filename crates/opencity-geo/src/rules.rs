@@ -36,6 +36,8 @@ pub enum Build {
     Tram,
     BusStop,
     TramStop,
+    Metro,
+    MetroStation,
     Ignore,
 }
 
@@ -70,6 +72,8 @@ impl Build {
             "tram" => Tram,
             "bus_stop" => BusStop,
             "tram_stop" => TramStop,
+            "metro" => Metro,
+            "metro_station" => MetroStation,
             "ignore" => Ignore,
             _ => return None,
         })
@@ -105,6 +109,8 @@ impl Build {
             Tram => "tram",
             BusStop => "bus_stop",
             TramStop => "tram_stop",
+            Metro => "metro",
+            MetroStation => "metro_station",
             Ignore => "ignore",
         }
     }

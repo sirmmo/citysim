@@ -8,7 +8,8 @@
 #       | coal_plant | nuclear_plant | park | trees | water
 #       | fire_station | police | hospital | school | rail | station | harbour
 #       | water_pipe | pumping_station | water_tower | water_treatment
-#       | dump | recycling | incinerator | tram | bus_stop | tram_stop | ignore
+#       | dump | recycling | incinerator | tram | bus_stop | tram_stop
+#       | metro | metro_station | ignore
 #
 # Copy this file, edit it and pass it with `--rules` to map other tag
 # vocabularies (for example a fantasy map with custom keys).
@@ -115,6 +116,15 @@ when = { harbour = "yes" }
 build = "harbour"
 
 # --- Railways ----------------------------------------------------------------
+[[rule]]
+when = { railway = "subway_entrance" }
+build = "metro_station"
+[[rule]]
+when = { railway = "station", station = "subway" }
+build = "metro_station"
+[[rule]]
+when = { railway = "subway" }
+build = "metro"
 [[rule]]
 when = { railway = ["tram_stop"] }
 build = "tram_stop"

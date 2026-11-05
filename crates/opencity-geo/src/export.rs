@@ -69,6 +69,7 @@ fn tags(code: StructureCode, level: u8) -> Map<String, Value> {
         Incinerator => ("incinerator", &[("power", "plant"), ("plant:source", "waste")]),
         BusStop => ("bus_stop", &[("highway", "bus_stop"), ("shelter", "yes")]),
         TramStop => ("tram_stop", &[("railway", "tram_stop"), ("public_transport", "platform")]),
+        MetroStation => ("metro_station", &[("railway", "subway_entrance")]),
         Test | Part => ("ignore", &[]),
     };
     let mut m = Map::new();
@@ -128,23 +129,32 @@ pub fn export(city: &City, opts: &ExportOptions) -> Value {
             }
         }
     }
-    // Pipes run underground, under whatever stands on the tile.
-    let mut props = tags(StructureCode::WaterPipe, 0);
-    props.insert("location".into(), "underground".into());
-    for (w, l) in city.layer.pipes() {
-        let c = |dw: f64, dl: f64| un.at(w as f64 + 0.5 + dw, l as f64 + 0.5 + dl);
-        let mut segments = Vec::new();
-        for (dw, dl) in [(1, 0), (0, 1)] {
-            if city.layer.has_pipe(w + dw, l + dl) {
-                segments.push(json!([c(0.0, 0.0), c(dw as f64, dl as f64)]));
+    // Pipes and metro tunnels run underground, under whatever stands on the tile.
+    let mut pipe = tags(StructureCode::WaterPipe, 0);
+    pipe.insert("location".into(), "underground".into());
+    let mut metro = Map::new();
+    for (k, v) in [("opencity:build", "metro"), ("railway", "subway"), ("tunnel", "yes"), ("location", "underground")] {
+        metro.insert(k.into(), v.into());
+    }
+    let layer = &city.layer;
+    type Run<'a> = (Vec<(u32, u32)>, fn(&opencity_core::BuildingLayer, u32, u32) -> bool, &'a Map<String, Value>);
+    let runs: [Run; 2] = [(layer.pipes().collect(), |y, w, l| y.has_pipe(w, l), &pipe), (layer.tunnels().collect(), |y, w, l| y.has_tunnel(w, l), &metro)];
+    for (tiles, has, props) in runs {
+        for (w, l) in tiles {
+            let c = |dw: f64, dl: f64| un.at(w as f64 + 0.5 + dw, l as f64 + 0.5 + dl);
+            let mut segments = Vec::new();
+            for (dw, dl) in [(1, 0), (0, 1)] {
+                if has(layer, w + dw, l + dl) {
+                    segments.push(json!([c(0.0, 0.0), c(dw as f64, dl as f64)]));
+                }
             }
-        }
-        let alone = segments.is_empty() && !(w > 0 && city.layer.has_pipe(w - 1, l)) && !(l > 0 && city.layer.has_pipe(w, l - 1));
-        if alone {
-            segments.push(json!([c(-0.5, 0.0), c(0.5, 0.0)]));
-        }
-        for seg in segments {
-            features.push(feature(json!({"type": "LineString", "coordinates": seg}), props.clone()));
+            let alone = segments.is_empty() && !(w > 0 && has(layer, w - 1, l)) && !(l > 0 && has(layer, w, l - 1));
+            if alone {
+                segments.push(json!([c(-0.5, 0.0), c(0.5, 0.0)]));
+            }
+            for seg in segments {
+                features.push(feature(json!({"type": "LineString", "coordinates": seg}), props.clone()));
+            }
         }
     }
     if opts.terrain {

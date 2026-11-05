@@ -128,8 +128,9 @@ Water and waste come with the GlassBox rules:
   (B shows them).
 - **Waste:** rubbish trucks from landfills, recycling centres and
   incinerators collect from the buildings around them.
-- **Buses and trams:** bus stops on the streets and tram lines laid in
-  them let people travel farther than they would drive.
+- **Buses, trams and metro:** bus stops on the streets, tram lines laid in
+  them and metro tunnels under the city let people travel farther than
+  they would drive, and around the traffic.
 
 Bigger buildings need water, sewage treatment and rubbish collection to
 grow (see [docs/PLAYING.md](docs/PLAYING.md#building)). Tools are grouped
