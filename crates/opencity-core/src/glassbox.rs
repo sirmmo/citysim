@@ -1840,6 +1840,9 @@ impl Pool {
 /// crossings), and any building when the network runs through buildings.
 pub fn conducts(net: &crate::rules::NetworkDef, layer: &BuildingLayer, w: u32, l: u32) -> bool {
     let has = |code: StructureCode| net.structures.iter().any(|s| structure_code(s) == Some(code));
+    if layer.has_pipe(w, l) && has(StructureCode::WaterPipe) {
+        return true;
+    }
     match layer.structure_at(w, l) {
         None => false,
         // Track belongs to rail networks, not to the streets.

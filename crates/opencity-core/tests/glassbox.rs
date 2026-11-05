@@ -1041,8 +1041,11 @@ fn water_and_waste_serve_the_buildings() {
         // that does not join the town's streets.
         c.apply_tool(Tool::PumpingStation, (20, 17), (20, 17)).unwrap();
         c.apply_tool(Tool::Road, (19, 19), (25, 19)).unwrap();
+        // Mains under the southern street serve the houses along it.
+        c.apply_tool(Tool::WaterPipe, (4, 12), (35, 12)).unwrap();
         if pipe {
-            c.apply_tool(Tool::WaterPipe, (20, 13), (20, 16)).unwrap();
+            // Under the street and out across the field to the pump.
+            c.apply_tool(Tool::WaterPipe, (20, 12), (20, 16)).unwrap();
         }
         let mut water_in = 0.0;
         for _ in 0..300 {
@@ -1052,6 +1055,20 @@ fn water_and_waste_serve_the_buildings() {
         water_in
     };
     let (dry, piped) = (run(false), run(true));
+    // Pipes lie under whatever stands on them, and the bulldozer's
+    // underground mode digs them up without touching the street.
+    let mut c = City::new(Terrain::flat(20, 20), None, Footprints::builtin(), 3);
+    c.fund = 1_000_000;
+    c.use_rules(r.clone());
+    c.research_all();
+    c.apply_tool(Tool::Road, (2, 5), (15, 5)).unwrap();
+    c.apply_tool(Tool::WaterPipe, (2, 5), (15, 5)).unwrap();
+    assert!(c.layer.has_pipe(8, 5) && c.layer.code_at(8, 5) == Some(StructureCode::Road));
+    assert!(c.apply_tool(Tool::WaterPipe, (2, 5), (15, 5)).is_err(), "already piped");
+    c.apply_tool(Tool::Destroy, (8, 5), (8, 5)).unwrap();
+    assert!(c.layer.has_pipe(8, 5), "the bulldozer leaves the pipe under a street");
+    c.dig_up_pipes((6, 5), (9, 5)).unwrap();
+    assert!(!c.layer.has_pipe(7, 5) && c.layer.code_at(7, 5) == Some(StructureCode::Road));
     assert_eq!(dry, 0.0, "no pipe, no water");
     assert!(piped > 0.0, "the pipe carries the pump's water to the town");
 }

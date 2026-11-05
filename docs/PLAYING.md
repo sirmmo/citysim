@@ -32,6 +32,7 @@ game see [RULES.md](RULES.md); for the documentation index see
 | O | Turn the inspected plant or service a quarter |
 | G | GlassBox graphs |
 | V | Resource network on the map |
+| U | Underground view: water pipes |
 | Space, F | Pause, fast forward |
 | Esc | Drop the tool, or open the menu (new, load, save, quit) |
 
@@ -76,14 +77,25 @@ game see [RULES.md](RULES.md); for the documentation index see
   sailing boats before 1800, at a **Quay**). The **Canal** tool digs empty
   land below the water line to join waters or bring them to a town.
 - **Water** (GlassBox rules): bigger buildings want water, and dense
-  ones want their sewage treated. Water mains run under every street.
+  ones want their sewage treated. Water reaches them through pipes laid
+  underground.
   - **Pumping station:** pumps water into the mains. It needs power and
     clean ground around it.
   - **Water tower:** a small store of water that needs no power.
   - **Water treatment plant:** treats the sewage of the buildings on its
     mains; nobody wants to live next to one.
-  - **Water pipe:** carries water across open land, to a pump or a tower
-    away from the streets.
+  - **Water pipe:** drag it like a road. Pipes go underground, under
+    streets, buildings or open land, and cost the same everywhere. A
+    building gets water from a pipe under it, or under the street beside
+    it, and passes it on to the buildings it touches.
+
+  **Underground view:** press **U** (or View > Underground), or pick
+  any Water tool, to fade the city and see the pipes. In this view the
+  bulldozer digs up pipes and leaves everything above them; outside it,
+  the bulldozer never touches pipes. The inspector says when a water
+  main runs under a tile.
+
+  ![The underground view: water mains under the streets](underground.png)
 
   Level-2 buildings need water. Medium and high density buildings from
   level 2 also need sewage treatment.

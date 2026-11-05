@@ -6,6 +6,8 @@
 //! (at the building's origin, its north-west corner) or a [`TileKind::Part`]
 //! that records the origin coordinates. No pointers, no manual memory.
 
+use std::collections::BTreeSet;
+
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 
@@ -232,13 +234,17 @@ pub struct BuildingLayer {
     width: u32,
     length: u32,
     tiles: Vec<Option<Tile>>,
+    /// Water pipes laid underground (tile indices): streets, buildings or
+    /// open land can stand over them.
+    #[serde(default, skip_serializing_if = "BTreeSet::is_empty")]
+    pipes: BTreeSet<u32>,
     #[serde(skip)]
     revision: Revision,
 }
 
 impl BuildingLayer {
     pub fn new(width: u32, length: u32) -> Self {
-        Self { width, length, tiles: vec![None; (width * length) as usize], revision: Revision(1) }
+        Self { width, length, tiles: vec![None; (width * length) as usize], pipes: BTreeSet::new(), revision: Revision(1) }
     }
 
     /// Increases whenever a structure, its graphic or its level changes.
@@ -323,6 +329,55 @@ impl BuildingLayer {
         self.tiles.iter().enumerate().filter_map(move |(i, t)| Some((((i as u32) % width, (i as u32) / width), t.as_ref()?)))
     }
 
+    /// Whether a water pipe runs under `(w, l)`.
+    pub fn has_pipe(&self, w: u32, l: u32) -> bool {
+        w < self.width && l < self.length && self.pipes.contains(&(l * self.width + w))
+    }
+
+    /// Every tile with a pipe under it.
+    pub fn pipes(&self) -> impl Iterator<Item = (u32, u32)> + '_ {
+        self.pipes.iter().map(|&i| (i % self.width, i / self.width))
+    }
+
+    /// Lays pipe underground along the path route of `r`, under whatever
+    /// stands there; returns the cost of the new stretches.
+    pub fn lay_pipes(&mut self, r: Rect) -> Result<u32, BuildError> {
+        if !self.in_bounds(r) {
+            return Err(BuildError::OutOfBounds);
+        }
+        let width = self.width;
+        let new = Self::path_route(r).into_iter().filter(|&(w, l)| self.pipes.insert(l * width + w)).count() as u32;
+        if new == 0 {
+            return Err(BuildError::Nothing);
+        }
+        self.touch();
+        Ok(new * StructureCode::WaterPipe.build_cost())
+    }
+
+    /// Digs up the pipes under `r`, leaving the surface alone; returns the cost.
+    pub fn dig_up_pipes(&mut self, r: Rect) -> Result<u32, BuildError> {
+        if !self.in_bounds(r) {
+            return Err(BuildError::OutOfBounds);
+        }
+        let width = self.width;
+        let gone = r.tiles().filter(|&(w, l)| self.pipes.remove(&(l * width + w))).count() as u32;
+        if gone == 0 {
+            return Err(BuildError::Nothing);
+        }
+        self.touch();
+        Ok(gone * StructureCode::WaterPipe.destroy_cost(0))
+    }
+
+    /// Moves pipes saved as surface pieces (0.2.33) underground.
+    pub fn bury_pipes(&mut self) {
+        let old: Vec<(u32, u32)> = self.structures().filter(|(_, s)| s.code == StructureCode::WaterPipe).map(|(p, _)| p).collect();
+        for (w, l) in old {
+            let i = self.idx(w, l);
+            self.tiles[i] = None;
+            self.pipes.insert(i as u32);
+        }
+    }
+
     pub fn for_each_status(&mut self, mut f: impl FnMut(&mut Status)) {
         for t in self.tiles.iter_mut().flatten() {
             f(&mut t.status);
@@ -357,15 +412,15 @@ impl BuildingLayer {
         if !self.in_bounds(r) {
             return false;
         }
-        r.tiles().all(
-            |(w, l)| {
-                if code.is_path() {
-                    self.path_constructible(w, l, code, terrain)
-                } else {
-                    self.tile(w, l).is_none() && terrain.is_tile_flat(w, l)
-                }
-            },
-        )
+        r.tiles().all(|(w, l)| {
+            if code == StructureCode::WaterPipe {
+                true
+            } else if code.is_path() {
+                self.path_constructible(w, l, code, terrain)
+            } else {
+                self.tile(w, l).is_none() && terrain.is_tile_flat(w, l)
+            }
+        })
     }
 
     fn path_constructible(&self, w: u32, l: u32, code: StructureCode, terrain: &Terrain) -> bool {
@@ -383,6 +438,7 @@ impl BuildingLayer {
         self.touch();
         match code {
             StructureCode::Part => Err(BuildError::Nothing),
+            StructureCode::WaterPipe => self.lay_pipes(r),
             c if c.is_path() => self.build_path(r, c, RoadKind::Street, terrain),
             c if c.is_block() || c == StructureCode::Test => self.build_block(r.w1, r.l1, c, terrain, footprints),
             c => self.build_area(r, c, terrain, rng),

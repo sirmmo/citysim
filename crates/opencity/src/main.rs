@@ -114,6 +114,9 @@ struct Args {
     /// Show the resource network and its panel (screenshots, docs).
     #[arg(long, hide = true)]
     show_network: bool,
+    /// Show the pipes underground (screenshots, docs).
+    #[arg(long, hide = true)]
+    underground: bool,
     /// Open the research window with nothing researched, researching this project (screenshots, docs).
     #[arg(long, hide = true)]
     show_research: Option<String>,
@@ -391,6 +394,9 @@ struct Game {
     hover: Option<(u32, u32)>,
     /// The GlassBox resource network on the map.
     flow_view: flows::FlowView,
+    /// The underground view (pipes), switched on by hand (U); water tools
+    /// show it too.
+    underground: bool,
     flow_arcs: Vec<flows::Arc>,
     flow_key: Option<flows::ArcsKey>,
     flow_hover: Option<usize>,
@@ -821,6 +827,7 @@ impl Game {
                 }
             }
             Command::SetFlows(v) => self.flow_view = v,
+            Command::SetUnderground(on) => self.underground = on,
             Command::TryRules(rules) => {
                 let name = rules.name.clone();
                 self.city.use_rules(rules);
@@ -953,6 +960,12 @@ impl Game {
     }
 
     /// Tints buildings that lack a shown resource, by how much they lack.
+    /// Whether the pipes underground are shown (and bulldozed): by hand,
+    /// or while a water tool is in hand.
+    fn underground_view(&self) -> bool {
+        self.underground || matches!(self.active, Some(Action::Tool(Some(Tool::WaterPipe | Tool::PumpingStation | Tool::WaterTower | Tool::WaterTreatment))))
+    }
+
     fn draw_shortages(&self) {
         let (Some(gb), Some(rules)) = (&self.city.glassbox, self.city.rules()) else { return };
         if !self.flow_view.shortages {
@@ -1006,6 +1019,7 @@ impl Game {
                 overlay: self.overlay,
                 flows: &self.flow_view,
                 flow_hover: self.flow_hover.and_then(|i| self.flow_arcs.get(i)).map(|a| a.stretch),
+                underground: self.underground,
                 region: self.region.as_ref(),
             };
             let mut commands = Vec::new();
@@ -1024,6 +1038,9 @@ impl Game {
 
         if is_key_pressed(KeyCode::V) && !egui_keyboard && self.city.glassbox.is_some() {
             self.flow_view.on = !self.flow_view.on;
+        }
+        if is_key_pressed(KeyCode::U) && !egui_keyboard {
+            self.underground = !self.underground;
         }
         if is_key_pressed(KeyCode::Escape) && !egui_keyboard {
             if self.active.is_some() || self.query.is_some() {
@@ -1128,7 +1145,10 @@ impl Game {
         if is_mouse_button_released(MouseButton::Left) {
             if let (Some(start), Some(Action::Tool(Some(tool)))) = (self.drag_start.take(), self.active) {
                 let end = if tool.is_area() { hover.unwrap_or(start) } else { start };
-                match self.city.apply_tool(tool, start, end) {
+                // Underground, the bulldozer digs up pipes and leaves the surface.
+                let done =
+                    if tool == Tool::Destroy && self.underground_view() { self.city.dig_up_pipes(start, end) } else { self.city.apply_tool(tool, start, end) };
+                match done {
                     Ok(o) => self.audio.play(o.sound),
                     Err(e) => self.say(e.to_string()),
                 }
@@ -1162,6 +1182,13 @@ impl Game {
                     }
                 }
             }
+        }
+        if self.underground_view() {
+            // The surface fades back; the pipes show through it.
+            set_default_camera();
+            draw_rectangle(0.0, 0.0, screen_width(), screen_height(), Color::new(0.03, 0.05, 0.09, 0.55));
+            set_camera(&cam);
+            self.renderer.draw_pipes(&self.city);
         }
         if self.flow_view.on {
             self.draw_shortages();
@@ -1283,6 +1310,7 @@ async fn main() -> Result<()> {
         resume_speed: Speed::Normal,
         hover: None,
         flow_view: Default::default(),
+        underground: false,
         flow_arcs: Vec::new(),
         flow_key: None,
         flow_hover: None,
@@ -1419,6 +1447,7 @@ async fn main() -> Result<()> {
     if let (Some(g), Some(ui)) = (&s.args.show_tools, game.egui.as_mut()) {
         ui.open_tools(g);
     }
+    game.underground = s.args.underground;
     if s.args.show_network {
         game.flow_view.on = true;
         #[cfg(not(target_os = "android"))]

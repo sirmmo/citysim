@@ -232,9 +232,10 @@ through_buildings = true
 [[network]]
 id = "water"
 name = "Water mains"
-# Mains run under the streets and along water pipes, and through connected
-# buildings; sewage goes back the same way to the treatment plants.
-structures = ["water_pipe", "road"]
+# Mains are pipes laid underground (under streets, buildings or open land),
+# and run on through connected buildings; sewage goes back the same way to
+# the treatment plants.
+structures = ["water_pipe"]
 through_buildings = true
 
 

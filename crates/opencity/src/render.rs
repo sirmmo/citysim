@@ -659,6 +659,41 @@ impl Renderer {
         gl.depth_test(true);
     }
 
+    /// The water pipes underground, seen through everything: a dark-edged
+    /// blue main from tile centre to tile centre, with a joint at each tile.
+    pub fn draw_pipes(&self, city: &City) {
+        let t = &city.terrain;
+        let layer = &city.layer;
+        let gl = unsafe { get_internal_gl() }.quad_gl;
+        gl.depth_test(false);
+        gl.texture(None);
+        gl.draw_mode(DrawMode::Triangles);
+        let vert = |p: Vec3, c: Color| Vertex { position: p, uv: Vec2::ZERO, color: c.into(), normal: Vec4::ZERO };
+        let centre = |w: u32, l: u32| {
+            let (x, z) = (w as f32 + 0.5, l as f32 + 0.5);
+            vec3(x, height_at(t, x, z).max(WATER_LEVEL) + 0.06, z)
+        };
+        let edge = Color::new(0.02, 0.10, 0.20, 0.95);
+        let core = Color::new(0.30, 0.70, 1.00, 1.0);
+        for (half, c) in [(0.13, edge), (0.08, core)] {
+            for (w, l) in layer.pipes() {
+                let p = centre(w, l);
+                for (dw, dl) in [(1, 0), (0, 1)] {
+                    if !layer.has_pipe(w + dw, l + dl) {
+                        continue;
+                    }
+                    let q = centre(w + dw, l + dl);
+                    let side = vec3(dl as f32, 0.0, dw as f32) * half;
+                    gl.geometry(&[vert(p - side, c), vert(p + side, c), vert(q + side, c), vert(q - side, c)], &[0, 1, 2, 0, 2, 3]);
+                }
+                let j = half * 1.4;
+                let (a, b) = (vec3(j, 0.0, 0.0), vec3(0.0, 0.0, j));
+                gl.geometry(&[vert(p - a - b, c), vert(p + a - b, c), vert(p + a + b, c), vert(p - a + b, c)], &[0, 1, 2, 0, 2, 3]);
+            }
+        }
+        gl.depth_test(true);
+    }
+
     /// Translucent overlay hugging the terrain over `r`.
     pub fn draw_overlay(&self, t: &Terrain, r: Rect, color: Color) {
         let gl = unsafe { get_internal_gl() }.quad_gl;

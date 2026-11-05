@@ -128,14 +128,16 @@ zones ──taxes──▶ treasury ──upkeep──▶ services and plants
 industry, plants ──▶ pollution ──✕ houses
 parks, shops ──▶ land value ──▶ bigger homes
 fire, police, hospital, school ──▶ coverage ──▶ medium and high density levels
-pumping stations, water towers ──water──▶ level 2+ buildings   (grid: water pipes, streets, buildings)
+pumping stations, water towers ──water──▶ level 2+ buildings   (grid: underground pipes, buildings)
 treatment plants ──sewage treatment──▶ medium and high density, level 2+ (same mains)
 landfill, recycling, incinerator ──rubbish collection──▶ level 3 buildings (by road: rubbish trucks)
 ```
 
 **Water and waste.**
-- The `water` network is made of `water_pipe` and `road`, and runs through
-  connected buildings, like power.
+- The `water` network is made of `water_pipe`, and runs through
+  connected buildings, like power. Pipes lie underground, so a tile can
+  have a street (or a building) and a pipe at once; any network listing
+  `water_pipe` runs along them.
 - `sewage` (sewage treatment) shares the water mains.
 - `waste` (rubbish collection) travels by road, at most 40 tiles, on
   rubbish trucks (`garbage_truck`, which carries only `waste`).

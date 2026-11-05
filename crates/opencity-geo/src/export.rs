@@ -122,6 +122,25 @@ pub fn export(city: &City, opts: &ExportOptions) -> Value {
             }
         }
     }
+    // Pipes run underground, under whatever stands on the tile.
+    let mut props = tags(StructureCode::WaterPipe, 0);
+    props.insert("location".into(), "underground".into());
+    for (w, l) in city.layer.pipes() {
+        let c = |dw: f64, dl: f64| un.at(w as f64 + 0.5 + dw, l as f64 + 0.5 + dl);
+        let mut segments = Vec::new();
+        for (dw, dl) in [(1, 0), (0, 1)] {
+            if city.layer.has_pipe(w + dw, l + dl) {
+                segments.push(json!([c(0.0, 0.0), c(dw as f64, dl as f64)]));
+            }
+        }
+        let alone = segments.is_empty() && !(w > 0 && city.layer.has_pipe(w - 1, l)) && !(l > 0 && city.layer.has_pipe(w, l - 1));
+        if alone {
+            segments.push(json!([c(-0.5, 0.0), c(0.5, 0.0)]));
+        }
+        for seg in segments {
+            features.push(feature(json!({"type": "LineString", "coordinates": seg}), props.clone()));
+        }
+    }
     if opts.terrain {
         let t = &city.terrain;
         for l in 0..t.length() {

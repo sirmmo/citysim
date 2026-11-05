@@ -47,6 +47,7 @@ pub fn load(input: impl Read, footprints: Footprints) -> Result<City, SaveError>
     }
     let mut city: City = serde_json::from_value(env.city)?;
     city.set_footprints(footprints);
+    city.layer.bury_pipes();
     Ok(city)
 }
 

@@ -124,7 +124,8 @@ the industrial age.
 
 Water and waste come with the GlassBox rules:
 - **Water:** pumping stations, water towers and treatment plants feed the
-  water mains under the streets. Water pipes cross open land.
+  water pipes laid underground, under streets, buildings or open land
+  (U shows them).
 - **Waste:** rubbish trucks from landfills, recycling centres and
   incinerators collect from the buildings around them.
 

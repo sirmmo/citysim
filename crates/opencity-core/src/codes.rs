@@ -263,6 +263,7 @@ impl GraphicCode {
     pub const RAIL_STATION: Self = Self(395);
     pub const HARBOUR: Self = Self(396);
     /// First of 15 water pipe pieces, see [`path_graphic`].
+    /// Surface pipe pieces of 0.2.33 (pipes now run underground, unseen).
     pub const PIPE_BASE: Self = Self(190);
     pub const PUMPING_STATION: Self = Self(380);
     pub const WATER_TOWER: Self = Self(381);

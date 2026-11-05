@@ -2,6 +2,14 @@
 
 Release notes in full are on the [releases page](https://github.com/sirmmo/citysim/releases).
 
+## 0.2.34: Pipes underground
+- **Water pipes run underground.** Lay them under streets, buildings or open land. Streets no longer carry water by themselves, so lay mains under them.
+- **Underground view** (U, or View > Underground, and whenever a Water tool is in hand): the city fades and the pipes show through it. In this view the bulldozer digs up pipes and leaves the surface alone. Outside it, the bulldozer never touches pipes.
+- The inspector says when a water main runs under a tile.
+- Saves from 0.2.33 move their surface pipes underground on loading. The surface pipe models are gone.
+- GeoJSON exports pipes as `man_made=pipeline` with `location=underground`.
+- The demo town lays mains under all its streets.
+
 ## 0.2.33: Water and waste
 - **Water:** pumping stations, water towers and water treatment plants feed the water mains, which run under the streets and through buildings. **Water pipes** cross open land. Level-2 buildings need water; medium and high density buildings also need their sewage treated.
 - **Waste:** landfills, recycling centres and incinerators send rubbish trucks to collect from the buildings around them; level-3 buildings need collection.

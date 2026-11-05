@@ -482,6 +482,17 @@ impl City {
         Ok(ToolOutcome { cost, sound: tool.sound() })
     }
 
+    /// The bulldozer in the underground view: digs up the water pipes
+    /// under the rectangle, leaving what stands on them.
+    pub fn dig_up_pipes(&mut self, a: (u32, u32), b: (u32, u32)) -> Result<ToolOutcome, ToolError> {
+        if self.fund < 0 {
+            return Err(ToolError::Bankrupt);
+        }
+        let cost = self.layer.dig_up_pipes(Rect::new(a, b))?;
+        self.fund -= cost as i64;
+        Ok(ToolOutcome { cost, sound: Tool::Destroy.sound() })
+    }
+
     /// Zoning cost per tile at the current density, under GlassBox rules.
     fn zone_cost(&self, code: StructureCode) -> Option<u32> {
         let rules = self.rules()?;

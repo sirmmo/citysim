@@ -82,8 +82,16 @@ pub fn demo_town(city: &mut City) {
                 try_tool_on(city, tool, (w0 + dw, l0 - dl), (0, 0));
             }
         }
-        // A water main out past the tower, across open land.
+        // Water mains under every street, and out past the tower across
+        // open land.
         if allows(city, Tool::WaterPipe) {
+            try_tool_on(city, Tool::WaterPipe, (w0, l0 - 1), (w0 + 13, l0 - 1));
+            for l in (l0..=l1).step_by(4) {
+                try_tool_on(city, Tool::WaterPipe, (w0, l), (w1, l));
+            }
+            for w in (w0..=w1).step_by(5) {
+                try_tool_on(city, Tool::WaterPipe, (w, l0 - 1), (w, l1));
+            }
             try_tool_on(city, Tool::WaterPipe, (w0 + 13, l0 - 2), (w0 + 13, l0 - 6));
             try_tool_on(city, Tool::WaterPipe, (w0 + 13, l0 - 6), (w0 + 17, l0 - 6));
         }

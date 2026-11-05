@@ -45,6 +45,8 @@ pub enum Command {
     SetStance(String, String),
     /// Network view settings (GlassBox rules).
     SetFlows(crate::flows::FlowView),
+    /// Show the pipes underground (the bulldozer then digs them up).
+    SetUnderground(bool),
     /// Inspect the building on this tile and look at it.
     Inspect((u32, u32)),
     /// A new region: name, slots across and down, tiles per city map, rules.
@@ -108,6 +110,8 @@ pub struct View<'a> {
     pub flow_hover: Option<opencity_core::netmap::Stretch>,
     /// The region being played, if any.
     pub region: Option<&'a crate::region::RegionSession>,
+    /// The underground view is on (by hand).
+    pub underground: bool,
 }
 
 #[derive(Default)]
@@ -577,6 +581,14 @@ impl EguiUi {
                         }
                         ui.checkbox(&mut self.show_network, "Resource network panel");
                     }
+                    let mut under = view.underground;
+                    if ui
+                        .checkbox(&mut under, "Underground: water pipes (U)")
+                        .on_hover_text("See the pipes under the city; the bulldozer then digs up pipes and leaves the surface")
+                        .changed()
+                    {
+                        out.push(Command::SetUnderground(under));
+                    }
                     if view.pack.is_none()
                         && !view.rulesets.is_empty()
                         && ui.button("Rules editor…").on_hover_text("Edit the GlassBox rules: text with hints, or as a graph").clicked()
@@ -1030,6 +1042,9 @@ impl EguiUi {
                             }
                         });
                     }
+                }
+                if city.layer.has_pipe(w, l) {
+                    ui.label(RichText::new("💧 A water main runs underneath (U shows the pipes)").color(Color32::from_rgb(110, 180, 240)));
                 }
                 ui.separator();
                 ui.label(RichText::new(format!("Tile {w}, {l} · ground height {}", city.terrain.tile_min(w, l))).small().color(Color32::GRAY));
@@ -1506,7 +1521,7 @@ fn kind_line(view: &View, s: &opencity_core::Structure) -> String {
         return "Service".into();
     }
     match s.code {
-        StructureCode::WaterPipe => "Water main · carries water and sewage to the buildings beside it".into(),
+        StructureCode::WaterPipe => "Water main · carries water and sewage to the buildings beside it (now underground)".into(),
         StructureCode::PowerLine => "Power line".into(),
         c if c.is_zone() && s.level == 0 => format!("{c:?} zone · empty plot"),
         c if c.is_zone() => format!("{c:?} zone"),

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generates the water and waste art: AC3D models (pipes and buildings) and
+"""Generates the water and waste art: AC3D models (the buildings; pipes run underground) and
 sidebar icons. The models are built from simple solids in tile units (x
 east, y up, z south; a building of w x l tiles spans 0..w, 0..l), coloured
 by material, two-sided. Run from the repository root:
@@ -119,29 +119,6 @@ RUST = (0.60, 0.38, 0.22)
 GREEN = (0.30, 0.60, 0.35)
 YELLOW = (0.90, 0.75, 0.25)
 RED = (0.75, 0.25, 0.20)
-
-# Pipe pieces, in path order (see opencity_core::path_graphic):
-# O_N O_E O_S O_W S_N W_E N_E N_W S_E S_W S_N_E S_W_E S_N_W N_W_E S_N_W_E.
-PIECES = ["o_n", "o_e", "o_s", "o_w", "s_n", "w_e", "n_e", "n_w", "s_e", "s_w", "s_n_e", "s_w_e", "s_n_w", "n_w_e", "s_n_w_e"]
-
-
-def pipe_piece(code):
-    dirs = code.split("_")
-    if dirs[0] == "o":
-        dirs = dirs[1:]
-    m = Model()
-    y, r = 0.16, 0.07
-    ends = {"n": (0.5, y, 0.0), "s": (0.5, y, 1.0), "e": (1.0, y, 0.5), "w": (0.0, y, 0.5)}
-    for d in dirs:
-        m.pipe(PIPE, (0.5, y, 0.5), ends[d], r)
-    # Joint and a support on the ground.
-    m.box(STEEL, 0.4, 0.0, 0.4, 0.6, y + r + 0.03, 0.6)
-    for d in dirs:
-        x, _, z = ends[d]
-        cx, cz = (0.5 + x) / 2, (0.5 + z) / 2
-        m.box(DARK, cx - 0.03, 0.0, cz - 0.03, cx + 0.03, y, cz + 0.03)
-    return m
-
 
 def pumping_station():
     m = Model()
@@ -301,8 +278,6 @@ def icons():
 
 
 def main():
-    for i, code in enumerate(PIECES):
-        save(f"water/pipe_{code}/pipe_{code}", pipe_piece(code), "Water pipe", 1, 1, 0.3, "A water main across open land.")
     save("water/pumping_station/pumping_station", pumping_station(), "Pumping station", 2, 2, 0.9, "Pumps water into the mains.")
     save("water/water_tower/water_tower", water_tower(), "Water tower", 1, 1, 1.8, "Stores water up high.")
     save("water/water_treatment/water_treatment", water_treatment(), "Water treatment plant", 3, 3, 0.8, "Cleans the sewage.")
