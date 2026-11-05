@@ -5,10 +5,12 @@
 //!   already define (resources, networks, units, layers, zones, projects,
 //!   the fields of the section being written), and a check after every
 //!   change that points at the file and line of the first problem.
-//! * **Graph**: one building, resource or network at a time, with what
-//!   goes in and comes out of it. A building's needs and products can be
-//!   changed, added and removed there; the rules file is rewritten in place,
-//!   comments and layout kept.
+//! * **Graph**: one building, resource, network or map layer at a time,
+//!   with what goes in and comes out of it. A building's needs, products,
+//!   the map layers it raises and those it needs can be changed, added and
+//!   removed there, and so can a layer's numbers. New buildings (blank or
+//!   copies), resources and map layers are created from the graph too. The
+//!   rules file is rewritten in place, comments and layout kept.
 //!
 //! **Try on this city** runs the city on the edited rules at once; **Save**
 //! writes the files to the data folder.
@@ -91,6 +93,7 @@ const STRUCTURES: &[&str] = &[
     "incinerator",
     "bus_stop",
     "tram_stop",
+    "metro_station",
 ];
 
 /// GlassBox script words.
@@ -212,6 +215,7 @@ enum Focus {
     Unit(String),
     Resource(String),
     Network(String),
+    Layer(String),
 }
 
 #[derive(Default)]
@@ -240,6 +244,12 @@ pub struct RulesEditor {
     note: String,
     /// An id to show in the graph once the rules are built.
     pending: Option<String>,
+    /// The building, resource or map layer being created, with its id and name.
+    creating: Option<NewThing>,
+    new_id: String,
+    new_name: String,
+    /// The layer picked to add to a building's emits or requires.
+    add_layer: String,
 }
 
 impl RulesEditor {
@@ -294,6 +304,8 @@ impl RulesEditor {
                         Some(Focus::Resource(id))
                     } else if rules.networks.iter().any(|n| n.id == id) {
                         Some(Focus::Network(id))
+                    } else if rules.layer(&id).is_some() {
+                        Some(Focus::Layer(id))
                     } else {
                         None
                     };
@@ -557,7 +569,7 @@ impl RulesEditor {
             }
             if let Some(f) = &self.focus {
                 let id = match f {
-                    Focus::Unit(i) | Focus::Resource(i) | Focus::Network(i) => i.clone(),
+                    Focus::Unit(i) | Focus::Resource(i) | Focus::Network(i) | Focus::Layer(i) => i.clone(),
                 };
                 if ui.button("📝 Show in text").clicked() {
                     if let Some((file, line)) = self.src.as_ref().and_then(|s| find_definition(s, &id)) {
@@ -568,6 +580,10 @@ impl RulesEditor {
                 }
             }
         });
+        if self.creating.is_some() {
+            self.creation_form(ui, &rules);
+            ui.separator();
+        }
         let q = self.search.to_lowercase();
         if self.focus.is_none() || !q.is_empty() {
             self.overview(ui, &rules, &q);
@@ -577,6 +593,7 @@ impl RulesEditor {
             Some(Focus::Unit(id)) => self.unit_graph(ui, &rules, &id),
             Some(Focus::Resource(id)) => resource_graph(ui, &rules, &id, &mut self.focus),
             Some(Focus::Network(id)) => network_graph(ui, &rules, &id, &mut self.focus),
+            Some(Focus::Layer(id)) => self.layer_graph(ui, &rules, &id),
             None => {}
         }
     }
@@ -584,7 +601,28 @@ impl RulesEditor {
     /// Every resource, network and building, grouped; click one to see it.
     fn overview(&mut self, ui: &mut egui::Ui, rules: &Ruleset, q: &str) {
         let hit = |id: &str, name: &str| q.is_empty() || id.to_lowercase().contains(q) || name.to_lowercase().contains(q);
+        ui.horizontal(|ui| {
+            ui.label(RichText::new("New:").small());
+            for (label, what) in [
+                ("+ Building", NewThing::Unit { graphic: 11, copy_of: None }),
+                ("+ Resource", NewThing::Resource { transport: Transport::Agents, network: rules.networks.first().map(|n| n.id.clone()).unwrap_or_default() }),
+                ("+ Map layer", NewThing::Layer),
+            ] {
+                if ui.button(label).clicked() {
+                    self.start_creating(what, "", "");
+                }
+            }
+        });
         egui::ScrollArea::vertical().auto_shrink([false, false]).show(ui, |ui| {
+            ui.label(RichText::new("Map layers").strong());
+            ui.horizontal_wrapped(|ui| {
+                for l in rules.layers.iter().filter(|l| hit(&l.id, &l.name)) {
+                    if node_button(ui, &l.name, Kind::Layer).on_hover_text(&l.id).clicked() {
+                        self.focus = Some(Focus::Layer(l.id.clone()));
+                        self.search.clear();
+                    }
+                }
+            });
             ui.label(RichText::new("Networks").strong());
             ui.horizontal_wrapped(|ui| {
                 for n in rules.networks.iter().filter(|n| hit(&n.id, &n.name)) {
@@ -652,6 +690,8 @@ impl RulesEditor {
         }
         if !editable {
             ui.label(RichText::new("Defined by a script: edit it in the text.").small().color(Color32::GRAY));
+        } else if ui.button("Duplicate…").on_hover_text("A new building starting as a copy of this one").clicked() {
+            self.start_creating(NewThing::Unit { graphic: u.graphic, copy_of: Some(id.to_string()) }, &format!("{id}_2"), &format!("{} (2)", u.name));
         }
         let mut edit: Option<(&'static str, String, Option<f32>)> = None;
         let mut go: Option<Focus> = None;
@@ -700,6 +740,8 @@ impl RulesEditor {
                 });
             }
         }
+        // The rows each moved the cursor; carry on below the whole graph.
+        ui.advance_cursor_after_rect(rect);
         if editable {
             ui.separator();
             ui.horizontal(|ui| {
@@ -721,15 +763,254 @@ impl RulesEditor {
         }
         if let Some((key, r, v)) = edit {
             if let Some(text) = set_unit_amount(&main, id, key, &r, v) {
-                if let Some(src) = self.src.as_mut() {
-                    src.files[0].1 = text;
-                    self.rev += 1;
-                }
+                self.set_main(text);
             }
+        }
+        if editable {
+            self.unit_layers_editor(ui, rules, id, &main, &mut go);
         }
         if let Some(f) = go {
             self.focus = Some(f);
         }
+    }
+
+    fn set_main(&mut self, text: String) {
+        if let Some(src) = self.src.as_mut() {
+            src.files[0].1 = text;
+            self.rev += 1;
+        }
+    }
+
+    fn start_creating(&mut self, what: NewThing, id: &str, name: &str) {
+        self.creating = Some(what);
+        self.new_id = id.to_string();
+        self.new_name = name.to_string();
+    }
+
+    /// The map layers a building raises (`emits`) and needs (`requires`),
+    /// editable.
+    fn unit_layers_editor(&mut self, ui: &mut egui::Ui, rules: &Ruleset, id: &str, main: &str, go: &mut Option<Focus>) {
+        let mut edit: Option<(&'static str, String, &'static str, Option<f32>)> = None;
+        ui.separator();
+        egui::Grid::new("unit_layers").num_columns(2).spacing([24.0, 4.0]).show(ui, |ui| {
+            for (key, title, fields) in [("emits", "raises on the map", ["amount", "radius"]), ("requires", "needs on the map", ["min", "max"])] {
+                ui.label(RichText::new(title).small().color(Color32::GRAY));
+                ui.vertical(|ui| {
+                    let list = unit_layers(main, id, key).unwrap_or_default();
+                    if list.is_empty() {
+                        ui.label(RichText::new("nothing").small().color(Color32::DARK_GRAY));
+                    }
+                    for (layer, (a, b)) in list {
+                        ui.horizontal(|ui| {
+                            let name = rules.layer(&layer).map_or(layer.clone(), |i| rules.layers[i].name.clone());
+                            if node_button(ui, &name, Kind::Layer).clicked() {
+                                *go = Some(Focus::Layer(layer.clone()));
+                            }
+                            for (field, v) in fields.iter().zip([a, b]) {
+                                let label = match *field {
+                                    "min" => "at least",
+                                    "max" => "at most",
+                                    f => f,
+                                };
+                                match v {
+                                    Some(mut x) => {
+                                        ui.label(RichText::new(label).small());
+                                        let drag = if *field == "radius" {
+                                            egui::DragValue::new(&mut x).speed(0.2).range(0.0..=64.0).max_decimals(0)
+                                        } else {
+                                            egui::DragValue::new(&mut x).speed(0.1).max_decimals(2)
+                                        };
+                                        if ui.add(drag).changed() {
+                                            edit = Some((key, layer.clone(), field, Some(x)));
+                                        }
+                                    }
+                                    None if key == "requires" => {
+                                        if ui.small_button(format!("+ {label}")).clicked() {
+                                            edit = Some((key, layer.clone(), field, Some(0.0)));
+                                        }
+                                    }
+                                    None => {}
+                                }
+                            }
+                            if ui.small_button("×").on_hover_text("Remove").clicked() {
+                                edit = Some((key, layer.clone(), "", None));
+                            }
+                        });
+                    }
+                });
+                ui.end_row();
+            }
+        });
+        ui.horizontal(|ui| {
+            egui::ComboBox::from_id_salt("add_layer")
+                .selected_text(if self.add_layer.is_empty() { "map layer…".to_string() } else { self.add_layer.clone() })
+                .show_ui(ui, |ui| {
+                    for l in &rules.layers {
+                        ui.selectable_value(&mut self.add_layer, l.id.clone(), &l.name);
+                    }
+                });
+            let pick = !self.add_layer.is_empty();
+            if ui.add_enabled(pick, egui::Button::new("+ raises")).clicked() {
+                edit = Some(("emits", self.add_layer.clone(), "amount", Some(1.0)));
+            }
+            if ui.add_enabled(pick, egui::Button::new("+ needs at least")).clicked() {
+                edit = Some(("requires", self.add_layer.clone(), "min", Some(1.0)));
+            }
+            if ui.add_enabled(pick, egui::Button::new("+ needs at most")).clicked() {
+                edit = Some(("requires", self.add_layer.clone(), "max", Some(10.0)));
+            }
+        });
+        if let Some((key, layer, field, v)) = edit {
+            let mut text = set_unit_layer(main, id, key, &layer, field, v);
+            // A new emission reaches some way around the building.
+            if let (Some(t), "emits", "amount", true) = (&text, key, field, unit_layers(main, id, key).is_some_and(|l| !l.contains_key(&layer))) {
+                text = set_unit_layer(t, id, key, &layer, "radius", Some(4.0));
+            }
+            if let Some(t) = text {
+                self.set_main(t);
+            }
+        }
+    }
+
+    /// A map layer: the buildings that raise it, and those that need it
+    /// within bounds; its own numbers are editable.
+    fn layer_graph(&mut self, ui: &mut egui::Ui, rules: &Ruleset, id: &str) {
+        let Some(li) = rules.layer(id) else {
+            self.focus = None;
+            return;
+        };
+        let l = &rules.layers[li];
+        ui.label(RichText::new(&l.name).heading().color(Kind::Layer.colour()));
+        let main = self.src.as_ref().map(|s| s.files[0].1.clone()).unwrap_or_default();
+        match layer_fields(&main, id) {
+            Some(own) => {
+                let mut edit = None;
+                ui.horizontal(|ui| {
+                    for (field, label, value, range, hint) in [
+                        ("diffusion", "spreads", l.diffusion, 0.0..=1.0, "Share of a tile's value spread to its neighbours each tick"),
+                        ("decay", "fades", l.decay, 0.0..=1.0, "Share of the value lost each tick"),
+                        ("max", "full at", l.max, 0.0..=100_000.0, "Value shown at full colour on the map"),
+                    ] {
+                        let mut x = own.get(field).copied().unwrap_or(value);
+                        ui.label(label).on_hover_text(hint);
+                        if ui.add(egui::DragValue::new(&mut x).speed(if field == "max" { 1.0 } else { 0.01 }).range(range).max_decimals(3)).changed() {
+                            edit = Some((field, x));
+                        }
+                    }
+                });
+                if let Some(t) = edit.and_then(|(f, x)| set_layer_field(&main, id, f, x)) {
+                    self.set_main(t);
+                }
+            }
+            None => {
+                ui.label(RichText::new("Defined elsewhere: edit it in the text.").small().color(Color32::GRAY));
+            }
+        }
+        let c = Kind::Layer.colour();
+        let raisers: Vec<_> = rules
+            .units
+            .iter()
+            .filter_map(|u| u.emits.get(id).map(|e| (u.name.clone(), format!("{:+.1} within {}", e.amount, e.radius), Focus::Unit(u.id.clone()), c)))
+            .collect();
+        let bound = |b: &opencity_core::rules::Bound| match (b.min, b.max) {
+            (Some(a), Some(z)) => format!("{a}..{z}"),
+            (Some(a), None) => format!("≥ {a}"),
+            (None, Some(z)) => format!("≤ {z}"),
+            (None, None) => String::new(),
+        };
+        let wanting: Vec<_> = rules.units.iter().filter_map(|u| u.requires.get(id).map(|b| (u.name.clone(), bound(b), Focus::Unit(u.id.clone()), c))).collect();
+        columns(ui, &l.name, Kind::Layer, ["raised by", "needed by"], &raisers, &wanting, &mut self.focus);
+    }
+
+    /// The form for a new building, resource or map layer.
+    fn creation_form(&mut self, ui: &mut egui::Ui, rules: &Ruleset) {
+        let Some(mut what) = self.creating.clone() else { return };
+        let title = match &what {
+            NewThing::Unit { copy_of: Some(from), .. } => format!("New building, a copy of {from}"),
+            NewThing::Unit { .. } => "New building".to_string(),
+            NewThing::Resource { .. } => "New resource".to_string(),
+            NewThing::Layer => "New map layer".to_string(),
+        };
+        let taken = |id: &str| {
+            rules.units.iter().any(|u| u.id == id) || rules.resource(id).is_some() || rules.layer(id).is_some() || rules.networks.iter().any(|n| n.id == id)
+        };
+        let mut done = false;
+        egui::Frame::group(ui.style()).show(ui, |ui| {
+            ui.label(RichText::new(title).strong());
+            egui::Grid::new("new_thing").num_columns(2).show(ui, |ui| {
+                ui.label("id");
+                ui.add(egui::TextEdit::singleline(&mut self.new_id).desired_width(160.0).hint_text("lower_case_id"));
+                ui.end_row();
+                ui.label("name");
+                ui.add(egui::TextEdit::singleline(&mut self.new_name).desired_width(220.0));
+                ui.end_row();
+                match &mut what {
+                    NewThing::Unit { graphic, .. } => {
+                        ui.label("model").on_hover_text("Graphic code of its model (see graphism.conf, or a skin's [models])");
+                        let mut g = *graphic as u32;
+                        if ui.add(egui::DragValue::new(&mut g).range(1..=u16::MAX as u32)).changed() {
+                            *graphic = g as u16;
+                        }
+                        ui.end_row();
+                    }
+                    NewThing::Resource { transport, network } => {
+                        ui.label("moves");
+                        egui::ComboBox::from_id_salt("new_transport").selected_text(format!("{transport:?}").to_lowercase()).show_ui(ui, |ui| {
+                            for t in [Transport::Agents, Transport::Grid, Transport::City, Transport::Pool, Transport::Local] {
+                                let label = format!("{t:?}").to_lowercase();
+                                ui.selectable_value(transport, t, label);
+                            }
+                        });
+                        ui.end_row();
+                        if matches!(transport, Transport::Agents | Transport::Grid) {
+                            ui.label("on network");
+                            egui::ComboBox::from_id_salt("new_network").selected_text(network.as_str()).show_ui(ui, |ui| {
+                                for n in &rules.networks {
+                                    ui.selectable_value(network, n.id.clone(), &n.name);
+                                }
+                            });
+                            ui.end_row();
+                        }
+                    }
+                    NewThing::Layer => {}
+                }
+            });
+            let id = self.new_id.trim().to_string();
+            let problem = if !valid_id(&id) {
+                Some("The id takes lower case letters, digits and _.")
+            } else if taken(&id) {
+                Some("That id is taken.")
+            } else {
+                None
+            };
+            ui.horizontal(|ui| {
+                if ui.add_enabled(problem.is_none(), egui::Button::new("Create")).clicked() {
+                    let name = if self.new_name.trim().is_empty() { id.clone() } else { self.new_name.trim().to_string() };
+                    let main = self.src.as_ref().map(|s| s.files[0].1.clone()).unwrap_or_default();
+                    match add_definition(&main, &id, &name, &what) {
+                        Some(t) => {
+                            self.set_main(t);
+                            self.pending = Some(id.clone());
+                            self.note = match what {
+                                NewThing::Unit { .. } => {
+                                    format!("Added {id}. To build it, name it in a zone's densities or map a tool to it under [services].")
+                                }
+                                _ => format!("Added {id}."),
+                            };
+                            done = true;
+                        }
+                        None => self.note = format!("Could not add {id} to the rules file."),
+                    }
+                }
+                if ui.button("Cancel").clicked() {
+                    done = true;
+                }
+                if let (Some(p), false) = (problem, id.is_empty()) {
+                    ui.label(RichText::new(p).small().color(Color32::from_rgb(240, 150, 100)));
+                }
+            });
+        });
+        self.creating = if done { None } else { Some(what) };
     }
 }
 
@@ -816,6 +1097,7 @@ fn columns(
                 });
             }
         }
+        ui.advance_cursor_after_rect(rect);
     });
 }
 
@@ -1141,6 +1423,182 @@ fn set_unit_amount(text: &str, id: &str, key: &str, resource: &str, value: Optio
     Some(doc.to_string())
 }
 
+/// A building's `emits` or `requires` in the rules file: per layer, the
+/// two numbers it sets (`amount`, `radius` for emits; `min`, `max` for
+/// requires), when it has a `[[unit]]` there.
+type LayerAmounts = BTreeMap<String, (Option<f32>, Option<f32>)>;
+
+fn unit_layers(text: &str, id: &str, key: &str) -> Option<LayerAmounts> {
+    let doc: toml_edit::DocumentMut = text.parse().ok()?;
+    let units = doc.get("unit")?.as_array_of_tables()?;
+    let t = units.iter().find(|t| t.get("id").and_then(|v| v.as_str()) == Some(id))?;
+    let fields = if key == "emits" { ["amount", "radius"] } else { ["min", "max"] };
+    let mut m = BTreeMap::new();
+    if let Some(tbl) = t.get(key).and_then(|v| v.as_table_like()) {
+        for (layer, v) in tbl.iter() {
+            let num =
+                |f: &str| v.as_table_like().and_then(|e| e.get(f)).and_then(|x| x.as_float().or_else(|| x.as_integer().map(|i| i as f64))).map(|x| x as f32);
+            m.insert(layer.to_string(), (num(fields[0]), num(fields[1])));
+        }
+    }
+    Some(m)
+}
+
+fn number(v: f32) -> toml_edit::Value {
+    let v = (v as f64 * 1000.0).round() / 1000.0;
+    if v.fract() == 0.0 {
+        (v as i64).into()
+    } else {
+        v.into()
+    }
+}
+
+/// Sets one number of a building's `emits` or `requires` entry for a layer
+/// (`None` removes the number; `field` empty removes the whole entry),
+/// keeping the rest of the file as written.
+fn set_unit_layer(text: &str, id: &str, key: &str, layer: &str, field: &str, value: Option<f32>) -> Option<String> {
+    let mut doc: toml_edit::DocumentMut = text.parse().ok()?;
+    let units = doc.get_mut("unit")?.as_array_of_tables_mut()?;
+    let t = units.iter_mut().find(|t| t.get("id").and_then(|v| v.as_str()) == Some(id))?;
+    if t.get(key).is_none() {
+        value?;
+        t.insert(key, toml_edit::value(toml_edit::InlineTable::new()));
+    }
+    let tbl = t.get_mut(key)?.as_table_like_mut()?;
+    if field.is_empty() {
+        tbl.remove(layer);
+    } else {
+        if tbl.get(layer).is_none() {
+            value?;
+            tbl.insert(layer, toml_edit::Item::Value(toml_edit::Value::InlineTable(toml_edit::InlineTable::new())));
+        }
+        let entry = tbl.get_mut(layer)?.as_table_like_mut()?;
+        match value {
+            Some(v) => {
+                entry.insert(field, toml_edit::Item::Value(number(v)));
+            }
+            None => {
+                entry.remove(field);
+            }
+        }
+        if let Some(e) = tbl.get_mut(layer).and_then(|i| i.as_value_mut()).and_then(|v| v.as_inline_table_mut()) {
+            e.fmt();
+        }
+    }
+    if let Some(it) = t.get_mut(key).and_then(|i| i.as_inline_table_mut()) {
+        it.fmt();
+    }
+    Some(doc.to_string())
+}
+
+/// The numbers a `[[layer]]` sets in the rules file.
+fn layer_fields(text: &str, id: &str) -> Option<BTreeMap<String, f32>> {
+    let doc: toml_edit::DocumentMut = text.parse().ok()?;
+    let t = doc.get("layer")?.as_array_of_tables()?.iter().find(|t| t.get("id").and_then(|v| v.as_str()) == Some(id))?;
+    Some(
+        ["diffusion", "decay", "max"]
+            .iter()
+            .filter_map(|f| t.get(f).and_then(|x| x.as_float().or_else(|| x.as_integer().map(|i| i as f64))).map(|x| (f.to_string(), x as f32)))
+            .collect(),
+    )
+}
+
+fn set_layer_field(text: &str, id: &str, field: &str, value: f32) -> Option<String> {
+    let mut doc: toml_edit::DocumentMut = text.parse().ok()?;
+    let t = doc.get_mut("layer")?.as_array_of_tables_mut()?.iter_mut().find(|t| t.get("id").and_then(|v| v.as_str()) == Some(id))?;
+    t.insert(field, toml_edit::Item::Value(number(value)));
+    Some(doc.to_string())
+}
+
+/// Something new to add to the rules file from the graph.
+#[derive(Clone, Debug, PartialEq)]
+enum NewThing {
+    /// A building, blank or a copy of another (by id).
+    Unit {
+        graphic: u16,
+        copy_of: Option<String>,
+    },
+    Resource {
+        transport: Transport,
+        network: String,
+    },
+    Layer,
+}
+
+/// Appends a `[[unit]]`, `[[resource]]` or `[[layer]]` to the rules file:
+/// a copy of another building goes right after it, the rest at the end.
+fn add_definition(text: &str, id: &str, name: &str, what: &NewThing) -> Option<String> {
+    let mut doc: toml_edit::DocumentMut = text.parse().ok()?;
+    let array = match what {
+        NewThing::Unit { .. } => "unit",
+        NewThing::Resource { .. } => "resource",
+        NewThing::Layer => "layer",
+    };
+    let exists = |doc: &toml_edit::DocumentMut| {
+        doc.get(array).and_then(|a| a.as_array_of_tables()).is_some_and(|a| a.iter().any(|t| t.get("id").and_then(|v| v.as_str()) == Some(id)))
+    };
+    if id.is_empty() || exists(&doc) {
+        return None;
+    }
+    let mut t = match what {
+        NewThing::Unit { copy_of: Some(from), .. } => {
+            let src = doc.get("unit")?.as_array_of_tables()?.iter().find(|t| t.get("id").and_then(|v| v.as_str()) == Some(from))?.clone();
+            let mut t = src;
+            t.decor_mut().clear();
+            t
+        }
+        _ => {
+            let mut t = toml_edit::Table::new();
+            t.set_position(usize::MAX);
+            t
+        }
+    };
+    t.decor_mut().set_prefix("\n");
+    t.insert("id", toml_edit::value(id));
+    t.insert("name", toml_edit::value(name));
+    match what {
+        NewThing::Unit { graphic, copy_of } => {
+            if copy_of.is_none() {
+                t.insert("graphic", toml_edit::value(*graphic as i64));
+                t.insert("needs", toml_edit::value(toml_edit::InlineTable::new()));
+                t.insert("produce", toml_edit::value(toml_edit::InlineTable::new()));
+            } else {
+                t.insert("graphic", toml_edit::value(*graphic as i64));
+            }
+        }
+        NewThing::Resource { transport, network } => {
+            let tr = match transport {
+                Transport::Agents => "agents",
+                Transport::Grid => "grid",
+                Transport::City => "city",
+                Transport::Pool => "pool",
+                Transport::Local => "local",
+            };
+            t.insert("transport", toml_edit::value(tr));
+            if matches!(transport, Transport::Agents | Transport::Grid) {
+                t.insert("network", toml_edit::value(network.as_str()));
+            }
+            if *transport == Transport::Agents {
+                t.insert("max_trip", toml_edit::value(30));
+            }
+        }
+        NewThing::Layer => {
+            t.insert("decay", toml_edit::value(0.1));
+            t.insert("max", toml_edit::value(100));
+        }
+    }
+    if doc.get(array).is_none() {
+        doc.insert(array, toml_edit::Item::ArrayOfTables(toml_edit::ArrayOfTables::new()));
+    }
+    doc.get_mut(array)?.as_array_of_tables_mut()?.push(t);
+    Some(doc.to_string())
+}
+
+/// Whether an id is fit for the rules: lower case letters, digits and `_`.
+fn valid_id(id: &str) -> bool {
+    !id.is_empty() && id.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_') && !id.starts_with(|c: char| c.is_ascii_digit())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1159,6 +1617,33 @@ mod tests {
         assert_eq!(needs.get("workers"), Some(&3.0));
         assert!(produce.is_empty());
         assert!(unit_tables(&t, "nowhere").is_none());
+    }
+
+    #[test]
+    fn layers_and_new_definitions_are_edited_in_place() {
+        let text = format!("{UNIT}\n[[layer]]\nid = \"smog\"   # air\nname = \"Smog\"\ndecay = 0.2\n");
+        let t = set_unit_layer(&text, "house", "emits", "smog", "amount", Some(3.0)).unwrap();
+        let t = set_unit_layer(&t, "house", "emits", "smog", "radius", Some(4.0)).unwrap();
+        assert!(t.contains("emits = { smog = { amount = 3, radius = 4 } }"), "{t}");
+        let t = set_unit_layer(&t, "shop", "requires", "smog", "max", Some(20.0)).unwrap();
+        assert_eq!(unit_layers(&t, "shop", "requires").unwrap().get("smog"), Some(&(None, Some(20.0))));
+        let t = set_unit_layer(&t, "house", "emits", "smog", "", None).unwrap();
+        assert!(unit_layers(&t, "house", "emits").unwrap().is_empty(), "{t}");
+        let t = set_layer_field(&t, "smog", "max", 50.0).unwrap();
+        assert_eq!(layer_fields(&t, "smog").unwrap().get("max"), Some(&50.0));
+        assert!(t.contains("id = \"smog\"   # air"), "comments kept: {t}");
+        // A copy of a building follows it; new things go at the end.
+        let t = add_definition(&t, "house_2", "Big house", &NewThing::Unit { graphic: 7, copy_of: Some("house".into()) }).unwrap();
+        let (needs, produce) = unit_tables(&t, "house_2").unwrap();
+        assert_eq!((needs.get("power"), produce.get("residents")), (Some(&1.0), Some(&4.0)), "{t}");
+        assert!(t.find("id = \"house_2\"").unwrap() < t.find("id = \"shop\"").unwrap(), "{t}");
+        let t = add_definition(&t, "fish", "Fish", &NewThing::Resource { transport: Transport::Agents, network: "road".into() }).unwrap();
+        let t = add_definition(&t, "noise", "Noise", &NewThing::Layer).unwrap();
+        assert!(t.trim_end().ends_with("max = 100"), "{t}");
+        assert!(t.contains("[[resource]]\nid = \"fish\"\nname = \"Fish\"\ntransport = \"agents\"\nnetwork = \"road\""), "{t}");
+        assert!(add_definition(&t, "fish", "Again", &NewThing::Layer).is_none() || layer_fields(&t, "fish").is_none());
+        assert!(add_definition(&t, "house", "Twice", &NewThing::Unit { graphic: 1, copy_of: None }).is_none(), "ids stay unique");
+        assert!(valid_id("tram_depot") && !valid_id("Tram") && !valid_id("1st") && !valid_id(""));
     }
 
     #[test]

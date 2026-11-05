@@ -685,12 +685,27 @@ city's rules; the menu at the top switches to another set.
   * a **building** shows what it needs on the left and what it makes on the
     right. The amounts can be changed by dragging, × removes one, and
     **+ needs** / **+ makes** add a resource. The rules file is rewritten
-    in place, its comments and layout kept. A building defined by a script
-    is shown but edited in the text;
+    in place, its comments and layout kept. Below, the **map layers** it
+    raises (amount, radius) and those it needs (at least, at most) are
+    edited the same way, with **+ raises** / **+ needs at least** / **+
+    needs at most**. **Duplicate…** starts a new building as a copy of it.
+    A building defined by a script is shown but edited in the text;
   * a **resource** shows the buildings that make it and the ones that need
     it, how it travels and its trade price;
   * a **network** shows what it is made of, its vehicles and the resources
-    it carries.
+    it carries;
+  * a **map layer** shows the buildings that raise it and those that need
+    it within bounds, and edits how it spreads, how fast it fades and the
+    value shown at full colour.
+
+  ![A map layer in the graph](rules-layer.png)
+
+  **+ Building**, **+ Resource** and **+ Map layer** in the overview add a
+  new one to the rules file: an id, a name, and a model for a building or
+  how a resource travels (and on which network). A copied building goes
+  right after the one it copies, the rest at the end of the file. A new
+  building is built once a zone density lists it or a tool maps to it under
+  `[services]` (in the text).
 
   Click any node to move to it. **Show in text** jumps to its definition.
 * **Try on this city** runs the open city on the edited rules at once,

@@ -2,6 +2,12 @@
 
 Release notes in full are on the [releases page](https://github.com/sirmmo/citysim/releases).
 
+## 0.2.40: Rules editor: layers and new things
+- **Map layers in the graph:** a layer shows the buildings that raise it and those that need it within bounds. How it spreads, how fast it fades and its full-colour value can be edited there.
+- **A building's map layers:** what it raises (amount, radius) and what it needs (at least, at most) are edited on its graph, with buttons to add more.
+- **New buildings, resources and map layers** from the graph: **+ Building**, **+ Resource**, **+ Map layer**, or **Duplicate…** on a building to start from a copy. The rules file keeps its comments and layout.
+- Fix: in a building's graph, the controls below no longer cover the lower needs when it needs more than it makes.
+
 ## 0.2.39: Composed models
 - **Models composed from parts.** A `.compose` file builds a model from slots of parts to pick from, with colour tints. Every building gets its own combination, picked by its tile, so streets stop repeating one house (docs/SKINS.md#composed-models).
 - The modern skin's little houses and family houses now vary from plot to plot: one of several Kenney houses, tinted, with a tree or a parked car in the yard.
