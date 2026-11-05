@@ -2,6 +2,12 @@
 
 Release notes in full are on the [releases page](https://github.com/sirmmo/citysim/releases).
 
+## 0.2.37: Traffic
+- **Traffic slows trips** (GlassBox rules). Trips by road load the streets they cross, and busy areas make road trips take up to three times longer. A jammed town reaches fewer jobs and shops.
+- Trams, trains and boats are not slowed and highways bypass traffic; buses feel half of it. Public transport now relieves the streets as well as reaching farther.
+- Inspecting a road shows how full it is and how much slower trips are there. Cars route around busy roads.
+- Road traffic now comes from the GlassBox trips instead of the classic estimate.
+
 ## 0.2.36: Buses and trams
 (0.2.35 was tagged but never published: GitHub retired the macOS runners it built on. Releases now build on macOS 15.)
 

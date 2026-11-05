@@ -186,6 +186,11 @@ pub struct GlassBox {
     /// each is a node that sends what is bought and takes what is sold.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub gates: Vec<Gate>,
+    /// Traffic on the roads of each cell of `BUCKET` tiles (a running
+    /// average): the share of their capacity this tick's road trips take.
+    /// 1 is full; trips across busy cells take longer.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub congestion: Vec<f32>,
     /// Culture flowing in from the rest of the region, per tick and
     /// resource (shared pools).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -251,6 +256,29 @@ pub const WATER_SPEED: f32 = 2.0;
 pub const TRAM_SPEED: f32 = 2.0;
 /// Buses, in road speed units: bus lanes, but stops on the way.
 pub const BUS_SPEED: f32 = 1.5;
+/// Road trips a road tile of capacity 1 carries in a tick before it is full.
+pub const ROAD_TRIPS: f32 = 20.0;
+/// How much longer a trip across full roads takes: × (1 + this × congestion).
+pub const CONGESTION_DELAY: f32 = 1.0;
+/// Congestion counted at most (gridlock).
+const CONGESTION_MAX: f32 = 2.0;
+/// Buses feel this share of the congestion (bus lanes); trams, trains and
+/// boats none.
+const BUS_CONGESTION: f32 = 0.5;
+/// What a bus passenger adds to the traffic, against a car trip.
+const BUS_LOAD: f32 = 0.1;
+
+/// Calls `f` with each cell (index) on the straight line between two
+/// tiles, once per sample; the cells are `BUCKET` tiles a side, `cw` across.
+fn line_cells(a: (u32, u32), b: (u32, u32), cw: u32, mut f: impl FnMut(usize)) {
+    let (dx, dz) = (b.0 as f32 - a.0 as f32, b.1 as f32 - a.1 as f32);
+    let n = (dx.abs().max(dz.abs()) / BUCKET as f32).ceil().max(1.0) as u32;
+    for k in 0..=n {
+        let t = k as f32 / n as f32;
+        let (x, z) = ((a.0 as f32 + dx * t) as u32, (a.1 as f32 + dz * t) as u32);
+        f(((z / BUCKET) * cw + x / BUCKET) as usize);
+    }
+}
 
 impl GlassBox {
     pub fn new(rules: Arc<Ruleset>, width: u32, length: u32) -> Self {
@@ -274,6 +302,7 @@ impl GlassBox {
             surplus: Vec::new(),
             deficit: Vec::new(),
             gates: Vec::new(),
+            congestion: Vec::new(),
             culture_in: Vec::new(),
             tax_rates: BTreeMap::new(),
             disasters_off: false,
@@ -888,6 +917,27 @@ impl GlassBox {
         }
         let lines = [(&rail, RoadKind::Rail.speed()), (&water, WATER_SPEED), (&tram, TRAM_SPEED), (&bus, BUS_SPEED)];
         let fastest = fastest.max(0.1);
+        // Congestion: road capacity per cell, last ticks' traffic, and this
+        // tick's load from the trips made by road.
+        let cw = width.div_ceil(BUCKET);
+        let cells = (cw * length.div_ceil(BUCKET)) as usize;
+        let mut road_cap = vec![0f32; cells];
+        for ((w, l), s) in layer.structures().filter(|(_, s)| s.code == StructureCode::Road && !s.road.is_rail()) {
+            road_cap[((l / BUCKET) * cw + w / BUCKET) as usize] += s.road.capacity();
+        }
+        if self.congestion.len() != cells {
+            self.congestion = vec![0.0; cells];
+        }
+        let congestion = self.congestion.clone();
+        let delay = |a: (u32, u32), b: (u32, u32)| -> f32 {
+            let (mut sum, mut n) = (0.0, 0);
+            line_cells(a, b, cw, |c| {
+                sum += congestion[c].min(CONGESTION_MAX);
+                n += 1;
+            });
+            1.0 + CONGESTION_DELAY * sum / n.max(1) as f32
+        };
+        let mut load = vec![0f32; cells];
         let mut trips = Vec::new();
         for root in 0..nres {
             let res = &rules.resources[root];
@@ -960,12 +1010,20 @@ impl GlassBox {
             let by_water = vehicles.is_empty() || vehicles.iter().any(|v| v.ways().sails());
             let on_line = |id: &str| vehicles.is_empty() || vehicles.iter().any(|v| v.line.as_deref() == Some(id));
             let carried = [by_rail, by_water, on_line("tram"), on_line("bus")];
-            let trip_length = |s: usize, i: usize, dist: u32| -> f32 {
-                let (Some(a), Some(b)) = (acc[s], acc[i]) else { return f32::INFINITY };
-                // By road, only within one street network.
-                let mut best = if a.1 == b.1 { dist as f32 / a.2.min(b.2).min(top) } else { f32::INFINITY };
+            // A trip's length in street tiles and how it goes: `ROAD`,
+            // `HIGHWAY` or `LINE + k` (the line kind in `lines`).
+            const ROAD: usize = 0;
+            const HIGHWAY: usize = 1;
+            const LINE: usize = 2;
+            let trip_length = |s: usize, i: usize, dist: u32| -> (f32, usize) {
+                let (Some(a), Some(b)) = (acc[s], acc[i]) else { return (f32::INFINITY, ROAD) };
+                // By road, only within one street network, slowed by traffic.
+                let mut best = if a.1 == b.1 { (dist as f32 / a.2.min(b.2).min(top) * delay(a.5, b.5), ROAD) } else { (f32::INFINITY, ROAD) };
                 if highway && a.3 && b.3 && a.1 == b.1 {
-                    best = best.min(HIGHWAY_RAMP as f32 + dist as f32 / RoadKind::Highway.speed().min(top));
+                    let t = HIGHWAY_RAMP as f32 + dist as f32 / RoadKind::Highway.speed().min(top);
+                    if t < best.0 {
+                        best = (t, HIGHWAY);
+                    }
                 }
                 for (k, (net_lines, speed)) in lines.iter().enumerate() {
                     if let (true, Some((sa, wa)), Some((sb, wb))) = (carried[k], a.4[k], b.4[k]) {
@@ -973,7 +1031,12 @@ impl GlassBox {
                         if sa != sb && x.line == y.line {
                             let ride = x.platform.0.abs_diff(y.platform.0) + x.platform.1.abs_diff(y.platform.1);
                             let walk = (wa + wb) as f32 / a.2.min(b.2).min(top).min(1.0);
-                            best = best.min(STATION_TIME + walk + ride as f32 / speed);
+                            // Buses are held up by part of the traffic.
+                            let slow = if k == 3 { 1.0 + (delay(x.platform, y.platform) - 1.0) * BUS_CONGESTION } else { 1.0 };
+                            let t = STATION_TIME + walk + ride as f32 / speed * slow;
+                            if t < best.0 {
+                                best = (t, LINE + k);
+                            }
                         }
                     }
                 }
@@ -1049,7 +1112,7 @@ impl GlassBox {
                                             continue;
                                         }
                                         let sp = units[s].0;
-                                        let dist = trip_length(s, i, sp.0.abs_diff(p.0) + sp.1.abs_diff(p.1));
+                                        let (dist, how) = trip_length(s, i, sp.0.abs_diff(p.0) + sp.1.abs_diff(p.1));
                                         for &j in accept {
                                             let a = fam[j];
                                             let take = stock[s][j].min(missing);
@@ -1069,6 +1132,15 @@ impl GlassBox {
                                             }
                                             if a != root {
                                                 bal.delivered[a] += take;
+                                            }
+                                            // Road trips load the roads on their way.
+                                            let weight = match how {
+                                                ROAD => 1.0,
+                                                h if h == LINE + 3 => BUS_LOAD,
+                                                _ => 0.0,
+                                            };
+                                            if weight > 0.0 {
+                                                line_cells(sp, p, cw, |c| load[c] += take * weight);
                                             }
                                             trips.push(Trip { resource: a, from: sp, to: p, amount: take });
                                             *tick_flows.entry(Link { resource: a, from: sp, to: p }).or_default() += take;
@@ -1095,6 +1167,20 @@ impl GlassBox {
                         add(&mut bal.undelivered, k, root, stock[i][j]);
                     }
                 }
+            }
+        }
+
+        // This tick's traffic joins the running average, and road tiles
+        // show it (inspector, vehicles avoiding busy roads).
+        for (c, cong) in self.congestion.iter_mut().enumerate() {
+            let now = if road_cap[c] > 0.0 { load[c] / (road_cap[c] * ROAD_TRIPS) } else { 0.0 };
+            *cong = *cong * 0.8 + now * 0.2;
+        }
+        let roads: Vec<(u32, u32)> = layer.structures().filter(|(_, s)| s.code == StructureCode::Road && !s.road.is_rail()).map(|(p, _)| p).collect();
+        for (w, l) in roads {
+            let t = (self.congestion[((l / BUCKET) * cw + w / BUCKET) as usize] * 100.0).min(255.0) as u8;
+            if let Some(crate::layer::TileKind::Main(s)) = layer.tile_mut(w, l).map(|t| &mut t.kind) {
+                s.traffic = t;
             }
         }
 

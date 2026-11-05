@@ -78,6 +78,9 @@ game see [RULES.md](RULES.md); for the documentation index see
   - **Buses:** put **Bus stops** (Roads) beside any streets. Places near
     two bus stops on one street network reach each other at 1.5 times
     street speed.
+  - Busy streets slow trips by car (inspect a road to see how full it
+    is). Trams and trains run on their own tracks, buses feel half the
+    traffic, and highways bypass it.
   - A ride costs the walk to and from the stops and 3 tiles' worth of
     boarding, so it pays for longer trips: people reach work and shops
     farther away than they could drive to. Trams and buses run between

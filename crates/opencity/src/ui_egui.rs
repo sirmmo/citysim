@@ -1579,7 +1579,15 @@ fn road_details(ui: &mut egui::Ui, kind: opencity_core::RoadKind, traffic: u8, r
         ui.label(format!("${} per tile, ${}/month upkeep", kind.build_cost(), kind.maintenance_cost()));
         ui.end_row();
         ui.label("Traffic");
-        ui.label(format!("{traffic}"));
+        if rules.is_some() {
+            // GlassBox: the share of the roads' capacity around here that
+            // this tick's trips take, and what it does to trips.
+            let jam = (traffic as f32 / 100.0).min(2.0);
+            let slow = 1.0 + opencity_core::glassbox::CONGESTION_DELAY * jam;
+            ui.label(format!("{traffic}% of capacity · trips take ×{slow:.1}"));
+        } else {
+            ui.label(format!("{traffic}"));
+        }
         ui.end_row();
         if let Some(v) = vehicles {
             ui.label("Used by");

@@ -182,6 +182,23 @@ it. Units connect through the nearest road they can open onto, which is
 never a highway. Between two units within 4 tiles of a highway, a trip costs
 4 tiles to get on and off, then a 2.5th of its length.
 
+### Traffic
+
+Trips by road load the roads they cross. The map is cut into cells of 8×8
+tiles; each tick, every road trip adds its amount to the cells on the
+straight line between its ends (bus passengers add a tenth as much). A
+cell's **congestion** is that load over its road capacity: 20 trips per tick
+for each street tile, more on highways (capacity 3) and less on lanes. It is
+a running average, so it rises and falls over a few ticks.
+
+- **Slower trips:** a trip by road takes × (1 + congestion) along its way,
+  up to × 3 in gridlock. A town whose streets are full reaches fewer jobs
+  and shops within `max_trip`.
+- **Not affected:** highway shortcuts, trains, boats and trams. Buses feel
+  half of the congestion (bus lanes).
+- **On the map:** inspecting a road shows its congestion and how much
+  slower trips are there, and cars route around busy roads.
+
 ### Vehicles
 
 A network that lists `[[network.vehicle]]` entries is a vehicle network. The

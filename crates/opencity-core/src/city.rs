@@ -580,8 +580,7 @@ impl City {
     fn simulate_glassbox(&mut self) {
         let mut gb = self.glassbox.take().unwrap();
         let trips = gb.tick(&mut self.layer, &self.terrain, &self.footprints, &mut self.fund, &mut self.rng);
-        // Road traffic loads still come from the classic traffic simulator.
-        let _ = sim::traffic_step(&mut self.layer, &self.terrain, &mut self.rng);
+        // Road traffic comes from the trips (`GlassBox::congestion`).
         // A sample of the trips becomes visible vehicles.
         // Picked at random, so every resource shows its vehicles (not
         // just those listed first, like workers on foot).

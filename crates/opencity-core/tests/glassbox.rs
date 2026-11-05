@@ -812,7 +812,10 @@ fn disasters_strike_and_coverage_protects() {
         c.apply_tool(Tool::Road, (2, 14), (40, 14)).unwrap();
         c.apply_tool(Tool::Road, (2, 10), (2, 14)).unwrap();
         c.apply_tool(Tool::CoalPlant, (4, 5), (4, 5)).unwrap();
-        c.apply_tool(Tool::ZoneResidential, (3, 11), (40, 13)).unwrap();
+        // Homes, with jobs and shops along the far street.
+        c.apply_tool(Tool::ZoneResidential, (3, 11), (40, 12)).unwrap();
+        c.apply_tool(Tool::ZoneCommercial, (3, 13), (20, 13)).unwrap();
+        c.apply_tool(Tool::ZoneIndustrial, (24, 13), (40, 13)).unwrap();
         if station {
             c.apply_tool(Tool::FireDept, (20, 8), (20, 8)).unwrap();
         }
@@ -1122,4 +1125,29 @@ fn water_and_waste_serve_the_buildings() {
     assert!(!c.layer.has_pipe(7, 5) && c.layer.code_at(7, 5) == Some(StructureCode::Road));
     assert_eq!(dry, 0.0, "no pipe, no water");
     assert!(piped > 0.0, "the pipe carries the pump's water to the town");
+}
+
+#[test]
+fn traffic_slows_road_trips() {
+    let r = rules();
+    let mut c = City::new(Terrain::flat(60, 60), None, Footprints::builtin(), 5);
+    c.use_rules(r.clone());
+    opencity_core::scenario::demo_town(&mut c);
+    for _ in 0..600 {
+        c.simulate_round();
+    }
+    let gb = c.glassbox.as_ref().unwrap();
+    let busiest = gb.congestion.iter().copied().fold(0.0, f32::max);
+    assert!(busiest > 0.1, "a town loads its streets: {busiest}");
+    assert!(c.layer.structures().any(|(_, s)| s.code == StructureCode::Road && s.traffic > 0), "roads show their traffic");
+    // The same tick on gridlocked roads: fewer trips are short enough.
+    let workers = r.resource("workers").unwrap();
+    let delivered = |jam: f32| {
+        let mut c = c.clone();
+        c.glassbox.as_mut().unwrap().congestion.iter_mut().for_each(|x| *x = jam);
+        c.simulate_round();
+        c.glassbox.as_ref().unwrap().balances.delivered[workers]
+    };
+    let (free, jammed) = (delivered(0.0), delivered(2.0));
+    assert!(jammed < free, "jams keep people from work: {jammed} vs {free}");
 }
