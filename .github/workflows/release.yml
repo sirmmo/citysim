@@ -125,11 +125,28 @@ jobs:
     needs: [build, android]
     runs-on: ubuntu-24.04
     steps:
+      - uses: actions/checkout@v4.2.2
       - uses: actions/download-artifact@v4.3.0
         with:
           path: dist
           merge-multiple: true
+      # Every pack in assets/packs, sealed into each desktop build: a game
+      # that opens straight into it (scripts/make-pack.sh, docs/PACKS.md).
+      - name: Packs
+        run: |
+          for pack in assets/packs/*.toml; do
+            id=$(basename "$pack" .toml)
+            for build in dist/citysim-*.tar.gz dist/citysim-*.zip; do
+              scripts/make-pack.sh "$id" "$build" dist/packs
+            done
+          done
+          ls -l dist/packs
       - uses: softprops/action-gh-release@v2.2.2
         with:
-          files: dist/*
+          files: |
+            dist/*.tar.gz
+            dist/*.zip
+            dist/*.apk
+            dist/packs/*.tar.gz
+            dist/packs/*.zip
           generate_release_notes: true

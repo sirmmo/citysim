@@ -226,8 +226,10 @@ See [docs/GEOJSON.md](docs/GEOJSON.md).
 ## Packs
 
 A pack seals a scenario with a skin and rules that cannot be changed, and
-makes it a game of its own: `opencity --pack bologna-1600`, or
-`scripts/make-pack.sh` to turn a release into a single-pack download. See
+makes it a game of its own: `opencity --pack bologna-1600`. Each release
+also has every shipped pack (Rail Baron, Bologna 1600) ready to download as a
+game of its own, for Linux, Windows and macOS; `scripts/make-pack.sh` does
+the same for your own pack. See
 [docs/PACKS.md](docs/PACKS.md).
 
 ## AI assistants (MCP)

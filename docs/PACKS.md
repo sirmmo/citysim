@@ -49,7 +49,13 @@ names a missing scenario, skin or rules set fails the build.
 
 ## Shipping a pack
 
-`scripts/make-pack.sh` turns any release into a single-pack game. It
+Every pack in `assets/packs/` is built and attached to each release, for
+Linux, Windows and both Macs: `<pack>-citysim-vX.Y.Z-<target>.zip|tar.gz`.
+The release workflow runs `make-pack.sh` on each desktop build, and the
+website links them under Download > Packs. Android has no pack builds: an
+APK sealed to a pack would need its own app id and signing.
+
+For your own pack, `scripts/make-pack.sh` turns any release into a single-pack game. It
 downloads and builds nothing:
 
 ```sh

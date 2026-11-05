@@ -2,6 +2,9 @@
 
 Release notes in full are on the [releases page](https://github.com/sirmmo/citysim/releases).
 
+## 0.2.31: Packs to download
+- **Ready-made packs:** each release now includes Rail Baron and Bologna 1600 as games of their own, for Linux, Windows and both Macs. Download one from the website (Download > Packs) or the releases page, unpack it and run `opencity`: it opens straight into the pack.
+
 ## 0.2.30: The network on its networks
 - **Resource network view, redrawn:** flows no longer jump from building to building in arcs. Each link follows the network that carries it, summed per stretch:
   - people, cars, lorries and buses along the streets;
