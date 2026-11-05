@@ -346,13 +346,20 @@ price = 0.02                         # per unit bought or sold
   It trades only through crossings joined on both sides of the shared edge
   (the same tile along it) that carry the resource: its network is made of
   what crosses there. Power (`power_grid`: lines and roads) crosses on lines
-  and streets, road agents on streets, and agents that trains carry on track.
+  and streets, road agents on streets (tram streets too), agents that trains
+  carry on track, and agents that metro trains carry (`line = "metro"`)
+  through metro tunnels (crossing `metro`, joining only a tunnel).
 - **Gates:** each crossing of a deal becomes a node of the city's network,
   with an even share of the deal. Every tick it sends what was bought to the
   nearest units it reaches that still need it (by agents from the edge tile,
   or into its grid component), and takes what was sold from the nearest
   senders' leftovers. A street gate reaches units on its road component, a
   track gate the units within 8 tiles of a station on its line.
+- **How far:** agents go no further than their `max_trip` to or from a
+  gate, measured like any trip: by road (slowed by traffic), or by a line
+  through the gate tile. That is the railway, a tram street, a street
+  network with bus stops, or a metro tunnel, ridden from the stop nearest the
+  unit. Grid resources (power) have no limit.
 - **Imports** fill unmet needs and are paid at the price, only for what gets through.
 - **Exports** take what had nowhere to go, and earn the price.
 

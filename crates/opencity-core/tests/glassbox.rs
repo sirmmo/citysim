@@ -658,6 +658,74 @@ fn rules_reach(r: &opencity_core::rules::Ruleset) -> u32 {
 }
 
 #[test]
+fn commuters_ride_lines_across_the_border() {
+    use opencity_core::region::Crossing;
+    let r = rules();
+    let workers = r.resource("workers").unwrap();
+    // Workshops far from the west edge: too far to drive from the border,
+    // unless a metro line comes over it.
+    let run = |line: Option<Tool>| {
+        let mut c = City::new(Terrain::flat(80, 24), None, Footprints::builtin(), 9);
+        c.fund = 10_000_000;
+        c.use_rules(r.clone());
+        c.research_all();
+        c.apply_tool(Tool::Road, (0, 10), (76, 10)).unwrap();
+        c.apply_tool(Tool::Road, (40, 14), (66, 14)).unwrap();
+        c.apply_tool(Tool::Road, (40, 10), (40, 14)).unwrap();
+        c.apply_tool(Tool::ZoneIndustrial, (41, 11), (65, 13)).unwrap();
+        c.apply_tool(Tool::CoalPlant, (45, 5), (45, 5)).unwrap();
+        let mut gates = vec![("street", (0, 10))];
+        match line {
+            Some(Tool::MetroLine) => {
+                c.apply_tool(Tool::MetroLine, (0, 16), (60, 16)).unwrap();
+                c.apply_tool(Tool::MetroStation, (46, 15), (46, 15)).unwrap();
+                gates.push(("metro", (0, 16)));
+            }
+            Some(Tool::TramLine) => {
+                // The border street becomes a tram line, with a stop by the workshops.
+                c.apply_tool(Tool::TramLine, (0, 10), (60, 10)).unwrap();
+                c.apply_tool(Tool::TramStop, (44, 9), (44, 9)).unwrap();
+            }
+            _ => {}
+        }
+        let mut imported = 0.0;
+        for t in 0..300 {
+            if t == 0 {
+                let gb = c.glassbox.as_mut().unwrap();
+                gb.gates = gates
+                    .iter()
+                    .map(|(link, at)| opencity_core::glassbox::Gate {
+                        at: *at,
+                        link: link.to_string(),
+                        partner: [0, 0],
+                        import: [("workers".to_string(), 40.0)].into(),
+                        ..Default::default()
+                    })
+                    .collect();
+            }
+            c.simulate_round();
+            imported += c.glassbox.as_ref().unwrap().balances.imported[workers];
+        }
+        (c, imported)
+    };
+    let (_, by_road) = run(None);
+    assert_eq!(by_road, 0.0, "too far to commute by road from the border");
+    let (metro, by_metro) = run(Some(Tool::MetroLine));
+    assert!(by_metro > 0.0, "the metro brings commuters over the border");
+    assert!(metro.crossings().iter().any(|c| c.is_metro() && c.side == 3 && c.at == 16), "the tunnel is a crossing");
+    let (_, by_tram) = run(Some(Tool::TramLine));
+    assert!(by_tram > 0.0, "so does a tram line");
+    // Tunnels join tunnels; a neighbour gets its end bored free.
+    let tunnel = Crossing { side: 1, at: 16, link: "metro".into() };
+    assert!(tunnel.joins(&Crossing { side: 3, at: 16, link: "metro".into() }));
+    assert!(!tunnel.joins(&Crossing { side: 3, at: 16, link: "street".into() }));
+    let mut east = City::new(Terrain::flat(40, 24), None, Footprints::builtin(), 9);
+    east.use_rules(r.clone());
+    assert_eq!(east.connect_border(&tunnel.opposite()), Ok(true));
+    assert!(east.layer.has_tunnel(0, 16));
+}
+
+#[test]
 fn neighbouring_cities_trade_across_their_borders() {
     use opencity_core::region::Region;
     let r = rules();

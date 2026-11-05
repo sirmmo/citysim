@@ -91,8 +91,8 @@ pub struct Crossing {
     pub side: u8,
     /// Tile along the edge (x for north and south, y for east and west).
     pub at: u32,
-    /// The tool that builds it: a road kind's id (`street`, `rail`…) or
-    /// `power_line`.
+    /// The tool that builds it: a road kind's id (`street`, `rail`,
+    /// `tram`…), `power_line`, or `metro` for a tunnel underground.
     pub link: String,
 }
 
@@ -121,16 +121,26 @@ impl Crossing {
         match RoadKind::from_id(&self.link) {
             Some(RoadKind::Rail) => "railway".into(),
             Some(k) => k.name().to_lowercase(),
+            None if self.is_metro() => "metro tunnel".into(),
             None => "power line".into(),
         }
     }
 
+    /// A metro tunnel under the edge.
+    pub fn is_metro(&self) -> bool {
+        self.link == Tool::MetroLine.id()
+    }
+
     /// Whether this crossing joins the neighbour's `other` (seen from its
-    /// side): same place, and a track meets a track, a street a street, a
-    /// power line a street or a power line.
+    /// side): same place, and a track meets a track, a street a street (a
+    /// tram street is one), a power line a street or a power line, and a
+    /// metro tunnel a metro tunnel.
     pub fn joins(&self, other: &Crossing) -> bool {
         let rail = |l: &str| l == RoadKind::Rail.id();
         let line = |l: &str| l == Tool::PowerLine.id();
+        if self.is_metro() || other.is_metro() {
+            return self.side == (other.side + 2) % 4 && self.at == other.at && self.is_metro() && other.is_metro();
+        }
         self.side == (other.side + 2) % 4
             && self.at == other.at
             && match (line(&self.link), line(&other.link)) {
@@ -161,6 +171,10 @@ impl Crossing {
                     })
             }
             Some(_) => has("road"),
+            // People ride the metro across when its trains carry them.
+            None if self.is_metro() => {
+                res.transport == Transport::Agents && rules.vehicles_for(rules.root(resource)).iter().any(|v| v.line.as_deref() == Some("metro"))
+            }
             None => has("power_line"),
         }
     }
@@ -168,6 +182,7 @@ impl Crossing {
     fn tool(&self) -> Option<Tool> {
         match RoadKind::from_id(&self.link) {
             Some(k) => Tool::ALL.into_iter().find(|t| t.road_kind() == Some(k)),
+            None if self.is_metro() => Some(Tool::MetroLine),
             None => (self.link == Tool::PowerLine.id()).then_some(Tool::PowerLine),
         }
     }
@@ -185,11 +200,17 @@ impl City {
                 let c = Crossing { side, at, link: String::new() };
                 let (x, y) = c.tile(w, l);
                 let link = match self.layer.structure_at(x, y) {
-                    Some(s) if s.code == StructureCode::Road => s.road.id(),
-                    Some(s) if s.code == StructureCode::PowerLine => Tool::PowerLine.id(),
-                    _ => continue,
+                    Some(s) if s.code == StructureCode::Road => Some(s.road.id()),
+                    Some(s) if s.code == StructureCode::PowerLine => Some(Tool::PowerLine.id()),
+                    _ => None,
                 };
-                out.push(Crossing { link: link.to_string(), ..c });
+                if let Some(link) = link {
+                    out.push(Crossing { link: link.to_string(), ..c.clone() });
+                }
+                // A metro tunnel under the edge crosses too, under anything.
+                if self.layer.has_tunnel(x, y) {
+                    out.push(Crossing { link: Tool::MetroLine.id().to_string(), ..c });
+                }
             }
         }
         out
@@ -204,6 +225,14 @@ impl City {
             return Ok(false);
         }
         let (w, l) = c.tile(self.width(), self.length());
+        if c.is_metro() {
+            // Tunnels go under whatever is there.
+            if !self.layer.has_tunnel(w, l) {
+                self.layer.lay_tunnel(crate::layer::Rect::tile(w, l))?;
+            }
+            self.border_links.push(c.clone());
+            return Ok(true);
+        }
         let rail = c.link == RoadKind::Rail.id();
         let joined = self.layer.structure_at(w, l).is_some_and(|s| match s.code {
             StructureCode::Road => c.tool() == Some(Tool::PowerLine) || (s.road == RoadKind::Rail) == rail,

@@ -2,6 +2,11 @@
 
 Release notes in full are on the [releases page](https://github.com/sirmmo/citysim/releases).
 
+## 0.2.41: Transit across borders
+- **Commuting has a limit** in regions: people and lorries go no further from a border crossing than they would inside the town, traffic included. Before, every place on the crossing's streets could trade through it.
+- **Transit carries them further:** a tram street, a street with bus stops, or a metro tunnel taken to the edge links the places near its stops to the crossing, at the line's speed.
+- **Metro tunnels cross borders:** a tunnel at the edge is a crossing of its own. It joins the neighbour's tunnel, and their end is bored for free.
+
 ## 0.2.40: Rules editor: layers and new things
 - **Map layers in the graph:** a layer shows the buildings that raise it and those that need it within bounds. How it spreads, how fast it fades and its full-colour value can be edited there.
 - **A building's map layers:** what it raises (amount, radius) and what it needs (at least, at most) are edited on its graph, with buttons to add more.

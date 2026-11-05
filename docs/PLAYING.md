@@ -221,7 +221,7 @@ across their borders.
   `--region FOLDER` opens or creates one from the command line.
 - **The 🗺 Region window** shows the grid. Click a town to play it, which
   saves the open one, or found a new one in an empty slot.
-- **Border crossings:** neighbours trade through a road, track or power line
+- **Border crossings:** neighbours trade through a road, track, metro tunnel or power line
   that reaches their shared edge, on both sides. The window shows each edge:
   ✔ trading, ✖ a crossing is missing, · no neighbour.
 - **Building one:** take a road, track or power line to the edge of the map
@@ -248,7 +248,13 @@ across their borders.
   places with something left over. Power runs in and out along lines and
   streets. Trains bring what they carry to the stations on the crossing's
   line. A crossing your streets, lines or stations don't reach carries
-  nothing, and you only pay for what actually came in. The window shows
+  nothing, and you only pay for what actually came in.
+- **Commuting has a limit:** people and lorries go no further from the
+  border than they would inside the town (traffic counts too). Transit
+  that crosses the border carries them further: a **tram street**, a street
+  with **bus stops**, or a **metro tunnel** taken to the edge links the
+  places near its stops to the crossing. A metro tunnel at the edge is a
+  crossing of its own; the neighbour's end is bored for free. The window shows
   what went through each crossing last tick, against what was agreed.
 - **Waiting towns:** neighbours keep the summary they had when you last left
   them, until you play them again.

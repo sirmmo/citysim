@@ -103,7 +103,7 @@ pub struct Balances {
 pub struct Gate {
     /// The crossing's edge tile.
     pub at: (u32, u32),
-    /// What crosses there: a road kind's id or `power_line`.
+    /// What crosses there: a road kind's id, `power_line` or `metro`.
     pub link: String,
     /// The neighbour's slot in the region.
     pub partner: [u32; 2],
@@ -1174,20 +1174,6 @@ impl GlassBox {
             }
         }
 
-        // This tick's traffic joins the running average, and road tiles
-        // show it (inspector, vehicles avoiding busy roads).
-        for (c, cong) in self.congestion.iter_mut().enumerate() {
-            let now = if road_cap[c] > 0.0 { load[c] / (road_cap[c] * ROAD_TRIPS) } else { 0.0 };
-            *cong = *cong * 0.8 + now * 0.2;
-        }
-        let roads: Vec<(u32, u32)> = layer.structures().filter(|(_, s)| s.code == StructureCode::Road && !s.road.is_rail()).map(|(p, _)| p).collect();
-        for (w, l) in roads {
-            let t = (self.congestion[((l / BUCKET) * cw + w / BUCKET) as usize] * 100.0).min(255.0) as u8;
-            if let Some(crate::layer::TileKind::Main(s)) = layer.tile_mut(w, l).map(|t| &mut t.kind) {
-                s.traffic = t;
-            }
-        }
-
         // Trade with neighbouring cities (regions): running averages of what
         // is left over and lacking, then the gates (border crossings) bring
         // in what was bought and take out what was sold, as far as their
@@ -1213,26 +1199,59 @@ impl GlassBox {
                 let res = &rules.resources[ri];
                 let Some(net) = rules.network(res.network.as_deref().unwrap_or_default()) else { continue };
                 let grid = res.transport == Transport::Grid;
-                // Units the gate reaches and how far, nearest first: along
-                // its network, or for track, from the stations on its line.
+                // Units the gate reaches and how long the trip is, nearest
+                // first: along its network (slowed by traffic), or from the
+                // stops of a line through the gate tile (track, tram street,
+                // bus route, metro tunnel). People and goods go no further
+                // than `max_trip` to the border; power has no such limit.
                 let gi = idx(gate.at.0, gate.at.1) as usize;
                 let comp = comps[net][gi];
+                let vehicles = rules.vehicles_for(rules.root(ri));
+                let rides = |k: usize| {
+                    vehicles.is_empty()
+                        || match k {
+                            0 => vehicles.iter().any(|v| v.ways().allows(RoadKind::Rail)),
+                            1 => vehicles.iter().any(|v| v.ways().sails()),
+                            2 => vehicles.iter().any(|v| v.line.as_deref() == Some("tram")),
+                            3 => vehicles.iter().any(|v| v.line.as_deref() == Some("bus")),
+                            _ => vehicles.iter().any(|v| v.line.as_deref() == Some("metro")),
+                        }
+                };
+                let max_trip = if grid { f32::INFINITY } else { res.max_trip as f32 };
                 let mut reach: Vec<(u32, usize)> = Vec::new();
                 for (i, (p, _, r)) in units.iter().enumerate() {
                     let by_net = (comp != NO_COMPONENT)
                         .then(|| unit_component(&comps[net], r, width, length, if grid { 1 } else { rules.growth.road_access.max(1) }, |_, _| true))
                         .flatten()
                         .filter(|(c, _)| *c == comp)
-                        .map(|(_, (w, l))| w.abs_diff(gate.at.0) + l.abs_diff(gate.at.1));
-                    let by_rail = (!grid && rail.line.get(gi).is_some_and(|&ln| ln != crate::rail::NO_LINE))
+                        .map(|(_, (w, l))| {
+                            let d = (w.abs_diff(gate.at.0) + l.abs_diff(gate.at.1)) as f32;
+                            if grid {
+                                d
+                            } else {
+                                d / road_at(w, l).map_or(1.0, |k| k.speed()) * delay((w, l), gate.at)
+                            }
+                        });
+                    let by_line = (!grid)
                         .then(|| {
-                            let (s, walk) = rail.nearest_station(*p, STATION_WALK)?;
-                            let st = &rail.stations[s];
-                            (st.line == rail.line[gi]).then(|| walk + st.platform.0.abs_diff(gate.at.0) + st.platform.1.abs_diff(gate.at.1))
+                            lines
+                                .iter()
+                                .enumerate()
+                                .filter(|&(k, (l, _))| k != 1 && rides(k) && l.line.get(gi).is_some_and(|&ln| ln != crate::rail::NO_LINE))
+                                .filter_map(|(k, (l, speed))| {
+                                    let (s, walk) = l.nearest_station(*p, STATION_WALK)?;
+                                    let st = &l.stations[s];
+                                    let ride = (st.platform.0.abs_diff(gate.at.0) + st.platform.1.abs_diff(gate.at.1)) as f32;
+                                    let slow = if k == 3 { 1.0 + (delay(st.platform, gate.at) - 1.0) * BUS_CONGESTION } else { 1.0 };
+                                    (st.line == l.line[gi]).then_some(STATION_TIME + walk as f32 + ride / speed * slow)
+                                })
+                                .fold(f32::INFINITY, f32::min)
                         })
-                        .flatten();
-                    if let Some(d) = by_net.into_iter().chain(by_rail).min() {
-                        reach.push((d, i));
+                        .filter(|d| d.is_finite());
+                    if let Some(d) = by_net.into_iter().chain(by_line).fold(None, |m: Option<f32>, d| Some(m.map_or(d, |m| m.min(d)))) {
+                        if d <= max_trip {
+                            reach.push(((d * 16.0) as u32, i));
+                        }
                     }
                 }
                 reach.sort();
@@ -1296,6 +1315,20 @@ impl GlassBox {
             self.treasury += ((bal.exported[ri] - bal.imported[ri]) * rules.resources[ri].price) as f64;
             self.book("Trade: sales", (bal.exported[ri] * rules.resources[ri].price) as f64);
             self.book("Trade: purchases", -(bal.imported[ri] * rules.resources[ri].price) as f64);
+        }
+
+        // This tick's traffic joins the running average, and road tiles
+        // show it (inspector, vehicles avoiding busy roads).
+        for (c, cong) in self.congestion.iter_mut().enumerate() {
+            let now = if road_cap[c] > 0.0 { load[c] / (road_cap[c] * ROAD_TRIPS) } else { 0.0 };
+            *cong = *cong * 0.8 + now * 0.2;
+        }
+        let roads: Vec<(u32, u32)> = layer.structures().filter(|(_, s)| s.code == StructureCode::Road && !s.road.is_rail()).map(|(p, _)| p).collect();
+        for (w, l) in roads {
+            let t = (self.congestion[((l / BUCKET) * cw + w / BUCKET) as usize] * 100.0).min(255.0) as u8;
+            if let Some(crate::layer::TileKind::Main(s)) = layer.tile_mut(w, l).map(|t| &mut t.kind) {
+                s.traffic = t;
+            }
         }
 
         // The network view: links fade unless used again.
