@@ -236,6 +236,23 @@ fn apk_reader(path: &Path) -> std::io::Result<Vec<u8>> {
     result.unwrap_or_else(|| Err(std::io::Error::other("asset load did not complete")))
 }
 
+/// Border gates of the open region city: each crossing, and whether the
+/// neighbour across has joined it (None: the edge of the region).
+fn region_gates(r: &region::RegionSession, crossings: &[opencity_core::region::Crossing]) -> Vec<(opencity_core::region::Crossing, Option<bool>)> {
+    let Some(slot) = r.slot else { return Vec::new() };
+    crossings
+        .iter()
+        .map(|c| {
+            let side = c.side as usize;
+            let state = r.region.has_slot(slot, side).then(|| {
+                let o = c.opposite();
+                r.region.neighbour(slot, side).is_some_and(|n| n.crossings.iter().any(|x| x.side == o.side && x.at == o.at))
+            });
+            (c.clone(), state)
+        })
+        .collect()
+}
+
 /// The pack to play: `--pack <id>`, else the data folder's `pack.toml`.
 fn find_pack(data_dir: &Path, id: Option<&str>) -> Option<opencity_assets::pack::Pack> {
     let found = match id {
@@ -374,6 +391,8 @@ struct Game {
     day_night: bool,
     /// The sealed pack being played: its skin, rules and scenario are fixed.
     pack: Option<opencity_assets::pack::Pack>,
+    /// The city's border crossings as last seen, to notice new ones.
+    crossings: Vec<opencity_core::region::Crossing>,
     #[cfg(not(target_os = "android"))]
     egui: Option<ui_egui::EguiUi>,
     /// Background 0 A.D. art installation, if running.
@@ -512,6 +531,8 @@ impl Game {
                     self.region_store();
                 }
                 self.say(if founded { format!("Opened {name}") } else { format!("Founded {name}") });
+                // After the greeting, so news of a crossing is what shows.
+                self.region_link();
             }
             Err(e) => self.say(format!("Cannot open the city: {e:#}")),
         }
@@ -567,6 +588,8 @@ impl Game {
         r.deals = r.region.trade(slot, &self.city);
         self.city.apply_trade(&r.deals);
         self.city.apply_culture(&r.region.culture_for(slot));
+        // Crossings a neighbour built toward us since (over the network).
+        self.region_link();
     }
 
     fn set_city(&mut self, mut city: City) {
@@ -575,7 +598,68 @@ impl Game {
         self.city = city;
         self.drag_start = None;
         self.query = None;
+        self.crossings = self.city.crossings();
         self.apply_skin();
+    }
+
+    /// A road, track or power line just built to the edge of the map: in a
+    /// region it runs on into the neighbour (recorded at once, and sent to
+    /// the region server); on a lone map there is nothing beyond.
+    fn watch_borders(&mut self) {
+        let now = self.city.crossings();
+        if now == self.crossings {
+            return;
+        }
+        let new = now.iter().find(|c| !self.crossings.contains(c)).cloned();
+        self.crossings = now;
+        let Some(c) = new else { return };
+        let (what, side) = (c.what(), c.side_name());
+        let Some(r) = self.region.as_ref() else {
+            let hint = if self.pack.is_some() { "" } else { " Play a region (File > New region… or Join region server…) to link towns." };
+            self.say(format!("The {what} reaches the {side} edge of the map, but there is no region server: no town lies beyond.{hint}"));
+            return;
+        };
+        let Some(slot) = r.slot else { return };
+        let msg = if !r.region.has_slot(slot, c.side as usize) {
+            format!("The {side} edge is the edge of the region: no town lies beyond.")
+        } else if let Some(n) = r.region.neighbour(slot, c.side as usize) {
+            let by = r.other_player(n.slot).map(|p| format!(" ({p}'s town; it appears there at their next update)")).unwrap_or_default();
+            format!("Border crossing: the {what} runs on into {} at its {} edge{by}.", n.name, c.opposite().side_name())
+        } else {
+            format!("Border crossing: the {what} will run on into the town founded to the {side}.")
+        };
+        self.region_store();
+        self.say(msg);
+    }
+
+    /// Builds the neighbours' crossings toward the open region city.
+    fn region_link(&mut self) {
+        let Some(r) = self.region.as_ref() else { return };
+        let Some(slot) = r.slot else { return };
+        let mut built = Vec::new();
+        let mut failed = None;
+        for (from, c) in r.region.incoming(slot) {
+            match self.city.connect_border(&c) {
+                Ok(true) => built.push((from, c)),
+                Ok(false) => {}
+                Err(e) => {
+                    // Said once: the neighbour's crossing is not tried again.
+                    failed = Some(format!("{from}'s {} cannot cross your {} edge at tile {}: {e}", c.what(), c.side_name(), c.at));
+                    self.city.border_links.push(c);
+                }
+            }
+        }
+        self.crossings = self.city.crossings();
+        if !built.is_empty() {
+            // Our summary shows them too, so both sides read as joined.
+            self.region_store();
+        }
+        match (built.as_slice(), failed) {
+            ([(from, c)], _) => self.say(format!("Border crossing: {from}'s {} reaches your {} edge.", c.what(), c.side_name())),
+            ([_, ..], _) => self.say(format!("Border crossings: {} links from your neighbours reach your edges.", built.len())),
+            ([], Some(m)) => self.say(m),
+            ([], None) => {}
+        }
     }
 
     /// Chooses the skin for the current city and applies it.
@@ -978,6 +1062,7 @@ impl Game {
         let t = get_time();
         self.city.update(get_frame_time().min(0.25) as f64 * 1000.0);
         self.region_month();
+        self.watch_borders();
         // News from the city (the family's visits…).
         if let Some(m) = self.city.messages.pop() {
             self.city.messages.clear();
@@ -1023,6 +1108,9 @@ impl Game {
         clear_background(Color::new(sky[0], sky[1], sky[2], 1.0));
         set_camera(&cam);
         self.renderer.draw_city(&self.city, &cam);
+        if let Some(r) = self.region.as_ref() {
+            render::draw_crossings(&self.city, &region_gates(r, &self.crossings));
+        }
         if let (true, Some((rain, amount))) = (self.day_night, self.renderer.atmosphere.precipitation) {
             render::draw_precipitation(self.camera.target, get_time(), rain, amount);
         }
@@ -1167,6 +1255,7 @@ async fn main() -> Result<()> {
         region: None,
         day_night: true,
         pack: find_pack(&data_dir, s.args.pack.as_deref()),
+        crossings: Vec::new(),
         #[cfg(not(target_os = "android"))]
         egui: (!s.args.classic_ui).then(|| ui_egui::EguiUi::new(&s.settings.map)),
         // Never in automated runs (screenshots, benchmarks, CI).
@@ -1174,6 +1263,7 @@ async fn main() -> Result<()> {
         bake: if s.args.no_auto_bake || s.args.screenshot.is_some() || s.args.bench_frames.is_some() { None } else { bake::start(&data_dir, s.args.bake_0ad) },
     };
     game.apply_skin();
+    game.crossings = game.city.crossings();
     if let (Some(name), Some(rules)) = (&s.args.overlay, game.city.rules()) {
         game.overlay = rules.layer(name);
     }
@@ -1184,17 +1274,6 @@ async fn main() -> Result<()> {
     #[cfg(not(target_os = "android"))]
     if let (Some(preset), Some(ui)) = (&s.args.show_graphs, game.egui.as_mut()) {
         ui.open_graphs(preset);
-    }
-    #[cfg(not(target_os = "android"))]
-    if let Some((x, y)) = s.args.inspect.as_deref().and_then(|v| v.split_once(',')) {
-        if let (Ok(x), Ok(y)) = (x.trim().parse(), y.trim().parse()) {
-            game.run_command(ui_egui::Command::Inspect((x, y)));
-            game.flow_view.focus_only = true;
-            if let Some(d) = s.args.zoom {
-                game.camera.target = macroquad::prelude::vec3(x as f32 + 0.5, game.camera.target.y, y as f32 + 0.5);
-                game.camera.distance = d;
-            }
-        }
     }
     #[cfg(not(target_os = "android"))]
     if let (true, Some(ui)) = (s.args.show_policies, game.egui.as_mut()) {
@@ -1273,6 +1352,17 @@ async fn main() -> Result<()> {
         #[cfg(not(target_os = "android"))]
         if let Some(ui) = game.egui.as_mut() {
             ui.open_region();
+        }
+    }
+    #[cfg(not(target_os = "android"))]
+    if let Some((x, y)) = s.args.inspect.as_deref().and_then(|v| v.split_once(',')) {
+        if let (Ok(x), Ok(y)) = (x.trim().parse(), y.trim().parse()) {
+            game.run_command(ui_egui::Command::Inspect((x, y)));
+            game.flow_view.focus_only = true;
+            if let Some(d) = s.args.zoom {
+                game.camera.target = macroquad::prelude::vec3(x as f32 + 0.5, game.camera.target.y, y as f32 + 0.5);
+                game.camera.distance = d;
+            }
         }
     }
     #[cfg(not(target_os = "android"))]

@@ -156,6 +156,20 @@ across their borders.
 - **Border crossings:** neighbours trade through a road, track or power line
   that reaches their shared edge, on both sides. The window shows each edge:
   ✔ trading, ✖ a crossing is missing, · no neighbour.
+- **Building one:** take a road, track or power line to the edge of the map
+  and it runs on into the neighbour. The same street, railway or line
+  appears on the neighbour's map at the matching place on the shared edge,
+  free of charge, and a message says where it leads. In a region you play
+  alone it appears when you next open that town (or found it). Online it
+  appears in the other player's game at their next monthly update.
+- **Border gates** stand where each crossing leaves the map: green when the
+  neighbour has the crossing too, amber while it waits for one, grey at
+  the edge of the region.
+- **Their crossing, your map:** a crossing that arrives from a neighbour never
+  replaces what you built on that edge tile; a message says it could not
+  cross. Bulldoze one you don't want and it stays gone.
+- **On a lone map** (no region), a road built to the edge leads nowhere, and
+  a message says so: there is no region server, so no town lies beyond.
 - **Monthly trade:** each month the open town buys what it lacks from
   neighbours with a surplus and sells what it has left over: workers
   commuting, shoppers, goods, fuel and power (food before 1800). Imports fill

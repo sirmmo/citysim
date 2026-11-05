@@ -919,3 +919,39 @@ fn seasons_and_weather_turn() {
     let changes = seen.windows(2).filter(|w| w[0].1 != w[1].1).count();
     assert!(changes < seen.len() / 5, "{changes} changes in {} days", seen.len());
 }
+
+#[test]
+fn border_crossings_join_neighbouring_maps() {
+    use opencity_core::region::{Crossing, Region};
+    let mut west = City::new(Terrain::flat(32, 32), None, Footprints::builtin(), 3);
+    west.fund = 1_000_000;
+    west.apply_tool(Tool::Road, (20, 10), (31, 10)).unwrap();
+    west.apply_tool(Tool::PowerLine, (25, 3), (31, 3)).unwrap();
+    let out: Vec<_> = west.crossings().into_iter().filter(|c| c.side == 1).collect();
+    assert_eq!(out, vec![Crossing { side: 1, at: 3, link: "power_line".into() }, Crossing { side: 1, at: 10, link: "street".into() },]);
+    let mut region = Region::new("Test", [2, 1], 32, 1, None);
+    region.summarize([0, 0], "Westville", "west.ocsave.json", &west);
+    assert!(region.has_slot([0, 0], 1) && !region.has_slot([0, 0], 3) && !region.has_slot([0, 0], 0));
+    // East sees them on its west edge, at the same rows.
+    let incoming = region.incoming([1, 0]);
+    assert_eq!(incoming.len(), 2);
+    assert!(incoming.iter().all(|(from, c)| from == "Westville" && c.side == 3));
+    let mut east = City::new(Terrain::flat(32, 32), None, Footprints::builtin(), 4);
+    east.fund = 0;
+    for (_, c) in &incoming {
+        assert_eq!(east.connect_border(c), Ok(true), "{c:?}");
+        assert_eq!(east.connect_border(c), Ok(false), "built once");
+    }
+    assert_eq!(east.fund, 0, "the neighbour's crossing is free");
+    let back: Vec<_> = east.crossings().into_iter().map(|c| c.opposite()).collect();
+    assert_eq!(back, out, "both maps have the same crossings");
+    assert!(east.layer.structure_at(0, 10).is_some_and(|s| s.code == opencity_core::StructureCode::Road));
+    // Bulldozed, a neighbour's crossing stays gone.
+    east.fund = 1_000;
+    east.apply_tool(Tool::Destroy, (0, 3), (0, 3)).unwrap();
+    assert_eq!(east.connect_border(&incoming[0].1), Ok(false));
+    assert!(east.layer.structure_at(0, 3).is_none());
+    // A railway is not joined by a street.
+    let rail = Crossing { side: 3, at: 10, link: "rail".into() };
+    assert!(east.connect_border(&rail).is_err(), "the street is in the way");
+}

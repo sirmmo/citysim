@@ -6,12 +6,16 @@
 //! to neighbours that lack it, at the rules' `price` per resource. Two
 //! neighbours trade only through a crossing on both sides of their shared
 //! edge: a road, track or power line that reaches it.
+//!
+//! A crossing built to the edge of one map is mirrored on the neighbour's
+//! map at the same place along the shared edge ([`Region::incoming`],
+//! [`City::connect_border`]), so the two towns join up.
 
 use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
-use crate::{City, StructureCode};
+use crate::{City, RoadKind, StructureCode, Tool, ToolError};
 
 /// Sides of a city map, in `borders` order.
 pub const SIDES: [&str; 4] = ["north", "east", "south", "west"];
@@ -48,6 +52,9 @@ pub struct RegionCity {
     /// Crossings to the north, east, south and west edges.
     #[serde(default)]
     pub borders: [bool; 4],
+    /// Where they are and what crosses.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub crossings: Vec<Crossing>,
     /// What it has left over and lacks per tick, by resource id.
     #[serde(default)]
     pub surplus: BTreeMap<String, f32>,
@@ -73,7 +80,106 @@ pub struct Deal {
     pub amount: f32,
 }
 
+/// A road, track or power line on an edge tile of a map.
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+pub struct Crossing {
+    /// 0 north, 1 east, 2 south, 3 west.
+    pub side: u8,
+    /// Tile along the edge (x for north and south, y for east and west).
+    pub at: u32,
+    /// The tool that builds it: a road kind's id (`street`, `rail`…) or
+    /// `power_line`.
+    pub link: String,
+}
+
+impl Crossing {
+    /// The same crossing seen from the neighbour across the edge.
+    pub fn opposite(&self) -> Self {
+        Self { side: (self.side + 2) % 4, ..self.clone() }
+    }
+
+    /// Its tile on a map of this size.
+    pub fn tile(&self, w: u32, l: u32) -> (u32, u32) {
+        match self.side {
+            0 => (self.at, 0),
+            1 => (w - 1, self.at),
+            2 => (self.at, l - 1),
+            _ => (0, self.at),
+        }
+    }
+
+    pub fn side_name(&self) -> &'static str {
+        SIDES[self.side as usize % 4]
+    }
+
+    /// A word for what crosses: "street", "railway", "power line".
+    pub fn what(&self) -> String {
+        match RoadKind::from_id(&self.link) {
+            Some(RoadKind::Rail) => "railway".into(),
+            Some(k) => k.name().to_lowercase(),
+            None => "power line".into(),
+        }
+    }
+
+    fn tool(&self) -> Option<Tool> {
+        match RoadKind::from_id(&self.link) {
+            Some(k) => Tool::ALL.into_iter().find(|t| t.road_kind() == Some(k)),
+            None => (self.link == Tool::PowerLine.id()).then_some(Tool::PowerLine),
+        }
+    }
+}
+
 impl City {
+    /// Every road, track and power line on an edge tile (corner tiles count
+    /// for both of their edges), in side and position order.
+    pub fn crossings(&self) -> Vec<Crossing> {
+        let (w, l) = (self.width(), self.length());
+        let mut out = Vec::new();
+        for side in 0..4u8 {
+            let n = if side % 2 == 0 { w } else { l };
+            for at in 0..n {
+                let c = Crossing { side, at, link: String::new() };
+                let (x, y) = c.tile(w, l);
+                let link = match self.layer.structure_at(x, y) {
+                    Some(s) if s.code == StructureCode::Road => s.road.id(),
+                    Some(s) if s.code == StructureCode::PowerLine => Tool::PowerLine.id(),
+                    _ => continue,
+                };
+                out.push(Crossing { link: link.to_string(), ..c });
+            }
+        }
+        out
+    }
+
+    /// Builds a neighbour's crossing on this map, free: Ok(true) when
+    /// built, Ok(false) when something that joins it is already there
+    /// (any road for a road, track for track, a road or line for power)
+    /// or it was linked before (the player may have bulldozed it since).
+    pub fn connect_border(&mut self, c: &Crossing) -> Result<bool, ToolError> {
+        if self.border_links.contains(c) {
+            return Ok(false);
+        }
+        let (w, l) = c.tile(self.width(), self.length());
+        let rail = c.link == RoadKind::Rail.id();
+        let joined = self.layer.structure_at(w, l).is_some_and(|s| match s.code {
+            StructureCode::Road => c.tool() == Some(Tool::PowerLine) || (s.road == RoadKind::Rail) == rail,
+            StructureCode::PowerLine => c.tool() == Some(Tool::PowerLine),
+            _ => false,
+        });
+        if joined {
+            self.border_links.push(c.clone());
+            return Ok(false);
+        }
+        // Never replace what the player built there.
+        if self.layer.structure_at(w, l).is_some() {
+            return Err(ToolError::BorderTaken);
+        }
+        let tool = c.tool().ok_or(ToolError::Locked(c.link.clone()))?;
+        self.build_tool(tool, crate::layer::Rect::tile(w, l), (w, l))?;
+        self.border_links.push(c.clone());
+        Ok(true)
+    }
+
     /// Whether a road, track or power line reaches each edge (north, east,
     /// south, west): the city's border crossings.
     pub fn borders(&self) -> [bool; 4] {
@@ -120,6 +226,29 @@ impl Region {
         self.city([nx as u32, ny as u32])
     }
 
+    /// The neighbours' crossings toward a slot, seen from its side (the
+    /// tiles its own map should have to join them).
+    pub fn incoming(&self, slot: [u32; 2]) -> Vec<(String, Crossing)> {
+        let mut out = Vec::new();
+        for side in 0..4u8 {
+            let Some(n) = self.neighbour(slot, side as usize) else { continue };
+            for c in n.crossings.iter().filter(|c| c.side == (side + 2) % 4) {
+                out.push((n.name.clone(), c.opposite()));
+            }
+        }
+        out
+    }
+
+    /// Whether there is a slot across a side (founded or not).
+    pub fn has_slot(&self, slot: [u32; 2], side: usize) -> bool {
+        match side {
+            0 => slot[1] > 0,
+            1 => slot[0] + 1 < self.size[0],
+            2 => slot[1] + 1 < self.size[1],
+            _ => slot[0] > 0,
+        }
+    }
+
     /// Records (or adds) a city's summary from its current state.
     pub fn summarize(&mut self, slot: [u32; 2], name: &str, file: &str, city: &City) {
         let mut entry = RegionCity {
@@ -130,6 +259,7 @@ impl Region {
             fund: city.fund,
             date: city.date.to_string(),
             borders: city.borders(),
+            crossings: city.crossings(),
             ..Default::default()
         };
         if let (Some(gb), Some(rules)) = (&city.glassbox, city.rules()) {

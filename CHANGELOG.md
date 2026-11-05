@@ -2,6 +2,12 @@
 
 Release notes in full are on the [releases page](https://github.com/sirmmo/citysim/releases).
 
+## 0.2.28: Border crossings
+- **Border crossings join up:** in a region, a road, railway or power line built to the edge of the map runs on into the neighbour. It appears on the neighbour's map at the matching place on the shared edge, free of charge. In a region played alone, it appears when that town is next opened or founded. Online, it appears in the other player's game at their next monthly update.
+- **Border gates:** each crossing gets a gate at the edge of the map: green when the neighbour has the crossing too, amber while it waits, grey at the edge of the region.
+- **Lone maps:** a road built to the edge of a map outside a region brings a message: there is no region server, so no town lies beyond.
+- A neighbour's crossing never replaces what you built on that tile, and one you bulldoze stays gone.
+
 ## 0.2.27: Packs
 - **Packs:** a scenario sealed with its skin and rules, as a game of its own. Use `--pack ID`, or put a `pack.toml` in the data folder. A Game menu (restart, save, quit) replaces File. Packs have no new cities, regions, imports, skin changes or cheats. The game is saved on quit and carries on at the next launch.
 - **Packs shipped:** Rail Baron and Bologna 1600.

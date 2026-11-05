@@ -89,6 +89,8 @@ pub enum ToolError {
     TerrainLimit,
     #[error("needs research: {0}")]
     Locked(String),
+    #[error("something else is built on the border tile")]
+    BorderTaken,
 }
 
 /// What the query tool reports about a tile.
@@ -267,6 +269,10 @@ pub struct City {
     /// Loans being repaid.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub loans: Vec<Loan>,
+    /// Neighbours' border crossings already built here (regions), so one
+    /// the player bulldozes is not built again.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub border_links: Vec<crate::region::Crossing>,
     /// Cousin Vinnie's family, once called (see [`City::cheat`]).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub mafia: Option<Mafia>,
@@ -302,6 +308,7 @@ impl City {
             vehicles: Vec::new(),
             notices: Vec::new(),
             messages: Vec::new(),
+            border_links: Vec::new(),
             mafia: None,
             ledger: BTreeMap::new(),
             last_ledger: BTreeMap::new(),
@@ -427,6 +434,26 @@ impl City {
         }
     }
 
+    /// Builds a structure tool over a rectangle (a block at the corner `a`)
+    /// and returns its cost, without charging it or checking research.
+    pub(crate) fn build_tool(&mut self, tool: Tool, rect: Rect, a: (u32, u32)) -> Result<u32, ToolError> {
+        let code = tool.structure().expect("building tool");
+        let rect = if code.is_block() { Rect::tile(a.0, a.1) } else { rect };
+        let mut cost = match tool.road_kind() {
+            Some(kind) => self.layer.build_road(rect, kind, &self.terrain)?,
+            None => self.layer.build(rect, code, &self.terrain, &self.footprints, &mut self.rng)?,
+        };
+        if let Some(per_tile) = self.zone_cost(code) {
+            cost = cost / code.build_cost().max(1) * per_tile;
+        }
+        // Services priced by the rules (e.g. a well instead of a park).
+        if let Some(price) = self.rules().and_then(|r| r.service_unit(tool.id())).map(|u| u.build_cost).filter(|&c| c > 0) {
+            cost = cost / code.build_cost().max(1) * price;
+        }
+        self.after_build(tool, code, rect);
+        Ok(cost)
+    }
+
     /// Applies a tool between two corner tiles (identical for single-tile tools).
     pub fn apply_tool(&mut self, tool: Tool, a: (u32, u32), b: (u32, u32)) -> Result<ToolOutcome, ToolError> {
         if self.fund < 0 {
@@ -449,23 +476,7 @@ impl City {
                 }
                 TERRAIN_COST
             }
-            _ => {
-                let code = tool.structure().expect("building tool");
-                let rect = if code.is_block() { Rect::tile(a.0, a.1) } else { rect };
-                let mut cost = match tool.road_kind() {
-                    Some(kind) => self.layer.build_road(rect, kind, &self.terrain)?,
-                    None => self.layer.build(rect, code, &self.terrain, &self.footprints, &mut self.rng)?,
-                };
-                if let Some(per_tile) = self.zone_cost(code) {
-                    cost = cost / code.build_cost().max(1) * per_tile;
-                }
-                // Services priced by the rules (e.g. a well instead of a park).
-                if let Some(price) = self.rules().and_then(|r| r.service_unit(tool.id())).map(|u| u.build_cost).filter(|&c| c > 0) {
-                    cost = cost / code.build_cost().max(1) * price;
-                }
-                self.after_build(tool, code, rect);
-                cost
-            }
+            _ => self.build_tool(tool, rect, a)?,
         };
         self.fund -= cost as i64;
         Ok(ToolOutcome { cost, sound: tool.sound() })

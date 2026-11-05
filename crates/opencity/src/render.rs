@@ -764,6 +764,37 @@ impl Atmosphere {
     }
 }
 
+/// Border gates where roads, tracks and power lines leave a region city:
+/// two posts and a bar just past the edge, green when the neighbour has
+/// joined the crossing, amber while it waits, grey at the region's edge.
+pub fn draw_crossings(city: &opencity_core::City, gates: &[(opencity_core::region::Crossing, Option<bool>)]) {
+    let (w, l) = (city.width(), city.length());
+    for (c, state) in gates {
+        let (x, y) = c.tile(w, l);
+        let (cx, cz) = (x as f32 + 0.5, y as f32 + 0.5);
+        // Out across the edge, and along it for the posts.
+        let (out, along) = match c.side {
+            0 => (vec3(0.0, 0.0, -1.0), vec3(1.0, 0.0, 0.0)),
+            1 => (vec3(1.0, 0.0, 0.0), vec3(0.0, 0.0, 1.0)),
+            2 => (vec3(0.0, 0.0, 1.0), vec3(1.0, 0.0, 0.0)),
+            _ => (vec3(-1.0, 0.0, 0.0), vec3(0.0, 0.0, 1.0)),
+        };
+        let at = vec3(cx, 0.0, cz) + out * 0.45;
+        let ground = height_at(&city.terrain, at.x - out.x * 0.1, at.z - out.z * 0.1);
+        let colour = match state {
+            Some(true) => Color::new(0.30, 0.75, 0.35, 1.0),
+            Some(false) => Color::new(0.95, 0.70, 0.20, 1.0),
+            None => Color::new(0.55, 0.55, 0.55, 1.0),
+        };
+        let post = vec3(0.06, 0.7, 0.06);
+        for s in [-0.42, 0.42] {
+            draw_cube(vec3(at.x, ground + 0.35, at.z) + along * s, post, None, Color::new(0.92, 0.92, 0.9, 1.0));
+        }
+        let bar = vec3(0.84 * along.x.abs() + 0.05, 0.08, 0.84 * along.z.abs() + 0.05);
+        draw_cube(vec3(at.x, ground + 0.66, at.z), bar, None, colour);
+    }
+}
+
 /// Rain or snow falling around a point, at a moment (seconds).
 pub fn draw_precipitation(around: Vec3, time: f64, rain: bool, amount: f32) {
     let n = (600.0 * amount) as u32;
