@@ -8,6 +8,22 @@ use crate::render::Renderer;
 pub const BUTTON: f32 = 48.0;
 const PAD: f32 = 6.0;
 
+/// Extra size asked for with `--ui-scale` (1: none).
+pub static USER_SCALE: std::sync::OnceLock<f32> = std::sync::OnceLock::new();
+
+/// Physical pixels per logical pixel of this interface: the screen's DPI
+/// scale (phones pack three or more pixels in a point), never below 1, and
+/// at least 2 on Android, times what the player asked for.
+pub fn scale() -> f32 {
+    let floor = if cfg!(target_os = "android") { 2.0 } else { 1.0 };
+    screen_dpi_scale().max(floor) * USER_SCALE.get().copied().unwrap_or(1.0)
+}
+
+/// The mouse in logical pixels.
+pub fn mouse() -> Vec2 {
+    Vec2::from(mouse_position()) / scale()
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Action {
     Tool(Option<Tool>),
@@ -115,28 +131,48 @@ impl Ui {
         }
     }
 
-    fn toolbar_rect(i: usize) -> Rect {
-        let cols = 2;
+    /// Columns of the toolbar: two, or more when the screen is too short
+    /// for all its buttons (phones).
+    fn toolbar_cols(&self) -> usize {
+        let rows = ((screen_height() / scale() - 80.0) / (BUTTON + PAD)).floor().max(1.0) as usize;
+        self.tools.len().div_ceil(rows).max(2)
+    }
+
+    fn toolbar_rect(&self, i: usize) -> Rect {
+        let cols = self.toolbar_cols();
         Rect::new(PAD + (i % cols) as f32 * (BUTTON + PAD), 80.0 + (i / cols) as f32 * (BUTTON + PAD), BUTTON, BUTTON)
     }
 
     /// Whether the mouse is over a UI element (so the map should ignore it).
     pub fn has_mouse(&self) -> bool {
-        let (x, y) = mouse_position();
-        let last = Self::toolbar_rect(self.tools.len() - 1);
-        let sw = screen_width();
+        let Vec2 { x, y } = mouse();
+        let last = self.toolbar_rect(self.tools.len() - 1);
+        let right = PAD + self.toolbar_cols() as f32 * (BUTTON + PAD);
+        let sw = screen_width() / scale();
         let status = x > (sw - 512.0) / 2.0 && x < (sw + 512.0) / 2.0 + 130.0 && y < 80.0;
-        self.menu_open || (x < last.x + BUTTON + PAD * 2.0 && y < last.y + BUTTON + PAD) || status
+        self.menu_open || (x < right && y < last.y + BUTTON + PAD) || status
     }
 
     pub fn draw(&self, city: &City, active: Option<Action>, message: Option<&str>) -> Option<Action> {
-        let mouse: Vec2 = mouse_position().into();
+        let s = scale();
+        let gl = unsafe { get_internal_gl() }.quad_gl;
+        gl.push_model_matrix(Mat4::from_scale(vec3(s, s, 1.0)));
+        let action = self.draw_scaled(city, active, message);
+        let gl = unsafe { get_internal_gl() }.quad_gl;
+        gl.pop_model_matrix();
+        action
+    }
+
+    /// The interface in logical pixels (see [`scale`]).
+    fn draw_scaled(&self, city: &City, active: Option<Action>, message: Option<&str>) -> Option<Action> {
+        let mouse = mouse();
         let clicked = is_mouse_button_pressed(MouseButton::Left);
         let mut action = None;
         let mut tooltip = None;
+        let screen_height = || screen_height() / scale();
 
         // Status bar (top centre).
-        let sw = screen_width();
+        let sw = screen_width() / scale();
         let bar = Rect::new((sw - 512.0) / 2.0, 4.0, 512.0, 64.0);
         draw_texture_ex(&self.status_bar, bar.x, bar.y, WHITE, DrawTextureParams { dest_size: Some(vec2(bar.w, bar.h)), ..Default::default() });
         let v = city.values;
@@ -183,7 +219,7 @@ impl Ui {
 
         // Toolbar (left).
         for (i, b) in self.tools.iter().enumerate() {
-            let r = Self::toolbar_rect(i);
+            let r = self.toolbar_rect(i);
             let hover = r.contains(mouse);
             let selected = active == Some(b.action);
             if selected {
@@ -235,8 +271,18 @@ impl Ui {
         action
     }
 
-    /// Query panel, legacy style: one on/off icon per service.
+    /// Query panel, legacy style: one on/off icon per service, at a
+    /// physical pixel position.
     pub fn draw_query(&self, at: Vec2, info: Option<(String, TileInfo)>) {
+        let s = scale();
+        let gl = unsafe { get_internal_gl() }.quad_gl;
+        gl.push_model_matrix(Mat4::from_scale(vec3(s, s, 1.0)));
+        self.draw_query_scaled(at / s, info);
+        let gl = unsafe { get_internal_gl() }.quad_gl;
+        gl.pop_model_matrix();
+    }
+
+    fn draw_query_scaled(&self, at: Vec2, info: Option<(String, TileInfo)>) {
         let (w, h) = (4.0 * 52.0 + 12.0, 110.0);
         draw_rectangle(at.x, at.y, w, h, Color::new(0.0, 0.0, 0.0, 0.7));
         match info {

@@ -2,6 +2,9 @@
 
 Release notes in full are on the [releases page](https://github.com/sirmmo/citysim/releases).
 
+## 0.2.45: Interface size on phones
+- **The interface is drawn at the screen's pixel density.** Phones pack three pixels in a point and the game ignored that, so on them (and on Retina Macs) the menu, panels and toolbar were a third of their size. Both interfaces now scale with the screen: the classic one (Android) draws its toolbar, status bar and menu that way and lays the toolbar out in more columns on short screens; the desktop/browser one tells egui the ratio and hides the City panel on narrow screens to leave room for the map. **View > Size of the interface** picks Normal, Large or Huge on top of that; `--ui-scale 1.5` (or `?ui-scale=1.5` in the browser) does the same.
+
 ## 0.2.44: Airport and seaport
 - **Seaport** (on the shore, research *Ports*) and **airport** (research *Aviation*): gates to the rest of the world under GlassBox rules. Each tick they bring in up to their `trade` capacity of what the city lacks (the seaport goods and fuel, the airport tourists for the shops and some air freight) and take out what has nowhere to go, at the resource's price, booked as trade purchases and sales; the inspector shows what went through. Under classic rules they are landmarks with upkeep.
 - An airliner takes off, circles and lands at every airport. GeoJSON imports build them from `aeroway=aerodrome` and port land use; exports tag them back.

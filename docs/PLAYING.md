@@ -35,6 +35,12 @@ differences:
 
 ## Controls
 
+The interface is drawn at the screen's pixel density, so it keeps its
+size on phones and high-resolution screens (on narrow screens the City
+panel starts hidden, to leave room for the map). **View > Size of the
+interface** makes it Large or Huge on top of that, and `--ui-scale 1.5`
+(in the browser, `?ui-scale=1.5`) sets it from the start.
+
 | Input | Action |
 |---|---|
 | Left drag | Use the selected tool. Zones and roads cover the dragged area. |

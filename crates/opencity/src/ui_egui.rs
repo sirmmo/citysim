@@ -142,6 +142,8 @@ pub struct EguiUi {
     import_date: String,
     import_rules: String,
     show_city: bool,
+    /// Size of the interface: `None` picks it from the screen.
+    pub zoom: Option<f32>,
     graphs: crate::graphs::Graphs,
     show_network: bool,
     show_research: bool,
@@ -301,6 +303,12 @@ fn tool_cost(a: Action) -> Option<u32> {
 }
 
 impl EguiUi {
+    /// How much bigger than its usual size the interface is drawn, on top
+    /// of the screen's pixel density: what the player chose, else none.
+    pub fn zoom_factor(&self) -> f32 {
+        self.zoom.unwrap_or(1.0)
+    }
+
     pub fn new(settings_map: &MapParams) -> Self {
         Self {
             icons: HashMap::new(),
@@ -312,7 +320,8 @@ impl EguiUi {
             path: String::new(),
             import_date: String::new(),
             import_rules: String::new(),
-            show_city: true,
+            show_city: macroquad::window::screen_width() / macroquad::window::screen_dpi_scale() >= 900.0,
+            zoom: crate::ui::USER_SCALE.get().copied(),
             graphs: Default::default(),
             show_network: false,
             show_research: false,
@@ -597,6 +606,14 @@ impl EguiUi {
                 }
                 ui.menu_button("View", |ui| {
                     ui.checkbox(&mut self.show_city, "City panel");
+                    ui.menu_button("Size of the interface", |ui| {
+                        for (label, z) in [("Automatic", None), ("Normal", Some(1.0)), ("Large", Some(1.3)), ("Huge", Some(1.6))] {
+                            if ui.radio(self.zoom == z, label).clicked() {
+                                self.zoom = z;
+                                ui.close_menu();
+                            }
+                        }
+                    });
                     if ui.checkbox(&mut self.day_night, "Day and night, weather").changed() {
                         out.push(Command::SetDayNight(self.day_night));
                     }

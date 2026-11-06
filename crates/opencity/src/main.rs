@@ -168,6 +168,9 @@ struct Args {
     /// Use the classic interface made of the original OpenCity artwork.
     #[arg(long)]
     classic_ui: bool,
+    /// Size of the interface (1 is the usual; phones pick a larger one by themselves).
+    #[arg(long)]
+    ui_scale: Option<f32>,
     /// Window size override, e.g. 1280x800.
     #[arg(long, value_parser = parse_size)]
     size: Option<(u32, u32)>,
@@ -1088,6 +1091,11 @@ impl Game {
             };
             let mut commands = Vec::new();
             egui_macroquad::ui(|ctx| {
+                // egui is not told the screen's pixel density (egui-miniquad
+                // only passes it on when it changes), so set it here, times
+                // the size chosen for the interface.
+                let native = ctx.native_pixels_per_point().unwrap_or(1.0);
+                ctx.set_zoom_factor(screen_dpi_scale().max(1.0) * ui.zoom_factor() / native);
                 commands = ui.show(ctx, &view);
                 egui_pointer = ctx.wants_pointer_input() || ctx.is_pointer_over_area();
                 egui_keyboard = ctx.wants_keyboard_input();
@@ -1321,6 +1329,9 @@ async fn main() -> Result<()> {
     #[cfg(target_arch = "wasm32")]
     web::preload().await?;
     let s = startup();
+    if let Some(z) = s.args.ui_scale.filter(|z| *z > 0.0) {
+        let _ = ui::USER_SCALE.set(z);
+    }
     let data_dir = find_data_dir(s.args.data_dir.as_deref())?;
     let catalog = Catalog::load(&data_dir)?;
     let mut city = match (&s.args.load, &s.args.geojson) {
@@ -1351,6 +1362,10 @@ async fn main() -> Result<()> {
     // decoding the clips waits for that: load them after the first input.
     #[cfg(target_arch = "wasm32")]
     let mut audio_later = audio_on;
+    // The clips decoding, polled a little each frame so a browser that
+    // never finishes (no sound device, autoplay refused) stalls nothing.
+    #[cfg(target_arch = "wasm32")]
+    let mut audio_loading: Option<std::pin::Pin<Box<dyn std::future::Future<Output = Audio>>>> = None;
     #[cfg(target_arch = "wasm32")]
     let audio = Audio::disabled();
     #[cfg(not(target_arch = "wasm32"))]
@@ -1567,9 +1582,19 @@ async fn main() -> Result<()> {
             }
         }
         #[cfg(target_arch = "wasm32")]
-        if audio_later && (is_mouse_button_released(MouseButton::Left) || get_last_key_pressed().is_some()) {
-            audio_later = false;
-            game.audio = Audio::load(&game.base_catalog, s.settings.audio.volume).await;
+        {
+            if audio_later && (is_mouse_button_released(MouseButton::Left) || get_last_key_pressed().is_some()) {
+                audio_later = false;
+                let (catalog, volume) = (game.base_catalog.clone(), s.settings.audio.volume);
+                audio_loading = Some(Box::pin(async move { Audio::load(&catalog, volume).await }));
+            }
+            if let Some(f) = audio_loading.as_mut() {
+                let mut cx = std::task::Context::from_waker(std::task::Waker::noop());
+                if let std::task::Poll::Ready(audio) = f.as_mut().poll(&mut cx) {
+                    game.audio = audio;
+                    audio_loading = None;
+                }
+            }
         }
         next_frame().await;
     }
