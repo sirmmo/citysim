@@ -60,6 +60,7 @@ pub fn build(data_dir: &Path, s: &Scenario, footprints: Footprints) -> Result<Ci
             water: parse("water", &st.water)?,
             shape: parse("shape", &st.shape)?,
             trees: parse("trees", &st.trees)?,
+            rivers: st.rivers,
             seed: st.seed,
             heightmap: None,
         };

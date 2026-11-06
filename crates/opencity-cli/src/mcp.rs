@@ -111,6 +111,7 @@ impl Server {
                     water: WaterArg::from_str(&enum_arg("water", "lake"), true).map_err(|e| anyhow!(e))?.into(),
                     shape: ShapeArg::from_str(&enum_arg("shape", "none"), true).map_err(|e| anyhow!(e))?.into(),
                     trees: TreesArg::from_str(&enum_arg("trees", "sparse"), true).map_err(|e| anyhow!(e))?.into(),
+                    rivers: num(a, "rivers").unwrap_or(1.0).clamp(0.0, 4.0) as u8,
                     heightmap: None,
                 };
                 if !(8..=512).contains(&params.width) || !(8..=512).contains(&params.length) {
@@ -445,6 +446,7 @@ fn tools() -> Value {
             "water": { "enum": ["dry", "lake", "coast"] },
             "shape": { "enum": ["none", "island", "volcano", "crater"] },
             "trees": { "enum": ["sparse", "normal", "dense"] },
+            "rivers": { "type": "integer", "minimum": 0, "maximum": 4, "default": 1, "description": "Rivers carved from the high ground to the water or the edge" },
             "rules": { "type": "string", "description": "GlassBox rules id: \"glassbox\" (modern) or \"pre-industrial\"; omit for classic OpenCity rules" },
             "flat": { "type": "boolean", "description": "A flat, empty map with no water or trees (relief, water, shape and trees are ignored)" },
             "demo": { "type": "boolean", "description": "Lay out the demo town (roads, zones, power, services)" },

@@ -12,6 +12,8 @@ use rand::Rng;
 use serde::{Deserialize, Serialize};
 
 use crate::{codes::path_graphic, Direction, Footprints, GraphicCode, RoadKind, StructureCode, Terrain};
+/// Roads and tracks over water (bridges) cost this many times the tile price.
+pub const BRIDGE_COST: u32 = 3;
 
 /// Highest level a zone can reach (legacy `OC_STRUCTURE_LEVEL_MAX`).
 pub const LEVEL_MAX: u8 = 99;
@@ -450,13 +452,13 @@ impl BuildingLayer {
             } else if code.is_path() {
                 self.path_constructible(w, l, code, terrain)
             } else {
-                self.tile(w, l).is_none() && terrain.is_tile_flat(w, l)
+                self.tile(w, l).is_none() && terrain.is_tile_flat(w, l) && !terrain.is_water(w, l)
             }
         })
     }
 
     fn path_constructible(&self, w: u32, l: u32, code: StructureCode, terrain: &Terrain) -> bool {
-        self.code_at(w, l).is_none_or(|c| c == code) && terrain.is_tile_path_friendly(w, l)
+        self.code_at(w, l).is_none_or(|c| c == code) && (terrain.is_tile_path_friendly(w, l) || terrain.is_bridgeable(w, l))
     }
 
     /// Builds `code` over `r` and returns the cost. Zones, parks and trees
@@ -628,9 +630,11 @@ impl BuildingLayer {
             return Err(BuildError::NotConstructible);
         }
         let road = code == StructureCode::Road;
-        let tile_cost = if road { kind.build_cost() } else { code.build_cost() };
         let mut cost = 0;
         for (w, l) in route {
+            // Over water, a road or track is a bridge.
+            let bridge = road && terrain.is_water(w, l);
+            let tile_cost = if road { kind.build_cost() * if bridge { BRIDGE_COST } else { 1 } } else { code.build_cost() };
             if self.tile(w, l).is_some() {
                 // Roads leave track alone (it becomes a level crossing);
                 // track replaces the road it crosses.

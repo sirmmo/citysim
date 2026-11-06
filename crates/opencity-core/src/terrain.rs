@@ -71,6 +71,12 @@ impl Terrain {
         self.tile_max(w, l) < 0
     }
 
+    /// Whether the tile is water or its bank (no corner above sea level):
+    /// a road or track crosses it on a level bridge deck, whatever its slope.
+    pub fn is_bridgeable(&self, w: u32, l: u32) -> bool {
+        self.tile_max(w, l) <= 0
+    }
+
     pub fn is_tile_flat(&self, w: u32, l: u32) -> bool {
         let c = self.tile_corners(w, l);
         c.iter().all(|&h| h == c[0])

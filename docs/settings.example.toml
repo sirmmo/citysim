@@ -18,5 +18,6 @@ relief = "plain"     # plain | hill | mountain
 water = "lake"       # dry | lake | coast
 shape = "none"       # none | island | volcano | crater
 trees = "sparse"     # sparse | normal | dense
+rivers = 1           # rivers carved from the high ground to the water or the edge
 seed = 0
 # heightmap = "Palermo-51x51.png"   # a file in assets/heightmap, or any path

@@ -307,9 +307,13 @@ fn save_path() -> PathBuf {
     base.join("opencity").join("city.ocsave.json")
 }
 
-fn new_city(settings: &Settings, seed: u64, catalog: &Catalog) -> Result<City> {
+fn new_city(settings: &Settings, seed: u64, catalog: &Catalog, demo: bool) -> Result<City> {
     let mut params = settings.map.clone();
     params.seed = seed;
+    if demo {
+        // The demo town is laid out for the map as it was before rivers.
+        params.rivers = 0;
+    }
     new_city_with(params, catalog)
 }
 
@@ -777,7 +781,7 @@ impl Game {
                         let id = self.pack.as_ref().map(|p| p.scenario.clone()).unwrap_or_default();
                         self.start_scenario(&id);
                     }
-                    MenuItem::New => match new_city(&s.settings, macroquad::rand::rand() as u64, &self.catalog) {
+                    MenuItem::New => match new_city(&s.settings, macroquad::rand::rand() as u64, &self.catalog, false) {
                         Ok(c) => {
                             self.set_city(c);
                             self.say("New city");
@@ -1322,7 +1326,7 @@ async fn main() -> Result<()> {
     let mut city = match (&s.args.load, &s.args.geojson) {
         (Some(p), _) => load_city(p, &catalog)?,
         (None, Some(g)) => import_geojson(g, s.args.date.as_deref(), s.args.rules.as_deref(), s.args.units_per_tile, s.args.world.as_deref(), &catalog)?,
-        (None, None) => new_city(&s.settings, s.args.seed.unwrap_or(s.settings.map.seed), &catalog)?,
+        (None, None) => new_city(&s.settings, s.args.seed.unwrap_or(s.settings.map.seed), &catalog, s.args.demo)?,
     };
     let rulesets = opencity_assets::rules::load_all(&data_dir);
     if let Some(id) = &s.args.game_rules {

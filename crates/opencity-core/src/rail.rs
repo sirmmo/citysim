@@ -80,7 +80,10 @@ impl Railways {
     pub fn water(layer: &BuildingLayer, terrain: &Terrain, footprints: &Footprints) -> Self {
         // The shore between flat land and water is a slope, so the quay may
         // be two tiles out.
-        Self::build(layer, terrain, footprints, StructureCode::Harbour, 1, 2, |w, l| terrain.is_water(w, l) && layer.tile(w, l).is_none())
+        // Boats pass under bridges.
+        Self::build(layer, terrain, footprints, StructureCode::Harbour, 1, 2, |w, l| {
+            terrain.is_water(w, l) && layer.structure_at(w, l).is_none_or(|s| s.code == StructureCode::Road)
+        })
     }
 
     /// Lines of `on_line` tiles, and the `stop` buildings with a line tile

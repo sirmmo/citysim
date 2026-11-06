@@ -1122,6 +1122,10 @@ impl EguiUi {
                             }
                         });
                         ui.end_row();
+                        ui.label("Rivers");
+                        ui.add(egui::DragValue::new(&mut m.rivers).range(0..=4))
+                            .on_hover_text("Carved from the high ground down to the water or the edge; roads and rails cross them on bridges");
+                        ui.end_row();
                         ui.label("Trees");
                         egui::ComboBox::from_id_salt("trees").selected_text(format!("{:?}", m.trees)).show_ui(ui, |ui| {
                             for t in [TreeDensity::Sparse, TreeDensity::Normal, TreeDensity::Dense] {

@@ -22,6 +22,8 @@ const WATER_LEVEL: f32 = -0.05;
 /// Models sit slightly above the ground to avoid z-fighting with the terrain.
 const MODEL_LIFT: f32 = 0.015;
 const ROAD_LIFT: f32 = 0.02;
+/// Height of a bridge deck (roads and tracks over water).
+const BRIDGE_DECK: f32 = 0.12;
 /// Graphic code of the straight north-south road, whose texture the ribbons use.
 const ROAD_TEXTURE_MODEL: GraphicCode = GraphicCode(154);
 /// Vertices per static mesh chunk (u16 indices).
@@ -436,7 +438,7 @@ impl Renderer {
             let half = roads::half_width(kind);
             // Wider roads sit a hair higher, so they cover the narrower ones they meet.
             let lift = ROAD_LIFT + half * 0.01;
-            let at = |q: Vec2| vec3(q.x, height_at(t, q.x, q.y) + lift, q.y);
+            let at = |q: Vec2| vec3(q.x, deck_height(t, q.x, q.y) + lift, q.y);
             let v = |p: Vec3, u: f32, v: f32| Vertex { position: p, uv: vec2(u, v), color, normal: Vec4::ZERO };
             for line in lines.iter().filter(|l| l.kind == kind) {
                 let (pts, closed) = (roads::smooth(&line.points, line.closed), line.closed);
@@ -502,6 +504,26 @@ impl Renderer {
             for m in b.finish() {
                 self.roads.push(self.gpu.as_ref(), m);
             }
+        }
+        // Bridge piers: a dark column under every road tile over water.
+        let mut piers = MeshBuilder::new(Some(self.white.clone()));
+        let grey = |n: Vec3| rgba(self.look.apply([0.42, 0.42, 0.45, 1.0]), shade(n));
+        for ((w, l), s) in city.layer.structures().filter(|(_, s)| s.code == StructureCode::Road) {
+            if !t.is_water(w, l) {
+                continue;
+            }
+            let r = (roads::half_width(s.road) * 0.6).min(0.3);
+            let (cx, cz) = (w as f32 + 0.5, l as f32 + 0.5);
+            let (bottom, top) = (t.tile_min(w, l) as f32 - 0.1, BRIDGE_DECK + ROAD_LIFT);
+            let v = |x: f32, y: f32, z: f32, n: Vec3| Vertex { position: vec3(x, y, z), uv: Vec2::ZERO, color: grey(n), normal: Vec4::ZERO };
+            for (dx, dz, n) in [(1.0, 0.0, Vec3::X), (-1.0, 0.0, Vec3::NEG_X), (0.0, 1.0, Vec3::Z), (0.0, -1.0, Vec3::NEG_Z)] {
+                let (ax, az) = (cx + dx * r - dz * r, cz + dz * r + dx * r);
+                let (bx, bz) = (cx + dx * r + dz * r, cz + dz * r - dx * r);
+                piers.quad([v(ax, bottom, az, n), v(ax, top, az, n), v(bx, top, bz, n), v(bx, bottom, bz, n)]);
+            }
+        }
+        for m in piers.finish() {
+            self.roads.push(self.gpu.as_ref(), m);
         }
     }
 
@@ -576,7 +598,9 @@ impl Renderer {
                 Direction::West => -90.0,
             }
             .to_radians();
-            let m = Mat4::from_translation(vec3(p.x, p.y + 0.02, p.z)) * Mat4::from_rotation_y(angle) * Mat4::from_translation(vec3(-0.5, 0.0, -0.5));
+            // Over water, cars and trains are on a bridge.
+            let y = if !v.water && p.y < 0.0 { BRIDGE_DECK } else { p.y };
+            let m = Mat4::from_translation(vec3(p.x, y + 0.02, p.z)) * Mat4::from_rotation_y(angle) * Mat4::from_translation(vec3(-0.5, 0.0, -0.5));
             if let Some(meshes) = v.mesh.as_deref().and_then(|name| self.obj_mesh(name)) {
                 // Trains run down the middle of the track, and a locomotive
                 // is longer than a car.
@@ -760,6 +784,17 @@ impl Renderer {
 }
 
 /// Bilinear terrain height at a map position (tile units).
+/// Where a road runs: the ground, or a bridge deck over water and down
+/// the banks to it.
+pub fn deck_height(t: &Terrain, x: f32, z: f32) -> f32 {
+    let h = height_at(t, x, z);
+    if h < 0.0 {
+        BRIDGE_DECK.max(h)
+    } else {
+        h
+    }
+}
+
 pub fn height_at(t: &Terrain, x: f32, z: f32) -> f32 {
     let w = (x.floor() as i64).clamp(0, t.width() as i64 - 1) as u32;
     let l = (z.floor() as i64).clamp(0, t.length() as i64 - 1) as u32;

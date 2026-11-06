@@ -2,6 +2,11 @@
 
 Release notes in full are on the [releases page](https://github.com/sirmmo/citysim/releases).
 
+## 0.2.43: Rivers and bridges
+- **Rivers** on generated maps: the new city dialog (and `--rivers` in the CLI, `rivers` in settings and the MCP `new_city` tool) carves rivers from the high ground down to the sea, a lake or the edge of the map, with banks that slope a step per tile. New maps get one by default; scenarios and the demo town are unchanged.
+- **Bridges:** a road or track over water is a bridge, at three times the price of the tile, drawn as a deck on piers above the water; cars and trains cross on it and boats pass underneath. Water and its banks can always be crossed, whatever their slope.
+- Buildings can no longer be placed on flat water (lake beds used to count as flat ground).
+
 ## 0.2.42: In the browser
 - **The game runs in the browser** at <http://ingmmo.com/citysim/play/>, built to WebAssembly from the same code. Saves live in the browser's local storage (one per name), exports download, and the page's query string stands for the command line (`?demo&game-rules=glassbox`). Region servers cannot be joined from there yet.
 - **Web files** ship with each release (`citysim-vX.Y.Z-web.zip`) to host the browser game yourself; `scripts/web.sh` builds them, and the website's pages workflow rebuilds them at every release.

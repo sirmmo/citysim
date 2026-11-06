@@ -152,6 +152,9 @@ struct MapArgs {
     shape: ShapeArg,
     #[arg(long, value_enum, default_value = "sparse")]
     trees: TreesArg,
+    /// Rivers carved from the high ground to the water or the edge.
+    #[arg(long, default_value_t = 1)]
+    rivers: u8,
     /// Greyscale PNG heightmap instead of the generator.
     #[arg(long)]
     heightmap: Option<PathBuf>,
@@ -237,6 +240,7 @@ impl MapArgs {
             water: self.water.into(),
             shape: self.shape.into(),
             trees: self.trees.into(),
+            rivers: self.rivers,
             seed: self.seed,
             heightmap: self.heightmap.clone(),
         }

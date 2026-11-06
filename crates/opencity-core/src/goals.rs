@@ -40,6 +40,8 @@ pub struct Start {
     pub shape: String,
     /// sparse, normal, dense.
     pub trees: String,
+    /// Rivers carved from the high ground to the water or the edge (scenarios default to none).
+    pub rivers: u8,
     /// An empty flat map instead (relief, water, shape and trees ignored).
     pub flat: bool,
     /// Build the city from a GeoJSON file instead (relative to the data folder).
@@ -68,6 +70,7 @@ impl Default for Start {
             water: "lake".into(),
             shape: "none".into(),
             trees: "sparse".into(),
+            rivers: 0,
             flat: false,
             geojson: None,
             date: None,

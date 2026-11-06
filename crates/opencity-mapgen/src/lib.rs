@@ -59,11 +59,18 @@ pub struct MapParams {
     pub shape: Shape,
     #[serde(default)]
     pub trees: TreeDensity,
+    /// Rivers carved from the high ground down to the water or the edge.
+    #[serde(default = "default_rivers")]
+    pub rivers: u8,
     #[serde(default)]
     pub seed: u64,
     /// Greyscale PNG used instead of the generator (mid-grey = sea level).
     #[serde(default)]
     pub heightmap: Option<PathBuf>,
+}
+
+fn default_rivers() -> u8 {
+    1
 }
 
 impl Default for MapParams {
@@ -75,6 +82,7 @@ impl Default for MapParams {
             water: Water::default(),
             shape: Shape::default(),
             trees: TreeDensity::default(),
+            rivers: default_rivers(),
             seed: 0,
             heightmap: None,
         }
@@ -142,7 +150,121 @@ fn generate_terrain(p: &MapParams, seed: u64) -> Grid {
         Shape::None | Shape::Crater => {}
     }
     map.gauss_blur(2);
+    carve_rivers(&mut map, p.rivers, seed);
     map
+}
+
+/// Bed of a river below sea level, in height steps: the corners next to it
+/// come out at -1 (heights truncate towards zero), the next ones at 0.
+const RIVER_DEPTH: f32 = -2.0;
+/// Corners this far (king's moves) from a river are lowered to a bank
+/// sloping one step per corner, so roads and bridges can reach the water.
+const RIVER_BANK: i64 = 6;
+
+/// Carves `n` rivers: each starts at a high inland corner and wanders
+/// downhill (with some meander) towards the nearest water, or the edge,
+/// until it gets there; its bed goes below sea level and the banks slope
+/// gently up from it.
+fn carve_rivers(map: &mut Grid, n: u8, seed: u64) {
+    let mut rng = Pcg32::seed_from_u64(seed ^ 0x7269_7665_7273);
+    let (w, h) = (map.w as i64, map.h as i64);
+    if n == 0 || w < 8 || h < 8 {
+        return;
+    }
+    let mut dist = vec![u8::MAX; (w * h) as usize];
+    for _ in 0..n {
+        // Source: the highest of a few inland corners away from water
+        // (and from the rivers before it).
+        let water: Vec<(i64, i64)> = (0..h).flat_map(|y| (0..w).map(move |x| (x, y))).filter(|&(x, y)| map.get(x, y) <= -1.0).collect();
+        let near_water = |x: i64, y: i64| water.iter().any(|&(wx, wy)| (wx - x).abs().max((wy - y).abs()) < 2 * RIVER_BANK);
+        let mut source = (0i64, 0i64, f32::MIN);
+        for _ in 0..32 {
+            let (x, y) = (rng.gen_range(w / 8..w - w / 8), rng.gen_range(h / 8..h - h / 8));
+            let v = map.get(x, y) - if near_water(x, y) { 100.0 } else { 0.0 };
+            if v > source.2 {
+                source = (x, y, v);
+            }
+        }
+        if source.2 < 0.0 {
+            continue;
+        }
+        // Where it flows: the nearest water, else the nearest edge.
+        let (sx, sy) = (source.0, source.1);
+        let far = |x: i64, y: i64| ((x - sx) * (x - sx) + (y - sy) * (y - sy)) as f32;
+        let mut target = None;
+        for ty in 0..h {
+            for tx in 0..w {
+                if map.get(tx, ty) <= -1.0 && target.is_none_or(|(x, y)| far(tx, ty) < far(x, y)) {
+                    target = Some((tx, ty));
+                }
+            }
+        }
+        let (tx, ty) = target.unwrap_or_else(|| {
+            let edges = [(sx, 0), (sx, h - 1), (0, sy), (w - 1, sy)];
+            edges.into_iter().min_by(|a, b| far(a.0, a.1).total_cmp(&far(b.0, b.1))).unwrap()
+        });
+        let (mut x, mut y) = (sx, sy);
+        let mut path = vec![(x, y)];
+        let mut visited = std::collections::HashSet::new();
+        visited.insert((x, y));
+        for _ in 0..(w + h) * 4 {
+            // Heights truncate towards zero: water starts at -1.
+            if map.get(x, y) <= -1.0 || x == 0 || y == 0 || x == w - 1 || y == h - 1 {
+                break;
+            }
+            // Downhill and towards the target, give or take a meander.
+            let to_target = |x: i64, y: i64| (((x - tx) * (x - tx) + (y - ty) * (y - ty)) as f32).sqrt();
+            let here = to_target(x, y);
+            let mut next = None;
+            for dy in -1..=1 {
+                for dx in -1..=1 {
+                    let (nx, ny) = (x + dx, y + dy);
+                    if (dx == 0 && dy == 0) || nx < 0 || ny < 0 || nx >= w || ny >= h || visited.contains(&(nx, ny)) {
+                        continue;
+                    }
+                    let v = map.get(nx, ny) + rng.gen_range(-0.5..0.5) - 0.8 * (here - to_target(nx, ny));
+                    if next.is_none_or(|(_, _, best)| v < best) {
+                        next = Some((nx, ny, v));
+                    }
+                }
+            }
+            let Some((nx, ny, _)) = next else { break };
+            visited.insert((nx, ny));
+            (x, y) = (nx, ny);
+            path.push((x, y));
+        }
+        // Distance of every corner to the river (king's moves), up to the bank.
+        dist.iter_mut().for_each(|d| *d = u8::MAX);
+        let mut queue: std::collections::VecDeque<(i64, i64)> = path.iter().copied().collect();
+        for &(px, py) in &path {
+            dist[(py * w + px) as usize] = 0;
+        }
+        while let Some((cx, cy)) = queue.pop_front() {
+            let d = dist[(cy * w + cx) as usize];
+            if d as i64 >= RIVER_BANK {
+                continue;
+            }
+            for dy in -1..=1 {
+                for dx in -1..=1 {
+                    let (nx, ny) = (cx + dx, cy + dy);
+                    if nx < 0 || ny < 0 || nx >= w || ny >= h || dist[(ny * w + nx) as usize] != u8::MAX {
+                        continue;
+                    }
+                    dist[(ny * w + nx) as usize] = d + 1;
+                    queue.push_back((nx, ny));
+                }
+            }
+        }
+        for cy in 0..h {
+            for cx in 0..w {
+                let d = dist[(cy * w + cx) as usize];
+                if d != u8::MAX {
+                    let cap = RIVER_DEPTH + d as f32;
+                    map.set(cx as u32, cy as u32, map.get(cx, cy).min(cap));
+                }
+            }
+        }
+    }
 }
 
 fn generate_trees(p: &MapParams, seed: u64, terrain: &Grid) -> Grid {
@@ -369,6 +491,26 @@ mod tests {
         assert_eq!(a.tree_density.len(), 30 * 20);
         assert_eq!(a, generate(&p).unwrap());
         assert!(a.corner_heights.iter().all(|h| (-3..=5).contains(h)));
+    }
+
+    #[test]
+    fn rivers_add_water_and_gentle_banks() {
+        let dry = MapParams { width: 60, length: 60, water: Water::Dry, rivers: 0, seed: 4, ..Default::default() };
+        let river = MapParams { rivers: 2, ..dry.clone() };
+        let (a, b) = (generate(&dry).unwrap(), generate(&river).unwrap());
+        let wet = |m: &GeneratedMap| m.corner_heights.iter().filter(|&&h| h < 0).count();
+        assert_eq!(wet(&a), 0);
+        assert!(wet(&b) > 40, "{}", wet(&b));
+        // The banks slope one step per corner at most.
+        let w = 61usize;
+        for (i, &h) in b.corner_heights.iter().enumerate() {
+            if h < 0 {
+                for n in [i.checked_sub(1), Some(i + 1), i.checked_sub(w), Some(i + w)].into_iter().flatten().filter(|&n| n < b.corner_heights.len()) {
+                    assert!((b.corner_heights[n] - h).abs() <= 1, "corner {i}: {h} next to {}", b.corner_heights[n]);
+                }
+            }
+        }
+        assert_eq!(b, generate(&river).unwrap());
     }
 
     #[test]

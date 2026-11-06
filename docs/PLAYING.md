@@ -7,9 +7,12 @@ game see [RULES.md](RULES.md); for the documentation index see
 ## Starting a city
 
 - **File > New city…** opens the new city dialog:
-  - **Map:** width, length, relief, water, shape, trees and seed (🎲 picks a random one).
+  - **Map:** width, length, relief, water, shape, rivers, trees and seed (🎲 picks a random one). Rivers run from the high ground down to the sea, a lake or the edge of the map; roads, tracks and power lines cross them, and a road or track over water is a **bridge**, at three times the price of the tile. Boats pass under bridges.
   - **Era:** Antiquity, Middle Ages, Renaissance, Industrial age or Modern, plus a culture for antiquity.
   - **Rules:** **Classic** is OpenCity's original growth rules. **GlassBox** is the data-driven engine. Cities before 1800 default to the pre-industrial GlassBox rules.
+
+![A road bridge over a river, with the banks sloping down to the water](rivers.png)
+
 - **File > Import GeoJSON…** builds a city from OpenHistoryMap, OpenHistoricalMap or OpenFantasyMap data (see [GEOJSON.md](GEOJSON.md)).
 - **From the command line:** `--demo` starts a demo town and `--load FILE` opens a saved one.
 
