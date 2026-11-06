@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>citysim</title>
+<link rel="icon" href="data:,">
+<meta name="description" content="citysim, a free 3D city simulation, playing in the browser.">
+<style>
+  html, body { margin: 0; padding: 0; height: 100%; background: #10141c; overflow: hidden; }
+  canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: block; outline: none; }
+  #status { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center;
+    justify-content: center; color: #cfd6e4; font: 16px/1.5 system-ui, sans-serif; text-align: center;
+    padding: 24px; pointer-events: none; }
+  #status b { display: block; font-size: 32px; color: #fff; margin-bottom: 10px; }
+  #status.hidden { display: none; }
+  #status a { color: #8fb4ff; pointer-events: auto; }
+</style>
+</head>
+<body>
+<canvas id="glcanvas" tabindex="1"></canvas>
+<div id="status"><b>citysim</b><span id="status-text">Loading the game…</span></div>
+<script src="mq_js_bundle.js"></script>
+<script src="citysim.js"></script>
+<script>
+  window.addEventListener("error", function (e) {
+    citysim_status("Could not start: " + e.message + ". The game needs WebGL and WebAssembly; " +
+      "the desktop version is at https://github.com/sirmmo/citysim/releases.");
+  });
+  if (!window.WebAssembly) {
+    citysim_status("This browser has no WebAssembly. The desktop version is at https://github.com/sirmmo/citysim/releases.");
+  } else {
+    load("opencity.wasm");
+  }
+</script>
+</body>
+</html>

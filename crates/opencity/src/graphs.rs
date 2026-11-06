@@ -162,8 +162,8 @@ impl Graphs {
             if ui.button("Export CSV").on_hover_text("The shown series over everything kept; all series when none is shown").clicked() {
                 let only: Vec<&str> = self.selected.iter().map(String::as_str).collect();
                 let path = export_dir.join(format!("glassbox-tick{tick}.csv"));
-                self.note = Some(match std::fs::create_dir_all(export_dir).and_then(|_| std::fs::write(&path, series.to_csv(&only))) {
-                    Ok(()) => format!("Saved {}", path.display()),
+                self.note = Some(match crate::write_text_file(&path, &series.to_csv(&only)) {
+                    Ok(msg) => msg,
                     Err(e) => format!("Could not save {}: {e}", path.display()),
                 });
             }

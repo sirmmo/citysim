@@ -34,6 +34,7 @@ const NAMES: &[&str] = &[
 #[derive(Clone, Debug)]
 pub struct Remote {
     pub url: String,
+    #[cfg_attr(target_arch = "wasm32", allow(dead_code))]
     pub token: String,
     pub player: String,
 }
@@ -102,9 +103,25 @@ impl RegionSession {
     }
 }
 
+/// Region servers are not reachable from the browser build yet.
+#[cfg(target_arch = "wasm32")]
+pub fn join(_base: &Path, _url: &str, _player: &str, _slot: [u32; 2]) -> Result<RegionSession> {
+    anyhow::bail!("joining a region server is not available in the browser yet; use the desktop game")
+}
+
+#[cfg(target_arch = "wasm32")]
+impl RegionSession {
+    pub fn pull(&mut self) -> Result<()> {
+        Ok(())
+    }
+    pub fn push(&self, _slot: [u32; 2]) -> Result<()> {
+        Ok(())
+    }
+}
+
 /// Joins a region server: claims a slot and returns the session, with
 /// the player's town kept in a local folder.
-#[cfg(not(target_os = "android"))]
+#[cfg(not(any(target_os = "android", target_arch = "wasm32")))]
 pub fn join(base: &Path, url: &str, player: &str, slot: [u32; 2]) -> Result<RegionSession> {
     let url = url.trim_end_matches('/').to_string();
     let body = serde_json::json!({ "slot": slot, "player": player }).to_string();
@@ -126,7 +143,7 @@ pub fn join(base: &Path, url: &str, player: &str, slot: [u32; 2]) -> Result<Regi
     Ok(RegionSession { remote: Some(Remote { url, token, player: player.to_string() }), dir, region, slot: None, deals: Vec::new(), month: 0 })
 }
 
-#[cfg(not(target_os = "android"))]
+#[cfg(not(any(target_os = "android", target_arch = "wasm32")))]
 impl RegionSession {
     /// Fetches the latest summaries of every town.
     pub fn pull(&mut self) -> Result<()> {

@@ -2,6 +2,8 @@
 *.ocsave.json
 /screenshots/
 /dist/
+# The browser build the pages workflow puts in the site (scripts/web.sh)
+/site/play/
 # 0 A.D. art baked by scripts/bake-0ad.sh (CC BY-SA 3.0, not committed)
 /assets/skins/antiquity-*/
 /assets/skins/generated.toml

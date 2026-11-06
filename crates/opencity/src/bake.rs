@@ -7,19 +7,29 @@
 //! is reported once instead of on every launch.
 
 use std::path::Path;
-use std::sync::mpsc::{self, Receiver};
+use std::sync::mpsc::Receiver;
 
+#[cfg(not(target_arch = "wasm32"))]
 const MARKER: &str = ".bake-0ad-attempted";
 
 /// Outcome sent back by the background bake.
 pub type Outcome = Result<String, String>;
 
+#[cfg(not(target_arch = "wasm32"))]
 fn already_baked(data_dir: &Path) -> bool {
     data_dir.join("skins").join("generated.toml").is_file()
 }
 
+/// The browser build has no threads, no network of its own and no place to
+/// keep the art: it plays with the shipped skins.
+#[cfg(target_arch = "wasm32")]
+pub fn start(_data_dir: &Path, _force: bool) -> Option<Receiver<Outcome>> {
+    None
+}
+
 /// Starts the bake if this looks like a first run (or `force`); returns a
 /// receiver for its outcome.
+#[cfg(not(target_arch = "wasm32"))]
 pub fn start(data_dir: &Path, force: bool) -> Option<Receiver<Outcome>> {
     if !data_dir.join("zeroad").join("antiquity.toml").is_file() {
         return None;
@@ -30,7 +40,7 @@ pub fn start(data_dir: &Path, force: bool) -> Option<Receiver<Outcome>> {
     }
     let _ = std::fs::write(&marker, "The 0 A.D. art was downloaded automatically on first launch.\nDelete this file (or pass --bake-0ad) to try again.\n");
     let dir = data_dir.to_path_buf();
-    let (tx, rx) = mpsc::channel();
+    let (tx, rx) = std::sync::mpsc::channel();
     std::thread::spawn(move || {
         log::info!("first run: downloading 0 A.D. art");
         let outcome = match opencity_zeroad::bake(&dir, &opencity_zeroad::Options::default(), &|m| log::info!("bake-0ad: {m}")) {

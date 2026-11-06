@@ -3,7 +3,7 @@ name = "opencity"
 description = "OpenCity: a 3D city simulation (Rust port)"
 # Package fields are spelled out (not inherited from the workspace) because
 # cargo-quad-apk embeds an older Cargo that cannot parse inheritance.
-version = "0.2.41"
+version = "0.2.42"
 edition = "2021"
 rust-version = "1.88"
 license = "GPL-2.0-or-later"
@@ -20,24 +20,33 @@ opencity-assets.workspace = true
 opencity-geo.workspace = true
 anyhow.workspace = true
 clap.workspace = true
-env_logger.workspace = true
 image.workspace = true
 log.workspace = true
 macroquad.workspace = true
-# Desktop UI and the 0 A.D. bake (not built on Android, see xtask android-shim).
+# Desktop and browser UI (not built on Android, see xtask android-shim).
 egui-macroquad.workspace = true
 egui_plot.workspace = true
 toml_edit.workspace = true
+serde_json.workspace = true
+
+# Networking and the 0 A.D. bake: not in the browser (scripts/web.sh).
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+env_logger.workspace = true
 opencity-zeroad.workspace = true
 ureq.workspace = true
-serde_json.workspace = true
+
+# The browser build: packed data files, local storage, a seeded random source.
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+flate2.workspace = true
+getrandom.workspace = true
+sapp-jsutils.workspace = true
 
 # Android packaging (cargo-quad-apk, see scripts/android.sh).
 [package.metadata.android]
 package_name = "io.github.sirmmo.citysim"
 label = "CitySim"
-version_code = 44
-version_name = "0.2.41"
+version_code = 45
+version_name = "0.2.42"
 assets = "../../assets"
 res = "android/res"
 icon = "@mipmap/ic_launcher"

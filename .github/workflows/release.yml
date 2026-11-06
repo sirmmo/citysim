@@ -120,9 +120,36 @@ jobs:
           path: dist/android/*.apk
           if-no-files-found: error
 
+  web:
+    name: web (wasm32)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4.2.2
+      - name: Rust toolchain
+        run: |
+          rustup show active-toolchain || rustup toolchain install
+          rustup target add wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2.7.8
+        with:
+          key: wasm32
+      - name: Build
+        id: package
+        run: |
+          name="citysim-${GITHUB_REF_NAME//\//-}-web"
+          cargo build --locked --release --target wasm32-unknown-unknown -p opencity
+          cargo run --locked -q -p xtask -- web-dist "dist/$name"
+          (cd dist && zip -qr "$name.zip" "$name")
+          echo "name=$name" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v4.6.2
+        with:
+          name: ${{ steps.package.outputs.name }}
+          path: dist/${{ steps.package.outputs.name }}.zip
+          if-no-files-found: error
+
   publish:
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [build, android]
+    needs: [build, android, web]
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4.2.2
@@ -137,6 +164,7 @@ jobs:
           for pack in assets/packs/*.toml; do
             id=$(basename "$pack" .toml)
             for build in dist/citysim-*.tar.gz dist/citysim-*.zip; do
+              case "$build" in *-web.zip) continue ;; esac
               scripts/make-pack.sh "$id" "$build" dist/packs
             done
           done

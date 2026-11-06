@@ -12,7 +12,7 @@ RUN apt-get update \
  && rm -rf /var/lib/apt/lists/*
 
 # Toolchain components, same pinned compiler.
-RUN rustup component add clippy rustfmt
+RUN rustup component add clippy rustfmt && rustup target add wasm32-unknown-unknown
 
 ENV CARGO_TARGET_DIR=/target
 WORKDIR /src

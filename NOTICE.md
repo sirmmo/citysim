@@ -44,6 +44,13 @@ next to the converted files, and they keep the CC BY-SA 3.0 licence.
 Watercraft Kit and City Kits (Suburban, Commercial, Industrial) by
 [Kenney](https://www.kenney.nl), released under CC0 (public domain). Each folder keeps the kit's `License.txt`.
 
+## Browser build
+
+`web/mq_js_bundle.js` is the JavaScript side of the libraries the game is
+built on, copied from their crates: miniquad 0.4.8 (`js/gl.js`),
+sapp-jsutils 0.1.7 (`js/sapp_jsutils.js`) and quad-snd 0.2.8 (`js/audio.js`),
+all by Fedor Logachev and contributors, MIT OR Apache-2.0.
+
 ## License
 
 OpenCity is GPL version 2 or later, and so is this derivative work

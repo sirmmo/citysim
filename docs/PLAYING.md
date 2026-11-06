@@ -13,6 +13,23 @@ game see [RULES.md](RULES.md); for the documentation index see
 - **File > Import GeoJSON…** builds a city from OpenHistoryMap, OpenHistoricalMap or OpenFantasyMap data (see [GEOJSON.md](GEOJSON.md)).
 - **From the command line:** `--demo` starts a demo town and `--load FILE` opens a saved one.
 
+## In the browser
+
+The same game runs at <http://ingmmo.com/citysim/play/>, with these
+differences:
+
+- **Saves** live in the browser's local storage, not in files. File > Save
+  keeps one city under the name shown; *Save as…* with another name keeps
+  several. Clearing the site's data loses them, and a private window forgets
+  them when closed. Very large cities may not fit (browsers allow about 5 MB).
+- **Exports** (GeoJSON, CSV) are downloaded instead of written to a folder.
+- **Region servers** cannot be joined yet; local regions need files too.
+- **Options** go in the address: `play/?demo&game-rules=glassbox&skin=modern`
+  is `--demo --game-rules glassbox --skin modern`; `?seed=7&size=80x80` works
+  the same way.
+- The ancient cultures have no buildings (their art is installed by the
+  desktop game); the other skins are all there.
+
 ## Controls
 
 | Input | Action |

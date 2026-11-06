@@ -33,8 +33,15 @@ and which legacy behaviours changed.
 
 ## Downloads
 
+**Play in the browser** at <http://ingmmo.com/citysim/play/>: nothing to
+install. Saves stay in the browser's storage and exports download; region
+servers are not reachable from there yet. `?demo&game-rules=glassbox&skin=modern`
+after the address stands for the command line (`--demo --game-rules glassbox
+--skin modern`). The `citysim-vX.Y.Z-web.zip` release file holds the same
+static files, to host yourself; `scripts/web.sh` builds them.
+
 Every push builds Linux (x86_64), macOS (Apple Silicon and Intel),
-Windows (x86_64) and Android (arm64, armv7) packages; they appear as artifacts of the **release**
+Windows (x86_64), Android (arm64, armv7) and browser packages; they appear as artifacts of the **release**
 workflow run. Pushing a tag `vX.Y.Z` publishes them as a GitHub release.
 Unpack the archive and run `opencity` (`opencity.exe` on Windows) from
 inside the folder, next to `assets/`. To add the 0 A.D. buildings for the

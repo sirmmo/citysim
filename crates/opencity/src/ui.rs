@@ -83,11 +83,12 @@ const TOOLS: &[(&str, Action, &str)] = &[
 
 impl Ui {
     pub fn new(r: &mut Renderer) -> Self {
-        let mut button = |name: &str, action, label| Button {
-            icon: r.ui_texture(&format!("graphism/gui/{name}.png")),
-            hover: r.ui_texture(&format!("graphism/gui/{name}_over.png")),
-            action,
-            label,
+        let mut button = |name: &str, action, label| {
+            let icon = r.ui_texture(&format!("graphism/gui/{name}.png"));
+            // The newer tools have no hover icon: the plain one serves.
+            let over = format!("graphism/gui/{name}_over.png");
+            let hover = if r.has_file(&over) { r.ui_texture(&over) } else { icon.clone() };
+            Button { icon, hover, action, label }
         };
         let tools = TOOLS.iter().map(|&(n, a, l)| button(n, a, l)).collect();
         let menu = vec![

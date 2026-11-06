@@ -29,6 +29,8 @@ mod ui;
 #[cfg(not(target_os = "android"))]
 mod ui_egui;
 mod vehicles;
+#[cfg(target_arch = "wasm32")]
+mod web;
 
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
@@ -198,7 +200,14 @@ fn phase(i: usize, since: f64) -> f64 {
 
 fn startup() -> &'static Startup {
     STARTUP.get_or_init(|| {
+        #[cfg(not(target_arch = "wasm32"))]
         let args = Args::parse();
+        // The page's query string stands in for the command line.
+        #[cfg(target_arch = "wasm32")]
+        let args = Args::try_parse_from(web::args()).unwrap_or_else(|e| {
+            log::warn!("ignoring the page's options: {e}");
+            Args::parse_from(["opencity"])
+        });
         let settings_path = args.config.clone().or_else(Settings::default_path);
         let settings = settings_path
             .as_deref()
@@ -214,8 +223,10 @@ fn startup() -> &'static Startup {
 }
 
 fn window_conf() -> macroquad::conf::Conf {
-    #[cfg(not(target_os = "android"))]
+    #[cfg(not(any(target_os = "android", target_arch = "wasm32")))]
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
+    #[cfg(target_arch = "wasm32")]
+    web::init_log();
     let s = startup();
     let (w, h) = s.args.size.unwrap_or((s.settings.window.width, s.settings.window.height));
     let title = find_data_dir(s.args.data_dir.as_deref()).ok().and_then(|d| find_pack(&d, s.args.pack.as_deref())).map_or("OpenCity".to_owned(), |p| p.name);
@@ -280,7 +291,13 @@ fn save_path() -> PathBuf {
     PathBuf::from("/data/data/io.github.sirmmo.citysim/files/city.ocsave.json")
 }
 
-#[cfg(not(target_os = "android"))]
+/// In the browser the "path" is the key of the save in local storage.
+#[cfg(target_arch = "wasm32")]
+fn save_path() -> PathBuf {
+    PathBuf::from("city.ocsave.json")
+}
+
+#[cfg(not(any(target_os = "android", target_arch = "wasm32")))]
 fn save_path() -> PathBuf {
     let base = std::env::var_os("XDG_DATA_HOME")
         .map(PathBuf::from)
@@ -338,11 +355,13 @@ fn attach_saved_rules(city: &mut City, rulesets: &[std::sync::Arc<opencity_core:
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 fn load_city(path: &Path, catalog: &Catalog) -> Result<City> {
     let f = std::fs::File::open(path).with_context(|| format!("opening {}", path.display()))?;
     Ok(save::load(std::io::BufReader::new(f), catalog.footprints())?)
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 fn save_city(city: &City, path: &Path) -> Result<()> {
     if let Some(dir) = path.parent() {
         std::fs::create_dir_all(dir)?;
@@ -350,6 +369,41 @@ fn save_city(city: &City, path: &Path) -> Result<()> {
     let f = std::fs::File::create(path).with_context(|| format!("creating {}", path.display()))?;
     save::save(city, std::io::BufWriter::new(f))?;
     Ok(())
+}
+
+/// Browser: saves live in local storage, keyed by the "path".
+#[cfg(target_arch = "wasm32")]
+fn load_city(path: &Path, catalog: &Catalog) -> Result<City> {
+    let text = web::storage_read(&path.to_string_lossy())?;
+    Ok(save::load(std::io::Cursor::new(text), catalog.footprints())?)
+}
+
+#[cfg(target_arch = "wasm32")]
+fn save_city(city: &City, path: &Path) -> Result<()> {
+    let mut buf = Vec::new();
+    save::save(city, &mut buf)?;
+    web::storage_write(&path.to_string_lossy(), &String::from_utf8(buf)?)?;
+    Ok(())
+}
+
+/// Writes an exported text file and says where it went; in the browser the
+/// file is offered as a download instead.
+#[cfg(not(target_os = "android"))]
+fn write_text_file(path: &Path, text: &str) -> std::io::Result<String> {
+    #[cfg(target_arch = "wasm32")]
+    {
+        let name = path.file_name().map_or_else(|| "export.txt".to_string(), |f| f.to_string_lossy().into_owned());
+        web::download(&name, text);
+        Ok(format!("Downloading {name}"))
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        if let Some(dir) = path.parent() {
+            std::fs::create_dir_all(dir)?;
+        }
+        std::fs::write(path, text)?;
+        Ok(format!("Saved {}", path.display()))
+    }
 }
 
 fn tool_key() -> Option<Action> {
@@ -795,8 +849,8 @@ impl Game {
             },
             Command::ExportGeojson(p) => {
                 let json = opencity_geo::export(&self.city, &opencity_geo::ExportOptions::default());
-                match std::fs::write(&p, json.to_string()) {
-                    Ok(()) => self.say(format!("Exported {}", p.display())),
+                match write_text_file(&p, &json.to_string()) {
+                    Ok(msg) => self.say(msg),
                     Err(e) => self.say(format!("Export failed: {e}")),
                 }
             }
@@ -1260,6 +1314,8 @@ impl Game {
 async fn main() -> Result<()> {
     #[cfg(target_os = "android")]
     opencity_assets::set_file_reader(apk_reader);
+    #[cfg(target_arch = "wasm32")]
+    web::preload().await?;
     let s = startup();
     let data_dir = find_data_dir(s.args.data_dir.as_deref())?;
     let catalog = Catalog::load(&data_dir)?;
@@ -1286,13 +1342,18 @@ async fn main() -> Result<()> {
     if let Some(p) = s.settings_path.as_ref().filter(|p| p.exists()) {
         log::info!("settings: {}", p.display());
     }
-    let audio = if s.args.no_audio || !s.settings.audio.enabled || s.args.screenshot.is_some() {
-        Audio::disabled()
-    } else {
-        Audio::load(&catalog, s.settings.audio.volume).await
-    };
+    let audio_on = !(s.args.no_audio || !s.settings.audio.enabled || s.args.screenshot.is_some());
+    // Browsers allow sound only after the player has clicked or typed, and
+    // decoding the clips waits for that: load them after the first input.
+    #[cfg(target_arch = "wasm32")]
+    let mut audio_later = audio_on;
+    #[cfg(target_arch = "wasm32")]
+    let audio = Audio::disabled();
+    #[cfg(not(target_arch = "wasm32"))]
+    let audio = if audio_on { Audio::load(&catalog, s.settings.audio.volume).await } else { Audio::disabled() };
     let mut renderer = Renderer::new(catalog.clone());
     let ui = Ui::new(&mut renderer);
+    log::info!("city {}: {}×{} tiles", city.meta.name.as_deref().unwrap_or("(unnamed)"), city.width(), city.length());
     let skins = Skin::load_all(&data_dir);
     let mut game = Game {
         camera: OrbitCamera::new(city.width(), city.length()),
@@ -1500,6 +1561,11 @@ async fn main() -> Result<()> {
                 log::info!("screenshot saved to {}", path.display());
                 break;
             }
+        }
+        #[cfg(target_arch = "wasm32")]
+        if audio_later && (is_mouse_button_released(MouseButton::Left) || get_last_key_pressed().is_some()) {
+            audio_later = false;
+            game.audio = Audio::load(&game.base_catalog, s.settings.audio.volume).await;
         }
         next_frame().await;
     }

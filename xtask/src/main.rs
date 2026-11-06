@@ -3,8 +3,12 @@
 //! `android-shim <dir>`: writes a copy of the game's crates whose manifests
 //! the Cargo 1.61 embedded in cargo-quad-apk can parse (no workspace
 //! inheritance, lockfile v3). See scripts/android.sh.
+//!
+//! `web-dist <dir>`: assembles the browser version (the wasm, the page, its
+//! JavaScript and the data files packed into one download). See scripts/web.sh.
 
 use std::fs;
+use std::io::Write;
 use std::path::{Path, PathBuf};
 
 use anyhow::{bail, Context, Result};
@@ -23,7 +27,8 @@ fn main() -> Result<()> {
     let args: Vec<String> = std::env::args().skip(1).collect();
     match args.as_slice() {
         [task, out] if task == "android-shim" => android_shim(Path::new(out)),
-        _ => bail!("usage: cargo run -p xtask -- android-shim <out-dir>"),
+        [task, out] if task == "web-dist" => web_dist(Path::new(out)),
+        _ => bail!("usage: cargo run -p xtask -- android-shim <out-dir> | web-dist <out-dir>"),
     }
 }
 
@@ -72,8 +77,10 @@ fn android_shim(out: &Path) -> Result<()> {
         // Lets the MSRV-aware resolver pick dependency versions that predate
         // edition 2024 (which Cargo 1.61 cannot parse). rustc 1.88 still compiles.
         package.insert("rust-version".into(), SHIM_RUST_VERSION.into());
-        // Tests are not built for Android.
+        // Tests are not built for Android; the platform-specific dependencies
+        // (desktop networking, the browser glue) are not used there.
         manifest.remove("dev-dependencies");
+        manifest.remove("target");
         if let Some(deps) = manifest.get_mut("dependencies").and_then(Value::as_table_mut) {
             deps.retain(|dep, _| !DROP_ON_ANDROID.contains(&dep));
             for (dep, value) in deps.iter_mut() {
@@ -147,5 +154,81 @@ fn android_shim(out: &Path) -> Result<()> {
         bail!("cargo generate-lockfile failed in {}", out.display());
     }
     println!("android shim written to {}", out.display());
+    Ok(())
+}
+
+/// Files under `assets/` left out of the browser pack: source downloads,
+/// locally baked art (gitignored) and leftovers.
+fn skip_in_pack(rel: &str) -> bool {
+    let name = rel.rsplit('/').next().unwrap_or(rel);
+    rel.starts_with("third-party/")
+        || rel.starts_with("zeroad/")
+        || rel.starts_with("skins/antiquity-")
+        || rel.starts_with("skins/antiquity/models/")
+        || rel.starts_with("skins/antiquity/textures/")
+        || rel == "skins/antiquity/models.toml"
+        || rel == "skins/antiquity/ATTRIBUTION.txt"
+        || rel == "skins/generated.toml"
+        || rel.contains("__pycache__")
+        || name.starts_with('.')
+}
+
+fn walk(dir: &Path, base: &Path, out: &mut Vec<(String, PathBuf)>) -> Result<()> {
+    let mut entries: Vec<_> = fs::read_dir(dir)?.collect::<Result<_, _>>()?;
+    entries.sort_by_key(|e| e.file_name());
+    for entry in entries {
+        let path = entry.path();
+        if entry.file_type()?.is_dir() {
+            walk(&path, base, out)?;
+        } else {
+            let rel = path.strip_prefix(base)?.components().map(|c| c.as_os_str().to_string_lossy().into_owned()).collect::<Vec<_>>().join("/");
+            out.push((rel, path));
+        }
+    }
+    Ok(())
+}
+
+/// `assets.pack`: gzip of a text index (`CSPK1`, then `<size> <path>` lines,
+/// then a blank line) followed by the files' bytes in index order. Read by
+/// `crates/opencity/src/web.rs`.
+fn web_dist(out: &Path) -> Result<()> {
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..");
+    fs::create_dir_all(out)?;
+    let target = std::env::var_os("CARGO_TARGET_DIR").map_or_else(|| root.join("target"), PathBuf::from);
+    let wasm = std::env::var_os("CITYSIM_WASM").map_or_else(|| target.join("wasm32-unknown-unknown/release/opencity.wasm"), PathBuf::from);
+    fs::copy(&wasm, out.join("opencity.wasm"))
+        .with_context(|| format!("copying {} (build it: cargo build --release --target wasm32-unknown-unknown -p opencity)", wasm.display()))?;
+    for f in ["index.html", "citysim.js", "mq_js_bundle.js"] {
+        fs::copy(root.join("web").join(f), out.join(f)).with_context(|| format!("copying web/{f}"))?;
+    }
+    let assets = root.join("assets");
+    let mut files = Vec::new();
+    walk(&assets, &assets, &mut files)?;
+    let mut index = String::from("CSPK1\n");
+    let mut data = Vec::new();
+    let mut count = 0;
+    for (rel, path) in &files {
+        if skip_in_pack(rel) {
+            continue;
+        }
+        let bytes = fs::read(path).with_context(|| format!("reading {}", path.display()))?;
+        index.push_str(&format!("{} {rel}\n", bytes.len()));
+        data.extend_from_slice(&bytes);
+        count += 1;
+    }
+    index.push('\n');
+    let mut enc = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::best());
+    enc.write_all(index.as_bytes())?;
+    enc.write_all(&data)?;
+    let gz = enc.finish()?;
+    fs::write(out.join("assets.pack"), &gz)?;
+    let mb = |n: usize| n as f64 / (1024.0 * 1024.0);
+    println!(
+        "web build in {}: opencity.wasm {:.1} MB, assets.pack {:.1} MB ({count} files, {:.1} MB unpacked)",
+        out.display(),
+        mb(fs::metadata(&wasm)?.len() as usize),
+        mb(gz.len()),
+        mb(data.len())
+    );
     Ok(())
 }

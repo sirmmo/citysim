@@ -13,6 +13,7 @@ jobs:
         run: |
           scripts/dev.sh cargo fmt --all --check
           scripts/dev.sh cargo clippy --workspace --all-targets -- -D warnings
+          scripts/dev.sh cargo clippy --target wasm32-unknown-unknown -p opencity -- -D warnings
           scripts/dev.sh cargo test --workspace
           scripts/dev.sh cargo build -p opencity
       # Smoke test of the game under Xvfb. Informational: a headless GL/X

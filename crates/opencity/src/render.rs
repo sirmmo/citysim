@@ -252,6 +252,11 @@ impl Renderer {
         self.texture(&p)
     }
 
+    /// Whether a data file exists (icons that only some tools have).
+    pub fn has_file(&self, rel: &str) -> bool {
+        opencity_assets::read_bytes(&self.catalog.path(rel)).is_ok()
+    }
+
     fn model(&mut self, key: ModelKey) -> Option<&Model> {
         if !self.models.contains_key(&key) {
             let loaded = self.load_model(key);

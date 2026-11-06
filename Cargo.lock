@@ -1260,13 +1260,15 @@ checksum = "384b8ab6d37215f3c5301a95a4accb5d64aa607f1fcb26a11b5303878451b4fe"
 
 [[package]]
 name = "opencity"
-version = "0.2.41"
+version = "0.2.42"
 dependencies = [
  "anyhow",
  "clap",
  "egui-macroquad",
  "egui_plot",
  "env_logger",
+ "flate2",
+ "getrandom",
  "image 0.25.6",
  "log",
  "macroquad",
@@ -1275,6 +1277,7 @@ dependencies = [
  "opencity-geo",
  "opencity-mapgen",
  "opencity-zeroad",
+ "sapp-jsutils",
  "serde_json",
  "toml_edit",
  "ureq",
@@ -1282,7 +1285,7 @@ dependencies = [
 
 [[package]]
 name = "opencity-assets"
-version = "0.2.41"
+version = "0.2.42"
 dependencies = [
  "log",
  "opencity-core",
@@ -1296,7 +1299,7 @@ dependencies = [
 
 [[package]]
 name = "opencity-cli"
-version = "0.2.41"
+version = "0.2.42"
 dependencies = [
  "anyhow",
  "clap",
@@ -1313,7 +1316,7 @@ dependencies = [
 
 [[package]]
 name = "opencity-core"
-version = "0.2.41"
+version = "0.2.42"
 dependencies = [
  "log",
  "rand",
@@ -1326,7 +1329,7 @@ dependencies = [
 
 [[package]]
 name = "opencity-geo"
-version = "0.2.41"
+version = "0.2.42"
 dependencies = [
  "log",
  "opencity-core",
@@ -1338,7 +1341,7 @@ dependencies = [
 
 [[package]]
 name = "opencity-mapgen"
-version = "0.2.41"
+version = "0.2.42"
 dependencies = [
  "image 0.25.6",
  "rand",
@@ -1349,7 +1352,7 @@ dependencies = [
 
 [[package]]
 name = "opencity-zeroad"
-version = "0.2.41"
+version = "0.2.42"
 dependencies = [
  "image 0.25.6",
  "log",
@@ -2459,6 +2462,7 @@ name = "xtask"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "flate2",
  "toml",
 ]
 

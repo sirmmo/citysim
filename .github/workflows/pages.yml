@@ -1,10 +1,12 @@
 name: pages
 
-# Publishes site/ to GitHub Pages (http://ingmmo.com/citysim/).
+# Publishes site/ to GitHub Pages (http://ingmmo.com/citysim/), with the
+# browser version of the game built into site/play/ (see scripts/web.sh).
+# It runs when the site changes, which every release does.
 on:
   push:
     branches: [main]
-    paths: ["site/**", ".github/workflows/pages.yml"]
+    paths: ["site/**", "web/**", ".github/workflows/pages.yml"]
   workflow_dispatch:
 
 permissions:
@@ -24,6 +26,17 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4.2.2
+      - name: Rust toolchain
+        run: |
+          rustup show active-toolchain || rustup toolchain install
+          rustup target add wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2.7.8
+        with:
+          key: wasm32
+      - name: Browser build
+        run: |
+          cargo build --locked --release --target wasm32-unknown-unknown -p opencity
+          cargo run --locked -q -p xtask -- web-dist site/play
       - uses: actions/configure-pages@v5.0.0
       - uses: actions/upload-pages-artifact@v3.0.1
         with:
