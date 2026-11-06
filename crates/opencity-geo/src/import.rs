@@ -316,7 +316,7 @@ fn priority(b: Build) -> u8 {
         PowerLine | WaterPipe | Tram | Metro => 2,
         CoalPlant | NuclearPlant => 3,
         FireStation | Police | Hospital | School | Station | Harbour | PumpingStation | WaterTower | WaterTreatment | Dump | Recycling | Incinerator
-        | BusStop | TramStop | MetroStation => 4,
+        | BusStop | TramStop | MetroStation | Airport | Seaport => 4,
         Residential | Commercial | Industrial => 5,
         Park => 6,
         Trees => 7,
@@ -353,6 +353,8 @@ fn code_of(b: Build) -> Option<StructureCode> {
         BusStop => StructureCode::BusStop,
         TramStop => StructureCode::TramStop,
         MetroStation => StructureCode::MetroStation,
+        Airport => StructureCode::Airport,
+        Seaport => StructureCode::Seaport,
         Water | Metro | Ignore => return None,
     })
 }

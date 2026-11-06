@@ -70,6 +70,8 @@ fn tags(code: StructureCode, level: u8) -> Map<String, Value> {
         BusStop => ("bus_stop", &[("highway", "bus_stop"), ("shelter", "yes")]),
         TramStop => ("tram_stop", &[("railway", "tram_stop"), ("public_transport", "platform")]),
         MetroStation => ("metro_station", &[("railway", "subway_entrance")]),
+        Airport => ("airport", &[("aeroway", "aerodrome")]),
+        Seaport => ("seaport", &[("landuse", "port"), ("industrial", "port")]),
         Test | Part => ("ignore", &[]),
     };
     let mut m = Map::new();

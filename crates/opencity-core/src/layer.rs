@@ -521,8 +521,10 @@ impl BuildingLayer {
             if !self.can_build(r, code, terrain) {
                 continue;
             }
-            // Harbours stand on dry land with water alongside.
-            if code == StructureCode::Harbour && (r.tiles().any(|(w, l)| terrain.is_water(w, l)) || !Self::touches_water(r, terrain)) {
+            // Harbours and seaports stand on dry land with water alongside.
+            if matches!(code, StructureCode::Harbour | StructureCode::Seaport)
+                && (r.tiles().any(|(w, l)| terrain.is_water(w, l)) || !Self::touches_water(r, terrain))
+            {
                 continue;
             }
             let roads = self.front_roads(r, facing);

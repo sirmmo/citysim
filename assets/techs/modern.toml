@@ -52,6 +52,25 @@ requires = ["public_transport"]
 cost = { research = 3000 }
 unlocks = ["metro", "metro_station"]
 
+[[tech]]
+id = "ports"
+name = "Ports"
+description = "Quays, cranes and customs: cargo ships trade with the rest of the world."
+category = "Transport"
+tier = 1
+cost = { research = 1500 }
+unlocks = ["seaport"]
+
+[[tech]]
+id = "aviation"
+name = "Aviation"
+description = "A runway and a terminal: tourists fly in, freight flies out."
+category = "Transport"
+tier = 2
+requires = ["public_transport"]
+cost = { research = 4000 }
+unlocks = ["airport"]
+
 # ---------------------------------------------------------------- economy
 # The city's economic doctrine: one or the other, for good.
 [[tech]]

@@ -366,6 +366,28 @@ price = 0.02                         # per unit bought or sold
 The shipped rules price workers (commuters), shoppers, goods, fuel and
 power; before 1800, workers, shoppers, food and goods.
 
+### Ports: trade with the rest of the world
+
+A unit with `trade` is a gate to the outside world (the shipped rules have
+a **seaport**, which stands on the shore like a harbour, and an
+**airport**):
+
+```toml
+[[unit]]
+id = "seaport"
+graphic = 398
+needs = { workers = 12, power = 3, upkeep = 1.5 }
+trade = { goods = 30, fuel = 20 }     # per tick, each way
+```
+
+Every tick the port brings in up to that much of each resource the city
+lacks, delivered to the buildings its door reaches along the resource's
+network (as far as `max_trip`, like a border crossing), and takes out up
+to that much of what had nowhere to go. Both are paid at the resource's
+`price` and booked as trade purchases and sales. The seaport trades goods
+and fuel; the airport brings tourists (`shoppers`) for the shops and a
+little air freight. Inspecting a port shows what went through last tick.
+
 ### Service vehicles and coverage by road
 
 An emission can travel along the streets instead of as the crow flies:

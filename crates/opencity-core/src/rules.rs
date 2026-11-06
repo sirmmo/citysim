@@ -347,6 +347,12 @@ pub struct UnitDef {
     /// Metrics recorded per tick (Extended GlassBox `log`), scaled like production.
     #[serde(default)]
     pub logs: BTreeMap<String, f32>,
+    /// Traded with the rest of the world through this unit (airports,
+    /// seaports), per tick and resource: it brings in up to this much of
+    /// what the city lacks and takes out up to this much of what has
+    /// nowhere to go, at the resource's price.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub trade: BTreeMap<String, f32>,
     /// Vehicles it sends to the buildings it covers.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub dispatch: Option<Dispatch>,

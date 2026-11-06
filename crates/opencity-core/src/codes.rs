@@ -51,6 +51,10 @@ pub enum StructureCode {
     TramStop = 50,
     /// Metro station: the entrance to a metro line underground.
     MetroStation = 51,
+    /// Flights to the rest of the world.
+    Airport = 52,
+    /// Cargo ships to the rest of the world.
+    Seaport = 53,
 }
 
 impl StructureCode {
@@ -88,6 +92,8 @@ impl StructureCode {
             49 => BusStop,
             50 => TramStop,
             51 => MetroStation,
+            52 => Airport,
+            53 => Seaport,
             _ => return None,
         })
     }
@@ -118,9 +124,14 @@ impl StructureCode {
         matches!(self, Self::BusStop | Self::TramStop | Self::MetroStation)
     }
 
+    /// Gateways to the rest of the world.
+    pub const fn is_port(self) -> bool {
+        matches!(self, Self::Airport | Self::Seaport)
+    }
+
     /// Structures placed as one fixed-size block (the size comes from the model).
     pub const fn is_block(self) -> bool {
-        self.is_power_plant() || self.is_public_service() || self.is_utility() || self.is_stop()
+        self.is_power_plant() || self.is_public_service() || self.is_utility() || self.is_stop() || self.is_port()
     }
 
     /// Default graphic code of a freshly built structure.
@@ -154,6 +165,8 @@ impl StructureCode {
             BusStop => GraphicCode::BUS_STOP,
             TramStop => GraphicCode::TRAM_STOP,
             MetroStation => GraphicCode::METRO_STATION,
+            Airport => GraphicCode::AIRPORT,
+            Seaport => GraphicCode::SEAPORT,
         }
     }
 
@@ -166,7 +179,7 @@ impl StructureCode {
             CoalPlant | NuclearPlant => StructureType::Electricity,
             Road | PowerLine | WaterPipe => StructureType::Path,
             PumpingStation | WaterTower | WaterTreatment => StructureType::Water,
-            Dump | Recycling | Incinerator | BusStop | TramStop | MetroStation => StructureType::Government,
+            Dump | Recycling | Incinerator | BusStop | TramStop | MetroStation | Airport | Seaport => StructureType::Government,
             FireDept | PoliceDept | Hospital | School | Station | Harbour => StructureType::Government,
             Flora => StructureType::Tree,
             Part | Test => StructureType::Undefined,
@@ -196,6 +209,8 @@ impl StructureCode {
             BusStop => 150,
             TramStop => 400,
             MetroStation => 2500,
+            Airport => 12000,
+            Seaport => 6000,
             Test | Part => 0,
         }
     }
@@ -221,6 +236,8 @@ impl StructureCode {
             BusStop => 3,
             TramStop => 5,
             MetroStation => 20,
+            Airport => 80,
+            Seaport => 40,
         }
     }
 
@@ -239,6 +256,7 @@ impl StructureCode {
             NuclearPlant => 800,
             BusStop | TramStop => 20,
             MetroStation => 200,
+            Airport | Seaport => 400,
             Test => 0,
         }
     }
@@ -298,6 +316,8 @@ impl GraphicCode {
     pub const BUS_STOP: Self = Self(386);
     pub const TRAM_STOP: Self = Self(387);
     pub const METRO_STATION: Self = Self(388);
+    pub const AIRPORT: Self = Self(397);
+    pub const SEAPORT: Self = Self(398);
     pub const VEHICLE_STD: Self = Self(400);
     pub const VEHICLE_PICKUP: Self = Self(440);
     pub const VEHICLE_SPORT: Self = Self(441);
@@ -564,10 +584,12 @@ pub enum Tool {
     TramStop,
     MetroLine,
     MetroStation,
+    Airport,
+    Seaport,
 }
 
 impl Tool {
-    pub const ALL: [Tool; 36] = [
+    pub const ALL: [Tool; 38] = [
         Tool::Destroy,
         Tool::ZoneResidential,
         Tool::ZoneCommercial,
@@ -604,6 +626,8 @@ impl Tool {
         Tool::TramStop,
         Tool::MetroLine,
         Tool::MetroStation,
+        Tool::Airport,
+        Tool::Seaport,
     ];
 
     /// Stable identifier, used by skins and GeoJSON rules.
@@ -645,6 +669,8 @@ impl Tool {
             Tool::TramStop => "tram_stop",
             Tool::MetroLine => "metro",
             Tool::MetroStation => "metro_station",
+            Tool::Airport => "airport",
+            Tool::Seaport => "seaport",
         }
     }
 
@@ -678,6 +704,8 @@ impl Tool {
             Tool::BusStop => S::BusStop,
             Tool::TramStop => S::TramStop,
             Tool::MetroStation => S::MetroStation,
+            Tool::Airport => S::Airport,
+            Tool::Seaport => S::Seaport,
             // Metro tunnels run underground, under whatever stands there.
             Tool::Destroy | Tool::RaiseTerrain | Tool::LowerTerrain | Tool::Canal | Tool::MetroLine => return None,
         })

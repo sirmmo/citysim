@@ -119,6 +119,9 @@ differences:
 - **Plants and services** (power plants, fire stations, police, hospitals, schools, wells…):
   - **Placing:** a new one turns to face the street beside it, and the preview shows the footprint it will take.
   - **Turning:** inspect it and press **⟳ Turn**, or **O**. Long buildings swap their footprint when turned.
+- **Ports:** a **Seaport** (on the shore, like a harbour) and an **Airport** trade with the rest of the world under GlassBox rules: the seaport brings in the goods and fuel the city lacks and ships out what it cannot sell; the airport flies in tourists for the shops and some freight. Both need research (*Ports*, *Aviation*), workers and power, and pay for what they import at the resource's price. Inspect one to see what went through. Under classic rules they are landmarks.
+
+  ![An airport with its runway and terminal, and a seaport with cranes over containers](ports.png)
 - **Harbours and canals:** a **Harbour** goes on dry land with water within
   2 tiles, past the sloping shore. Places near harbours on the same lake,
   river, coast or canal trade with each other, carried by ships (rowing and

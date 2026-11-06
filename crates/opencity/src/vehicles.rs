@@ -116,6 +116,23 @@ pub fn mesh(kind: VehicleKind) -> Option<Mesh> {
     Some(b.build())
 }
 
+/// An airliner for the airports' flights: nose towards +z, about a tile
+/// and a half long, centred on its origin.
+pub fn plane() -> Mesh {
+    let mut b = Builder::default();
+    let (white, grey) = ([0.93, 0.93, 0.95], [0.72, 0.72, 0.76]);
+    b.cuboid(vec3(-0.09, 0.0, -0.7), vec3(0.09, 0.18, 0.6), white);
+    b.cuboid(vec3(-0.06, 0.03, 0.6), vec3(0.06, 0.15, 0.78), white);
+    b.cuboid(vec3(-0.62, 0.05, -0.12), vec3(0.62, 0.08, 0.14), grey);
+    b.cuboid(vec3(-0.3, 0.1, -0.7), vec3(0.3, 0.12, -0.55), grey);
+    b.cuboid(vec3(-0.012, 0.18, -0.7), vec3(0.012, 0.48, -0.5), [0.8, 0.2, 0.2]);
+    for x in [-0.33, 0.25] {
+        b.cuboid(vec3(x, 0.0, -0.08), vec3(x + 0.08, 0.06, 0.12), [0.4, 0.42, 0.45]);
+    }
+    b.cuboid(vec3(-0.07, 0.11, 0.3), vec3(0.07, 0.15, 0.62), [0.3, 0.4, 0.5]);
+    b.build()
+}
+
 /// Scale from Kenney kit units to tiles: a sedan is about 0.4 of a tile.
 const KIT_SCALE: f32 = 0.155;
 

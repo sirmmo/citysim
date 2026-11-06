@@ -119,6 +119,8 @@ pub struct Renderer {
     variants: HashMap<GraphicCode, u16>,
     /// Vehicles drawn from boxes (walkers, carts), built on first use.
     vehicle_meshes: HashMap<opencity_core::traffic::VehicleKind, Option<Mesh>>,
+    /// The airliner flying from each airport (built on first use).
+    plane: Option<Mesh>,
     /// `.obj` vehicle models by path under `<data>/models/` (None: missing).
     obj_meshes: HashMap<String, Option<Vec<Mesh>>>,
     textures: HashMap<PathBuf, Texture2D>,
@@ -172,6 +174,7 @@ impl Renderer {
             catalog,
             models: HashMap::new(),
             vehicle_meshes: HashMap::new(),
+            plane: None,
             obj_meshes: HashMap::new(),
             variants: HashMap::new(),
             atmosphere: Atmosphere::default(),
@@ -633,11 +636,50 @@ impl Renderer {
                 }
             }
         }
+        self.draw_planes(city);
         // Translucent water plane, drawn last.
         let (w, l) = (city.width() as f32, city.length() as f32);
         let c = self.look.water;
         let li = self.atmosphere.light;
         draw_plane(vec3(w / 2.0, WATER_LEVEL, l / 2.0), vec2(w / 2.0, l / 2.0), None, Color::new(c[0] * li.x, c[1] * li.y, c[2] * li.z, c[3]));
+    }
+
+    /// An airliner at each airport, forever taking off down the runway,
+    /// circling beside it and landing again.
+    fn draw_planes(&mut self, city: &City) {
+        let airports: Vec<((u32, u32), (u32, u32))> =
+            city.layer.structures().filter(|(_, s)| s.code == StructureCode::Airport).map(|(p, s)| (p, s.size(city.footprints()))).collect();
+        if airports.is_empty() {
+            return;
+        }
+        let mesh = self.plane.get_or_insert_with(crate::vehicles::plane);
+        let time = get_time();
+        for (i, ((w, l), (sw, sl))) in airports.into_iter().enumerate() {
+            let (cx, cz) = (w as f32 + sw as f32 / 2.0, l as f32 + sl as f32 / 2.0);
+            let centre = vec3(cx, height_at(&city.terrain, cx, cz).max(0.0), cz);
+            // The runway runs along the long side.
+            let (u, half) = if sw >= sl { (Vec3::X, sw as f32 / 2.0 - 0.3) } else { (Vec3::Z, sl as f32 / 2.0 - 0.3) };
+            let v = vec3(-u.z, 0.0, u.x);
+            let t = ((time + i as f64 * 13.0) / 40.0).fract() as f32;
+            let (pos, dir, y) = if t < 0.25 {
+                // Down the runway, lifting off at the end.
+                let s = t / 0.25;
+                (centre + u * (half * (2.0 * s - 1.0)), u, 0.08 + 2.0 * (s - 0.8).max(0.0))
+            } else {
+                // A loop beside the airport, back to the start of the runway.
+                let s = (t - 0.25) / 0.75;
+                let radius = half * std::f32::consts::SQRT_2;
+                let a = (-half).atan2(half) + s * 1.5 * std::f32::consts::PI;
+                let o = centre + v * half;
+                (o + u * (radius * a.cos()) + v * (radius * a.sin()), -u * a.sin() + v * a.cos(), 0.08 + 5.0 * (std::f32::consts::PI * s).sin())
+            };
+            let m = Mat4::from_translation(vec3(pos.x, pos.y + y, pos.z)) * Mat4::from_rotation_y(dir.x.atan2(dir.z));
+            let gl = unsafe { get_internal_gl() }.quad_gl;
+            gl.push_model_matrix(m);
+            draw_mesh(mesh);
+            let gl = unsafe { get_internal_gl() }.quad_gl;
+            gl.pop_model_matrix();
+        }
     }
 
     /// A data-layer tile drawn over everything (no depth test) so values

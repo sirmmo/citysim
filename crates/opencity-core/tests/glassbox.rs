@@ -1235,3 +1235,43 @@ fn traffic_slows_road_trips() {
     let (free, jammed) = (delivered(0.0), delivered(2.0));
     assert!(jammed < free, "jams keep people from work: {jammed} vs {free}");
 }
+
+#[test]
+fn ports_trade_with_the_rest_of_the_world() {
+    // A lake along the west edge; shops but no factories, so goods can only
+    // come from the world, through a seaport on the shore.
+    let mut heights = vec![0i32; 41 * 41];
+    for l in 0..=40 {
+        for w in 0..=8 {
+            heights[l * 41 + w] = -2;
+        }
+    }
+    let mut c = City::new(Terrain::from_corner_heights(40, 40, &heights), None, Footprints::builtin(), 3);
+    c.use_rules(rules());
+    c.research_all();
+    c.fund = 200_000;
+    c.apply_tool(Tool::CoalPlant, (20, 2), (20, 2)).unwrap();
+    c.apply_tool(Tool::Road, (22, 6), (22, 13)).unwrap();
+    c.apply_tool(Tool::Road, (9, 13), (36, 13)).unwrap();
+    c.apply_tool(Tool::Road, (9, 20), (36, 20)).unwrap();
+    c.apply_tool(Tool::Road, (16, 13), (16, 20)).unwrap();
+    c.apply_tool(Tool::ZoneCommercial, (14, 14), (36, 16)).unwrap();
+    c.apply_tool(Tool::ZoneResidential, (9, 17), (36, 19)).unwrap();
+    c.apply_tool(Tool::ZoneResidential, (9, 21), (36, 23)).unwrap();
+    c.apply_tool(Tool::Seaport, (9, 9), (9, 9)).unwrap();
+    assert_eq!(units(&c, StructureCode::Seaport), 1);
+    assert!(c.apply_tool(Tool::Seaport, (24, 9), (24, 9)).is_err(), "seaports need water alongside");
+    let mut imported = 0.0;
+    for _ in 0..500 {
+        c.simulate_round();
+        if let Some(g) = c.glassbox.as_ref().and_then(|gb| gb.gates.iter().find(|g| g.is_world())) {
+            imported += g.carried_in.get("goods").copied().unwrap_or(0.0);
+        }
+    }
+    let gb = c.glassbox.as_ref().unwrap();
+    let gate = gb.gates.iter().find(|g| g.is_world()).expect("a world gate at the seaport");
+    assert_eq!(gate.owner, Some((9, 9)));
+    assert!(gate.import.get("goods").is_some_and(|&v| v > 0.0));
+    assert!(imported > 50.0, "goods came in from the world: {imported}");
+    assert!(units(&c, StructureCode::Commercial) > 0);
+}

@@ -9,7 +9,7 @@
 #       | fire_station | police | hospital | school | rail | station | harbour
 #       | water_pipe | pumping_station | water_tower | water_treatment
 #       | dump | recycling | incinerator | tram | bus_stop | tram_stop
-#       | metro | metro_station | ignore
+#       | metro | metro_station | airport | seaport | ignore
 #
 # Copy this file, edit it and pass it with `--rules` to map other tag
 # vocabularies (for example a fantasy map with custom keys).
@@ -109,8 +109,14 @@ build = "recycling"
 
 # --- Harbours -----------------------------------------------------------------
 [[rule]]
+when = { industrial = "port" }
+build = "seaport"
+[[rule]]
 when = { landuse = "port" }
-build = "harbour"
+build = "seaport"
+[[rule]]
+when = { aeroway = ["aerodrome", "terminal"] }
+build = "airport"
 [[rule]]
 when = { harbour = "yes" }
 build = "harbour"

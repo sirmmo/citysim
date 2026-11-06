@@ -2,6 +2,12 @@
 
 Release notes in full are on the [releases page](https://github.com/sirmmo/citysim/releases).
 
+## 0.2.44: Airport and seaport
+- **Seaport** (on the shore, research *Ports*) and **airport** (research *Aviation*): gates to the rest of the world under GlassBox rules. Each tick they bring in up to their `trade` capacity of what the city lacks (the seaport goods and fuel, the airport tourists for the shops and some air freight) and take out what has nowhere to go, at the resource's price, booked as trade purchases and sales; the inspector shows what went through. Under classic rules they are landmarks with upkeep.
+- An airliner takes off, circles and lands at every airport. GeoJSON imports build them from `aeroway=aerodrome` and port land use; exports tag them back.
+- Sidebar: the *Waterways* group is now *Ports* (harbour, canal, seaport, airport).
+- Website: the main page runs the game in place (press play on the screenshot), besides the full-screen link.
+
 ## 0.2.43: Rivers and bridges
 - **Rivers** on generated maps: the new city dialog (and `--rivers` in the CLI, `rivers` in settings and the MCP `new_city` tool) carves rivers from the high ground down to the sea, a lake or the edge of the map, with banks that slope a step per tile. New maps get one by default; scenarios and the demo town are unchanged.
 - **Bridges:** a road or track over water is a bridge, at three times the price of the tile, drawn as a deck on piers above the water; cars and trains cross on it and boats pass underneath. Water and its banks can always be crossed, whatever their slope.

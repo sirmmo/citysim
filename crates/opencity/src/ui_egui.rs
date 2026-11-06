@@ -209,7 +209,16 @@ const GROUPS: &[Group] = &[
         ],
         true,
     ),
-    ("Waterways", &[("government", Action::Tool(Some(Tool::Harbour)), "Harbour", ""), ("lower", Action::Tool(Some(Tool::Canal)), "Canal", "")], true),
+    (
+        "Ports",
+        &[
+            ("government", Action::Tool(Some(Tool::Harbour)), "Harbour", ""),
+            ("lower", Action::Tool(Some(Tool::Canal)), "Canal", ""),
+            ("seaport", Action::Tool(Some(Tool::Seaport)), "Seaport", ""),
+            ("airport", Action::Tool(Some(Tool::Airport)), "Airport", ""),
+        ],
+        true,
+    ),
     (
         "Power",
         &[
@@ -1348,6 +1357,26 @@ fn unit_details(ui: &mut egui::Ui, city: &City, gb: &opencity_core::glassbox::Gl
     let def = &rules.units[unit];
     let Some(st) = gb.unit_state(origin.0, origin.1, city.width()) else { return };
     ui.add(egui::ProgressBar::new(st.satisfaction).text(format!("Satisfaction {:.0}%", st.satisfaction * 100.0)));
+    if let Some(g) = gb.gates.iter().find(|g| g.is_world() && g.owner == Some(origin)) {
+        let list = |m: &std::collections::BTreeMap<String, f32>| {
+            let s: Vec<String> = m
+                .iter()
+                .filter(|(_, v)| **v > 0.005)
+                .map(|(r, v)| format!("{v:.1} {}", rules.resource(r).map_or(r.as_str(), |i| rules.resources[i].name.as_str())))
+                .collect();
+            if s.is_empty() {
+                "nothing".to_string()
+            } else {
+                s.join(", ").to_lowercase()
+            }
+        };
+        ui.label(RichText::new(format!("Trade with the world last tick: in {}; out {}", list(&g.carried_in), list(&g.carried_out))).small()).on_hover_text(
+            format!(
+                "Up to {} per tick each way, at the resource's price; it brings in what the city lacks and takes out what has nowhere to go",
+                list(&g.import)
+            ),
+        );
+    }
     egui::Grid::new("unit").num_columns(2).show(ui, |ui| {
         // Its own needs, plus what its trips asked of other networks last tick.
         let own = |i: usize| def.needs.get(&rules.resources[i].id).copied().unwrap_or(0.0);

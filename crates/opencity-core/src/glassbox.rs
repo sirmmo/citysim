@@ -105,8 +105,11 @@ pub struct Gate {
     pub at: (u32, u32),
     /// What crosses there: a road kind's id, `power_line` or `metro`.
     pub link: String,
-    /// The neighbour's slot in the region.
+    /// The neighbour's slot in the region, or [`Gate::WORLD`].
     pub partner: [u32; 2],
+    /// The airport or seaport (its origin tile) a world gate belongs to.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub owner: Option<(u32, u32)>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub import: BTreeMap<String, f32>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
@@ -116,6 +119,15 @@ pub struct Gate {
     pub carried_in: BTreeMap<String, f32>,
     #[serde(skip)]
     pub carried_out: BTreeMap<String, f32>,
+}
+
+impl Gate {
+    /// The partner of a gate to the rest of the world (an airport or seaport).
+    pub const WORLD: [u32; 2] = [u32::MAX; 2];
+
+    pub fn is_world(&self) -> bool {
+        self.partner == Self::WORLD
+    }
 }
 
 /// A disaster that struck: where, and how many buildings it hit.
@@ -1189,7 +1201,29 @@ impl GlassBox {
                 self.deficit[ri] = self.deficit[ri] * 0.95 + bal.unmet[ri] * 0.05;
             }
         }
-        let mut gates = std::mem::take(&mut self.gates);
+        // Airports and seaports trade with the rest of the world: a gate at
+        // each one's door, open to what its rules list (the gate only
+        // carries what is lacking or left over).
+        let mut gates: Vec<Gate> = std::mem::take(&mut self.gates).into_iter().filter(|g| !g.is_world()).collect();
+        for (p, u, r) in &units {
+            let def = &rules.units[*u];
+            if def.trade.is_empty() {
+                continue;
+            }
+            let mut gate = Gate { at: *p, link: "world".into(), partner: Gate::WORLD, owner: Some(*p), ..Default::default() };
+            for (rid, &cap) in &def.trade {
+                let Some(ri) = rules.resource(rid) else { continue };
+                let Some(net) = rules.network(rules.resources[ri].network.as_deref().unwrap_or_default()) else { continue };
+                if let Some((_, door)) = unit_component(&comps[net], r, width, length, rules.growth.road_access.max(1), |_, _| true) {
+                    gate.at = door;
+                }
+                gate.import.insert(rid.clone(), cap);
+                gate.export.insert(rid.clone(), cap);
+            }
+            if !gate.import.is_empty() {
+                gates.push(gate);
+            }
+        }
         for gate in &mut gates {
             gate.carried_in.clear();
             gate.carried_out.clear();

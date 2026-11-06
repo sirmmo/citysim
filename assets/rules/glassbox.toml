@@ -422,6 +422,8 @@ harbour = "harbour"
 bus_stop = "bus_stop"
 tram_stop = "tram_stop"
 metro_station = "metro_station"
+airport = "airport"
+seaport = "seaport"
 pumping_station = "pumping_station"
 water_tower = "water_tower"
 water_treatment = "water_treatment"
@@ -785,6 +787,25 @@ name = "Metro station"
 description = "Stairs down to the metro: places near stations on one line of tunnels are linked by metro."
 graphic = 388
 needs = { workers = 2, power = 3, upkeep = 0.5 }
+
+# Ports: gates to the rest of the world. `trade` is how much of each
+# resource may come in (when the city lacks it) or go out (when it has
+# nowhere to go) per tick, at the resource's price.
+[[unit]]
+id = "seaport"
+name = "Seaport"
+description = "Cargo ships from the rest of the world: brings in the goods and fuel the city lacks, ships out what it cannot sell."
+graphic = 398
+needs = { workers = 12, power = 3, upkeep = 1.5 }
+trade = { goods = 30, fuel = 20 }
+
+[[unit]]
+id = "airport"
+name = "Airport"
+description = "Flights to the rest of the world: tourists for the shops, and air freight for what the city lacks or cannot sell."
+graphic = 397
+needs = { workers = 20, power = 6, upkeep = 3 }
+trade = { shoppers = 40, goods = 8 }
 
 # Water and waste: utilities the bigger buildings need.
 [[unit]]

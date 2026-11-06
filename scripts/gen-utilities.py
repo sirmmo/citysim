@@ -265,6 +265,83 @@ def metro_station():
     return m
 
 
+def airport():
+    """A 6 x 3 airfield: runway with its markings along x, a taxiway, the
+    terminal with a glass front on the street side (+z), a control tower
+    and a parked airliner."""
+    m = Model()
+    GRASS = (0.42, 0.55, 0.3)
+    TARMAC = (0.3, 0.3, 0.32)
+    m.box(GRASS, 0.0, 0.0, 0.0, 6.0, 0.02, 3.0)
+    # Runway and its centre line, threshold stripes at both ends.
+    m.box(TARMAC, 0.15, 0.02, 0.25, 5.85, 0.04, 0.95)
+    for i in range(14):
+        x = 0.55 + i * 0.36
+        m.box(WHITE, x, 0.04, 0.585, x + 0.2, 0.045, 0.615)
+    for x0 in (0.2, 5.5):
+        for k in range(5):
+            z = 0.33 + k * 0.12
+            m.box(WHITE, x0, 0.04, z, x0 + 0.3, 0.045, z + 0.05)
+    # Taxiway to the apron.
+    m.box(TARMAC, 2.4, 0.02, 0.95, 2.7, 0.04, 1.45)
+    m.box((0.36, 0.36, 0.38), 1.2, 0.02, 1.4, 4.8, 0.04, 2.1)
+    # Terminal: long low hall, glass front towards the street, a darker roof.
+    m.box((0.82, 0.8, 0.76), 1.5, 0.04, 2.1, 4.5, 0.5, 2.85, top=(0.5, 0.5, 0.52))
+    m.box((0.6, 0.75, 0.85), 1.55, 0.12, 2.85, 4.45, 0.42, 2.87)
+    m.box((0.5, 0.5, 0.52), 1.4, 0.5, 2.0, 4.6, 0.56, 2.95)
+    # Control tower: a shaft with a wider glass cab.
+    m.cylinder(CONCRETE, 5.3, 2.4, 0.14, 0.04, 1.1, n=10)
+    m.cylinder((0.35, 0.55, 0.7), 5.3, 2.4, 0.26, 1.1, 1.4, n=10, top=(0.5, 0.5, 0.52))
+    m.cylinder(STEEL, 5.3, 2.4, 0.015, 1.4, 1.7, n=6)
+    # A parked airliner on the apron, nose towards the runway (-z).
+    m.box(WHITE, 2.92, 0.1, 1.45, 3.08, 0.26, 2.05)
+    m.cylinder(WHITE, 3.0, 1.45, 0.08, 0.1, 0.26, n=8)
+    m.box((0.75, 0.75, 0.78), 2.55, 0.15, 1.7, 3.45, 0.18, 1.85)
+    m.box((0.75, 0.75, 0.78), 2.78, 0.26, 1.95, 3.22, 0.28, 2.05)
+    m.box((0.8, 0.2, 0.2), 2.99, 0.26, 1.9, 3.01, 0.5, 2.05)
+    for x in (2.68, 3.28):
+        m.cylinder(STEEL, x, 1.78, 0.03, 0.08, 0.15, n=6)
+    return m
+
+
+def seaport():
+    """A 4 x 3 container port on the quay: a warehouse by the street (+z),
+    two gantry cranes over stacks of containers, bollards at the water
+    edge (-z)."""
+    m = Model()
+    QUAY = (0.55, 0.55, 0.53)
+    m.box(QUAY, 0.0, 0.0, 0.0, 4.0, 0.05, 3.0)
+    # Bollards and a fender line along the water edge.
+    for i in range(6):
+        m.cylinder(DARK, 0.4 + i * 0.65, 0.08, 0.04, 0.05, 0.14, n=6)
+    m.box((0.2, 0.2, 0.22), 0.0, 0.0, 0.0, 4.0, 0.08, 0.04)
+    # Containers in stacks.
+    boxes = [
+        (0.3, 0.2, (0.8, 0.3, 0.25)), (0.3, 0.62, (0.25, 0.45, 0.7)), (0.75, 0.2, (0.85, 0.65, 0.2)),
+        (1.2, 0.2, (0.3, 0.6, 0.35)), (1.2, 0.62, (0.8, 0.3, 0.25)), (2.5, 0.25, (0.25, 0.45, 0.7)),
+        (2.95, 0.25, (0.85, 0.65, 0.2)), (2.95, 0.67, (0.3, 0.6, 0.35)), (3.4, 0.25, (0.8, 0.3, 0.25)),
+    ]
+    for x, z, rgb in boxes:
+        m.box(rgb, x, 0.05, z, x + 0.4, 0.25, z + 0.38)
+    for x, z, rgb in ((0.3, 0.2, (0.25, 0.45, 0.7)), (1.2, 0.2, (0.85, 0.65, 0.2)), (2.95, 0.25, (0.8, 0.3, 0.25))):
+        m.box(rgb, x, 0.25, z, x + 0.4, 0.45, z + 0.38)
+    # Two gantry cranes: legs, a beam out over the water and the cab.
+    for cx in (1.0, 2.9):
+        for dx in (-0.45, 0.45):
+            for dz in (0.15, 1.05):
+                m.box((0.85, 0.35, 0.2), cx + dx - 0.03, 0.05, dz - 0.03, cx + dx + 0.03, 1.3, dz + 0.03)
+        m.box((0.85, 0.35, 0.2), cx - 0.5, 1.3, 0.12, cx + 0.5, 1.42, 1.08)
+        m.box((0.85, 0.35, 0.2), cx - 0.1, 1.38, -0.7, cx + 0.1, 1.46, 1.08)
+        m.box((0.9, 0.9, 0.9), cx - 0.12, 1.2, 0.5, cx + 0.12, 1.36, 0.75)
+        m.box(STEEL, cx - 0.008, 0.6, -0.35, cx + 0.008, 1.38, -0.33)
+    # Warehouse along the street side.
+    m.box((0.7, 0.7, 0.68), 0.3, 0.05, 1.7, 3.7, 0.55, 2.8)
+    m.roof((0.45, 0.45, 0.5), 0.25, 1.65, 3.75, 2.85, 0.55, 0.85)
+    for x in (0.9, 2.0, 3.1):
+        m.box((0.3, 0.3, 0.32), x, 0.05, 2.8, x + 0.5, 0.4, 2.81)
+    return m
+
+
 def icons():
     try:
         from PIL import Image, ImageDraw
@@ -388,6 +465,20 @@ def icons():
     d.polygon([(20, 40), (20, 18), (26, 18), (32, 28), (38, 18), (44, 18), (44, 40), (39, 40), (39, 27), (32, 37), (25, 27), (25, 40)], fill=white)
     d.rectangle((30, 46, 34, 58), fill=ink)
     save_icon("metro_station", im)
+    # Ports.
+    grey = (160, 165, 175)
+    # Airport: a plane seen from above.
+    im, d = tile((120, 160, 210))
+    d.polygon([(32, 8), (36, 18), (56, 32), (56, 36), (36, 30), (35, 46), (42, 52), (42, 55), (32, 52), (22, 55), (22, 52), (29, 46), (28, 30), (8, 36), (8, 32), (28, 18)], fill=white, outline=ink)
+    save_icon("airport", im)
+    # Seaport: a crane over a container.
+    im, d = tile(grey)
+    d.rectangle((10, 40, 54, 52), fill=(40, 90, 150))
+    d.rectangle((26, 28, 46, 40), fill=(200, 80, 60), outline=ink)
+    d.line((16, 50, 16, 12), fill=ink, width=3)
+    d.line((16, 12, 50, 12), fill=ink, width=3)
+    d.line((36, 12, 36, 28), fill=ink, width=2)
+    save_icon("seaport", im)
 
 
 def main():
@@ -400,6 +491,8 @@ def main():
     save("transit/bus_stop/bus_stop", bus_stop(), "Bus stop", 1, 1, 0.55, "Buses call here.")
     save("transit/tram_stop/tram_stop", tram_stop(), "Tram stop", 1, 1, 0.62, "Trams call here.")
     save("transit/metro_station/metro_station", metro_station(), "Metro station", 1, 1, 0.78, "Stairs down to the metro.")
+    save("transit/airport/airport", airport(), "Airport", 6, 3, 1.7, "Flights to the rest of the world.")
+    save("water/seaport/seaport", seaport(), "Seaport", 4, 3, 1.5, "Cargo ships to the rest of the world.")
     icons()
 
 

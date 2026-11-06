@@ -96,8 +96,8 @@ pub fn window(ctx: &egui::Context, open: &mut bool, r: &RegionSession, city: &Ci
             let name = |id: &str| rules.and_then(|ru| ru.resource(id).map(|i| ru.resources[i].name.to_lowercase())).unwrap_or_else(|| id.to_string());
             egui::Grid::new("gates").num_columns(3).striped(true).show(ui, |ui| {
                 for g in gates {
-                    let partner = r.region.city(g.partner).map_or("?", |c| c.name.as_str());
-                    let what = opencity_core::region::Crossing { side: 0, at: 0, link: g.link.clone() }.what();
+                    let partner = if g.is_world() { "the world" } else { r.region.city(g.partner).map_or("?", |c| c.name.as_str()) };
+                    let what = if g.is_world() { "port".to_string() } else { opencity_core::region::Crossing { side: 0, at: 0, link: g.link.clone() }.what() };
                     ui.label(format!("{what} at {},{} ↔ {partner}", g.at.0, g.at.1));
                     let list = |m: &std::collections::BTreeMap<String, f32>, plan: &std::collections::BTreeMap<String, f32>| {
                         plan.keys().map(|k| format!("{:.1}/{:.1} {}", m.get(k).copied().unwrap_or(0.0), plan[k], name(k))).collect::<Vec<_>>().join(", ")

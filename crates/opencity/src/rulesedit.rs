@@ -94,6 +94,8 @@ const STRUCTURES: &[&str] = &[
     "bus_stop",
     "tram_stop",
     "metro_station",
+    "airport",
+    "seaport",
 ];
 
 /// GlassBox script words.
