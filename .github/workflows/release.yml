@@ -1,7 +1,9 @@
 name: release
 
-# Native builds for every desktop OS. Each push/PR uploads the packages as
-# workflow artifacts; pushing a tag vX.Y.Z also publishes a GitHub release.
+# Native builds for every desktop OS and the browser build. Each push/PR
+# uploads the packages as workflow artifacts; pushing a tag vX.Y.Z also
+# publishes a GitHub release. (The Android APK is built by hand with
+# scripts/android.sh and is not part of the releases.)
 on:
   push:
     branches: [main]
@@ -102,24 +104,6 @@ jobs:
           path: ${{ steps.package.outputs.file }}
           if-no-files-found: error
 
-  android:
-    name: android (arm64-v8a, armeabi-v7a)
-    runs-on: ubuntu-24.04
-    timeout-minutes: 90
-    steps:
-      - uses: actions/checkout@v4.2.2
-      # Pinned Docker images: docker/Dockerfile and docker/android.Dockerfile.
-      - name: Build APK
-        run: scripts/android.sh
-      - name: Name artifact
-        id: name
-        run: echo "name=citysim-${GITHUB_REF_NAME//\//-}-android" >> "$GITHUB_OUTPUT"
-      - uses: actions/upload-artifact@v4.6.2
-        with:
-          name: ${{ steps.name.outputs.name }}
-          path: dist/android/*.apk
-          if-no-files-found: error
-
   web:
     name: web (wasm32)
     runs-on: ubuntu-24.04
@@ -149,7 +133,7 @@ jobs:
 
   publish:
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [build, android, web]
+    needs: [build, web]
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4.2.2
@@ -174,7 +158,6 @@ jobs:
           files: |
             dist/*.tar.gz
             dist/*.zip
-            dist/*.apk
             dist/packs/*.tar.gz
             dist/packs/*.zip
           generate_release_notes: true

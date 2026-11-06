@@ -10,6 +10,9 @@
 //! * `POST /claim` `{"slot": [x, y], "player": "name"}`: claims a free slot
 //!   (or the player's own again) and returns `{"token": …}`.
 //! * `PUT /city` `{"token": …, "summary": {…}}`: the town's latest summary.
+//!
+//! Every answer allows any origin and `OPTIONS` is answered for free, so
+//! the browser build (a page on another host) can play too.
 
 use std::collections::BTreeMap;
 use std::io::{BufRead, BufReader, Read, Write};
@@ -63,7 +66,14 @@ pub fn serve(listener: TcpListener, state: Arc<Mutex<State>>) -> Result<()> {
     Ok(())
 }
 
+/// Headers letting pages from any origin call the server (CORS).
+const CORS: &str = "Access-Control-Allow-Origin: *\r\nAccess-Control-Allow-Methods: GET, POST, PUT, OPTIONS\r\nAccess-Control-Allow-Headers: Content-Type\r\nAccess-Control-Max-Age: 86400";
+
 fn respond(mut s: &TcpStream, code: u16, body: &Value) -> Result<()> {
+    if code == 204 {
+        write!(s, "HTTP/1.1 204 No Content\r\n{CORS}\r\nConnection: close\r\n\r\n")?;
+        return Ok(());
+    }
     let text = body.to_string();
     let reason = match code {
         200 => "OK",
@@ -73,11 +83,7 @@ fn respond(mut s: &TcpStream, code: u16, body: &Value) -> Result<()> {
         409 => "Conflict",
         _ => "Error",
     };
-    write!(
-        s,
-        "HTTP/1.1 {code} {reason}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nAccess-Control-Allow-Origin: *\r\nConnection: close\r\n\r\n{text}",
-        text.len()
-    )?;
+    write!(s, "HTTP/1.1 {code} {reason}\r\nContent-Type: application/json\r\nContent-Length: {}\r\n{CORS}\r\nConnection: close\r\n\r\n{text}", text.len())?;
     Ok(())
 }
 
@@ -104,6 +110,8 @@ fn handle(stream: TcpStream, state: &Mutex<State>) -> Result<()> {
     let body: Value = if body.is_empty() { Value::Null } else { serde_json::from_slice(&body).unwrap_or(Value::Null) };
     let mut st = state.lock().unwrap();
     match (method.as_str(), path.as_str()) {
+        // A browser asking whether it may send the real request.
+        ("OPTIONS", _) => respond(&stream, 204, &Value::Null),
         ("GET", "/region") => respond(&stream, 200, &serde_json::to_value(&st.region)?),
         ("GET", "/health") => respond(&stream, 200, &json!({ "ok": true })),
         ("POST", "/claim") => {
@@ -165,12 +173,17 @@ fn rand_u64() -> u64 {
 mod tests {
     use super::*;
 
-    fn call(addr: &str, method: &str, path: &str, body: &Value) -> (u16, Value) {
+    fn raw(addr: &str, method: &str, path: &str, body: &Value) -> String {
         let mut s = TcpStream::connect(addr).unwrap();
         let text = body.to_string();
         write!(s, "{method} {path} HTTP/1.1\r\nHost: x\r\nContent-Length: {}\r\n\r\n{text}", text.len()).unwrap();
         let mut out = String::new();
         s.read_to_string(&mut out).unwrap();
+        out
+    }
+
+    fn call(addr: &str, method: &str, path: &str, body: &Value) -> (u16, Value) {
+        let out = raw(addr, method, path, body);
         let code = out.split_whitespace().nth(1).unwrap().parse().unwrap();
         let body = out.split("\r\n\r\n").nth(1).unwrap_or("null");
         (code, serde_json::from_str(body).unwrap())
@@ -198,6 +211,11 @@ mod tests {
         assert_eq!((ada.name.as_str(), ada.population, ada.player.as_deref()), ("Adaville", 1200, Some("ada")));
         // Bob's town takes in a share of Ada's ideas.
         assert!((region.culture_for([1, 0])["ideas"] - 0.4).abs() < 1e-6);
+        // The browser build calls from another origin: preflights pass and
+        // every answer names the allowed origin.
+        let preflight = raw(&addr, "OPTIONS", "/city", &Value::Null);
+        assert!(preflight.starts_with("HTTP/1.1 204") && preflight.contains("Access-Control-Allow-Methods: GET, POST, PUT, OPTIONS"), "{preflight}");
+        assert!(raw(&addr, "GET", "/region", &Value::Null).contains("Access-Control-Allow-Origin: *"));
         assert!(dir.join("region.json").is_file() && dir.join("tokens.json").is_file());
         let _ = std::fs::remove_dir_all(dir);
     }

@@ -1288,20 +1288,27 @@ impl EguiUi {
             }
             Dialog::OpenRegion => {
                 egui::Window::new("Open region").collapsible(false).resizable(false).anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0]).show(ctx, |ui| {
-                    ui.label("Region folder (or its region.json)");
-                    ui.add(egui::TextEdit::singleline(&mut self.path).desired_width(420.0));
+                    if cfg!(target_arch = "wasm32") {
+                        ui.label("Regions saved in this browser");
+                    } else {
+                        ui.label("Region folder (or its region.json)");
+                        ui.add(egui::TextEdit::singleline(&mut self.path).desired_width(420.0));
+                    }
                     let dir = PathBuf::from(&self.path);
-                    if let Ok(entries) = std::fs::read_dir(&dir) {
-                        let mut found: Vec<PathBuf> = entries.flatten().map(|e| e.path()).filter(|p| p.join("region.json").is_file()).collect();
-                        found.sort();
-                        for p in found {
-                            if ui.small_button(p.file_name().map(|f| f.to_string_lossy().into_owned()).unwrap_or_default()).clicked() {
-                                self.path = p.display().to_string();
-                            }
+                    let found = crate::region::list(&dir);
+                    if found.is_empty() && cfg!(target_arch = "wasm32") {
+                        ui.label(RichText::new("None yet: File > New region… founds one.").small().color(Color32::GRAY));
+                    }
+                    for p in found {
+                        let name = p.file_name().map(|f| f.to_string_lossy().into_owned()).unwrap_or_default();
+                        let chosen = self.path == p.display().to_string();
+                        if ui.selectable_label(chosen, name).clicked() {
+                            self.path = p.display().to_string();
                         }
                     }
                     ui.horizontal(|ui| {
-                        if ui.button("Open").clicked() {
+                        let can_open = !cfg!(target_arch = "wasm32") || crate::region::exists(&dir.join("region.json"));
+                        if ui.add_enabled(can_open, egui::Button::new("Open")).clicked() {
                             out.push(Command::OpenRegion(PathBuf::from(&self.path)));
                             self.show_region = true;
                             close = true;

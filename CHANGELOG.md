@@ -2,6 +2,11 @@
 
 Release notes in full are on the [releases page](https://github.com/sirmmo/citysim/releases).
 
+## 0.2.46: Regions in the browser
+- **Regions work in the browser build.** File > New region… founds a region whose towns live in the browser's storage; Open region… lists the regions saved there; Join region server… reaches an `opencity-cli region-server` over HTTP, and `play/?join=http://host:8077&player=ada&slot=0,0` joins one at once. Desktop and browser players share the same region. The region server now answers the browser's preflight requests, so pages on any host may call it.
+- Joining a server no longer freezes the game while it waits (the answer is taken in on a later frame, on every platform); fresh summaries from the server re-agree the month's trade when they arrive.
+- **The Android APK is no longer part of the releases:** phones play the browser build. `scripts/android.sh` still builds it by hand.
+
 ## 0.2.45: Interface size on phones
 - **The interface is drawn at the screen's pixel density.** Phones pack three pixels in a point and the game ignored that, so on them (and on Retina Macs) the menu, panels and toolbar were a third of their size. Both interfaces now scale with the screen: the classic one (Android) draws its toolbar, status bar and menu that way and lays the toolbar out in more columns on short screens; the desktop/browser one tells egui the ratio and hides the City panel on narrow screens to leave room for the map. **View > Size of the interface** picks Normal, Large or Huge on top of that; `--ui-scale 1.5` (or `?ui-scale=1.5` in the browser) does the same.
 

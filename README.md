@@ -34,14 +34,15 @@ and which legacy behaviours changed.
 ## Downloads
 
 **Play in the browser** at <http://ingmmo.com/citysim/play/>: nothing to
-install. Saves stay in the browser's storage and exports download; region
-servers are not reachable from there yet. `?demo&game-rules=glassbox&skin=modern`
+install. Saves and regions stay in the browser's storage, exports download
+and region servers are joined over HTTP. `?demo&game-rules=glassbox&skin=modern`
 after the address stands for the command line (`--demo --game-rules glassbox
---skin modern`). The `citysim-vX.Y.Z-web.zip` release file holds the same
-static files, to host yourself; `scripts/web.sh` builds them.
+--skin modern`; `?join=http://host:8077&player=ada&slot=0,0` joins a region
+server straight away). The `citysim-vX.Y.Z-web.zip` release file holds the
+same static files, to host yourself; `scripts/web.sh` builds them.
 
 Every push builds Linux (x86_64), macOS (Apple Silicon and Intel),
-Windows (x86_64), Android (arm64, armv7) and browser packages; they appear as artifacts of the **release**
+Windows (x86_64) and browser packages; they appear as artifacts of the **release**
 workflow run. Pushing a tag `vX.Y.Z` publishes them as a GitHub release.
 Unpack the archive and run `opencity` (`opencity.exe` on Windows) from
 inside the folder, next to `assets/`. To add the 0 A.D. buildings for the
@@ -86,7 +87,8 @@ scripts/dev.sh xvfb-run -a -s "-screen 0 1280x800x24" \
 scripts/android.sh   # -> dist/android/citysim-<version>.apk
 ```
 
-The APK is signed with a debug key, for sideloading. The packager
+The APK is not part of the releases (phones play the browser build); this
+builds it by hand, signed with a debug key, for sideloading. The packager
 (`cargo-quad-apk`) embeds an old Cargo, so the script first writes a
 compatible copy of the game crates (`cargo run -p xtask -- android-shim`).
 On touch screens, drag with one finger to pan when no tool is selected. Use

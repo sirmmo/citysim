@@ -1,8 +1,9 @@
 //! The browser build (`wasm32`). The data files arrive packed in one
 //! download (`assets.pack`, written by `cargo run -p xtask -- web-dist`),
-//! saves live in the browser's local storage, exports become downloads and
-//! the page's query string stands in for the command line
-//! (`?demo&game-rules=glassbox`). The JavaScript side is `web/citysim.js`.
+//! saves live in the browser's local storage, exports become downloads,
+//! region servers are reached with `fetch` and the page's query string
+//! stands in for the command line (`?demo&game-rules=glassbox`). The
+//! JavaScript side is `web/citysim.js`.
 
 use std::collections::HashMap;
 use std::io::{self, Read};
@@ -16,6 +17,9 @@ use sapp_jsutils::JsObject;
 extern "C" {
     fn citysim_storage_get(key: JsObject) -> JsObject;
     fn citysim_storage_set(key: JsObject, value: JsObject) -> i32;
+    fn citysim_storage_keys() -> JsObject;
+    fn citysim_http_start(method: JsObject, url: JsObject, body: JsObject) -> u32;
+    fn citysim_http_poll(id: u32) -> JsObject;
     fn citysim_query() -> JsObject;
     fn citysim_download(name: JsObject, text: JsObject);
 }
@@ -23,7 +27,7 @@ extern "C" {
 /// Checked by the JS bundle against the plugin's `version`.
 #[no_mangle]
 pub extern "C" fn citysim_crate_version() -> u32 {
-    1
+    2
 }
 
 /// The unpacked data files, by path relative to the data directory.
@@ -140,9 +144,36 @@ pub fn storage_write(key: &str, value: &str) -> io::Result<()> {
     }
 }
 
+/// Every key in local storage.
+pub fn storage_keys() -> Vec<String> {
+    js_string(unsafe { citysim_storage_keys() }).and_then(|s| serde_json::from_str(&s).ok()).unwrap_or_default()
+}
+
 /// Offers a text file for download.
 pub fn download(name: &str, text: &str) {
     unsafe { citysim_download(JsObject::string(name), JsObject::string(text)) }
+}
+
+/// An HTTP request in flight; the browser answers it between frames.
+#[derive(Debug)]
+pub struct Request(u32);
+
+/// Starts a request; an empty body sends none.
+pub fn http_start(method: &str, url: &str, body: &str) -> Request {
+    Request(unsafe { citysim_http_start(JsObject::string(method), JsObject::string(url), JsObject::string(body)) })
+}
+
+/// The answer, once it is there: the status code and the body, or the
+/// reason the request never got through.
+pub fn http_poll(r: &Request) -> Option<Result<(u16, String)>> {
+    let text = js_string(unsafe { citysim_http_poll(r.0) })?;
+    let v: serde_json::Value = match serde_json::from_str(&text) {
+        Ok(v) => v,
+        Err(e) => return Some(Err(anyhow::anyhow!("bad reply from the page: {e}"))),
+    };
+    let status = v["status"].as_u64().unwrap_or(0) as u16;
+    let body = v["body"].as_str().unwrap_or_default().to_string();
+    Some(if status == 0 { Err(anyhow::anyhow!("{body}")) } else { Ok((status, body)) })
 }
 
 fn percent_decode(s: &str) -> String {

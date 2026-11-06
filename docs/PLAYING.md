@@ -26,7 +26,11 @@ differences:
   several. Clearing the site's data loses them, and a private window forgets
   them when closed. Very large cities may not fit (browsers allow about 5 MB).
 - **Exports** (GeoJSON, CSV) are downloaded instead of written to a folder.
-- **Region servers** cannot be joined yet; local regions need files too.
+- **Regions** work: File > New region… keeps the region and its towns in the
+  browser's storage, Open region… lists them, and Join region server… reaches
+  a server over HTTP (the page is served over plain HTTP, so an `http://`
+  server address works; the server answers browsers from any origin). Add
+  `?join=http://host:8077&player=ada&slot=0,0` to the address to join at once.
 - **Options** go in the address: `play/?demo&game-rules=glassbox&skin=modern`
   is `--demo --game-rules glassbox --skin modern`; `?seed=7&size=80x80` works
   the same way.
@@ -62,7 +66,7 @@ interface** makes it Large or Huge on top of that, and `--ui-scale 1.5`
 | Space, F | Pause, fast forward |
 | Esc | Drop the tool, or open the menu (new, load, save, quit) |
 
-**On Android and other touch screens:**
+**On phones and other touch screens:**
 - With no tool selected, drag with one finger to pan.
 - Two fingers pan, pinch zooms and twist rotates.
 - The menu is the button under the speed control.
@@ -300,7 +304,9 @@ opencity-cli region-server --dir my-region --listen 0.0.0.0:8077 --name Emilia -
 
 - **Joining:** each player picks **File > Join region server…** and enters
   the server's address, a name and a free slot. You can also start the game
-  with `--join http://host:8077 --player ada --slot 1,0`.
+  with `--join http://host:8077 --player ada --slot 1,0`, or in the browser
+  open `play/?join=http://host:8077&player=ada&slot=1,0`. Players on the
+  desktop and in the browser share one region.
 - **Your town** saves on your own machine. Each month your game fetches the
   other towns' summaries, agrees trade with the neighbours, takes in their
   ideas, and sends your town's summary back.

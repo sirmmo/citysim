@@ -463,6 +463,8 @@ struct Game {
     flow_hover: Option<usize>,
     /// The region being played, if any.
     region: Option<region::RegionSession>,
+    /// A region server being joined.
+    joining: Option<region::Joining>,
     /// Day and night, seasons and weather on the map (View menu).
     day_night: bool,
     /// The sealed pack being played: its skin, rules and scenario are fixed.
@@ -554,7 +556,6 @@ impl Game {
             self.say(format!("Save failed: {e:#}"));
             return false;
         }
-        #[cfg(not(target_os = "android"))]
         if let Err(e) = r.push(slot) {
             self.say(format!("Region server unreachable: {e}"));
         }
@@ -578,7 +579,7 @@ impl Game {
             return;
         }
         let Some(r) = self.region.as_ref() else { return };
-        let founded = r.city_path(slot).is_file();
+        let founded = region::exists(&r.city_path(slot));
         let city = if founded {
             load_city(&r.city_path(slot), &self.catalog)
         } else {
@@ -628,7 +629,7 @@ impl Game {
     }
 
     fn region_open(&mut self, dir: &Path) {
-        let dir = if dir.is_file() { dir.parent().map(Path::to_path_buf).unwrap_or_default() } else { dir.to_path_buf() };
+        let dir = if dir.file_name().is_some_and(|f| f == "region.json") { dir.parent().map(Path::to_path_buf).unwrap_or_default() } else { dir.to_path_buf() };
         match region::RegionSession::open(&dir) {
             Ok(s) => {
                 let first = s.region.cities.iter().map(|c| c.slot).min_by_key(|s| (s[1], s[0])).unwrap_or([0, 0]);
@@ -636,6 +637,40 @@ impl Game {
                 self.region_goto(first);
             }
             Err(e) => self.say(format!("Cannot open the region: {e:#}")),
+        }
+    }
+
+    /// Answers from the region server: a join done, or fresh summaries of
+    /// the neighbours (the month's trade is agreed again from them).
+    fn region_poll(&mut self) {
+        if let Some(j) = self.joining.as_mut() {
+            if let Some(joined) = j.poll() {
+                let slot = j.slot;
+                self.joining = None;
+                match joined {
+                    Ok(s) => {
+                        self.region = Some(s);
+                        self.region_goto(slot);
+                    }
+                    Err(e) => self.say(format!("Cannot join: {e:#}")),
+                }
+            }
+        }
+        let Some(r) = self.region.as_mut() else { return };
+        match r.poll() {
+            Ok(false) => {}
+            Ok(true) => {
+                if let Some(slot) = r.slot {
+                    r.deals = r.region.trade(slot, &self.city);
+                    self.city.apply_trade(&r.deals);
+                    self.city.apply_culture(&r.region.culture_for(slot));
+                }
+                self.region_link();
+            }
+            Err(e) => {
+                log::warn!("region server: {e:#}");
+                self.say(format!("Region server: {e:#}"));
+            }
         }
     }
 
@@ -648,8 +683,8 @@ impl Game {
             return;
         }
         r.month = month;
-        // Over the network: the neighbours' latest summaries, then ours.
-        #[cfg(not(target_os = "android"))]
+        // Over the network: the neighbours' latest summaries, then ours
+        // (the browser gets the summaries later: see `region_poll`).
         if r.remote.is_some() {
             let name = r.name().unwrap_or_else(|| r.town_name(slot));
             let file = region::RegionSession::city_file(slot);
@@ -932,13 +967,10 @@ impl Game {
             }
             Command::NewRegion { name, size, map_size, rules } => self.region_new(&name, size, map_size, rules),
             Command::OpenRegion(dir) => self.region_open(&dir),
-            Command::JoinRegion { url, player, slot } => match region::join(&save_path(), &url, &player, slot) {
-                Ok(s) => {
-                    self.region = Some(s);
-                    self.region_goto(slot);
-                }
-                Err(e) => self.say(format!("Cannot join: {e:#}")),
-            },
+            Command::JoinRegion { url, player, slot } => {
+                self.joining = Some(region::join(&save_path(), &url, &player, slot));
+                self.say(format!("Joining {url}…"));
+            }
             Command::RegionCity(slot) => self.region_goto(slot),
             Command::StartScenario(id) => self.start_scenario(&id),
             Command::Cheat(code) => match self.city.cheat(&code) {
@@ -1185,6 +1217,7 @@ impl Game {
         let t = get_time();
         self.city.update(get_frame_time().min(0.25) as f64 * 1000.0);
         self.region_month();
+        self.region_poll();
         self.watch_borders();
         // News from the city (the family's visits…).
         if let Some(m) = self.city.messages.pop() {
@@ -1400,6 +1433,7 @@ async fn main() -> Result<()> {
         flow_key: None,
         flow_hover: None,
         region: None,
+        joining: None,
         day_night: true,
         pack: find_pack(&data_dir, s.args.pack.as_deref()),
         crossings: Vec::new(),
@@ -1442,17 +1476,12 @@ async fn main() -> Result<()> {
             _ => Weather::Clear,
         };
     }
-    #[cfg(not(target_os = "android"))]
     if let Some(url) = &s.args.join {
         let slot: Vec<u32> = s.args.slot.split(',').filter_map(|v| v.trim().parse().ok()).collect();
         let slot = [slot.first().copied().unwrap_or(0), slot.get(1).copied().unwrap_or(0)];
-        match region::join(&save_path(), url, &s.args.player, slot) {
-            Ok(session) => {
-                game.region = Some(session);
-                game.region_goto(slot);
-            }
-            Err(e) => game.say(format!("Cannot join: {e:#}")),
-        }
+        game.joining = Some(region::join(&save_path(), url, &s.args.player, slot));
+        game.region_poll();
+        #[cfg(not(target_os = "android"))]
         if let Some(ui) = game.egui.as_mut() {
             ui.open_region();
         }
