@@ -1,19 +1,49 @@
-//! Wavefront `.obj` models, as the CC0 Kenney kits ship them (car, train
-//! and watercraft kits): positions, texture coordinates into one shared
-//! colour map, and polygon faces. Normals and materials are ignored; the
-//! renderer shades faces from their direction.
+//! Wavefront `.obj` models, as the CC0 Kenney kits ship them: positions,
+//! texture coordinates into one shared colour map (the city, car, train and
+//! watercraft kits) or a diffuse colour per material from the `.mtl` next
+//! to the model (the nature kit), and polygon faces. Normals are ignored;
+//! the renderer shades faces from their direction.
 
+use std::collections::HashMap;
 use std::path::Path;
 
 use crate::{read_text, AssetError};
 
 /// A triangle mesh: positions, texture coordinates (v pointing down, as
-/// image rows run) and triangles.
+/// image rows run), a colour per vertex (white unless the material gives
+/// one) and triangles.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct ObjMesh {
     pub positions: Vec<[f32; 3]>,
     pub uvs: Vec<[f32; 2]>,
+    pub colors: Vec<[f32; 3]>,
     pub triangles: Vec<[u32; 3]>,
+}
+
+/// Diffuse colours by material name from `.mtl` text; materials with a
+/// texture map keep white (the map carries the colour).
+pub fn parse_materials(text: &str) -> HashMap<String, [f32; 3]> {
+    let mut out = HashMap::new();
+    let mut current = None;
+    for line in text.lines() {
+        let mut it = line.split_whitespace();
+        match it.next() {
+            Some("newmtl") => current = it.next().map(str::to_string),
+            Some("Kd") => {
+                let v: Vec<f32> = it.filter_map(|s| s.parse().ok()).collect();
+                if let (Some(name), [r, g, b, ..]) = (&current, v.as_slice()) {
+                    out.insert(name.clone(), [*r, *g, *b]);
+                }
+            }
+            Some("map_Kd") => {
+                if let Some(name) = &current {
+                    out.insert(name.clone(), [1.0, 1.0, 1.0]);
+                }
+            }
+            _ => {}
+        }
+    }
+    out
 }
 
 impl ObjMesh {
@@ -31,18 +61,25 @@ impl ObjMesh {
     }
 }
 
-/// Parses `.obj` text. Each face corner becomes its own vertex (position
-/// and texture coordinate together); polygons are fanned into triangles.
+/// Parses `.obj` text. Each face corner becomes its own vertex (position,
+/// texture coordinate and material colour together); polygons are fanned
+/// into triangles. `materials` gives the colour of each `usemtl` name.
 pub fn parse(text: &str) -> Result<ObjMesh, String> {
+    parse_with(text, &HashMap::new())
+}
+
+pub fn parse_with(text: &str, materials: &HashMap<String, [f32; 3]>) -> Result<ObjMesh, String> {
     let mut v: Vec<[f32; 3]> = Vec::new();
     let mut vt: Vec<[f32; 2]> = Vec::new();
     let mut mesh = ObjMesh::default();
-    let mut corners: std::collections::HashMap<(usize, Option<usize>), u32> = std::collections::HashMap::new();
+    let mut color = [1.0f32; 3];
+    let mut corners: HashMap<(usize, Option<usize>, [u32; 3]), u32> = HashMap::new();
     for (n, line) in text.lines().enumerate() {
         let mut it = line.split_whitespace();
         let err = |m: &str| format!("line {}: {m}", n + 1);
         let num = |s: Option<&str>| s.and_then(|s| s.parse::<f32>().ok());
         match it.next() {
+            Some("usemtl") => color = it.next().and_then(|m| materials.get(m).copied()).unwrap_or([1.0; 3]),
             Some("v") => v.push([
                 num(it.next()).ok_or_else(|| err("bad vertex"))?,
                 num(it.next()).ok_or_else(|| err("bad vertex"))?,
@@ -60,9 +97,10 @@ pub fn parse(text: &str) -> Result<ObjMesh, String> {
                     };
                     let p = index(parts.next(), v.len()).ok_or_else(|| err("bad face"))?;
                     let t = index(parts.next(), vt.len());
-                    let id = *corners.entry((p, t)).or_insert_with(|| {
+                    let id = *corners.entry((p, t, color.map(f32::to_bits))).or_insert_with(|| {
                         mesh.positions.push(v[p]);
                         mesh.uvs.push(t.map_or([0.0, 0.0], |t| vt[t]));
+                        mesh.colors.push(color);
                         (mesh.positions.len() - 1) as u32
                     });
                     face.push(id);
@@ -101,15 +139,27 @@ pub fn to_building(obj: &ObjMesh, texture: Option<std::path::PathBuf>, (w, l): (
             mesh.positions.push(pos);
             mesh.normals.push(n);
             mesh.uvs.push(obj.uvs[t[j] as usize]);
-            mesh.colors.push([1.0, 1.0, 1.0, 1.0]);
+            let [r, g, b] = obj.colors.get(t[j] as usize).copied().unwrap_or([1.0; 3]);
+            mesh.colors.push([r, g, b, 1.0]);
         }
     }
     crate::ac3d::Model { meshes: vec![mesh] }
 }
 
-/// Reads and parses an `.obj` file.
+/// Reads and parses an `.obj` file, with the colours of the `.mtl` files
+/// it names (missing ones leave the model white).
 pub fn load(path: &Path) -> Result<ObjMesh, AssetError> {
-    parse(&read_text(path)?).map_err(|message| AssetError::Parse { path: path.to_owned(), line: 0, message })
+    let text = read_text(path)?;
+    let mut materials = HashMap::new();
+    for line in text.lines() {
+        if let Some(name) = line.strip_prefix("mtllib ") {
+            let mtl = path.parent().unwrap_or(Path::new(".")).join(name.trim());
+            if let Ok(t) = read_text(&mtl) {
+                materials.extend(parse_materials(&t));
+            }
+        }
+    }
+    parse_with(&text, &materials).map_err(|message| AssetError::Parse { path: path.to_owned(), line: 0, message })
 }
 
 #[cfg(test)]
@@ -123,6 +173,18 @@ mod tests {
         assert_eq!(m.positions.len(), 4);
         assert_eq!(m.uvs[2], [1.0, 0.0]);
         assert_eq!(m.bounds(), ([0.0, 0.0, 0.0], [1.0, 0.0, 1.0]));
+    }
+
+    #[test]
+    fn materials_colour_their_faces() {
+        let mtl = parse_materials("newmtl bark\nKd 0.5 0.25 0\nnewmtl painted\nmap_Kd x.png\nKd 0 0 1\n");
+        assert_eq!(mtl["bark"], [0.5, 0.25, 0.0]);
+        assert_eq!(mtl["painted"], [0.0, 0.0, 1.0]);
+        let m = parse_with("v 0 0 0\nv 1 0 0\nv 1 0 1\nusemtl bark\nf 1 2 3\nusemtl none\nf 1 3 2\n", &mtl).unwrap();
+        // The same corner in another material is another vertex.
+        assert_eq!(m.positions.len(), 6);
+        assert_eq!(m.colors[0], [0.5, 0.25, 0.0]);
+        assert_eq!(m.colors[3], [1.0, 1.0, 1.0]);
     }
 
     #[test]
@@ -145,10 +207,14 @@ mod tests {
                 if p.extension().is_some_and(|e| e == "obj") {
                     let m = load(&p).unwrap();
                     assert!(!m.triangles.is_empty(), "{}", p.display());
+                    assert_eq!(m.colors.len(), m.positions.len(), "{}", p.display());
                     n += 1;
                 }
             }
         }
         assert!(n >= 20);
+        // The nature kit colours its faces from materials, not a colour map.
+        let oak = load(&dir.join("nature/tree_oak.obj")).unwrap();
+        assert!(oak.colors.iter().any(|c| c[1] > 0.7 && c[0] < 0.3), "leaves should be green");
     }
 }

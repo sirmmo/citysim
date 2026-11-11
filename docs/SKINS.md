@@ -28,6 +28,7 @@ keys group it in the new-city dialog.
 | `look.tint`, `look.saturation` | Colour treatment of every model and of the terrain |
 | `look.ui_accent`, `look.ui_panel` | egui interface colours |
 | `look.vehicles` | Hide cars, e.g. before 1900 or in a fantasy world |
+| `look.bridge_pier` | An `.obj` under `models/` (no extension) stood under bridges, two per tile over water, stretched from the bed to the deck; without it bridges rest on plain columns |
 | `[labels]` | Tool names, by tool id (`coal_plant = "Watermill"`) |
 | `disabled_tools` | Tools that do not exist in that era or world |
 | `[models]` | Graphic code to replacement model: `.ac` (AC3D), `.obj` (Wavefront, e.g. Kenney kits) or `.compose` (a model composed from parts, below). A path starting with `models/` is shared art under the data folder; any other path is relative to the skin folder |
@@ -65,9 +66,10 @@ at = [0.09, 0.0, 0.05]            # then moved by this much (x, y, z)
 tints = [[1, 1, 1], [1.0, 0.93, 0.86], [0.9, 0.95, 1.0]]
 
 [[slot]]                          # a tree in the front yard, or nothing
-parts = ["", "../../graphism/tree/fir1/fir1.ac"]
+parts = ["", "../kenney/nature/tree_oak.obj"]
 size = [0.24, 0.24]
 at = [0.05, 0.0, 0.71]
+rotations = [0, 90, 180, 270]     # turned about its centre; one is picked
 ```
 
 - **Paths** are relative to the `.compose` file.
@@ -76,6 +78,10 @@ at = [0.05, 0.0, 0.71]
   its own size, like whole models.
 - **Front:** buildings face +z (the far end of the plot from the origin),
   where the street usually is.
+- **Rotations:** `rotations` lists turns in degrees, one picked per variant
+  like a part or a tint; the part turns about the centre of its box (or of
+  the footprint) before `at` moves it. A single entry turns every variant
+  the same way, which is how the power-line wires are strung north-south.
 - **Variants:** with many combinations, `variants` of them are used,
   spread so they differ in every slot.
 - A `.conf` next to the `.compose` file gives its name and size like any
@@ -85,15 +91,20 @@ at = [0.05, 0.0, 0.71]
 
 The modern skin draws its little houses (11) and family houses (12) this
 way, from `models/composed/`: one of several Kenney houses, tinted, with a
-tree and a parked car or neither.
+tree and a parked car or neither. Its power lines, trees, parks, harbour
+and seaport are compositions too (`powerline_*.compose`, `tree_*.compose`,
+`park.compose`, `harbour.compose`, `seaport.compose`).
 
 ## Shipped examples
 
 * **modern** (Modern, Kenney city kits): years 1946 on, and every city with
   no date or world (`default = true` in `[applies]`). Houses come from the CC0
   Kenney City Kit Suburban, shops and towers from City Kit Commercial, and
-  workshops, factories and the coal plant from City Kit Industrial. The
-  services, the nuclear plant and the park keep OpenCity's models. **View >
+  workshops, factories and the coal plant from City Kit Industrial. Power
+  lines are City Kit Roads poles wired tile to tile, bridges stand on its
+  pillars, trees and parks come from the Nature Kit, and the harbour and
+  seaport are dressed with Watercraft Pack cargo and Factory Kit cranes.
+  The services and the nuclear plant keep OpenCity's models. **View >
   Skin > None** brings back OpenCity's own buildings.
 
 * **antiquity-<civ>** (baked, see below): years -1000 to 500, one per culture.

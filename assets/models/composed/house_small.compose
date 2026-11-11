@@ -10,8 +10,9 @@ at = [0.09, 0.0, 0.05]
 tints = [[1, 1, 1], [1.0, 0.93, 0.86], [0.9, 0.95, 1.0], [0.95, 1.0, 0.92]]
 
 [[slot]]
-parts = ["", "../../graphism/tree/fir1/fir1.ac", "../../graphism/tree/tree007/tree007.ac", "../../graphism/tree/peking-willow1/peking-willow1.ac", "../../graphism/tree/pine2/pine2.ac"]
-size = [0.24, 0.24]
+parts = ["", "../kenney/nature/tree_default.obj", "../kenney/nature/tree_oak.obj", "../kenney/nature/tree_pineRoundC.obj", "../kenney/nature/tree_fat.obj"]
+size = [0.26, 0.26]
+rotations = [0, 90, 180, 270]
 at = [0.05, 0.0, 0.71]
 
 [[slot]]

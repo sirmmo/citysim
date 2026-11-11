@@ -157,7 +157,7 @@ The desktop build uses an egui interface: menus, a tool palette with costs,
 a city panel with history, open/save/import/export dialogs and a tile
 inspector. The inspector names the building as the rules do, with its zone,
 density and level, its size (tiles and floors), and for roads their speed,
-capacity, lanes and cost. Android and `--classic-ui` use the original OpenCity artwork.
+capacity, lanes and cost. `--classic-ui` uses the original OpenCity artwork.
 
 Settings live in `~/.config/opencity/settings.toml`; see
 [docs/settings.example.toml](docs/settings.example.toml).

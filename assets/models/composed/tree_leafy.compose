@@ -1,0 +1,10 @@
+# Broad-leaved trees from the Kenney Nature Kit (CC0): one of eight,
+# turned any way, in a few shades. See crates/opencity-assets/src/compose.rs.
+variants = 16
+
+[[slot]]
+parts = ["../kenney/nature/tree_default.obj", "../kenney/nature/tree_default_dark.obj", "../kenney/nature/tree_oak.obj", "../kenney/nature/tree_oak_dark.obj", "../kenney/nature/tree_detailed.obj", "../kenney/nature/tree_detailed_dark.obj", "../kenney/nature/tree_fat.obj", "../kenney/nature/tree_plateau.obj"]
+size = [0.46, 0.46]
+at = [0.27, 0.0, 0.27]
+tints = [[1, 1, 1], [0.92, 1.0, 0.88], [1.0, 0.95, 0.85]]
+rotations = [0, 90, 180, 270]

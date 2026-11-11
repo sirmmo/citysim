@@ -42,6 +42,10 @@ pub struct Look {
     pub ui_panel: [u8; 3],
     /// Show cars and trucks (people on foot and carts are always shown).
     pub vehicles: bool,
+    /// An `.obj` model under `models/` (without the extension) drawn as
+    /// the piers of bridges, two per tile over water, stretched from the
+    /// bed to the deck; none draws plain columns.
+    pub bridge_pier: Option<String>,
 }
 
 impl Default for Look {
@@ -54,6 +58,7 @@ impl Default for Look {
             ui_accent: [52, 120, 200],
             ui_panel: [22, 26, 34],
             vehicles: true,
+            bridge_pier: None,
         }
     }
 }

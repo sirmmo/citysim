@@ -1,0 +1,32 @@
+# A small park from the Kenney Nature Kit (CC0): a stone circle or
+# bare grass, a tree, a bush, flowers and some odd thing, each picked per
+# plot. See crates/opencity-assets/src/compose.rs.
+variants = 16
+
+[[slot]]
+parts = ["../kenney/nature/path_stoneCircle.obj", ""]
+size = [0.9, 0.9]
+at = [0.05, 0.0, 0.05]
+
+[[slot]]
+parts = ["../kenney/nature/tree_tall.obj", "../kenney/nature/tree_thin.obj", "../kenney/nature/tree_detailed.obj", "../kenney/nature/tree_default_fall.obj"]
+size = [0.3, 0.3]
+at = [0.08, 0.0, 0.1]
+rotations = [0, 90, 180, 270]
+
+[[slot]]
+parts = ["../kenney/nature/plant_bushDetailed.obj", "../kenney/nature/plant_bush.obj", ""]
+size = [0.26, 0.26]
+at = [0.62, 0.0, 0.6]
+rotations = [0, 180]
+
+[[slot]]
+parts = ["../kenney/nature/flower_redA.obj", "../kenney/nature/flower_yellowA.obj", "../kenney/nature/flower_purpleA.obj"]
+size = [0.16, 0.16]
+at = [0.66, 0.0, 0.22]
+
+[[slot]]
+parts = ["", "../kenney/nature/rock_smallA.obj", "../kenney/nature/log.obj", "../kenney/nature/stump_round.obj", "../kenney/nature/rock_smallH.obj"]
+size = [0.2, 0.2]
+at = [0.2, 0.0, 0.66]
+rotations = [0, 90]

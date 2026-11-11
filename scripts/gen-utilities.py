@@ -342,6 +342,27 @@ def seaport():
     return m
 
 
+def quay():
+    """A 4 x 3 quay for the seaport composed from Kenney parts
+    (models/composed/seaport.compose): the slab, bollards and a fender
+    line at the water edge (-z) and a warehouse along the street (+z)."""
+    m = Model()
+    QUAY = (0.55, 0.55, 0.53)
+    m.box(QUAY, 0.0, 0.0, 0.0, 4.0, 0.05, 3.0)
+    for i in range(6):
+        m.cylinder(DARK, 0.4 + i * 0.65, 0.08, 0.04, 0.05, 0.14, n=6)
+    m.box((0.2, 0.2, 0.22), 0.0, 0.0, 0.0, 4.0, 0.08, 0.04)
+    # Lane markings across the apron.
+    for i in range(5):
+        m.box((0.85, 0.8, 0.3), 0.6 + i * 0.7, 0.05, 1.85, 0.62 + i * 0.7, 0.055, 2.2)
+    # Warehouse along the street side.
+    m.box((0.7, 0.7, 0.68), 0.3, 0.05, 2.25, 3.7, 0.55, 2.85)
+    m.roof((0.45, 0.45, 0.5), 0.25, 2.2, 3.75, 2.9, 0.55, 0.85)
+    for x in (0.9, 2.0, 3.1):
+        m.box((0.3, 0.3, 0.32), x, 0.05, 2.85, x + 0.5, 0.4, 2.86)
+    return m
+
+
 def icons():
     try:
         from PIL import Image, ImageDraw
@@ -493,6 +514,7 @@ def main():
     save("transit/metro_station/metro_station", metro_station(), "Metro station", 1, 1, 0.78, "Stairs down to the metro.")
     save("transit/airport/airport", airport(), "Airport", 6, 3, 1.7, "Flights to the rest of the world.")
     save("water/seaport/seaport", seaport(), "Seaport", 4, 3, 1.5, "Cargo ships to the rest of the world.")
+    save("water/quay/quay", quay(), "Quay", 4, 3, 0.85, "The seaport's quay, dressed by models/composed/seaport.compose.")
     icons()
 
 

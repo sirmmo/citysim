@@ -15,11 +15,13 @@
 //! parts = ["", "../../graphism/tree/fir1/fir1.ac"]
 //! size = [0.25, 0.25]
 //! at = [0.05, 0, 0.7]
+//! rotations = [0, 90, 180, 270]  # turned about its centre (degrees, one is picked)
 //! ```
 //!
 //! Part paths are relative to the `.compose` file; `""` is no part. Without
 //! `size`, an `.obj` part is fitted to the building's footprint and an `.ac`
-//! part kept as it is (tile units), like a whole model.
+//! part kept as it is (tile units), like a whole model. A part is turned
+//! about the centre of its box (or of the footprint) before it is moved.
 
 use std::path::Path;
 
@@ -52,12 +54,23 @@ pub struct Slot {
     pub at: [f32; 3],
     #[serde(default)]
     pub tints: Vec<[f32; 3]>,
+    /// Turns about the vertical axis to pick from, in degrees.
+    #[serde(default)]
+    pub rotations: Vec<f32>,
 }
 
 impl Slot {
     fn choices(&self) -> usize {
-        self.parts.len().max(1) * self.tints.len().max(1)
+        self.parts.len().max(1) * self.tints.len().max(1) * self.rotations.len().max(1)
     }
+}
+
+/// What a slot picked: indices of the part, tint and rotation.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Pick {
+    pub part: usize,
+    pub tint: usize,
+    pub rotation: usize,
 }
 
 impl Composition {
@@ -79,9 +92,9 @@ impl Composition {
         self.combinations().min(self.variants.max(1))
     }
 
-    /// The (part, tint) picked in each slot by variant `k`: combinations
-    /// spread evenly over all of them, so variants differ in every slot.
-    pub fn picks(&self, k: usize) -> Vec<(usize, usize)> {
+    /// What each slot picks for variant `k`: combinations spread evenly
+    /// over all of them, so variants differ in every slot.
+    pub fn picks(&self, k: usize) -> Vec<Pick> {
         let (total, n) = (self.combinations(), self.variant_count());
         let mut c = (k % n) * total / n;
         self.slot
@@ -90,7 +103,8 @@ impl Composition {
                 let m = s.choices();
                 let pick = c % m;
                 c /= m;
-                (pick % s.parts.len().max(1), pick / s.parts.len().max(1))
+                let (np, nt) = (s.parts.len().max(1), s.tints.len().max(1));
+                Pick { part: pick % np, tint: (pick / np) % nt, rotation: pick / (np * nt) }
             })
             .collect()
     }
@@ -101,9 +115,11 @@ pub fn load_variant(path: &Path, footprint: (u32, u32), k: usize) -> Result<Mode
     let comp = Composition::load(path)?;
     let dir = path.parent().unwrap_or(Path::new("."));
     let mut out = Model::default();
-    for (slot, (part, tint)) in comp.slot.iter().zip(comp.picks(k)) {
-        let Some(rel) = slot.parts.get(part).filter(|p| !p.is_empty()) else { continue };
+    for (slot, pick) in comp.slot.iter().zip(comp.picks(k)) {
+        let Some(rel) = slot.parts.get(pick.part).filter(|p| !p.is_empty()) else { continue };
         let mut m = crate::load_building_model(&dir.join(rel), footprint)?;
+        // The centre the part turns about: its box, or the footprint.
+        let mut centre = (footprint.0.max(1) as f32 / 2.0, footprint.1.max(1) as f32 / 2.0);
         if let (Some([bw, bl]), Some((lo, hi))) = (slot.size, m.bounds()) {
             // Fitted evenly into the box, standing on its floor.
             let s = (bw / (hi[0] - lo[0]).max(1e-3)).min(bl / (hi[2] - lo[2]).max(1e-3));
@@ -113,8 +129,22 @@ pub fn load_variant(path: &Path, footprint: (u32, u32), k: usize) -> Result<Mode
                     *p = [bw / 2.0 + (p[0] - cx) * s, (p[1] - lo[1]) * s, bl / 2.0 + (p[2] - cz) * s];
                 }
             }
+            centre = (bw / 2.0, bl / 2.0);
         }
-        let t = slot.tints.get(tint).copied().unwrap_or([1.0; 3]);
+        let angle = slot.rotations.get(pick.rotation).copied().unwrap_or(0.0).to_radians();
+        if angle != 0.0 {
+            let (sin, cos) = angle.sin_cos();
+            for mesh in &mut m.meshes {
+                for p in &mut mesh.positions {
+                    let (x, z) = (p[0] - centre.0, p[2] - centre.1);
+                    *p = [centre.0 + x * cos + z * sin, p[1], centre.1 - x * sin + z * cos];
+                }
+                for n in &mut mesh.normals {
+                    *n = [n[0] * cos + n[2] * sin, n[1], -n[0] * sin + n[2] * cos];
+                }
+            }
+        }
+        let t = slot.tints.get(pick.tint).copied().unwrap_or([1.0; 3]);
         for mut mesh in m.meshes {
             for p in &mut mesh.positions {
                 for (v, d) in p.iter_mut().zip(slot.at) {
@@ -160,13 +190,16 @@ mod tests {
             tints = [[1, 1, 1], [0.5, 0.5, 0.5]]
             [[slot]]
             parts = ["", "x"]
+            rotations = [0, 90]
             "#,
         )
         .unwrap();
-        assert_eq!(c.combinations(), 12);
+        assert_eq!(c.combinations(), 24);
         assert_eq!(c.variant_count(), 6);
-        let all: std::collections::HashSet<Vec<(usize, usize)>> = (0..6).map(|k| c.picks(k)).collect();
+        let all: std::collections::HashSet<Vec<(usize, usize, usize)>> =
+            (0..6).map(|k| c.picks(k).iter().map(|p| (p.part, p.tint, p.rotation)).collect()).collect();
         assert_eq!(all.len(), 6, "every variant is another combination");
+        assert!((0..24).map(|k| c.picks(k)[1].rotation).any(|r| r == 1), "rotations are picked too");
         assert!(Composition::parse("[[slot]]\nparts = []\nwhat = 1").is_err(), "unknown keys are refused");
     }
 

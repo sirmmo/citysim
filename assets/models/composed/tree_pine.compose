@@ -1,0 +1,10 @@
+# Pines from the Kenney Nature Kit (CC0): one of six, turned any way,
+# in a few shades. See crates/opencity-assets/src/compose.rs.
+variants = 16
+
+[[slot]]
+parts = ["../kenney/nature/tree_pineDefaultA.obj", "../kenney/nature/tree_pineDefaultB.obj", "../kenney/nature/tree_pineTallA.obj", "../kenney/nature/tree_pineTallC.obj", "../kenney/nature/tree_pineRoundA.obj", "../kenney/nature/tree_pineRoundC.obj"]
+size = [0.38, 0.38]
+at = [0.31, 0.0, 0.31]
+tints = [[1, 1, 1], [0.9, 0.95, 0.85], [0.95, 0.9, 0.8]]
+rotations = [0, 90, 180, 270]

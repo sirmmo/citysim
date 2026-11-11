@@ -2,6 +2,12 @@
 
 Release notes in full are on the [releases page](https://github.com/sirmmo/citysim/releases).
 
+## 0.2.47: Kenney infrastructure
+- **The modern skin dresses the networks too.** Power lines are Kenney City Kit Roads poles, one per tile, wired to the next pole east and south, so a line reads as one run of wire; bridges stand on the kit's pillars, two per tile, stretched from the river bed to the deck. Trees are Nature Kit pines and broad-leaved trees in several shapes, shades and turns; the park is a stone circle with a tree, a bush, flowers and some odd thing, different on every plot; the houses' yard trees come from the same kit. The seaport is a quay with two Factory Kit cranes over the water, stacks of Watercraft Pack containers, cargo, a silo and a buoy; the harbour gets a wooden landing, cargo and a buoy.
+- Composed models (`.compose`) take `rotations`: turns in degrees picked per variant like parts and tints, or one turn for every variant.
+- `.obj` models coloured by materials (`.mtl` files, as the Nature Kit is) keep their colours; kits with a colour map work as before.
+- Skins can name a bridge pier model (`look.bridge_pier`).
+
 ## 0.2.46: Regions in the browser
 - **Regions work in the browser build.** File > New region… founds a region whose towns live in the browser's storage; Open region… lists the regions saved there; Join region server… reaches an `opencity-cli region-server` over HTTP, and `play/?join=http://host:8077&player=ada&slot=0,0` joins one at once. Desktop and browser players share the same region. The region server now answers the browser's preflight requests, so pages on any host may call it.
 - Joining a server no longer freezes the game while it waits (the answer is taken in on a later frame, on every platform); fresh summaries from the server re-agree the month's trade when they arrive.

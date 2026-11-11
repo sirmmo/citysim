@@ -1,0 +1,13 @@
+# Power line, Kenney City Kit Roads (CC0): a pole in the middle of the
+# tile, and wires hung to the pole of the next tile east and/or south
+# (each tile strings its own eastward and southward spans, so a line is
+# never wired twice). See crates/opencity-assets/src/compose.rs.
+[[slot]]
+parts = ["../kenney/city-roads/electricity-pole-single.obj"]
+size = [0.08, 0.22]
+at = [0.46, 0.0, 0.39]
+
+[[slot]]
+parts = ["../kenney/city-roads/electricity-wires-wide.obj"]
+size = [1.01, 0.18]
+at = [0.495, 0.40, 0.41]

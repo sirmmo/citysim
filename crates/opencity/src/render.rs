@@ -91,6 +91,15 @@ impl MeshBuilder {
         self.indices.extend([base, base + 1, base + 2, base, base + 2, base + 3]);
     }
 
+    fn triangle(&mut self, v: [Vertex; 3]) {
+        if self.vertices.len() + 3 > CHUNK_VERTICES {
+            self.flush();
+        }
+        let base = self.vertices.len() as u16;
+        self.vertices.extend(v);
+        self.indices.extend([base, base + 1, base + 2]);
+    }
+
     fn flush(&mut self) {
         if !self.vertices.is_empty() {
             self.done.push(Mesh { vertices: std::mem::take(&mut self.vertices), indices: std::mem::take(&mut self.indices), texture: self.texture.clone() });
@@ -123,6 +132,9 @@ pub struct Renderer {
     plane: Option<Mesh>,
     /// `.obj` vehicle models by path under `<data>/models/` (None: missing).
     obj_meshes: HashMap<String, Option<Vec<Mesh>>>,
+    /// The skin's bridge pier model and its colour map, once looked up
+    /// (inner None: the skin has none, or it failed to load).
+    pier: Option<Option<(opencity_assets::obj::ObjMesh, Texture2D)>>,
     textures: HashMap<PathBuf, Texture2D>,
     /// Ground colour per height step, sampled from the legacy terrain texture.
     palette: Vec<[f32; 3]>,
@@ -176,6 +188,7 @@ impl Renderer {
             vehicle_meshes: HashMap::new(),
             plane: None,
             obj_meshes: HashMap::new(),
+            pier: None,
             variants: HashMap::new(),
             atmosphere: Atmosphere::default(),
             textures: HashMap::new(),
@@ -203,8 +216,23 @@ impl Renderer {
             }
         }
         self.variants.clear();
+        self.pier = None;
         self.terrain_key = None;
         self.scene_key = None;
+    }
+
+    /// The skin's bridge pier model, loaded on first use.
+    fn pier_model(&mut self) -> Option<(opencity_assets::obj::ObjMesh, Texture2D)> {
+        if self.pier.is_none() {
+            let loaded = self.look.bridge_pier.clone().and_then(|name| {
+                let path = self.catalog.path(&format!("models/{name}.obj"));
+                let obj = opencity_assets::obj::load(&path).map_err(|e| log::warn!("bridge pier {name}: {e}")).ok()?;
+                let tex = path.parent().map(|d| self.texture(&d.join("colormap.png"))).unwrap_or_else(|| self.white.clone());
+                Some((obj, tex))
+            });
+            self.pier = Some(loaded);
+        }
+        self.pier.clone().flatten()
     }
 
     pub fn look(&self) -> &Look {
@@ -508,16 +536,40 @@ impl Renderer {
                 self.roads.push(self.gpu.as_ref(), m);
             }
         }
-        // Bridge piers: a dark column under every road tile over water.
-        let mut piers = MeshBuilder::new(Some(self.white.clone()));
+        // Bridge piers under every road tile over water: the skin's model,
+        // two per tile across the road, stretched from the bed to the deck;
+        // without one, a dark column.
+        let pier = self.pier_model();
+        let mut piers = MeshBuilder::new(Some(pier.as_ref().map_or_else(|| self.white.clone(), |(_, tex)| tex.clone())));
         let grey = |n: Vec3| rgba(self.look.apply([0.42, 0.42, 0.45, 1.0]), shade(n));
+        let white = |n: Vec3| rgba(self.look.apply([1.0, 1.0, 1.0, 1.0]), shade(n));
         for ((w, l), s) in city.layer.structures().filter(|(_, s)| s.code == StructureCode::Road) {
             if !t.is_water(w, l) {
                 continue;
             }
-            let r = (roads::half_width(s.road) * 0.6).min(0.3);
             let (cx, cz) = (w as f32 + 0.5, l as f32 + 0.5);
             let (bottom, top) = (t.tile_min(w, l) as f32 - 0.1, BRIDGE_DECK + ROAD_LIFT);
+            if let Some((obj, _)) = &pier {
+                let (lo, hi) = obj.bounds();
+                let (ox, oz) = ((lo[0] + hi[0]) / 2.0, (lo[2] + hi[2]) / 2.0);
+                let stretch = (top - bottom) / (hi[1] - lo[1]).max(1e-3);
+                // Along the road: a north-south tile has its piers east and west.
+                let along_x = s.connections & (opencity_core::codes::connect::EAST | opencity_core::codes::connect::WEST) != 0
+                    && s.connections & (opencity_core::codes::connect::NORTH | opencity_core::codes::connect::SOUTH) == 0;
+                let spread = (roads::half_width(s.road) * 0.7).max(0.12);
+                for side in [-1.0, 1.0] {
+                    let (px, pz) = if along_x { (cx, cz + side * spread) } else { (cx + side * spread, cz) };
+                    let place = |q: [f32; 3]| vec3(px + (q[0] - ox) * 2.2, bottom + (q[1] - lo[1]) * stretch, pz + (q[2] - oz) * 2.2);
+                    for tri in &obj.triangles {
+                        let p = tri.map(|i| place(obj.positions[i as usize]));
+                        let n = (p[1] - p[0]).cross(p[2] - p[0]).normalize_or_zero();
+                        let v = |i: usize| Vertex { position: p[i], uv: Vec2::from(obj.uvs[tri[i] as usize]), color: white(n), normal: n.extend(0.0) };
+                        piers.triangle([v(0), v(1), v(2)]);
+                    }
+                }
+                continue;
+            }
+            let r = (roads::half_width(s.road) * 0.6).min(0.3);
             let v = |x: f32, y: f32, z: f32, n: Vec3| Vertex { position: vec3(x, y, z), uv: Vec2::ZERO, color: grey(n), normal: Vec4::ZERO };
             for (dx, dz, n) in [(1.0, 0.0, Vec3::X), (-1.0, 0.0, Vec3::NEG_X), (0.0, 1.0, Vec3::Z), (0.0, -1.0, Vec3::NEG_Z)] {
                 let (ax, az) = (cx + dx * r - dz * r, cz + dz * r + dx * r);

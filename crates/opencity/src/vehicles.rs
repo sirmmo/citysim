@@ -161,7 +161,13 @@ pub fn obj_meshes(obj: &opencity_assets::obj::ObjMesh, texture: Option<Texture2D
         let base = b.vertices.len() as u16;
         for (j, pos) in p.into_iter().enumerate() {
             let uv = obj.uvs[t[j] as usize];
-            b.vertices.push(Vertex { position: pos, uv: vec2(uv[0], uv[1]), color: Color::new(k, k, k, 1.0).into(), normal: n.extend(0.0) });
+            let c = obj.colors.get(t[j] as usize).copied().unwrap_or([1.0; 3]);
+            b.vertices.push(Vertex {
+                position: pos,
+                uv: vec2(uv[0], uv[1]),
+                color: Color::new(k * c[0], k * c[1], k * c[2], 1.0).into(),
+                normal: n.extend(0.0),
+            });
         }
         b.indices.extend_from_slice(&[base, base + 1, base + 2]);
     }

@@ -11,6 +11,8 @@ default = true
 
 [look]
 vehicles = true
+# Bridges stand on Kenney City Kit Roads pillars.
+bridge_pier = "kenney/city-roads/bridge-pillar"
 
 # Graphic code -> model. `models/...` is shared art under the data folder:
 # Kenney City Kit Suburban, Commercial and Industrial (CC0). Each model is
@@ -51,3 +53,30 @@ vehicles = true
 39 = "models/kenney/city-industrial/building-r.obj"
 # Coal power plant.
 300 = "models/kenney/city-industrial/building-f.obj"
+# Power lines (170 + connections, see opencity_core::codes::path_graphic):
+# a City Kit Roads pole per tile, wired to the next tile east and south.
+170 = "models/composed/powerline_pole.compose"
+173 = "models/composed/powerline_pole.compose"
+177 = "models/composed/powerline_pole.compose"
+171 = "models/composed/powerline_east.compose"
+175 = "models/composed/powerline_east.compose"
+176 = "models/composed/powerline_east.compose"
+183 = "models/composed/powerline_east.compose"
+172 = "models/composed/powerline_south.compose"
+174 = "models/composed/powerline_south.compose"
+179 = "models/composed/powerline_south.compose"
+182 = "models/composed/powerline_south.compose"
+178 = "models/composed/powerline_corner.compose"
+180 = "models/composed/powerline_corner.compose"
+181 = "models/composed/powerline_corner.compose"
+184 = "models/composed/powerline_corner.compose"
+# Park and trees from the Nature Kit.
+320 = "models/composed/park.compose"
+330 = "models/composed/tree_pine.compose"
+331 = "models/composed/tree_leafy.compose"
+332 = "models/composed/tree_leafy.compose"
+333 = "models/composed/tree_pine.compose"
+334 = "models/composed/tree_pine.compose"
+# Harbour and seaport dressed with Watercraft Pack and Factory Kit props.
+396 = "models/composed/harbour.compose"
+398 = "models/composed/seaport.compose"

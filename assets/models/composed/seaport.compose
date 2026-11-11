@@ -1,0 +1,62 @@
+# Seaport: the quay (generated, scripts/gen-utilities.py) with the
+# warehouse on the street side (+z); on it two Kenney Factory Kit cranes
+# reaching over the water (-z), stacks of Watercraft Pack containers and
+# cargo, a silo, crates and a buoy off the quay. CC0 parts.
+variants = 12
+
+[[slot]]
+parts = ["../../graphism/water/quay/quay.ac"]
+
+[[slot]]
+parts = ["../kenney/factory/crane.obj"]
+size = [1.0, 1.5]
+at = [0.1, 0.0, -0.05]
+
+[[slot]]
+parts = ["../kenney/factory/crane.obj"]
+size = [1.0, 1.5]
+at = [2.2, 0.0, -0.05]
+
+[[slot]]
+parts = ["../kenney/watercraft/cargo-container-a.obj", "../kenney/watercraft/cargo-container-b.obj", "../kenney/watercraft/cargo-container-c.obj"]
+size = [0.42, 0.84]
+at = [1.25, 0.0, 0.5]
+rotations = [0, 90]
+
+[[slot]]
+parts = ["../kenney/watercraft/cargo-container-b.obj", "../kenney/watercraft/cargo-container-c.obj", "../kenney/watercraft/cargo-container-a.obj"]
+size = [0.42, 0.84]
+at = [1.75, 0.0, 0.55]
+
+[[slot]]
+parts = ["../kenney/watercraft/cargo-container-c.obj", "../kenney/watercraft/cargo-container-a.obj", ""]
+size = [0.42, 0.84]
+at = [2.3, 0.0, 1.05]
+rotations = [90]
+
+[[slot]]
+parts = ["../kenney/watercraft/cargo-pile-a.obj", "../kenney/watercraft/cargo-pile-b.obj"]
+size = [0.8, 0.8]
+at = [3.15, 0.0, 0.5]
+rotations = [0, 90, 180]
+
+[[slot]]
+parts = ["../kenney/factory/hopper-round.obj"]
+size = [0.6, 0.6]
+at = [3.35, 0.0, 1.35]
+
+[[slot]]
+parts = ["../kenney/factory/box-large.obj", ""]
+size = [0.3, 0.3]
+at = [0.4, 0.0, 1.4]
+rotations = [0, 30, 60]
+
+[[slot]]
+parts = ["../kenney/factory/warning-orange.obj", ""]
+size = [0.12, 0.12]
+at = [0.75, 0.0, 1.5]
+
+[[slot]]
+parts = ["../kenney/watercraft/buoy-flag.obj", "../kenney/watercraft/buoy.obj"]
+size = [0.25, 0.25]
+at = [3.5, -0.1, -0.5]

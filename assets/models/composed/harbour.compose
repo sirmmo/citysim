@@ -1,0 +1,26 @@
+# Harbour: the Kenney Watercraft Pack boat house (CC0) at the back of
+# the plot, a wooden landing into the water (-z), a cargo pile or crates
+# and a buoy. See crates/opencity-assets/src/compose.rs.
+variants = 8
+
+[[slot]]
+parts = ["../../graphism/water/harbour/harbour.obj"]
+size = [1.1, 1.1]
+at = [0.75, 0.0, 0.8]
+
+[[slot]]
+parts = ["../kenney/watercraft/ramp.obj"]
+size = [0.8, 0.8]
+at = [0.0, 0.0, -0.3]
+rotations = [0, 180]
+
+[[slot]]
+parts = ["../kenney/watercraft/cargo-pile-a.obj", "../kenney/factory/box-large.obj", "../kenney/nature/log.obj", ""]
+size = [0.35, 0.35]
+at = [0.2, 0.0, 0.9]
+rotations = [0, 90]
+
+[[slot]]
+parts = ["../kenney/watercraft/buoy.obj", "../kenney/watercraft/buoy-flag.obj"]
+size = [0.22, 0.22]
+at = [1.4, -0.1, -0.45]
