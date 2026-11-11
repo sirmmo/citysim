@@ -77,6 +77,13 @@ bridge_pier = "kenney/city-roads/bridge-pillar"
 332 = "models/composed/tree_leafy.compose"
 333 = "models/composed/tree_pine.compose"
 334 = "models/composed/tree_pine.compose"
+# Water and waste works composed from Factory Kit parts.
+380 = "models/composed/pumping_station.compose"
+381 = "models/composed/water_tower.compose"
+382 = "models/composed/water_treatment.compose"
+383 = "models/composed/dump.compose"
+384 = "models/composed/recycling.compose"
+385 = "models/composed/incinerator.compose"
 # Harbour and seaport dressed with Watercraft Pack and Factory Kit props.
 396 = "models/composed/harbour.compose"
 398 = "models/composed/seaport.compose"

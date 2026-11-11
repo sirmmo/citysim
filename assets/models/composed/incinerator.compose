@@ -1,0 +1,41 @@
+# Incinerator: a Kenney Factory Kit fortified furnace with its feed
+# hopper, a tall chimney (a piston stretched upright), a pipe stub and a
+# crate; the furnace door faces the street (+z). CC0 parts.
+variants = 8
+
+[[slot]]
+parts = ["../kenney/factory/floor-large.obj"]
+
+[[slot]]
+parts = ["../kenney/factory/machine-fortified.obj"]
+size = [1.0, 1.3]
+at = [0.1, 0.0, 0.55]
+tints = [[1, 1, 1], [0.85, 0.85, 0.9]]
+
+[[slot]]
+parts = ["../kenney/factory/hopper-high-square.obj", "../kenney/factory/hopper-square.obj"]
+size = [0.6, 0.6]
+at = [1.3, 0.0, 0.15]
+
+[[slot]]
+parts = ["../kenney/factory/piston-round.obj"]
+size = [0.32, 0.32]
+height = 1.9
+at = [1.45, 0.0, 0.9]
+tints = [[0.8, 0.8, 0.85]]
+
+[[slot]]
+parts = ["../kenney/factory/pipe-large.obj", "../kenney/factory/pipe-large-valve.obj"]
+size = [0.45, 0.45]
+at = [1.35, 0.0, 1.45]
+
+[[slot]]
+parts = ["../kenney/factory/box-large.obj", "../kenney/factory/box-wide.obj", ""]
+size = [0.35, 0.35]
+at = [0.2, 0.0, 1.85]
+rotations = [0, 30, 60]
+
+[[slot]]
+parts = ["../kenney/factory/warning-orange.obj", "../kenney/factory/cone.obj"]
+size = [0.12, 0.12]
+at = [1.85, 0.0, 1.85]

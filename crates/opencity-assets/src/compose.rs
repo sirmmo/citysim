@@ -8,6 +8,7 @@
 //! [[slot]]                       # the house itself
 //! parts = ["../kenney/city-suburban/building-type-h.obj", "../kenney/city-suburban/building-type-e.obj"]
 //! size = [0.8, 0.7]              # fitted into this box, in tiles (optional)
+//! height = 1.6                   # then stretched to this tall (optional)
 //! at = [0.1, 0.0, 0.05]          # then moved by this much (x, y, z tiles)
 //! tints = [[1, 1, 1], [1, 0.9, 0.8]]   # colour multipliers to pick from
 //!
@@ -50,6 +51,9 @@ pub struct Slot {
     pub parts: Vec<String>,
     #[serde(default)]
     pub size: Option<[f32; 2]>,
+    /// Stretched to this height in tiles after the fit (optional).
+    #[serde(default)]
+    pub height: Option<f32>,
     #[serde(default)]
     pub at: [f32; 3],
     #[serde(default)]
@@ -131,6 +135,15 @@ pub fn load_variant(path: &Path, footprint: (u32, u32), k: usize) -> Result<Mode
             }
             centre = (bw / 2.0, bl / 2.0);
         }
+        if let (Some(h), Some((lo, hi))) = (slot.height, m.bounds()) {
+            // Stretched upright: a square part can stand as a tower or a chimney.
+            let s = h / (hi[1] - lo[1]).max(1e-3);
+            for mesh in &mut m.meshes {
+                for p in &mut mesh.positions {
+                    p[1] = lo[1] + (p[1] - lo[1]) * s;
+                }
+            }
+        }
         let angle = slot.rotations.get(pick.rotation).copied().unwrap_or(0.0).to_radians();
         if angle != 0.0 {
             let (sin, cos) = angle.sin_cos();
@@ -191,6 +204,7 @@ mod tests {
             [[slot]]
             parts = ["", "x"]
             rotations = [0, 90]
+            height = 1.5
             "#,
         )
         .unwrap();
@@ -200,6 +214,7 @@ mod tests {
             (0..6).map(|k| c.picks(k).iter().map(|p| (p.part, p.tint, p.rotation)).collect()).collect();
         assert_eq!(all.len(), 6, "every variant is another combination");
         assert!((0..24).map(|k| c.picks(k)[1].rotation).any(|r| r == 1), "rotations are picked too");
+        assert_eq!(c.slot[1].height, Some(1.5));
         assert!(Composition::parse("[[slot]]\nparts = []\nwhat = 1").is_err(), "unknown keys are refused");
     }
 

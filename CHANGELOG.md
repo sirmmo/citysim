@@ -2,6 +2,10 @@
 
 Release notes in full are on the [releases page](https://github.com/sirmmo/citysim/releases).
 
+## 0.2.49: Factory Kit utilities
+- **The modern skin's water and waste works are Kenney Factory Kit scenes:** the pumping station is a pump house with its pipe run, valve and tank; the water tower a tank on legs; the treatment plant three basins, a pipe run and a control house; the landfill heaps of cargo and crates with a magnet crane; the recycling centre a sorting machine fed by a conveyor, with a hopper, crates and a robot arm; the incinerator a furnace with its feed hopper and chimney. Each plot picks its own parts, turns and tints.
+- Composed models (`.compose`) take `height`: the part is stretched upright to that many tiles after the fit, so a square part can stand as a tower or a chimney.
+
 ## 0.2.48: Kenney infrastructure
 - **The modern skin dresses the networks too.** Power lines are Kenney City Kit Roads poles, one per tile, wired to the next pole east and south, so a line reads as one run of wire; bridges stand on the kit's pillars, two per tile, stretched from the river bed to the deck. Trees are Nature Kit pines and broad-leaved trees in several shapes, shades and turns; the park is a stone circle with a tree, a bush, flowers and some odd thing, different on every plot; the houses' yard trees come from the same kit. The seaport is a quay with two Factory Kit cranes over the water, stacks of Watercraft Pack containers, cargo, a silo and a buoy; the harbour gets a wooden landing, cargo and a buoy.
 - Composed models (`.compose`) take `rotations`: turns in degrees picked per variant like parts and tints, or one turn for every variant.

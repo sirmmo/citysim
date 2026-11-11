@@ -70,6 +70,12 @@ parts = ["", "../kenney/nature/tree_oak.obj"]
 size = [0.24, 0.24]
 at = [0.05, 0.0, 0.71]
 rotations = [0, 90, 180, 270]     # turned about its centre; one is picked
+
+[[slot]]                          # a chimney: a round part stood tall
+parts = ["../kenney/factory/piston-round.obj"]
+size = [0.3, 0.3]
+height = 1.8                      # stretched upright to this, after the fit
+at = [0.6, 0.0, 0.2]
 ```
 
 - **Paths** are relative to the `.compose` file.
@@ -82,6 +88,8 @@ rotations = [0, 90, 180, 270]     # turned about its centre; one is picked
   like a part or a tint; the part turns about the centre of its box (or of
   the footprint) before `at` moves it. A single entry turns every variant
   the same way, which is how the power-line wires are strung north-south.
+- **Height:** `height` stretches the part upright to that many tiles after
+  the fit, so a square kit part can stand as a tower or a chimney.
 - **Variants:** with many combinations, `variants` of them are used,
   spread so they differ in every slot.
 - A `.conf` next to the `.compose` file gives its name and size like any
@@ -91,9 +99,12 @@ rotations = [0, 90, 180, 270]     # turned about its centre; one is picked
 
 The modern skin draws its little houses (11) and family houses (12) this
 way, from `models/composed/`: one of several Kenney houses, tinted, with a
-tree and a parked car or neither. Its power lines, trees, parks, harbour
-and seaport are compositions too (`powerline_*.compose`, `tree_*.compose`,
-`park.compose`, `harbour.compose`, `seaport.compose`).
+tree and a parked car or neither. Its power lines, trees, parks, harbour,
+seaport and water and waste works are compositions too
+(`powerline_*.compose`, `tree_*.compose`, `park.compose`, `harbour.compose`,
+`seaport.compose`, `pumping_station.compose`, `water_tower.compose`,
+`water_treatment.compose`, `dump.compose`, `recycling.compose`,
+`incinerator.compose`).
 
 ## Shipped examples
 
