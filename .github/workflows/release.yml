@@ -42,8 +42,15 @@ jobs:
       - name: Linux system libraries
         if: runner.os == 'Linux'
         run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends pkg-config libx11-dev libxi-dev libgl1-mesa-dev libasound2-dev
+          # The runner's Azure apt mirror sometimes stops resolving: retry,
+          # and fall back to the main archive after the first failure.
+          ok=
+          for i in 1 2 3; do
+            if sudo apt-get update && sudo apt-get install -y --no-install-recommends pkg-config libx11-dev libxi-dev libgl1-mesa-dev libasound2-dev; then ok=1; break; fi
+            sudo sed -i 's#azure\.archive\.ubuntu\.com#archive.ubuntu.com#g' /etc/apt/apt-mirrors.txt /etc/apt/sources.list /etc/apt/sources.list.d/* || true
+            sleep 30
+          done
+          [ -n "$ok" ]
 
       # rust-toolchain.toml pins the compiler (1.88.0); rustup installs it here.
       - name: Rust toolchain
