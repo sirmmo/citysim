@@ -46,6 +46,12 @@ pub struct Look {
     /// the piers of bridges, two per tile over water, stretched from the
     /// bed to the deck; none draws plain columns.
     pub bridge_pier: Option<String>,
+    /// A sky panorama (equirectangular image, path under the data
+    /// directory) drawn behind the scene, lit by the hour and the weather;
+    /// none keeps the plain `sky` colour.
+    pub skybox: Option<String>,
+    /// Smoke rising from power plants, incinerators and industry.
+    pub smoke: bool,
 }
 
 impl Default for Look {
@@ -59,6 +65,8 @@ impl Default for Look {
             ui_panel: [22, 26, 34],
             vehicles: true,
             bridge_pier: None,
+            skybox: None,
+            smoke: false,
         }
     }
 }

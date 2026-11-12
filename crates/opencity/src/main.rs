@@ -509,7 +509,9 @@ impl Game {
     }
 
     fn say(&mut self, m: impl Into<String>) {
-        self.message = Some((m.into(), get_time() + 3.0));
+        let m = m.into();
+        self.audio.play_ui(audio::Ui::of_message(&m));
+        self.message = Some((m, get_time() + 3.0));
     }
 
     /// Turns a plant or service a quarter clockwise.
@@ -799,8 +801,14 @@ impl Game {
 
     fn handle_action(&mut self, a: Action) -> bool {
         match a {
-            Action::Tool(t) => self.active = t.map(|t| Action::Tool(Some(t))),
-            Action::Query => self.active = Some(Action::Query),
+            Action::Tool(t) => {
+                self.audio.play_ui(audio::Ui::Click);
+                self.active = t.map(|t| Action::Tool(Some(t)))
+            }
+            Action::Query => {
+                self.audio.play_ui(audio::Ui::Click);
+                self.active = Some(Action::Query)
+            }
             Action::TogglePause => {
                 if self.city.speed == Speed::Paused {
                     self.city.speed = self.resume_speed;
@@ -1222,11 +1230,13 @@ impl Game {
         // News from the city (the family's visits…).
         if let Some(m) = self.city.messages.pop() {
             self.city.messages.clear();
+            self.audio.play_ui(audio::Ui::of_message(&m));
             self.message = Some((m, get_time() + 6.0));
         }
         // Disaster notices, with a look at the scene.
         if let Some(e) = self.city.notices.pop() {
             self.city.notices.clear();
+            self.audio.play_ui(audio::Ui::Alarm);
             let lost = if e.hit == 1 { "1 building hit".to_string() } else { format!("{} buildings hit", e.hit) };
             self.message = Some((format!("{} at {}, {}: {lost}", e.name, e.at.0, e.at.1), get_time() + 6.0));
         }
@@ -1264,8 +1274,20 @@ impl Game {
         let sky = self.renderer.look().sky;
         let sky = [sky[0] * self.renderer.atmosphere.sky.x, sky[1] * self.renderer.atmosphere.sky.y, sky[2] * self.renderer.atmosphere.sky.z];
         clear_background(Color::new(sky[0], sky[1], sky[2], 1.0));
+        // The skin's sky panorama, lit like the plain sky.
+        if let Some(path) = self.renderer.look().skybox.clone() {
+            let tex = self.renderer.ui_texture(&path);
+            let a = self.renderer.atmosphere.sky;
+            set_default_camera();
+            render::draw_sky(&tex, self.camera.yaw, self.camera.pitch, [a.x, a.y, a.z]);
+        }
         set_camera(&cam);
         self.renderer.draw_city(&self.city, &cam);
+        if self.renderer.look().smoke {
+            let (white, black) = (self.renderer.ui_texture("graphism/texture/smoke_white.png"), self.renderer.ui_texture("graphism/texture/smoke_black.png"));
+            let a = self.renderer.atmosphere.sky;
+            render::draw_smoke(&self.city, &cam, self.camera.target, get_time(), [&white, &black], ((a.x + a.y + a.z) / 3.0).clamp(0.25, 1.0));
+        }
         if let Some(r) = self.region.as_ref() {
             render::draw_crossings(&self.city, &region_gates(r, &self.crossings));
         }

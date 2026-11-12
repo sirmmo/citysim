@@ -7,6 +7,40 @@ use opencity_core::{region::SIDES, City};
 use crate::region::RegionSession;
 use crate::ui_egui::Command;
 
+/// Map symbols of the towns by size (Kenney Cartography Pack, CC0), kept
+/// as egui textures between frames.
+const SYMBOLS: [(&str, &[u8]); 5] = [
+    ("found", include_bytes!("../../../assets/graphism/gui/map/found.png")),
+    ("hamlet", include_bytes!("../../../assets/graphism/gui/map/hamlet.png")),
+    ("town", include_bytes!("../../../assets/graphism/gui/map/town.png")),
+    ("city", include_bytes!("../../../assets/graphism/gui/map/city.png")),
+    ("capital", include_bytes!("../../../assets/graphism/gui/map/capital.png")),
+];
+
+/// The symbol for a town of `population` (None: an empty slot).
+pub fn symbol_for(population: Option<u32>) -> usize {
+    match population {
+        None => 0,
+        Some(p) if p < 500 => 1,
+        Some(p) if p < 3000 => 2,
+        Some(p) if p < 12000 => 3,
+        Some(_) => 4,
+    }
+}
+
+fn symbol(ctx: &egui::Context, k: usize) -> Option<egui::TextureHandle> {
+    let (name, bytes) = SYMBOLS[k];
+    let id = egui::Id::new(("region_symbol", name));
+    if let Some(t) = ctx.data(|d| d.get_temp::<egui::TextureHandle>(id)) {
+        return Some(t);
+    }
+    let img = image::load_from_memory(bytes).ok()?.to_rgba8();
+    let color = egui::ColorImage::from_rgba_unmultiplied([img.width() as usize, img.height() as usize], img.as_raw());
+    let t = ctx.load_texture(name, color, egui::TextureOptions::LINEAR);
+    ctx.data_mut(|d| d.insert_temp(id, t.clone()));
+    Some(t)
+}
+
 pub fn window(ctx: &egui::Context, open: &mut bool, r: &RegionSession, city: &City, out: &mut Vec<Command>) {
     egui::Window::new(format!("Region: {}", r.region.name)).open(open).default_width(420.0).default_pos([220.0, 90.0]).resizable(true).show(ctx, |ui| {
         match &r.remote {
@@ -33,7 +67,13 @@ pub fn window(ctx: &egui::Context, open: &mut bool, r: &RegionSession, city: &Ci
                         }
                         None => "+ Found\na city".to_string(),
                     };
-                    let mut b = egui::Button::new(RichText::new(text).size(12.0)).min_size(egui::vec2(96.0, 48.0));
+                    let text = RichText::new(text).size(12.0);
+                    let k = symbol_for(r.region.city(slot).map(|c| if current { city.population } else { c.population }));
+                    let mut b = match symbol(ctx, k) {
+                        Some(t) => egui::Button::image_and_text(egui::Image::new((t.id(), egui::vec2(30.0, 30.0))), text),
+                        None => egui::Button::new(text),
+                    }
+                    .min_size(egui::vec2(124.0, 48.0));
                     if current {
                         b = b.fill(Color32::from_rgb(70, 110, 70));
                     }
@@ -114,4 +154,20 @@ pub fn window(ctx: &egui::Context, open: &mut bool, r: &RegionSession, city: &Ci
             out.push(Command::SaveRegion);
         }
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn symbols_grow_with_the_town() {
+        assert_eq!(symbol_for(None), 0);
+        assert_eq!(symbol_for(Some(0)), 1);
+        assert_eq!(symbol_for(Some(2500)), 2);
+        assert_eq!(symbol_for(Some(50_000)), 4);
+        for (name, bytes) in SYMBOLS {
+            assert!(image::load_from_memory(bytes).is_ok(), "{name}");
+        }
+    }
 }

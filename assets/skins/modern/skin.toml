@@ -13,6 +13,8 @@ default = true
 vehicles = true
 # Bridges stand on Kenney City Kit Roads pillars.
 bridge_pier = "kenney/city-roads/bridge-pillar"
+skybox = "graphism/texture/sky_day.png"
+smoke = true
 
 # Graphic code -> model. `models/...` is shared art under the data folder:
 # Kenney City Kit Suburban, Commercial and Industrial (CC0). Each model is

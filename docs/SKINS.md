@@ -29,6 +29,8 @@ keys group it in the new-city dialog.
 | `look.ui_accent`, `look.ui_panel` | egui interface colours |
 | `look.vehicles` | Hide cars, e.g. before 1900 or in a fantasy world |
 | `look.bridge_pier` | An `.obj` under `models/` (no extension) stood under bridges, two per tile over water, stretched from the bed to the deck; without it bridges rest on plain columns |
+| `look.skybox` | An equirectangular sky image (path under the data directory) drawn behind the scene and lit by the hour and the weather; none keeps the plain `sky` colour. |
+| `look.smoke` | `true` draws smoke over coal plants, incinerators and industry. |
 | `[labels]` | Tool names, by tool id (`coal_plant = "Watermill"`) |
 | `disabled_tools` | Tools that do not exist in that era or world |
 | `[models]` | Graphic code to replacement model: `.ac` (AC3D), `.obj` (Wavefront, e.g. Kenney kits) or `.compose` (a model composed from parts, below). A path starting with `models/` is shared art under the data folder; any other path is relative to the skin folder |

@@ -2,6 +2,13 @@
 
 Release notes in full are on the [releases page](https://github.com/sirmmo/citysim/releases).
 
+## 0.2.51: Sounds, sky, smoke and map symbols
+- **Interface sounds** (Kenney Interface Sounds): a click when a tool is picked, a low note when something is refused or fails, a chime when a save, a load or a discovery succeeds, a bong when a disaster strikes.
+- **Research is announced:** "Discovered: Railways" when a project finishes.
+- **A sky behind the city** in the modern skin: a Kenney panorama with clouds at the horizon, lit by the hour and the weather. Skins choose theirs with `look.skybox`.
+- **Smoke** rises from coal plants, incinerators and working industry in the modern and industrial skins (`look.smoke`).
+- **The region map shows the towns as map symbols** (Kenney Cartography Pack): a tent for a free slot, then a house, a village, a church and a castle as the town grows.
+
 ## 0.2.50: Kenney services
 - **The modern skin's services and power plants are Kenney scenes too:** a red fire station with its engines on the forecourt, a blue police station with patrol cars, a hospital of two wings with ambulances at the door, a school with a fenced yard and trees, a coal plant with its stacks, tank and coal heaps, a nuclear plant with two cooling towers, reactor and turbine halls; bus, tram and metro stops get shelters, platforms, signs and lamps. With this every building of the modern skin is CC0 Kenney art, apart from the airport.
 

@@ -635,6 +635,13 @@ impl City {
         self.respond_to_disasters();
         if let Some(gb) = &self.glassbox {
             self.notices.extend(gb.events.iter().cloned());
+            // Research done: news for the player.
+            if let Some(rules) = gb.rules() {
+                for id in &gb.discoveries {
+                    let name = rules.tech(id).map_or(id.as_str(), |t| rules.techs[t].name.as_str());
+                    self.messages.push(format!("Discovered: {name}"));
+                }
+            }
         }
         let gb = self.glassbox.take().unwrap();
         if let Some(pop) = gb.rules().and_then(|r| r.population.as_deref().and_then(|p| r.resource(p))) {

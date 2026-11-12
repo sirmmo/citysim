@@ -45,6 +45,12 @@ Watercraft Pack, City Kits (Suburban, Commercial, Industrial, Roads),
 Factory Kit and Nature Kit by [Kenney](https://www.kenney.nl), released
 under CC0 (public domain). Each folder keeps the kit's `License.txt`.
 
+Also by Kenney, under CC0: the interface sounds in `assets/sound/ui/`
+(Interface Sounds), the sky panorama and smoke puffs in
+`assets/graphism/texture/` (`sky_day.png` from Skyboxes, `smoke_*.png`
+from Smoke Particles) and the region map symbols in
+`assets/graphism/gui/map/` (Cartography Pack).
+
 ## Browser build
 
 `web/mq_js_bundle.js` is the JavaScript side of the libraries the game is

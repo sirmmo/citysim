@@ -1015,6 +1015,103 @@ pub fn draw_crossings(city: &opencity_core::City, gates: &[(opencity_core::regio
 }
 
 /// Rain or snow falling around a point, at a moment (seconds).
+/// The sky panorama behind the scene: the part of an equirectangular image
+/// the camera looks at (by its yaw and pitch), tinted by the light. Drawn in
+/// screen space, before the 3D scene.
+pub fn draw_sky(tex: &Texture2D, yaw: f32, pitch: f32, tint: [f32; 3]) {
+    use std::f32::consts::{PI, TAU};
+    let (sw, sh) = (screen_width(), screen_height());
+    let (tw, th) = (tex.width(), tex.height());
+    let vfov = 45f32.to_radians();
+    let hfov = 2.0 * ((vfov / 2.0).tan() * sw / sh.max(1.0)).atan();
+    // The camera looks down by `pitch`: the middle of the screen is that
+    // far under the horizon (v = 0.5).
+    let v_mid = 0.5 + pitch / PI;
+    let (v0, v1) = ((v_mid - vfov / 2.0 / PI).clamp(0.0, 1.0), (v_mid + vfov / 2.0 / PI).clamp(0.0, 1.0));
+    let width = hfov / TAU;
+    let u0 = (-yaw / TAU - width / 2.0).rem_euclid(1.0);
+    let colour = Color::new(tint[0].min(1.0), tint[1].min(1.0), tint[2].min(1.0), 1.0);
+    // In one piece, or two where the view crosses the image's seam.
+    let first = width.min(1.0 - u0);
+    let mut x = 0.0;
+    for (u, w) in [(u0, first), (0.0, width - first)] {
+        if w <= 0.0 {
+            continue;
+        }
+        let dw = sw * w / width;
+        draw_texture_ex(
+            tex,
+            x,
+            0.0,
+            colour,
+            DrawTextureParams {
+                dest_size: Some(vec2(dw + 1.0, sh)),
+                source: Some(macroquad::math::Rect::new(u * tw, v0 * th, w * tw, (v1 - v0) * th)),
+                ..Default::default()
+            },
+        );
+        x += dw;
+    }
+}
+
+/// Smoke over power plants, incinerators and industry: a few puffs per
+/// chimney that rise, drift, grow and fade, placed by the time alone (no
+/// particle state). `textures` are the white puff and the black smoke.
+pub fn draw_smoke(city: &City, camera: &Camera3D, around: Vec3, time: f64, textures: [&Texture2D; 2], light: f32) {
+    const PUFFS: u32 = 5;
+    const REACH: f32 = 45.0;
+    let fwd = (camera.target - camera.position).normalize_or_zero();
+    let right = fwd.cross(Vec3::Y).normalize_or_zero();
+    let up = right.cross(fwd).normalize_or_zero();
+    let mut meshes = [Vec::<Vertex>::new(), Vec::new()];
+    for ((w, l), s) in city.layer.structures() {
+        // (texture, plumes, size) by what burns there.
+        let (tex, plumes, size) = match s.code {
+            StructureCode::CoalPlant => (1, 2, 0.55),
+            StructureCode::Incinerator => (1, 1, 0.5),
+            StructureCode::Industrial if s.unit.is_some() && s.level >= 1 => (0, 1, 0.22 + 0.06 * s.level.min(3) as f32),
+            _ => continue,
+        };
+        let fp = city.footprints().get(s.graphic);
+        let (cx, cz) = (w as f32 + fp.width.max(1) as f32 / 2.0, l as f32 + fp.length.max(1) as f32 / 2.0);
+        if (cx - around.x).abs() > REACH || (cz - around.z).abs() > REACH {
+            continue;
+        }
+        let base = city.terrain.tile_max(w, l) as f32 + fp.height.clamp(0.4, 3.0) * 0.9;
+        for plume in 0..plumes {
+            let seed = (w.wrapping_mul(73) ^ l.wrapping_mul(151) ^ (plume * 31)) as f32;
+            let (ox, oz) = (((seed * 0.37).sin()) * 0.25 * fp.width as f32 + plume as f32 * 0.35, ((seed * 0.73).cos()) * 0.2 * fp.length as f32);
+            for k in 0..PUFFS {
+                let t = ((time as f32 * 0.12 + k as f32 / PUFFS as f32 + seed * 0.013) % 1.0 + 1.0) % 1.0;
+                let rise = t * (1.2 + size * 2.0);
+                let centre = vec3(cx + ox + t * t * 0.9, base + rise, cz + oz + t * 0.3);
+                let r = size * (0.5 + t * 1.3);
+                let alpha = (1.0 - t).min(t * 6.0).clamp(0.0, 1.0) * if tex == 1 { 0.75 } else { 0.55 };
+                let c = (light * 255.0).min(255.0) as u8;
+                let colour = [c, c, c, (alpha * 255.0) as u8];
+                let v = |dx: f32, dy: f32, u: f32, vv: f32| Vertex {
+                    position: centre + right * dx * r + up * dy * r,
+                    uv: vec2(u, vv),
+                    color: colour,
+                    normal: Vec4::ZERO,
+                };
+                let m = &mut meshes[tex];
+                if m.len() + 4 > 4000 {
+                    continue;
+                }
+                m.extend([v(-1.0, -1.0, 0.0, 1.0), v(1.0, -1.0, 1.0, 1.0), v(1.0, 1.0, 1.0, 0.0), v(-1.0, 1.0, 0.0, 0.0)]);
+            }
+        }
+    }
+    for (vertices, texture) in meshes.into_iter().zip(textures) {
+        if vertices.is_empty() {
+            continue;
+        }
+        let indices = (0..vertices.len() as u16 / 4).flat_map(|q| [q * 4, q * 4 + 1, q * 4 + 2, q * 4, q * 4 + 2, q * 4 + 3]).collect();
+        draw_mesh(&Mesh { vertices, indices, texture: Some(texture.clone()) });
+    }
+}
+
 pub fn draw_precipitation(around: Vec3, time: f64, rain: bool, amount: f32) {
     let n = (600.0 * amount) as u32;
     let (fall, len, colour) = if rain { (9.0, 0.35, Color::new(0.75, 0.8, 0.9, 0.55)) } else { (1.2, 0.06, Color::new(1.0, 1.0, 1.0, 0.9)) };
