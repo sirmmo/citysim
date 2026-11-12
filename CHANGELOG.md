@@ -2,6 +2,9 @@
 
 Release notes in full are on the [releases page](https://github.com/sirmmo/citysim/releases).
 
+## 0.2.50: Kenney services
+- **The modern skin's services and power plants are Kenney scenes too:** a red fire station with its engines on the forecourt, a blue police station with patrol cars, a hospital of two wings with ambulances at the door, a school with a fenced yard and trees, a coal plant with its stacks, tank and coal heaps, a nuclear plant with two cooling towers, reactor and turbine halls; bus, tram and metro stops get shelters, platforms, signs and lamps. With this every building of the modern skin is CC0 Kenney art, apart from the airport.
+
 ## 0.2.49: Factory Kit utilities
 - **The modern skin's water and waste works are Kenney Factory Kit scenes:** the pumping station is a pump house with its pipe run, valve and tank; the water tower a tank on legs; the treatment plant three basins, a pipe run and a control house; the landfill heaps of cargo and crates with a magnet crane; the recycling centre a sorting machine fed by a conveyor, with a hopper, crates and a robot arm; the incinerator a furnace with its feed hopper and chimney. Each plot picks its own parts, turns and tints.
 - Composed models (`.compose`) take `height`: the part is stretched upright to that many tiles after the fit, so a square part can stand as a tower or a chimney.

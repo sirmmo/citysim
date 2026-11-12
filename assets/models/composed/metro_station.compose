@@ -1,0 +1,28 @@
+# Metro station: a Kenney canopy over the stairs, the line's sign above
+# it and a lamp. CC0 parts.
+variants = 4
+
+[[slot]]
+parts = ["../kenney/city-roads/tile-low.obj"]
+size = [0.8, 0.6]
+at = [0.1, 0.0, 0.15]
+
+[[slot]]
+parts = ["../kenney/city-commercial/detail-overhang-wide.obj"]
+size = [0.8, 0.3]
+height = 0.5
+at = [0.1, 0.03, 0.2]
+
+[[slot]]
+parts = ["../kenney/city-roads/sign-highway.obj"]
+size = [0.12, 0.7]
+height = 0.75
+at = [0.44, 0.0, 0.15]
+rotations = [90]
+tints = [[1.0, 0.5, 0.5], [0.6, 0.7, 1.0]]
+
+[[slot]]
+parts = ["../kenney/city-roads/light-square.obj"]
+size = [0.08, 0.2]
+height = 0.55
+at = [0.9, 0.0, 0.75]

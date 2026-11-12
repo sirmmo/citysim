@@ -51,8 +51,16 @@ bridge_pier = "kenney/city-roads/bridge-pillar"
 37 = "models/kenney/city-industrial/building-n.obj"
 38 = "models/kenney/city-industrial/building-l.obj"
 39 = "models/kenney/city-industrial/building-r.obj"
-# Coal power plant.
-300 = "models/kenney/city-industrial/building-f.obj"
+# Power plants and services composed from the city kits.
+300 = "models/composed/coal_plant.compose"
+303 = "models/composed/nuclear_plant.compose"
+350 = "models/composed/fire_station.compose"
+360 = "models/composed/police_station.compose"
+370 = "models/composed/hospital.compose"
+390 = "models/composed/school.compose"
+386 = "models/composed/bus_stop.compose"
+387 = "models/composed/tram_stop.compose"
+388 = "models/composed/metro_station.compose"
 # Power lines (170 + connections, see opencity_core::codes::path_graphic):
 # a City Kit Roads pole per tile, wired to the next tile east and south.
 170 = "models/composed/powerline_pole.compose"

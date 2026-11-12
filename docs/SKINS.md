@@ -104,7 +104,8 @@ seaport and water and waste works are compositions too
 (`powerline_*.compose`, `tree_*.compose`, `park.compose`, `harbour.compose`,
 `seaport.compose`, `pumping_station.compose`, `water_tower.compose`,
 `water_treatment.compose`, `dump.compose`, `recycling.compose`,
-`incinerator.compose`).
+`incinerator.compose`), and so are its services, power plants and transit
+stops (`fire_station.compose`, `hospital.compose`, `nuclear_plant.compose`…).
 
 ## Shipped examples
 

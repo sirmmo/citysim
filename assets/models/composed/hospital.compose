@@ -1,0 +1,53 @@
+# Hospital: two Kenney commercial wings and a ward tower, ambulances at the
+# door (+z), a lawn with trees. CC0 parts.
+variants = 6
+
+[[slot]]
+parts = ["../kenney/city-commercial/building-k.obj"]
+size = [3.0, 1.5]
+at = [0.2, 0.0, 0.2]
+tints = [[1.0, 1.0, 1.0], [1.0, 0.97, 0.95]]
+
+[[slot]]
+parts = ["../kenney/city-commercial/building-e.obj"]
+size = [2.4, 1.5]
+at = [3.3, 0.0, 0.25]
+
+[[slot]]
+parts = ["../kenney/car-kit/ambulance.obj"]
+size = [0.28, 0.52]
+at = [1.0, 0.0, 2.2]
+
+[[slot]]
+parts = ["../kenney/car-kit/ambulance.obj", ""]
+size = [0.28, 0.52]
+at = [1.5, 0.0, 2.2]
+rotations = [0, 180]
+
+[[slot]]
+parts = ["../kenney/city-commercial/detail-awning-wide.obj"]
+size = [0.9, 0.3]
+at = [2.1, 0.0, 1.75]
+
+[[slot]]
+parts = ["../kenney/nature/tree_default.obj", "../kenney/nature/tree_oak.obj", "../kenney/nature/tree_fat.obj"]
+size = [0.4, 0.4]
+at = [4.2, 0.0, 2.2]
+rotations = [0, 90, 180, 270]
+
+[[slot]]
+parts = ["../kenney/nature/tree_oak.obj", "../kenney/nature/tree_detailed.obj", ""]
+size = [0.4, 0.4]
+at = [5.2, 0.0, 2.3]
+rotations = [0, 90, 180, 270]
+
+[[slot]]
+parts = ["../kenney/city-suburban/planter.obj"]
+size = [0.4, 0.3]
+at = [3.3, 0.0, 2.3]
+
+[[slot]]
+parts = ["../kenney/city-roads/light-square.obj"]
+size = [0.1, 0.24]
+height = 0.6
+at = [0.2, 0.0, 2.5]

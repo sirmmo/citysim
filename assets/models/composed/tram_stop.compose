@@ -1,0 +1,18 @@
+# Tram stop: a long Kenney awning on a low platform, a lamp. CC0 parts.
+variants = 4
+
+[[slot]]
+parts = ["../kenney/city-roads/tile-low.obj"]
+size = [0.9, 0.3]
+at = [0.05, 0.0, 0.05]
+
+[[slot]]
+parts = ["../kenney/city-commercial/detail-awning-wide.obj", "../kenney/city-commercial/detail-overhang-wide.obj"]
+size = [0.8, 0.22]
+at = [0.1, 0.03, 0.08]
+
+[[slot]]
+parts = ["../kenney/city-roads/light-curved.obj"]
+size = [0.08, 0.2]
+height = 0.6
+at = [0.9, 0.0, 0.08]

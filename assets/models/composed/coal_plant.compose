@@ -1,0 +1,56 @@
+# Coal power plant: a Kenney industrial boiler house with its own stacks,
+# two tall chimneys, a fuel tank and heaps of coal (cargo, tinted black);
+# the yard faces the street (+z). CC0 parts.
+variants = 6
+
+[[slot]]
+parts = ["../kenney/city-industrial/building-e.obj", "../kenney/city-industrial/building-f.obj"]
+size = [2.2, 1.7]
+at = [0.2, 0.0, 0.15]
+
+[[slot]]
+parts = ["../kenney/city-industrial/chimney-medium.obj"]
+size = [0.5, 0.5]
+height = 2.6
+at = [2.6, 0.0, 0.25]
+
+[[slot]]
+parts = ["../kenney/city-industrial/chimney-medium.obj"]
+size = [0.5, 0.5]
+height = 2.3
+at = [3.2, 0.0, 0.25]
+
+[[slot]]
+parts = ["../kenney/city-industrial/detail-tank-large.obj"]
+size = [1.0, 1.0]
+at = [3.85, 0.0, 0.2]
+
+[[slot]]
+parts = ["../kenney/watercraft/cargo-pile-a.obj", "../kenney/watercraft/cargo-pile-b.obj"]
+size = [1.0, 1.0]
+at = [3.0, 0.0, 1.6]
+tints = [[0.25, 0.25, 0.28]]
+rotations = [0, 90, 180, 270]
+
+[[slot]]
+parts = ["../kenney/watercraft/cargo-pile-b.obj", "../kenney/watercraft/cargo-pile-a.obj"]
+size = [0.8, 0.8]
+at = [4.0, 0.0, 1.9]
+tints = [[0.22, 0.22, 0.25]]
+rotations = [0, 90, 180, 270]
+
+[[slot]]
+parts = ["../kenney/factory/conveyor-long.obj"]
+size = [1.2, 0.5]
+at = [2.4, 0.0, 1.0]
+
+[[slot]]
+parts = ["../kenney/city-industrial/detail-tank.obj", ""]
+size = [0.7, 0.45]
+at = [0.4, 0.0, 2.2]
+
+[[slot]]
+parts = ["../kenney/car-kit/truck-flat.obj", "../kenney/car-kit/truck.obj", ""]
+size = [0.28, 0.52]
+at = [1.6, 0.0, 2.2]
+rotations = [90]

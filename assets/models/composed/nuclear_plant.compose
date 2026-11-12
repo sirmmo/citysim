@@ -1,0 +1,63 @@
+# Nuclear power plant: two cooling towers (the industrial kit's big
+# chimney, stood tall), the reactor hall and offices, a turbine hall,
+# tanks and a car park on the street side (+z). CC0 parts.
+variants = 6
+
+[[slot]]
+parts = ["../kenney/city-industrial/chimney-large.obj"]
+size = [2.1, 2.1]
+height = 2.5
+at = [0.3, 0.0, 0.3]
+
+[[slot]]
+parts = ["../kenney/city-industrial/chimney-large.obj"]
+size = [2.1, 2.1]
+height = 2.5
+at = [0.3, 0.0, 2.7]
+
+[[slot]]
+parts = ["../kenney/city-industrial/building-o.obj"]
+size = [1.5, 2.0]
+at = [2.9, 0.0, 0.4]
+tints = [[1.0, 1.0, 1.0], [0.95, 0.97, 1.0]]
+
+[[slot]]
+parts = ["../kenney/city-industrial/building-q.obj", "../kenney/city-industrial/building-g.obj"]
+size = [2.6, 2.0]
+at = [2.9, 0.0, 2.7]
+
+[[slot]]
+parts = ["../kenney/city-industrial/building-a.obj"]
+size = [1.6, 1.0]
+at = [4.2, 0.0, 0.5]
+
+[[slot]]
+parts = ["../kenney/city-industrial/detail-tank-large.obj"]
+size = [0.9, 0.9]
+at = [4.8, 0.0, 1.7]
+
+[[slot]]
+parts = ["../kenney/city-industrial/detail-tank.obj"]
+size = [0.8, 0.5]
+at = [2.9, 0.0, 4.9]
+
+[[slot]]
+parts = ["../kenney/car-kit/sedan.obj", "../kenney/car-kit/suv.obj", ""]
+size = [0.26, 0.46]
+at = [4.2, 0.0, 5.2]
+
+[[slot]]
+parts = ["../kenney/car-kit/van.obj", "../kenney/car-kit/hatchback-sports.obj", ""]
+size = [0.26, 0.46]
+at = [4.7, 0.0, 5.2]
+
+[[slot]]
+parts = ["../kenney/city-roads/light-square.obj"]
+size = [0.1, 0.24]
+height = 0.6
+at = [5.6, 0.0, 5.5]
+
+[[slot]]
+parts = ["../kenney/nature/tree_pineDefaultA.obj", "../kenney/nature/tree_pineTallA.obj", ""]
+size = [0.4, 0.4]
+at = [0.6, 0.0, 5.2]
