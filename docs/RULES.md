@@ -14,8 +14,31 @@ Buildings are **units**. Each one:
 * **produces** resources every tick, scaled by its **satisfaction**;
 * **needs** resources every tick; what arrives decides its satisfaction;
 * **sends** its stock of some resources to units that need them;
+* has **outlets**: sent resources that must find takers (homes want jobs for
+  their workers and shops for their shoppers);
 * **emits** into map layers (pollution, land value, service coverage);
 * **requires** layer values at its tile (each unmet condition halves its satisfaction).
+
+**Satisfaction** is the share of a unit's needs that was met, each need
+counted by its amount times the resource's `weight` (1 unless set: in the
+modern rules power weighs 4, water 2, parking 0.5, upkeep 25). An outlet
+counts like a need for takers of what was made, times how much it matters:
+
+```toml
+[[unit]]
+id = "house_1"
+produce = { residents = 4, workers = 2, shoppers = 2, taxes = 0.04, car = 1 }
+needs = { power = 1 }
+sends = ["workers", "shoppers", "car"]
+outlets = { workers = 1, shoppers = 0.5 }   # jobs matter, shops half as much
+```
+
+A need or an outlet met by less than half **starves** the unit: its
+satisfaction is cut further, down to a quarter when nothing comes at all (an
+outlet weighing 0.5 cuts half as deep). So a home without power, a shop
+without customers, a workshop without workers or a home whose people find
+no work all fall below `level_down` and empty; a home with work but no shop
+within reach gets by, and never grows.
 
 **Resources** say how they travel:
 
@@ -83,19 +106,49 @@ last tick's balances:
 * `unmet`: needed but not delivered, e.g. open jobs pull residents in;
 * `undelivered`: produced but with nowhere to go, e.g. unemployed workers pull industry in.
 
+A demand term's weight can be negative: the modern rules take a quarter
+point off residential demand for every worker left without a job, so people
+stop moving in while those already there look for work.
+
 When demand is positive, empty plots near roads develop into the density's
 first unit. Units with high satisfaction grow to the next unit; unhappy ones
 shrink, and empty their plot at the first level (`[growth]` sets the thresholds).
+A zone with no `base_demand` (shops, which live off shoppers and goods with
+nowhere to go) develops a plot only where some of that is left on the plot's
+own street network.
 
-Growth is damped so that buildings do not flicker between states. A building
-also never levels up into a unit whose layer `requires` already fail on its
-tile, since it would only shrink back:
+A building grows to the next unit only when all of this holds:
+
+* its satisfaction stayed above `level_up` for `patience` ticks and nothing
+  starves it;
+* its zone is in demand (as for new buildings);
+* the next unit's layer `requires` hold on its tile;
+* what the next unit needs more of is to spare: last tick left that much
+  unused on its grid, or with senders within a trip of it (a tick's
+  production, not what piled up unsent), or the city's gates could still
+  bring it in. A town without waterworks stays at the levels that need no
+  water; the inspector says what a building is waiting for.
+
+Growth is damped so that buildings do not flicker between states:
 
 | `[growth]` key | Default | Effect |
 |---|---|---|
 | `grace` | 40 | ticks a building stays as built (or as levelled) before it may change again |
 | `patience` | 15 | ticks in a row satisfaction must stay past `level_up`/`level_down` before acting |
 | `saturation` | 0.1 | a zone stops developing new plots while this share of its settled buildings fail |
+| `neglect` | 120 | ticks a building may stay starved before it shrinks a level, whatever its satisfaction (0: never) |
+
+**Administration** is what running the city costs, apart from its services:
+so much per inhabitant and tick, more per head as the city grows. Unpaid
+(the treasury is empty), every zone building loses `unpaid` satisfaction.
+
+```toml
+[administration]
+name = "Administration"   # the budget line
+cost = 0.008              # per inhabitant and tick
+doubles_at = 20000        # population at which the cost per head has doubled
+unpaid = 0.15
+```
 
 An abandoned plot rests for `grace` ticks before it develops again, twice as
 long after each further failure there, until a building on it settles.
@@ -145,9 +198,9 @@ landfill, recycling, incinerator ──rubbish collection──▶ level 3 build
 - The landfill lowers land value around it, and the treatment plant does too.
 - Recycling makes a little `goods`; the incinerator makes `power`.
 
-Residential demand comes from open jobs, commercial demand from shoppers and
-goods with nowhere to go, industrial demand from unemployed workers and shops
-short of goods.
+Residential demand comes from open jobs and falls with unemployment,
+commercial demand from shoppers and goods with nowhere to go, industrial
+demand from unemployed workers and shops short of goods.
 
 ### Pre-industrial
 
@@ -585,7 +638,10 @@ policy_set = "modern"                # rules/glassbox.toml -> policies/modern.to
 A **tax** scales a city resource (taxes) made by the units of some zones.
 Units make what the rules write at the default rate, and in proportion at
 other rates. Each point above the default adds `demand` to those zones and
-`satisfaction` to the units paying; below the default, the opposite.
+`satisfaction` to the units paying; below the default, the opposite. Above
+the default, `steep` takes that much more satisfaction per squared point: at
+the modern rules' values one point costs 2 points of satisfaction, five
+cost 18, and the top rate (20 %) 65, which empties the town.
 
 ```toml
 [[tax]]
@@ -596,7 +652,8 @@ zones = ["residential"]              # empty: every unit making it
 rate = 9                             # default, percent
 range = [0, 20]                      # what the city may set
 demand = -0.4                        # zone demand per point above the default
-satisfaction = -0.01                 # per point above the default
+satisfaction = -0.015                # per point above the default
+steep = 0.004                        # more, per squared point above it
 ```
 
 A **policy** is an axis of stances; the first is the default. A stance can
@@ -618,6 +675,7 @@ id = "atomic_age"
 name = "Atomic age"
 requires = "fission"                 # research project (optional)
 bonus = { power = 0.3 }              # production share, as for research
+needs = { car = -0.5 }               # what every unit needs, as a share (half the parking)
 demand = { residential = -1.0 }      # per zone id
 satisfaction = -0.02                 # for every unit
 cost = 0.5                           # treasury per tick; negative earns

@@ -6,11 +6,13 @@
 # [[tax]]: scales a city resource made by the units of some zones. Units
 # make what the rules write at the default `rate` (percent) and in
 # proportion at other rates. Each point above the default adds `demand` to
-# those zones and `satisfaction` to paying units (below: the opposite).
+# those zones and `satisfaction` to paying units (below: the opposite), and
+# takes `steep` more satisfaction per squared point: a point or two is
+# shrugged off, the top rates empty the town.
 #
 # [[policy]]: an axis of stances; the first is the default. A stance may
 # need a research project (`requires`), and adds production `bonus`es,
-# zone `demand`, `satisfaction` for every unit and a running `cost` per tick
+# changes what units need (`needs`, a share per resource), adds zone `demand`, `satisfaction` for every unit and a running `cost` per tick
 # (negative: income). A city makes some 25-30 in taxes a tick at 1,000 people.
 
 name = "Modern"
@@ -26,7 +28,8 @@ zones = ["residential"]
 rate = 9
 range = [0, 20]
 demand = -0.4
-satisfaction = -0.01
+satisfaction = -0.015
+steep = 0.004
 
 [[tax]]
 id = "sales"
@@ -37,7 +40,8 @@ zones = ["commercial"]
 rate = 9
 range = [0, 20]
 demand = -0.4
-satisfaction = -0.01
+satisfaction = -0.015
+steep = 0.004
 
 [[tax]]
 id = "business"
@@ -48,7 +52,8 @@ zones = ["industrial"]
 rate = 9
 range = [0, 20]
 demand = -0.5
-satisfaction = -0.012
+satisfaction = -0.018
+steep = 0.004
 
 # ---------------------------------------------------------------- policies
 [[policy]]
@@ -71,8 +76,9 @@ cost = 0.5
 [[policy.stance]]
 id = "walkable_centres"
 name = "Walkable centres"
-description = "Pedestrian streets and squares: shops thrive and people are happier, fewer cars."
+description = "Pedestrian streets and squares: more people out shopping, fewer cars, and shops and workplaces that need half the parking."
 bonus = { car = -0.2, shoppers = 0.1 }
+needs = { car = -0.5 }
 demand = { commercial = 1.0 }
 satisfaction = 0.02
 cost = 0.3

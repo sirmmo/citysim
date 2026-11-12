@@ -51,6 +51,12 @@ pub struct UnitState {
     /// Everything needed this tick (by resource index): own needs plus `extra`.
     #[serde(default)]
     pub needs: Vec<f32>,
+    /// Consecutive ticks with a need or an outlet met by less than half.
+    #[serde(default)]
+    pub starved: u32,
+    /// Its outlets this tick: (resource, made, sent).
+    #[serde(skip)]
+    pub outlets: Vec<(usize, f32, f32)>,
 }
 
 /// A plot whose building was abandoned rests before developing again:
@@ -248,9 +254,34 @@ pub struct GlassBox {
     rules: Option<Arc<Ruleset>>,
     #[serde(skip)]
     grid_cache: Option<(u64, Vec<Vec<u32>>)>,
+    /// What last tick left unused of each grid and agent resource, by
+    /// (resource, network component): what a building levelling up can
+    /// count on.
+    #[serde(skip)]
+    spare: HashMap<(usize, u32), f32>,
+    /// The same anywhere in the city: what the gates could still bring in.
+    #[serde(skip)]
+    spare_any: Vec<f32>,
+    /// Network component of each unit (by origin tile) per resource.
+    #[serde(skip)]
+    unit_net: HashMap<u32, Vec<u32>>,
+    /// The street network (joined by its lines) each road component belongs
+    /// to, by (resource, component): the key of `spare` for a plot there.
+    #[serde(skip)]
+    comp_root: HashMap<(usize, u32), u32>,
+    /// For buildings about to level up: what senders within reach had left
+    /// of an agent resource, by (origin tile, resource).
+    #[serde(skip)]
+    within_reach: HashMap<(u32, usize), f32>,
+    /// The city could not pay its administration last tick.
+    #[serde(skip)]
+    pub administration_unpaid: bool,
 }
 
 const NO_COMPONENT: u32 = u32::MAX;
+/// Satisfaction left to a unit that gets nothing at all of one of its needs
+/// (as a factor; it rises to 1 when half the need is met).
+const STARVED: f32 = 0.25;
 
 /// A grid producer: its origin tile and what it supplied this tick.
 type Supplier = ((u32, u32), f32);
@@ -331,6 +362,12 @@ impl GlassBox {
             churn: [0; 4],
             rules: Some(rules),
             grid_cache: None,
+            spare: HashMap::new(),
+            spare_any: Vec::new(),
+            unit_net: HashMap::new(),
+            within_reach: HashMap::new(),
+            comp_root: HashMap::new(),
+            administration_unpaid: false,
         }
     }
 
@@ -390,6 +427,48 @@ impl GlassBox {
             }
         }
         b
+    }
+
+    /// What every unit needs of each resource under the policy stances, as
+    /// a factor on the written amount (1 unless a stance changes it).
+    pub fn need_factors(&self, rules: &Ruleset) -> Vec<f32> {
+        let mut f = vec![1.0f32; rules.resources.len()];
+        for st in self.active_stances(rules) {
+            for (r, v) in &st.needs {
+                if let Some(i) = rules.resource(r) {
+                    for k in rules.family(i) {
+                        f[k] += v;
+                    }
+                }
+            }
+        }
+        f.iter_mut().for_each(|x| *x = x.max(0.0));
+        f
+    }
+
+    /// What levelling up from `unit` to `next` at a tile would need more
+    /// of: (resource, extra amount, whether last tick left that much spare
+    /// on the building's network). Grid and agent resources only.
+    pub fn growth_needs(&self, rules: &Ruleset, unit: usize, next: usize, key: u32) -> Vec<(usize, f32, bool)> {
+        let factor = self.need_factors(rules);
+        let nets = self.unit_net.get(&key);
+        rules.units[next]
+            .needs
+            .iter()
+            .filter_map(|(r, n)| {
+                let ri = rules.resource(r)?;
+                if !matches!(rules.resources[ri].transport, Transport::Grid | Transport::Agents) {
+                    return None;
+                }
+                let extra = (n - rules.units[unit].needs.get(r).copied().unwrap_or(0.0)) * factor[ri];
+                let root = rules.root(ri);
+                let net = nets.and_then(|v| v.get(root)).and_then(|c| self.spare.get(&(root, *c))).copied().unwrap_or(0.0);
+                // Agents only bring what is within a trip of the building.
+                let here = self.within_reach.get(&(key, root)).map_or(net, |r| r.min(net));
+                let spare = here + self.spare_any.get(root).copied().unwrap_or(0.0);
+                (extra > 1e-4).then_some((root, extra, spare >= extra))
+            })
+            .collect()
     }
 
     /// A tax's rate, in percent.
@@ -727,7 +806,10 @@ impl GlassBox {
             s.stock.resize(nres, 0.0);
             s.extra.resize(nres, 0.0);
             s.received = vec![0.0; nres];
+            s.outlets.clear();
         }
+        // Policy stances change what units need (less parking in walkable centres).
+        let need_factor = self.need_factors(&rules);
         // What each unit needs this tick: its own needs, plus what its trips
         // of the last tick asked of other networks (resource `uses`).
         let need: Vec<Vec<f32>> = units
@@ -738,7 +820,7 @@ impl GlassBox {
                 let fund = self.funding_of(&rules.units[*u].id);
                 for (r, v) in &rules.units[*u].needs {
                     let ri = rules.resource(r).unwrap();
-                    n[ri] += if rules.resources[ri].transport == Transport::City { v * fund } else { *v };
+                    n[ri] += if rules.resources[ri].transport == Transport::City { v * fund } else { *v * need_factor[ri] };
                 }
                 let st = self.units.get_mut(&idx(p.0, p.1)).unwrap();
                 for (ri, e) in st.extra.iter_mut().enumerate() {
@@ -802,6 +884,11 @@ impl GlassBox {
                         Transport::Agents => st.stock[k] = (st.stock[k] + m).min(amount * f * 3.0),
                     }
                 }
+                // An outlet: what was made, and (for now) what is in stock to send.
+                if def.outlets.contains_key(r) {
+                    let stocked: f32 = rules.family(ri).iter().map(|&k| st.stock[k]).sum();
+                    st.outlets.push((ri, made, stocked));
+                }
             }
         }
 
@@ -819,6 +906,23 @@ impl GlassBox {
         // needs for the resource (slots any kind fills), shared out evenly.
         let mut tick_flows: HashMap<Link, f32> = HashMap::new();
         let comps = self.components(&rules, layer, terrain);
+        // What is left unused this tick by (resource, network component),
+        // and each unit's component: room for buildings to level up.
+        let mut spare: HashMap<(usize, u32), f32> = HashMap::new();
+        let mut unit_net: HashMap<u32, Vec<u32>> = HashMap::new();
+        let mut within_reach: HashMap<(u32, usize), f32> = HashMap::new();
+        let mut comp_root: HashMap<(usize, u32), u32> = HashMap::new();
+        // Buildings about to level up, with the unit they would become.
+        let g = &rules.growth;
+        let candidates: Vec<(usize, usize)> = units
+            .iter()
+            .enumerate()
+            .filter_map(|(i, (p, u, _))| {
+                let st = &self.units[&idx(p.0, p.1)];
+                (st.thriving + 1 >= g.patience && st.age + 1 >= g.grace).then_some(())?;
+                Some((i, rules.next_unit(*u, layer.structure_at(p.0, p.1)?.density)?))
+            })
+            .collect();
         // What each unit's grid supply left unused (unit, resource): what a
         // gate can sell to the neighbours.
         let mut grid_spare: HashMap<(usize, usize), f32> = HashMap::new();
@@ -848,6 +952,15 @@ impl GlassBox {
                 pool.slot += need[i][root];
             }
             pools.values_mut().for_each(Pool::settle);
+            for (c, pl) in &pools {
+                let left: f32 = (0..fam.len()).map(|j| pl.supply[j] * (1.0 - pl.used(j))).sum();
+                spare.insert((root, *c), left);
+            }
+            for (i, (p, _, _)) in units.iter().enumerate() {
+                if let Some(c) = comp[i] {
+                    unit_net.entry(idx(p.0, p.1)).or_insert_with(|| vec![NO_COMPONENT; nres])[root] = c;
+                }
+            }
             for (i, (p, _, _)) in units.iter().enumerate() {
                 let pool = comp[i].and_then(|c| pools.get(&c).map(|pl| (c, pl)));
                 for (j, &k) in fam.iter().enumerate() {
@@ -1175,6 +1288,55 @@ impl GlassBox {
                     add(&mut bal.unmet, fam[key], root, missing.max(0.0));
                 }
             }
+            // Room to grow. What a sender has to spare is what it has left,
+            // up to a tick's production (not what piled up unsent).
+            let shares = split(&rules, root);
+            let nominal: Vec<Vec<f32>> = rules
+                .units
+                .iter()
+                .map(|def| {
+                    let made = |k: usize| def.produce.get(&rules.resources[k].id).copied().unwrap_or(0.0);
+                    fam.iter().map(|&k| made(k) + if k != root { made(root) * shares.iter().find(|s| s.0 == k).map_or(0.0, |s| s.1) } else { 0.0 }).collect()
+                })
+                .collect();
+            let spare_of = |stock: &[Vec<f32>], s: usize, j: usize| stock[s][j].min(nominal[units[s].1][j]);
+            // For buildings about to level up: what is left within a trip.
+            for &(i, next) in &candidates {
+                let (p, u, _) = units[i];
+                let more = |k: usize| {
+                    let id = &rules.resources[k].id;
+                    rules.units[next].needs.get(id).copied().unwrap_or(0.0) - rules.units[u].needs.get(id).copied().unwrap_or(0.0)
+                };
+                let extra: f32 = fam.iter().map(|&k| more(k).max(0.0) * need_factor[k]).sum();
+                let Some(c) = acc[i].map(|a| a.0).filter(|_| extra > 1e-4) else { continue };
+                let mut found = 0.0;
+                if left.iter().any(|&x| x > 0.0) {
+                    'probe: for ring in 0..=rings {
+                        for dz in -ring..=ring {
+                            for dx in -ring..=ring {
+                                let (cx, cz) = (p.0 as i64 / BUCKET as i64 + dx, p.1 as i64 / BUCKET as i64 + dz);
+                                if dx.abs().max(dz.abs()) != ring || cx < 0 || cz < 0 {
+                                    continue;
+                                }
+                                let Some(bucket) = buckets.get(&(c, cx as u32, cz as u32)).filter(|b| b.left.iter().any(|&x| x > 0.0)) else { continue };
+                                for &s in bucket.senders.iter().filter(|&&s| s != i) {
+                                    let sp = units[s].0;
+                                    let (dist, _) = trip_length(s, i, sp.0.abs_diff(p.0) + sp.1.abs_diff(p.1));
+                                    for (j, &k) in fam.iter().enumerate() {
+                                        if dist <= rules.resources[k].max_trip as f32 {
+                                            found += spare_of(&stock, s, j);
+                                        }
+                                    }
+                                    if found >= extra {
+                                        break 'probe;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                within_reach.insert((idx(p.0, p.1), root), found);
+            }
             for (i, (p, u, _)) in units.iter().enumerate() {
                 let st = self.units.get_mut(&idx(p.0, p.1)).unwrap();
                 for (j, &k) in fam.iter().enumerate() {
@@ -1182,6 +1344,11 @@ impl GlassBox {
                         st.stock[k] = stock[i][j];
                         add(&mut bal.undelivered, k, root, stock[i][j]);
                     }
+                }
+                if let Some(a) = acc[i] {
+                    *spare.entry((root, a.0)).or_default() += (0..fam.len()).map(|j| spare_of(&stock, i, j)).sum::<f32>();
+                    unit_net.entry(idx(p.0, p.1)).or_insert_with(|| vec![NO_COMPONENT; nres])[root] = a.0;
+                    comp_root.insert((root, a.1), a.0);
                 }
             }
         }
@@ -1339,6 +1506,29 @@ impl GlassBox {
             }
         }
         let gate_tiles: BTreeSet<u32> = gates.iter().map(|g| idx(g.at.0, g.at.1)).collect();
+        // What the gates could still bring in counts as spare everywhere.
+        let mut spare_any = vec![0f32; nres];
+        for g in &gates {
+            for (rid, cap) in &g.import {
+                if let Some(ri) = rules.resource(rid) {
+                    spare_any[rules.root(ri)] += (cap - g.carried_in.get(rid).copied().unwrap_or(0.0)).max(0.0);
+                }
+            }
+        }
+        for (p, _, _) in &units {
+            let st = self.units.get_mut(&idx(p.0, p.1)).unwrap();
+            // Outlets: what left the building this tick, to takers or abroad.
+            let stock = &st.stock;
+            for o in st.outlets.iter_mut() {
+                let now: f32 = rules.family(o.0).iter().map(|&k| stock[k]).sum();
+                o.2 = (o.2 - now).max(0.0);
+            }
+        }
+        self.spare = spare;
+        self.spare_any = spare_any;
+        self.unit_net = unit_net;
+        self.within_reach = within_reach;
+        self.comp_root = comp_root;
         self.gates = gates;
         for ri in 0..nres {
             if bal.imported[ri] + bal.exported[ri] <= 0.0 {
@@ -1408,6 +1598,20 @@ impl GlassBox {
                 bal.unmet[ri] += n - got;
             }
         }
+        // Running the city: so much a head, more per head as it grows.
+        self.administration_unpaid = false;
+        if let Some(a) = &rules.administration {
+            let people = rules.population.as_deref().and_then(|p| rules.resource(p)).map_or(0.0, |ri| self.local_total(ri));
+            let cost = a.cost_for(people) as f64;
+            if cost > 0.0 {
+                if *fund > 0 || self.treasury > cost {
+                    self.treasury -= cost;
+                    self.book(&format!("Upkeep: {}", a.name), -cost);
+                } else {
+                    self.administration_unpaid = true;
+                }
+            }
+        }
         self.advance_research(&rules);
         // Running costs of policies (negative ones earn).
         self.treasury -= self.active_stances(&rules).map(|st| st.cost as f64).sum::<f64>();
@@ -1475,7 +1679,7 @@ impl GlassBox {
                     if steps % ar.every.max(1) == 0 {
                         for a in &ar.areas {
                             let li = rules.layer(&a.layer).unwrap();
-                            emit(&mut self.layers[li], width, length, x as f32, z as f32, a.amount, a.radius);
+                            emit(&mut self.layers[li], width, length, x as f32, z as f32, a.amount * t.amount, a.radius);
                         }
                     }
                 }
@@ -1525,9 +1729,36 @@ impl GlassBox {
             let def = &rules.units[*u];
             let i = idx(p.0, p.1);
             let st = &self.units[&i];
-            let wanted: Vec<(usize, f32)> = need[n].iter().copied().enumerate().filter(|(_, v)| *v > 0.0).collect();
-            let mut s =
-                if wanted.is_empty() { 1.0 } else { wanted.iter().map(|(ri, v)| (st.received[*ri] / v.max(1e-6)).min(1.0)).sum::<f32>() / wanted.len() as f32 };
+            // Each need counts by its size and its resource's weight; an
+            // outlet counts like a need for takers of what was made, times
+            // how much it matters. One met by less than half starves the
+            // unit: it pulls the whole down, to a quarter when nothing of
+            // it comes at all.
+            let starve = |share: f32| (STARVED + (1.0 - STARVED) * share / 0.5).min(1.0);
+            let (mut met, mut total, mut pinch) = (0.0f32, 0.0f32, 1.0f32);
+            for (ri, v) in need[n].iter().copied().enumerate().filter(|(_, v)| *v > 0.0) {
+                let share = (st.received[ri] / v.max(1e-6)).min(1.0);
+                let w = v * rules.resources[ri].weight;
+                met += share * w;
+                total += w;
+                // Only its own needs can starve it, not those of its trips.
+                if def.needs.contains_key(&rules.resources[ri].id) {
+                    pinch *= starve(share);
+                }
+            }
+            for &(ri, made, sent) in &st.outlets {
+                let id = &rules.resources[ri].id;
+                let matters = def.outlets.get(id).copied().unwrap_or(1.0);
+                if made > 1e-6 {
+                    let share = (sent / made).min(1.0);
+                    let w = def.produce.get(id).copied().unwrap_or(made) * rules.resources[ri].weight * matters;
+                    met += share * w;
+                    total += w;
+                    pinch *= 1.0 - matters.min(1.0) * (1.0 - starve(share));
+                }
+            }
+            let starving = pinch < 1.0;
+            let mut s = if total > 0.0 { met / total * pinch } else { 1.0 };
             for (lname, b) in &def.requires {
                 let v = self.layers[rules.layer(lname).unwrap()][i as usize];
                 if b.min.is_some_and(|m| v < m) || b.max.is_some_and(|m| v > m) {
@@ -1537,14 +1768,19 @@ impl GlassBox {
             // Policies and taxes above (or below) their default rate.
             s += mood;
             for t in rules.taxes.iter().filter(|t| taxes_zone(t, &rules, unit_zone[*u]) && def.produce.contains_key(&t.resource)) {
-                s += t.satisfaction * (self.tax_rate(&rules, &t.id) - t.rate);
+                s += t.mood(self.tax_rate(&rules, &t.id));
+            }
+            // A city that cannot pay its clerks is badly run.
+            if self.administration_unpaid && unit_zone[*u].is_some() {
+                s -= rules.administration.as_ref().map_or(0.0, |a| a.unpaid);
             }
             let s = s.clamp(0.0, 1.0);
             let g = &rules.growth;
             let st = self.units.get_mut(&i).unwrap();
             st.satisfaction = st.satisfaction * 0.7 + s * 0.3;
             st.age = st.age.saturating_add(1);
-            st.thriving = if st.satisfaction > g.level_up { st.thriving.saturating_add(1) } else { 0 };
+            st.starved = if starving { st.starved.saturating_add(1) } else { 0 };
+            st.thriving = if st.satisfaction > g.level_up && !starving { st.thriving.saturating_add(1) } else { 0 };
             st.struggling = if st.satisfaction < g.level_down { st.struggling.saturating_add(1) } else { 0 };
         }
 
@@ -1693,12 +1929,18 @@ impl GlassBox {
                 if !layer.tile(w, l).and_then(|t| t.structure()).is_some_and(|s| s.unit.is_none() && s.level == 0) {
                     continue;
                 }
+                // A plot whose building was abandoned rests here too.
+                if self.vacated.get(&(l * width + w)).is_some_and(|v| self.tick < v.until(rules.growth.grace)) {
+                    continue;
+                }
                 let ok = zr.tests.iter().all(|t| {
                     let v = match t.scope {
                         crate::rules::Scope::Map => rules.layer(&t.id).map_or(0.0, |li| self.layers[li][(l * width + w) as usize]),
-                        crate::rules::Scope::Global => {
-                            rules.resource(&t.id).map(|ri| self.balances.produced[ri]).or_else(|| self.metrics.get(&t.id).copied()).unwrap_or(0.0)
-                        }
+                        // `demand.<zone>`: that zone's demand.
+                        crate::rules::Scope::Global => match t.id.strip_prefix("demand.").and_then(|z| rules.zones.iter().position(|x| x.id == z)) {
+                            Some(zi) => self.demand[zi],
+                            None => rules.resource(&t.id).map(|ri| self.balances.produced[ri]).or_else(|| self.metrics.get(&t.id).copied()).unwrap_or(0.0),
+                        },
                     };
                     t.cmp.holds(v, t.value)
                 });
@@ -1712,7 +1954,8 @@ impl GlassBox {
     /// Places new buildings on plots and changes unit levels.
     fn grow(&mut self, rules: &Ruleset, layer: &mut BuildingLayer, terrain: &Terrain, footprints: &Footprints, rng: &mut impl Rng) {
         let g = &rules.growth;
-        let width = layer.width();
+        let (width, length) = (layer.width(), layer.length());
+        let comps = self.components(rules, layer, terrain);
         let road_near = |layer: &BuildingLayer, w: u32, l: u32| {
             let (w1, l1, w2, l2) = terrain.around(w, l, g.road_access);
             layer.contains(Rect { w1, l1, w2, l2 }, crate::layer::Query::RoadAccess)
@@ -1732,6 +1975,30 @@ impl GlassBox {
                 }
             }
             let saturated = failing as f32 > settled as f32 * g.saturation;
+            // What pulls the zone in: resources left with nowhere to go
+            // (shoppers and goods for shops). A zone that lives off them
+            // alone (no demand of its own) develops a plot only where some
+            // is left on its street network: shops no customer can reach
+            // would only close again.
+            let pulls: Vec<(usize, usize)> = z
+                .demand
+                .iter()
+                .filter(|t| t.from == DemandSource::Undelivered && t.weight > 0.0 && z.base_demand <= 0.5)
+                .filter_map(|t| {
+                    let ri = rules.resource(&t.resource)?;
+                    let res = &rules.resources[ri];
+                    (res.transport == Transport::Agents).then_some((rules.root(ri), rules.network(res.network.as_deref()?)?))
+                })
+                .collect();
+            let pulled = |this: &Self, w: u32, l: u32| {
+                pulls.is_empty()
+                    || pulls.iter().any(|&(root, net)| {
+                        unit_component(&comps[net], &Rect::sized(w, l, 1, 1), width, length, g.road_access.max(1), |_, _| true)
+                            .and_then(|(c, _)| this.comp_root.get(&(root, c)))
+                            .and_then(|m| this.spare.get(&(root, *m)))
+                            .is_some_and(|v| *v > 0.01)
+                    })
+            };
             // New buildings on empty plots.
             if self.demand[zi] > 0.5 && !saturated {
                 let mut plots: Vec<(u32, u32)> =
@@ -1744,7 +2011,7 @@ impl GlassBox {
                     }
                     let still_plot = layer.tile(w, l).and_then(|t| t.structure()).is_some_and(|s| s.code == code && s.unit.is_none() && s.level == 0);
                     let resting = self.vacated.get(&(l * width + w)).is_some_and(|v| self.tick < v.until(g.grace));
-                    if !still_plot || resting || !road_near(layer, w, l) {
+                    if !still_plot || resting || !road_near(layer, w, l) || !pulled(self, w, l) {
                         continue;
                     }
                     let density = layer.structure_at(w, l).map_or(0, |s| s.density as usize).min(z.densities.len() - 1);
@@ -1773,9 +2040,13 @@ impl GlassBox {
                 if st.age > 2 * g.grace && st.struggling == 0 {
                     self.vacated.remove(&key); // the plot works now
                 }
-                let (up, down) = (st.thriving >= g.patience, st.struggling >= g.patience);
                 let d = &z.densities[(density as usize).min(z.densities.len() - 1)];
                 let Some(k) = d.units.iter().position(|id| rules.unit(id) == Some(u as usize)) else { continue };
+                // Long neglect shrinks a building, but only low satisfaction
+                // empties a plot. Buildings grow only while their zone is
+                // in demand (people want to move in).
+                let neglected = g.neglect > 0 && st.starved >= g.neglect && k > 0;
+                let (up, down) = (st.thriving >= g.patience && self.demand[zi] > 0.5, st.struggling >= g.patience || neglected);
                 // Never grow into a unit whose map requirements already fail
                 // here: it would only shrink back, and flicker.
                 let fits = |unit: usize| {
@@ -1786,10 +2057,29 @@ impl GlassBox {
                 };
                 // Nor into one research has not unlocked yet.
                 let next_fits = k + 1 < d.units.len() && fits(rules.unit(&d.units[k + 1]).unwrap()) && self.unlocked(rules, &d.units[k + 1]);
-                let changed = if up && next_fits && rng.r#gen::<f32>() < g.chance {
+                // Nor into one that needs more than its networks have to
+                // spare (no water left, no workers looking for a job).
+                let extra = if up && next_fits { self.growth_needs(rules, u as usize, rules.unit(&d.units[k + 1]).unwrap(), key) } else { Vec::new() };
+                let supplied = extra.iter().all(|e| e.2);
+                let changed = if up && next_fits && supplied && rng.r#gen::<f32>() < g.chance {
                     let next = rules.unit(&d.units[k + 1]).unwrap();
                     let ok = set_unit(layer, terrain, footprints, rng, p.0, p.1, Some(next), k as u8 + 2, rules);
                     self.churn[2] += ok as u32;
+                    if ok {
+                        // What it will take is no longer spare for the next one.
+                        for (ri, amount, _) in extra {
+                            let here = self.unit_net.get(&key).and_then(|v| v.get(ri)).copied().and_then(|c| self.spare.get_mut(&(ri, c)));
+                            let mut rest = amount;
+                            if let Some(v) = here {
+                                let take = v.min(rest);
+                                *v -= take;
+                                rest -= take;
+                            }
+                            if let Some(v) = self.spare_any.get_mut(ri) {
+                                *v = (*v - rest).max(0.0);
+                            }
+                        }
+                    }
                     ok
                 } else if down && rng.r#gen::<f32>() < g.chance {
                     if k > 0 {
@@ -1814,6 +2104,7 @@ impl GlassBox {
                         st.age = 0;
                         st.thriving = 0;
                         st.struggling = 0;
+                        st.starved = 0;
                     }
                 }
             }

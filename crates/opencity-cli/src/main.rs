@@ -317,18 +317,26 @@ fn main() -> Result<()> {
     let fp = || footprints(cli.data_dir.as_deref());
     match &cli.command {
         Command::New { map, demo, game_rules, out } => {
-            let mut city = new_city(map, *demo, fp())?;
+            // Rules first: the demo town lays out what they allow (waterworks, trams).
+            let mut city = new_city(map, false, fp())?;
             attach_rules(&mut city, game_rules.as_deref(), cli.data_dir.as_deref())?;
+            if *demo {
+                scenario::demo_town(&mut city);
+            }
             print_summary(&city);
             save_city(&city, out)?;
         }
         Command::Simulate { load, map, demo, game_rules, years, save, metrics } => {
             let mut city = match load {
                 Some(p) => load_city(p, fp())?,
-                None => new_city(map, *demo, fp())?,
+                None => new_city(map, false, fp())?,
             };
             let rules = game_rules.clone().or_else(|| city.glassbox.as_ref().map(|g| g.rules_id.clone()));
             attach_rules(&mut city, rules.as_deref(), cli.data_dir.as_deref())?;
+            // Rules first: the demo town lays out what they allow (waterworks, trams).
+            if *demo && load.is_none() {
+                scenario::demo_town(&mut city);
+            }
             println!("{:>5} {:>9} {:>7} {:>6} {:>6} {:>6} {:>13}", "year", "fund", "people", "R", "C", "I", "power");
             let target = city.date.year + years;
             while city.date.year < target {

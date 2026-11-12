@@ -181,6 +181,10 @@ fn growth_settles_without_flicker() {
         c.apply_tool(Tool::Road, (2, l), (44, l)).unwrap();
     }
     c.apply_tool(Tool::Road, (7, 2), (7, 8)).unwrap();
+    // Cross streets: people reach jobs and shops on the other streets.
+    for w in [1, 45] {
+        c.apply_tool(Tool::Road, (w, 8), (w, 24)).unwrap();
+    }
     c.apply_tool(Tool::ZoneResidential, (2, 9), (44, 11)).unwrap();
     c.apply_tool(Tool::ZoneIndustrial, (2, 13), (44, 15)).unwrap();
     c.zone_density = 1;
@@ -188,7 +192,8 @@ fn growth_settles_without_flicker() {
     c.zone_density = 0;
     c.apply_tool(Tool::ZoneCommercial, (21, 17), (44, 19)).unwrap();
     let snapshot = |c: &City| c.layer.structures().filter_map(|(p, s)| Some((p, s.unit?))).collect::<std::collections::BTreeMap<_, _>>();
-    for _ in 0..1200 {
+    // Two years: the last plots fill slowly, as jobs and customers allow.
+    for _ in 0..2400 {
         c.simulate_round();
     }
     let mut before = snapshot(&c);
@@ -271,6 +276,8 @@ fn highways_give_no_access() {
     assert_eq!(units(&c, StructureCode::Residential), 0);
     // A street next to them opens the plots.
     c.apply_tool(Tool::Road, (2, 17), (38, 17)).unwrap();
+    // With workshops across it: homes without jobs or shops empty again.
+    c.apply_tool(Tool::ZoneIndustrial, (2, 18), (38, 19)).unwrap();
     for _ in 0..200 {
         c.simulate_round();
     }
@@ -345,6 +352,10 @@ fn ideas_become_research_that_unlocks() {
     }
     c.apply_tool(Tool::Road, (7, 2), (7, 8)).unwrap();
     c.apply_tool(Tool::Road, (13, 2), (13, 8)).unwrap();
+    // Cross streets, so customers reach the cafés.
+    for w in [1, 45] {
+        c.apply_tool(Tool::Road, (w, 8), (w, 20)).unwrap();
+    }
     c.apply_tool(Tool::ZoneResidential, (2, 9), (44, 11)).unwrap();
     c.apply_tool(Tool::ZoneIndustrial, (2, 13), (44, 15)).unwrap();
     c.apply_tool(Tool::ZoneCommercial, (2, 17), (44, 19)).unwrap();
@@ -556,6 +567,7 @@ fn railways_link_towns_no_road_joins() {
 fn trams_and_buses_carry_people_farther() {
     let r = rules();
     // Two towns on one long street, too far apart to drive to work.
+    let workers = r.resource("workers").unwrap();
     let build = |line: Option<Tool>| {
         let mut c = City::new(Terrain::flat(64, 24), None, Footprints::builtin(), 5);
         c.fund = 10_000_000;
@@ -587,26 +599,29 @@ fn trams_and_buses_carry_people_farther() {
             }
             None => {}
         }
+        // Commuters between the two towns, at the busiest moment: homes
+        // whose people find no work empty again, and so do idle workshops.
+        let mut busiest = 0f32;
         for _ in 0..400 {
             c.simulate_round();
+            let gb = c.glassbox.as_ref().unwrap();
+            busiest = busiest.max(gb.flows.iter().filter(|(l, _)| l.resource == workers && (l.from.0 < 30) != (l.to.0 < 30)).map(|(_, v)| *v).sum());
         }
-        c
+        (c, busiest)
     };
-    let workers = r.resource("workers").unwrap();
-    let crossing = |c: &City| -> f32 {
-        let gb = c.glassbox.as_ref().unwrap();
-        gb.flows.iter().filter(|(l, _)| l.resource == workers && (l.from.0 < 30) != (l.to.0 < 30)).map(|(_, v)| *v).sum()
-    };
+    let crossing = |c: &(City, f32)| c.1;
     let (none, tram, bus, metro) = (build(None), build(Some(Tool::TramStop)), build(Some(Tool::BusStop)), build(Some(Tool::MetroStation)));
+    let (tram_trip, bus_trip, metro_trip) = (crossing(&tram), crossing(&bus), crossing(&metro));
+    let (tram, bus, metro) = (tram.0, bus.0, metro.0);
     assert_eq!(crossing(&none), 0.0, "too far to drive to work");
     let trams = opencity_core::rail::Railways::trams(&tram.layer, &tram.terrain, tram.footprints());
     assert_eq!(trams.stations.len(), 2, "both stops stand by the tram line");
-    assert!(crossing(&tram) > 0.0, "the tram carries people to work");
-    assert!(crossing(&bus) > 0.0, "so does the bus");
+    assert!(tram_trip > 0.0, "the tram carries people to work");
+    assert!(bus_trip > 0.0, "so does the bus");
     let m = opencity_core::rail::Railways::metro(&metro.layer, &metro.terrain, metro.footprints());
     assert_eq!(m.stations.len(), 2, "both stations stand over the tunnel");
     assert!(metro.layer.has_tunnel(12, 10) && metro.layer.structure_at(12, 10).is_some(), "the tunnel runs under the buildings");
-    assert!(crossing(&metro) > 0.0, "and so does the metro");
+    assert!(metro_trip > 0.0, "and so does the metro");
     // Cars still use the tram street; trams and buses run between the stops.
     assert_eq!(tram.layer.structure_at(30, 12).map(|s| s.road), Some(RoadKind::Tram));
     assert!(tram.vehicles.iter().filter(|v| v.line.as_deref() == Some("tram")).all(|v| v.mesh.as_deref().is_some_and(|m| m.contains("tram"))));
@@ -1166,7 +1181,10 @@ fn water_and_waste_serve_the_buildings() {
         c.apply_tool(Tool::Road, (4, 8), (35, 8)).unwrap();
         c.apply_tool(Tool::Road, (4, 12), (35, 12)).unwrap();
         c.apply_tool(Tool::Road, (4, 8), (4, 12)).unwrap();
-        c.apply_tool(Tool::ZoneResidential, (5, 9), (33, 11)).unwrap();
+        // Homes with jobs and shops: only thriving houses grow to want water.
+        c.apply_tool(Tool::ZoneResidential, (5, 9), (16, 11)).unwrap();
+        c.apply_tool(Tool::ZoneCommercial, (17, 9), (24, 11)).unwrap();
+        c.apply_tool(Tool::ZoneIndustrial, (25, 9), (33, 11)).unwrap();
         c.apply_tool(Tool::CoalPlant, (6, 3), (6, 3)).unwrap();
         c.apply_tool(Tool::Road, (6, 6), (12, 6)).unwrap();
         c.apply_tool(Tool::Road, (12, 6), (12, 8)).unwrap();
@@ -1274,4 +1292,138 @@ fn ports_trade_with_the_rest_of_the_world() {
     assert!(gate.import.get("goods").is_some_and(|&v| v > 0.0));
     assert!(imported > 50.0, "goods came in from the world: {imported}");
     assert!(units(&c, StructureCode::Commercial) > 0);
+}
+
+/// Homes want jobs and shops for their people: a dormitory with neither
+/// empties, while the same streets with workshops and shops fill.
+#[test]
+fn homes_need_jobs_and_shops() {
+    let town = |mixed: bool| {
+        let mut c = City::new(Terrain::flat(40, 24), None, Footprints::builtin(), 3);
+        c.fund = 10_000_000;
+        c.use_rules(rules());
+        c.research_all();
+        c.apply_tool(Tool::CoalPlant, (6, 3), (6, 3)).unwrap();
+        c.apply_tool(Tool::Road, (4, 8), (35, 8)).unwrap();
+        c.apply_tool(Tool::Road, (4, 12), (35, 12)).unwrap();
+        c.apply_tool(Tool::Road, (4, 8), (4, 12)).unwrap();
+        c.apply_tool(Tool::Road, (6, 6), (6, 8)).unwrap();
+        c.apply_tool(Tool::ZoneResidential, (5, 9), (16, 11)).unwrap();
+        if mixed {
+            c.apply_tool(Tool::ZoneCommercial, (17, 9), (24, 11)).unwrap();
+            c.apply_tool(Tool::ZoneIndustrial, (25, 9), (33, 11)).unwrap();
+        }
+        for _ in 0..600 {
+            c.simulate_round();
+        }
+        c
+    };
+    let (dormitory, mixed) = (town(false), town(true));
+    let homes = |c: &City| units(c, StructureCode::Residential);
+    // The plant's ten jobs keep a few homes; the rest find nothing.
+    assert!(homes(&mixed) > 2 * homes(&dormitory).max(1), "mixed {} dormitory {}", homes(&mixed), homes(&dormitory));
+    let r = rules();
+    let gb = dormitory.glassbox.as_ref().unwrap();
+    // People looking for work keep newcomers away.
+    assert!(gb.demand[0] < r.zones[0].base_demand, "residential demand {}", gb.demand[0]);
+    // No home thrives without shops: none grew past the first level.
+    assert!(dormitory.layer.structures().filter(|(_, s)| s.code == StructureCode::Residential).all(|(_, s)| s.level <= 1));
+}
+
+/// Buildings do not level up into needs their networks cannot supply: a
+/// town without waterworks stays at the levels that need no water.
+#[test]
+fn buildings_grow_only_into_what_is_supplied() {
+    let r = rules();
+    let water = r.resource("water").unwrap();
+    let town = |waterworks: bool| {
+        let mut c = City::new(Terrain::flat(48, 48), None, Footprints::builtin(), 7);
+        c.fund = 10_000_000;
+        c.use_rules(r.clone());
+        c.research_all();
+        c.apply_tool(Tool::NuclearPlant, (30, 0), (30, 0)).unwrap();
+        c.apply_tool(Tool::Road, (32, 6), (32, 8)).unwrap();
+        for l in [8, 12, 16, 20] {
+            c.apply_tool(Tool::Road, (2, l), (44, l)).unwrap();
+        }
+        for w in [1, 45] {
+            c.apply_tool(Tool::Road, (w, 8), (w, 20)).unwrap();
+        }
+        c.apply_tool(Tool::ZoneResidential, (2, 9), (44, 11)).unwrap();
+        c.apply_tool(Tool::ZoneIndustrial, (2, 13), (44, 15)).unwrap();
+        c.apply_tool(Tool::ZoneCommercial, (2, 17), (44, 19)).unwrap();
+        if waterworks {
+            c.apply_tool(Tool::PumpingStation, (10, 22), (10, 22)).unwrap();
+            c.apply_tool(Tool::Road, (10, 21), (14, 21)).unwrap();
+            c.apply_tool(Tool::Road, (14, 20), (14, 21)).unwrap();
+            for l in [8, 12, 16, 20] {
+                c.apply_tool(Tool::WaterPipe, (2, l), (44, l)).unwrap();
+            }
+            c.apply_tool(Tool::WaterPipe, (10, 8), (10, 22)).unwrap();
+        }
+        let mut unmet = 0.0;
+        for _ in 0..900 {
+            c.simulate_round();
+            unmet += c.glassbox.as_ref().unwrap().balances.unmet[water];
+        }
+        (c, unmet)
+    };
+    let thirsty = |c: &City| c.layer.structures().filter(|(_, s)| s.unit.is_some_and(|u| r.units[u as usize].needs.contains_key("water"))).count();
+    let ((dry, dry_unmet), (wet, _)) = (town(false), town(true));
+    assert_eq!(thirsty(&dry), 0, "no building grew to need water where there is none");
+    assert_eq!(dry_unmet, 0.0);
+    assert!(thirsty(&wet) > 0, "with waterworks they do");
+}
+
+/// The new rule keys: steep taxes, stances that change needs, the cost of
+/// running the city.
+#[test]
+fn taxes_bite_and_the_city_costs_money() {
+    let r = rules();
+    let tax = r.tax("property").unwrap();
+    // A point or two is shrugged off; the top rate drives people out.
+    assert!(tax.mood(tax.rate + 1.0) > -0.03);
+    assert!(tax.mood(tax.range[1]) < -0.5, "{}", tax.mood(tax.range[1]));
+    assert!(tax.mood(tax.rate - 3.0) > 0.0);
+    // Walkable centres: fewer cars, and shops that need half the parking.
+    let mut c = City::new(Terrain::flat(24, 24), None, Footprints::builtin(), 3);
+    c.use_rules(r.clone());
+    let car = r.resource("car").unwrap();
+    let gb = c.glassbox.as_mut().unwrap();
+    assert_eq!(gb.need_factors(&r)[car], 1.0);
+    assert!(gb.set_stance("transport", "walkable_centres"));
+    let f = gb.need_factors(&r);
+    assert_eq!(f[car], 0.5);
+    assert!(r.kinds(car).iter().all(|&k| f[k] == 0.5), "kinds follow their resource");
+    // Administration: more per head as the city grows.
+    let a = r.administration.as_ref().unwrap();
+    assert!(a.cost_for(20_000.0) > 2.0 * 20.0 * a.cost_for(1_000.0) * 0.9);
+    c.research_all();
+    opencity_core::scenario::demo_town(&mut c);
+    for _ in 0..200 {
+        c.simulate_round();
+    }
+    let gb = c.glassbox.as_ref().unwrap();
+    assert!(c.population > 0 && gb.ledger.get("Upkeep: Administration").is_some_and(|v| *v < 0.0), "{:?}", gb.ledger);
+}
+
+/// Agent rules emit per unit carried: a busy route is louder than a quiet one.
+#[test]
+fn traffic_emissions_scale_with_what_is_carried() {
+    let r = rules();
+    let rule = r.agent_rules.iter().find(|a| a.name == "commuterTraffic").unwrap();
+    // Per commuter: well under what a whole trip used to emit.
+    assert!(rule.areas.iter().all(|a| a.amount < 0.2), "{:?}", rule.areas);
+    let mut c = City::new(Terrain::flat(60, 60), None, Footprints::builtin(), 5);
+    c.use_rules(r.clone());
+    opencity_core::scenario::demo_town(&mut c);
+    for _ in 0..600 {
+        c.simulate_round();
+    }
+    let gb = c.glassbox.as_ref().unwrap();
+    for id in ["AirQuality.pm10", "Noise.level"] {
+        let li = r.layer(id).unwrap();
+        let top = gb.layers[li].iter().cloned().fold(0.0, f32::max);
+        assert!(top > 0.0 && top <= r.layers[li].max, "{id} peaks at {top}, scale {}", r.layers[li].max);
+    }
 }

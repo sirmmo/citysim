@@ -381,6 +381,7 @@ fn declare_resource(rules: &mut Ruleset, id: &str, transport: Transport, network
         trail: Default::default(),
         price: 0.0,
         shared: false,
+        weight: 1.0,
     });
 }
 

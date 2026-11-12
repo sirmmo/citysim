@@ -153,18 +153,21 @@ fn fields(section: &str) -> &'static [&'static str] {
             "zone_rules",
             "agent_rules",
         ],
-        "resource" => &["id", "name", "transport", "network", "max_trip", "colour", "subtype", "parent", "share", "uses", "trail", "price", "shared"],
+        "resource" => &["id", "name", "transport", "network", "max_trip", "colour", "subtype", "parent", "share", "uses", "trail", "price", "shared", "weight"],
         "resource.subtype" => &["id", "name", "share", "max_trip", "colour", "uses", "trail"],
         "layer" => &["id", "name", "diffusion", "decay", "colour", "max"],
         "network" => &["id", "name", "structures", "through_buildings"],
         "network.vehicle" => &["id", "name", "model", "ways", "speed", "carries", "share", "direct", "meshes", "line"],
-        "unit" => &["id", "name", "description", "graphic", "produce", "needs", "sends", "emits", "requires", "build_cost", "logs", "dispatch"],
+        "unit" => {
+            &["id", "name", "description", "graphic", "produce", "needs", "sends", "outlets", "emits", "requires", "build_cost", "logs", "trade", "dispatch"]
+        }
         "zone" => &["id", "name", "structure", "densities", "demand", "base_demand"],
-        "growth" => &["level_up", "level_down", "chance", "max_new", "road_access", "grace", "patience", "saturation"],
+        "growth" => &["level_up", "level_down", "chance", "max_new", "road_access", "grace", "patience", "saturation", "neglect"],
+        "administration" => &["name", "cost", "doubles_at", "unpaid"],
         "disaster" => &["id", "name", "description", "every", "radius", "effect", "protection", "full", "near_water"],
-        "tax" => &["id", "name", "description", "resource", "zones", "rate", "range", "demand", "satisfaction"],
+        "tax" => &["id", "name", "description", "resource", "zones", "rate", "range", "demand", "satisfaction", "steep"],
         "policy" => &["id", "name", "description"],
-        "policy.stance" => &["id", "name", "description", "requires", "bonus", "demand", "satisfaction", "cost"],
+        "policy.stance" => &["id", "name", "description", "requires", "bonus", "needs", "demand", "satisfaction", "cost"],
         "tech" => &["id", "name", "description", "cost", "requires", "unlocks", "category", "tier", "excludes", "bonus"],
         _ => &[],
     }

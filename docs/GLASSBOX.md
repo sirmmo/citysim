@@ -93,7 +93,8 @@ end
 ```
 
 `test global <X>` reads last tick's production of resource *X*, or else the
-metric *X*. Zone rules run alongside the demand-driven growth of the rules
+metric *X*; `test global demand.<zone>` reads a zone's demand (*citysim*).
+Zone rules leave alone the plots that rest after their building was abandoned. Zone rules run alongside the demand-driven growth of the rules
 file. Set `base_demand` to 0 and leave a density's demand terms empty to let
 zone rules alone decide what gets built.
 
@@ -103,12 +104,13 @@ zone rules alone decide what gets built.
 agentRule carPollution
     condition resource=Car                         # agents carrying Car
     repeatAfter 10                                 # every 10 tiles travelled
-    area -timestamp=Time -map=AirQuality pm10 10 5 # map.measure, amount, radius
-    area -timestamp=Time -map=NoiseMap noise 8 10
+    area -timestamp=Time -map=AirQuality pm10 1 5  # map.measure, amount per unit carried, radius
+    area -timestamp=Time -map=NoiseMap noise 0.8 10
 end
 ```
 
-`-map=AirQuality pm10` writes the map `AirQuality.pm10`.
+`-map=AirQuality pm10` writes the map `AirQuality.pm10`. The amount is per
+unit carried: a trip of ten commuters emits ten times that of one.
 
 ## Declarations
 

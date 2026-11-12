@@ -16,7 +16,8 @@ zones = ["residential"]
 rate = 5
 range = [0, 15]
 demand = -0.5
-satisfaction = -0.015
+satisfaction = -0.02
+steep = 0.005
 
 [[tax]]
 id = "market_toll"
@@ -27,7 +28,8 @@ zones = ["commercial"]
 rate = 8
 range = [0, 20]
 demand = -0.4
-satisfaction = -0.01
+satisfaction = -0.015
+steep = 0.004
 
 [[tax]]
 id = "guild_dues"
@@ -38,7 +40,8 @@ zones = ["industrial"]
 rate = 6
 range = [0, 15]
 demand = -0.5
-satisfaction = -0.012
+satisfaction = -0.018
+steep = 0.005
 
 # ---------------------------------------------------------------- policies
 [[policy]]

@@ -31,12 +31,7 @@ pub fn window(ctx: &egui::Context, open: &mut bool, city: &City, out: &mut Vec<C
                     let effect = if delta.abs() < 1e-3 {
                         format!("Default rate {} %", t.rate)
                     } else {
-                        format!(
-                            "{:+.0}% income · demand {:+.1} · satisfaction {:+.0}",
-                            (rate / t.rate - 1.0) * 100.0,
-                            t.demand * delta,
-                            t.satisfaction * delta * 100.0
-                        )
+                        format!("{:+.0}% income · demand {:+.1} · satisfaction {:+.0}", (rate / t.rate - 1.0) * 100.0, t.demand * delta, t.mood(rate) * 100.0)
                     };
                     ui.label(RichText::new(effect).small().color(Color32::GRAY));
                     ui.add_space(4.0);
@@ -71,6 +66,7 @@ pub fn window(ctx: &egui::Context, open: &mut bool, city: &City, out: &mut Vec<C
                     let mut parts: Vec<String> = Vec::new();
                     let name_of = |r: &str| rules.resource(r).map_or(r.to_string(), |i| rules.resources[i].name.to_lowercase());
                     parts.extend(st.bonus.iter().map(|(r, b)| format!("{:+.0}% {}", b * 100.0, name_of(r))));
+                    parts.extend(st.needs.iter().map(|(r, b)| format!("{:+.0}% {} needed", b * 100.0, name_of(r))));
                     parts.extend(
                         st.demand
                             .iter()

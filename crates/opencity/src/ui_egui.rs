@@ -1430,6 +1430,18 @@ fn unit_details(ui: &mut egui::Ui, city: &City, gb: &opencity_core::glassbox::Gl
         }
         for (r, amount) in &def.produce {
             let i = rules.resource(r).unwrap();
+            // An outlet: how much of what it made found takers.
+            if let Some(&(_, made, sent)) = st.outlets.iter().find(|o| o.0 == i).filter(|_| def.outlets.contains_key(r)) {
+                ui.label(format!("sends {}", rules.resources[i].name)).on_hover_text("An outlet: what finds no taker within reach counts against satisfaction");
+                let ok = sent >= made * 0.95;
+                ui.label(RichText::new(format!("{sent:.1} / {made:.1}")).monospace().color(if ok {
+                    Color32::from_rgb(110, 210, 110)
+                } else {
+                    Color32::from_rgb(230, 120, 100)
+                }));
+                ui.end_row();
+                continue;
+            }
             ui.label(format!("makes {}", rules.resources[i].name));
             ui.label(RichText::new(format!("{amount:.1}")).monospace());
             ui.end_row();
@@ -1448,6 +1460,20 @@ fn unit_details(ui: &mut egui::Ui, city: &City, gb: &opencity_core::glassbox::Gl
             ui.end_row();
         }
     });
+    // What keeps it from growing: needs of the next level nothing can supply.
+    let density = city.layer.structure_at(origin.0, origin.1).map_or(0, |s| s.density);
+    if let Some(next) = rules.next_unit(unit, density) {
+        let key = origin.1 * city.width() + origin.0;
+        let short: Vec<String> =
+            gb.growth_needs(rules, unit, next, key).into_iter().filter(|n| !n.2).map(|n| rules.resources[n.0].name.to_lowercase()).collect();
+        if !short.is_empty() {
+            ui.label(RichText::new(format!("Cannot grow into a {}: no {} to spare", rules.units[next].name.to_lowercase(), short.join(", "))).small())
+                .on_hover_text("Buildings level up only into needs their networks can supply");
+        }
+    }
+    if st.starved > 0 {
+        ui.label(RichText::new("Starved of something it needs: it will not grow, and shrinks if this lasts").small().color(Color32::from_rgb(230, 120, 100)));
+    }
 }
 
 /// Repaints the street icon (a light road with darker dashes on a grey

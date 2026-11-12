@@ -29,6 +29,15 @@ road_access = 3
 grace = 40
 patience = 15
 saturation = 0.1
+neglect = 120
+
+# Running the town: paid every tick for each inhabitant, more per head as
+# it grows (the watch, the clerks, the town hall).
+[administration]
+name = "Town hall"
+cost = 0.0015
+doubles_at = 10000
+unpaid = 0.15
 
 # ---------------------------------------------------------------- resources
 [[resource]]
@@ -117,6 +126,7 @@ transport = "city"
 id = "upkeep"
 name = "Upkeep"
 transport = "city"
+weight = 25                      # in satisfaction: an unfunded service all but stops
 
 [[resource]]
 id = "residents"
@@ -280,7 +290,12 @@ id = "residential"
 name = "Residential"
 structure = "residential"
 base_demand = 3.0
-demand = [{ resource = "workers", from = "unmet", weight = 0.5 }]
+# Families come while hands are wanted, and stop coming while people
+# already here look for work.
+demand = [
+  { resource = "workers", from = "unmet", weight = 0.5 },
+  { resource = "workers", from = "undelivered", weight = -0.25 },
+]
 densities = [
   { id = "low", name = "Low density", cost = 2, units = ["hut", "cottage", "family_house"] },
   { id = "medium", name = "Medium density", cost = 5, units = ["town_house", "merchant_house", "row_houses"] },
@@ -339,6 +354,7 @@ graphic = 11
 produce = { residents = 3, workers = 2, shoppers = 1, taxes = 0.01 }
 needs = { food = 1 }
 sends = ["workers", "shoppers"]
+outlets = { workers = 1, shoppers = 0.5 }
 requires = { pollution = { max = 25 } }
 
 [[unit]]
@@ -349,6 +365,7 @@ graphic = 12
 produce = { residents = 5, workers = 3, shoppers = 2, taxes = 0.02 }
 needs = { food = 1.5 }
 sends = ["workers", "shoppers"]
+outlets = { workers = 1, shoppers = 0.5 }
 requires = { pollution = { max = 20 } }
 
 [[unit]]
@@ -359,6 +376,7 @@ graphic = 13
 produce = { residents = 7, workers = 4, shoppers = 3, taxes = 0.04 }
 needs = { food = 2, waste = 1 }
 sends = ["workers", "shoppers"]
+outlets = { workers = 1, shoppers = 0.5 }
 requires = { pollution = { max = 20 }, water = { min = 1 } }
 
 [[unit]]
@@ -369,6 +387,7 @@ graphic = 14
 produce = { residents = 10, workers = 6, shoppers = 4, taxes = 0.06 }
 needs = { food = 3 }
 sends = ["workers", "shoppers"]
+outlets = { workers = 1, shoppers = 0.5 }
 requires = { pollution = { max = 20 }, water = { min = 1 } }
 
 [[unit]]
@@ -379,6 +398,7 @@ graphic = 15
 produce = { residents = 14, workers = 8, shoppers = 6, taxes = 0.1 }
 needs = { food = 4 }
 sends = ["workers", "shoppers"]
+outlets = { workers = 1, shoppers = 0.5 }
 requires = { pollution = { max = 15 }, water = { min = 1 }, fire_safety = { min = 1 } }
 
 [[unit]]
@@ -389,6 +409,7 @@ graphic = 16
 produce = { residents = 20, workers = 12, shoppers = 8, taxes = 0.14 }
 needs = { food = 6, waste = 1 }
 sends = ["workers", "shoppers"]
+outlets = { workers = 1, shoppers = 0.5 }
 requires = { pollution = { max = 15 }, water = { min = 1 }, fire_safety = { min = 1 } }
 
 [[unit]]
@@ -399,6 +420,7 @@ graphic = 17
 produce = { residents = 30, workers = 18, shoppers = 10, taxes = 0.2 }
 needs = { food = 9 }
 sends = ["workers", "shoppers"]
+outlets = { workers = 1, shoppers = 0.5 }
 requires = { water = { min = 1 }, fire_safety = { min = 1 } }
 
 [[unit]]
@@ -409,6 +431,7 @@ graphic = 18
 produce = { residents = 40, workers = 22, shoppers = 16, taxes = 0.35 }
 needs = { food = 12 }
 sends = ["workers", "shoppers"]
+outlets = { workers = 1, shoppers = 0.5 }
 requires = { pollution = { max = 10 }, water = { min = 1 }, fire_safety = { min = 1 }, police_safety = { min = 1 } }
 
 [[unit]]
@@ -419,6 +442,7 @@ graphic = 19
 produce = { residents = 70, workers = 40, shoppers = 28, taxes = 0.6 }
 needs = { food = 20, waste = 1 }
 sends = ["workers", "shoppers"]
+outlets = { workers = 1, shoppers = 0.5 }
 requires = { water = { min = 1 }, fire_safety = { min = 1 }, police_safety = { min = 1 }, health = { min = 1 } }
 
 # Commercial: customers, goods and food, brought by carts.

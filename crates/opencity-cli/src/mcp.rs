@@ -248,7 +248,7 @@ impl Server {
                         "id": p.id, "name": p.name, "stance": gb.stance(&rules, &p.id).map(|s| s.id.clone()),
                         "stances": p.stances.iter().map(|s| json!({
                             "id": s.id, "name": s.name, "description": s.description, "open": gb.stance_open(s), "requires": s.requires,
-                            "bonus": s.bonus, "demand": s.demand, "satisfaction": s.satisfaction, "cost": s.cost,
+                            "bonus": s.bonus, "needs": s.needs, "demand": s.demand, "satisfaction": s.satisfaction, "cost": s.cost,
                         })).collect::<Vec<_>>(),
                     })).collect::<Vec<_>>(),
                 }))
@@ -395,6 +395,10 @@ fn inspect(city: &City, w: u32, l: u32) -> Result<Value> {
             out["unit"] = json!({ "id": def.id, "name": def.name, "produce": def.produce, "needs": def.needs });
             if let Some(st) = gb.units.get(&(origin.1 * city.width() + origin.0)) {
                 out["satisfaction"] = json!(st.satisfaction);
+                out["starved_ticks"] = json!(st.starved);
+                if !st.outlets.is_empty() {
+                    out["outlets"] = st.outlets.iter().map(|o| (rules.resources[o.0].id.clone(), json!({ "made": o.1, "sent": o.2 }))).collect();
+                }
             }
         }
         out["layers"] = rules.layers.iter().enumerate().map(|(i, layer)| (layer.id.clone(), json!(gb.layer_value(i, w, l, city.width())))).collect();

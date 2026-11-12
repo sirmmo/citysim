@@ -26,6 +26,16 @@ road_access = 3      # a road must be this close for a plot to develop
 grace = 40           # ticks a building stays as built (or as levelled) before changing again
 patience = 15        # ticks in a row past a threshold before levelling up/down or abandoning
 saturation = 0.1     # a zone stops spreading while this share of its settled buildings fail
+neglect = 120        # ticks a building bears a need (or an outlet) met by less than half before it shrinks a level
+
+# Running the city: paid every tick for each resident, more per head as the
+# city grows (clerks, courts, street lamps). Unpaid, every zone building
+# loses `unpaid` satisfaction.
+[administration]
+name = "Administration"
+cost = 0.008
+doubles_at = 20000
+unpaid = 0.15
 
 # ---------------------------------------------------------------- resources
 [[resource]]
@@ -66,6 +76,7 @@ transport = "agents"
 network = "road"
 max_trip = 30
 colour = [0.75, 0.75, 0.8]
+weight = 0.5                     # parking matters less than staff or customers
 
   [[resource.subtype]]
   id = "gasoline"
@@ -98,6 +109,7 @@ transport = "grid"
 network = "power_grid"
 colour = [1.0, 0.95, 0.35]       # links on the network view
 price = 0.01                     # per unit traded with neighbouring cities
+weight = 4                       # in satisfaction: a unit of power counts for four of workers
 
 [[resource]]
 id = "water"
@@ -106,6 +118,7 @@ transport = "grid"
 network = "water"
 colour = [0.30, 0.60, 1.0]
 price = 0.01                     # per unit traded with neighbouring cities
+weight = 2
 
 [[resource]]
 id = "sewage"
@@ -131,6 +144,7 @@ transport = "city"
 id = "upkeep"
 name = "Upkeep"
 transport = "city"
+weight = 25                      # an unfunded service all but stops
 
 [[resource]]
 id = "residents"
@@ -369,8 +383,12 @@ id = "residential"
 name = "Residential"
 structure = "residential"
 base_demand = 3.0
-# Houses appear when jobs are left open.
-demand = [{ resource = "workers", from = "unmet", weight = 0.5 }]
+# Houses appear when jobs are left open, and stop coming while people
+# already here look for work.
+demand = [
+  { resource = "workers", from = "unmet", weight = 0.5 },
+  { resource = "workers", from = "undelivered", weight = -0.25 },
+]
 densities = [
   { id = "low", name = "Low density", cost = 5, units = ["house_1", "house_2", "house_3"] },
   { id = "medium", name = "Medium density", cost = 10, units = ["townhouse_1", "townhouse_2", "townhouse_3"] },
@@ -433,7 +451,9 @@ incinerator = "incinerator"
 
 # ---------------------------------------------------------------- units
 # Residential: residents produce workers and shoppers; they need power and
-# clean air, and the bigger homes want services and land value.
+# clean air, and the bigger homes want services and land value. Workers and
+# shoppers are `outlets`: homes whose people find no job within reach are
+# as unhappy as homes without power, and half as much without shops.
 [[unit]]
 id = "house_1"
 name = "Little house"
@@ -442,6 +462,7 @@ graphic = 11
 produce = { residents = 4, workers = 2, shoppers = 2, taxes = 0.04, car = 1 }
 needs = { power = 1 }
 sends = ["workers", "shoppers", "car"]
+outlets = { workers = 1, shoppers = 0.5 }
 requires = { pollution = { max = 30 } }
 
 [[unit]]
@@ -452,6 +473,7 @@ graphic = 12
 produce = { residents = 6, workers = 3, shoppers = 3, taxes = 0.06, car = 1.5 }
 needs = { power = 1, water = 1 }
 sends = ["workers", "shoppers", "car"]
+outlets = { workers = 1, shoppers = 0.5 }
 requires = { pollution = { max = 25 } }
 
 [[unit]]
@@ -462,6 +484,7 @@ graphic = 13
 produce = { residents = 8, workers = 4, shoppers = 4, taxes = 0.09, car = 2 }
 needs = { power = 2, water = 2, waste = 1 }
 sends = ["workers", "shoppers", "car"]
+outlets = { workers = 1, shoppers = 0.5 }
 requires = { pollution = { max = 20 }, land_value = { min = 2 } }
 
 [[unit]]
@@ -472,6 +495,7 @@ graphic = 14
 produce = { residents = 12, workers = 6, shoppers = 5, taxes = 0.12, car = 3 }
 needs = { power = 2 }
 sends = ["workers", "shoppers", "car"]
+outlets = { workers = 1, shoppers = 0.5 }
 requires = { pollution = { max = 25 } }
 
 [[unit]]
@@ -482,6 +506,7 @@ graphic = 15
 produce = { residents = 18, workers = 9, shoppers = 7, taxes = 0.18, car = 4.5 }
 needs = { power = 3, water = 3, sewage = 1.5 }
 sends = ["workers", "shoppers", "car"]
+outlets = { workers = 1, shoppers = 0.5 }
 requires = { pollution = { max = 20 }, fire_safety = { min = 1 } }
 
 [[unit]]
@@ -492,6 +517,7 @@ graphic = 17
 produce = { residents = 26, workers = 13, shoppers = 10, taxes = 0.26, car = 6.5 }
 needs = { power = 4, water = 4, waste = 2, sewage = 2 }
 sends = ["workers", "shoppers", "car"]
+outlets = { workers = 1, shoppers = 0.5 }
 requires = { pollution = { max = 15 }, fire_safety = { min = 1 }, police_safety = { min = 1 } }
 
 [[unit]]
@@ -502,6 +528,7 @@ graphic = 16
 produce = { residents = 40, workers = 20, shoppers = 15, taxes = 0.4, car = 10 }
 needs = { power = 6 }
 sends = ["workers", "shoppers", "car"]
+outlets = { workers = 1, shoppers = 0.5 }
 requires = { pollution = { max = 20 }, fire_safety = { min = 1 } }
 
 [[unit]]
@@ -512,6 +539,7 @@ graphic = 18
 produce = { residents = 90, workers = 45, shoppers = 32, taxes = 0.9, car = 22.5 }
 needs = { power = 12, water = 12, sewage = 6 }
 sends = ["workers", "shoppers", "car"]
+outlets = { workers = 1, shoppers = 0.5 }
 requires = { pollution = { max = 15 }, fire_safety = { min = 1 }, police_safety = { min = 1 }, health = { min = 1 } }
 
 [[unit]]
@@ -522,6 +550,7 @@ graphic = 19
 produce = { residents = 160, workers = 80, shoppers = 55, taxes = 1.6, car = 40 }
 needs = { power = 20, water = 20, waste = 10, sewage = 10 }
 sends = ["workers", "shoppers", "car"]
+outlets = { workers = 1, shoppers = 0.5 }
 requires = { pollution = { max = 10 }, fire_safety = { min = 1 }, police_safety = { min = 1 }, health = { min = 1 }, education = { min = 1 }, land_value = { min = 5 } }
 
 # Commercial: shops need workers, customers and goods.

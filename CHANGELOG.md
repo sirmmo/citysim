@@ -2,6 +2,20 @@
 
 Release notes in full are on the [releases page](https://github.com/sirmmo/citysim/releases).
 
+## 0.2.52: Sounder GlassBox rules
+- **Homes need jobs and shops.** Workers and shoppers are `outlets` of a home: a house whose people find no work within reach empties, one with work but no shop gets by and never grows. People stop moving in while those already there look for work.
+- **Satisfaction weighs needs by size and importance** (`weight` on a resource: power counts for more than parking), and a need met by less than half starves a building. A shop without customers or a workshop without workers now closes instead of idling at 80 %.
+- **Buildings level up only into what can be supplied.** A house does not grow into one that needs water where the mains have none to spare, or rubbish collection no truck can bring. A building starved for long shrinks a level. The inspector says what a building is waiting for, and how many of a home's workers and shoppers found takers.
+- **Shops open where customers can reach them:** commercial plots develop only on a street network with shoppers or goods left over.
+- **Taxes bite:** a point or two above the default is shrugged off, the top rates empty the town (`steep` on a tax).
+- **Running the city costs money:** an administration line in the budget, so much per inhabitant and more per head as the city grows (`[administration]`).
+- **Walkable centres** no longer hurt the shops they are meant to help: fewer cars, and shops and workplaces that need half the parking (stances take `needs`).
+- **Traffic pollution and noise follow the traffic:** agent rules emit per unit carried, so a busy route is dirtier than a quiet one, and the air quality and noise maps stay on their scales.
+- GlassBox scripts can test a zone's demand (`test global demand.residential greater 0`); zone rules leave resting plots alone.
+- `opencity-cli simulate --demo --game-rules …` lays out the demo town after the rules are attached, so it gets its waterworks and transit as in the game.
+- The pre-industrial rules get the same: outlets for homes, a town hall to pay, steeper taxes.
+- Saved cities keep working. Expect towns to change in the first months: idle shops and workshops close, houses that grew past their water supply shrink back.
+
 ## 0.2.51: Sounds, sky, smoke and map symbols
 - **Interface sounds** (Kenney Interface Sounds): a click when a tool is picked, a low note when something is refused or fails, a chime when a save, a load or a discovery succeeds, a bong when a disaster strikes.
 - **Research is announced:** "Discovered: Railways" when a project finishes.

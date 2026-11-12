@@ -24,18 +24,20 @@ unitRule plantMetrics
 end
 
 # --- Agents: traffic pollutes along its routes ----------------------------
+# Amounts are per unit carried: ten commuters on a route pollute ten times
+# as much as one.
 agentRule commuterTraffic
     condition resource=workers
     repeatAfter 4
-    area -timestamp=Time -map=AirQuality pm10 0.6 1
-    area -timestamp=Time -map=Noise level 0.8 1
+    area -timestamp=Time -map=AirQuality pm10 0.06 1
+    area -timestamp=Time -map=Noise level 0.08 1
 end
 
 agentRule freightTraffic
     condition resource=goods
     repeatAfter 3
-    area -timestamp=Time -map=AirQuality pm10 1.2 1
-    area -timestamp=Time -map=Noise level 1.5 2
+    area -timestamp=Time -map=AirQuality pm10 0.12 1
+    area -timestamp=Time -map=Noise level 0.15 2
 end
 
 # --- Kinds: every kind of car is noisy (Extended GlassBox `{type}`) -------
@@ -45,7 +47,7 @@ end
 agentRule carNoise
     condition resource=car.{type}
     repeatAfter 3
-    area -timestamp=Time -map=Noise level 0.4 1
+    area -timestamp=Time -map=Noise level 0.1 1
 end
 
 # --- Maps: clean air slowly raises land value -----------------------------
@@ -63,12 +65,14 @@ unitRule skyscraperComfort
     map Noise.level atMost 20
 end
 
-# --- Zones: clean neighbourhoods attract family houses directly -----------
+# --- Zones: clean neighbourhoods attract family houses directly, while ----
+# people still want to move in (`demand.<zone>` reads a zone's demand).
 zoneRule familyNeighbourhood
     appliesTo residential
     rate 20
     sample random -count 2
     test global residents greater 200
+    test global demand.residential greater 0
     test map pollution less 3
     test map land_value greater 4
     createUnit -id house_2

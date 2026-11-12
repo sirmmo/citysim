@@ -81,6 +81,15 @@ pub struct ResourceDef {
     /// in a share of what the others make (ideas spreading from town to town).
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub shared: bool,
+    /// How much a unit of it counts in satisfaction: a building's
+    /// satisfaction is the share of its needs met, each weighted by its
+    /// amount times this (power counts for more than parking).
+    #[serde(default = "default_share", skip_serializing_if = "is_one_f32")]
+    pub weight: f32,
+}
+
+fn is_one_f32(v: &f32) -> bool {
+    *v == 1.0
 }
 
 fn is_zero_f32(v: &f32) -> bool {
@@ -138,6 +147,7 @@ fn flatten_resources<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Vec<Resou
                 trail: k.trail.clone(),
                 price: r.price,
                 shared: false,
+                weight: r.weight,
             })
             .collect();
         out.push(r);
@@ -335,6 +345,12 @@ pub struct UnitDef {
     /// Produced resources pushed to buildings that need them.
     #[serde(default)]
     pub sends: Vec<String>,
+    /// Sent resources that must find takers, with how much each matters
+    /// (`{ workers = 1, shoppers = 0.5 }`: homes want jobs for their workers
+    /// and, half as much, shops for their shoppers). The share left unsent
+    /// counts against satisfaction like an unmet need, times this.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub outlets: BTreeMap<String, f32>,
     /// Added to map layers per tick.
     #[serde(default)]
     pub emits: BTreeMap<String, Emission>,
@@ -443,6 +459,15 @@ pub struct GrowthDef {
     /// established units (older than `patience`) are failing.
     #[serde(default = "default_saturation")]
     pub saturation: f32,
+    /// Ticks in a row a unit may go with one of its needs (or outlets) met
+    /// by less than half before it levels down or is abandoned, whatever
+    /// its satisfaction (0: never). Such a unit does not level up either.
+    #[serde(default = "default_neglect")]
+    pub neglect: u32,
+}
+
+fn default_neglect() -> u32 {
+    120
 }
 
 fn default_saturation() -> f32 {
@@ -468,6 +493,7 @@ impl Default for GrowthDef {
             grace: default_grace(),
             patience: default_patience(),
             saturation: default_saturation(),
+            neglect: default_neglect(),
         }
     }
 }
@@ -536,6 +562,41 @@ pub struct Ruleset {
     /// Disasters (`[[disaster]]`).
     #[serde(default, rename = "disaster", skip_serializing_if = "Vec::is_empty")]
     pub disasters: Vec<DisasterDef>,
+    /// Running the city (`[administration]`): a cost per head that grows
+    /// with the population.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub administration: Option<AdministrationDef>,
+}
+
+/// Running the city (`[administration]`): paid from the treasury every tick
+/// for each inhabitant, more per head as the city grows.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AdministrationDef {
+    /// Budget line.
+    #[serde(default = "default_administration")]
+    pub name: String,
+    /// Per inhabitant and tick.
+    pub cost: f32,
+    /// Population at which the cost per head has doubled (it triples at
+    /// twice that, and so on); 0: the same at any size.
+    #[serde(default)]
+    pub doubles_at: f32,
+    /// Satisfaction every zone building loses while the city cannot pay.
+    #[serde(default)]
+    pub unpaid: f32,
+}
+
+fn default_administration() -> String {
+    "Administration".into()
+}
+
+impl AdministrationDef {
+    /// The cost per tick for a population.
+    pub fn cost_for(&self, population: f32) -> f32 {
+        let p = population.max(0.0);
+        self.cost * p * if self.doubles_at > 0.0 { 1.0 + p / self.doubles_at } else { 1.0 }
+    }
 }
 
 /// A disaster (`[[disaster]]`): now and then it strikes a neighbourhood;
@@ -610,6 +671,18 @@ pub struct TaxDef {
     /// Satisfaction added per point above the default, for paying units.
     #[serde(default)]
     pub satisfaction: f32,
+    /// Satisfaction lost per squared point above the default, on top: a
+    /// little more tax is shrugged off, a lot drives people out.
+    #[serde(default, skip_serializing_if = "is_zero_f32")]
+    pub steep: f32,
+}
+
+impl TaxDef {
+    /// What a rate adds to the satisfaction of the units paying it.
+    pub fn mood(&self, rate: f32) -> f32 {
+        let d = rate - self.rate;
+        self.satisfaction * d - if d > 0.0 { self.steep * d * d } else { 0.0 }
+    }
 }
 
 /// A policy (`[[policy]]`): an axis of stances; the first is the default.
@@ -638,6 +711,10 @@ pub struct StanceDef {
     /// Extra production, as a share per resource (as for research).
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub bonus: BTreeMap<String, f32>,
+    /// Change in what every unit needs, as a share per resource
+    /// (`{ car = -0.5 }`: half the parking).
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub needs: BTreeMap<String, f32>,
     /// Demand added per zone id.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub demand: BTreeMap<String, f32>,
@@ -699,6 +776,15 @@ impl Ruleset {
 
     pub fn policy(&self, id: &str) -> Option<&PolicyDef> {
         self.policies.iter().find(|p| p.id == id)
+    }
+
+    /// The unit a zone building grows into at its plot's density, if any.
+    pub fn next_unit(&self, unit: usize, density: u8) -> Option<usize> {
+        let id = &self.units.get(unit)?.id;
+        let z = &self.zones[self.zone_of_unit(id)?];
+        let d = &z.densities[(density as usize).min(z.densities.len() - 1)];
+        let k = d.units.iter().position(|u| u == id)?;
+        self.unit(d.units.get(k + 1)?)
     }
 
     /// Zone of a unit id, by the densities that list it.
@@ -1011,6 +1097,14 @@ impl Ruleset {
             for r in u.produce.keys().chain(u.needs.keys()).chain(u.sends.iter()) {
                 if self.resource(r).is_none() {
                     return err(format!("unit {}: unknown resource {r}", u.id));
+                }
+            }
+            for (r, w) in &u.outlets {
+                if !u.produce.contains_key(r) || !u.sends.contains(r) {
+                    return err(format!("unit {}: outlet {r} must be produced and sent", u.id));
+                }
+                if !(w.is_finite() && *w > 0.0) {
+                    return err(format!("unit {}: outlet {r} must weigh more than 0", u.id));
                 }
             }
             for l in u.emits.keys().chain(u.requires.keys()) {
