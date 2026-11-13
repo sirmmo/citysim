@@ -131,7 +131,7 @@ mod tests {
     #[test]
     fn loads_shipped_catalog() {
         let c = Catalog::load(&data_dir()).unwrap();
-        assert_eq!(c.models.len(), 100);
+        assert_eq!(c.models.len(), 103);
         let coal = c.get(GraphicCode::EPLANT_COAL).unwrap();
         assert_eq!((coal.footprint.width, coal.footprint.length), (5, 3));
         assert!(coal.model.is_file());

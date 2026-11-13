@@ -251,6 +251,10 @@ pub struct GlassBox {
     /// What has been spent on each project so far, by resource.
     #[serde(default)]
     pub progress: BTreeMap<String, BTreeMap<String, f32>>,
+    /// What the other towns of the region have spent on each region-wide
+    /// project, by resource (see [`TechDef::regional`]).
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub joint_in: BTreeMap<String, BTreeMap<String, f32>>,
     /// Running averages of what is left over (undelivered) and what is
     /// lacking (unmet) per tick, by resource, before any trade: what a
     /// region offers to and asks from the neighbours.
@@ -429,6 +433,7 @@ impl GlassBox {
             researched: BTreeSet::new(),
             research: None,
             progress: BTreeMap::new(),
+            joint_in: BTreeMap::new(),
             surplus: Vec::new(),
             deficit: Vec::new(),
             gates: Vec::new(),
@@ -649,8 +654,29 @@ impl GlassBox {
             return 1.0;
         }
         let total: f32 = t.cost.values().sum();
-        let paid: f32 = self.progress.get(tech).map_or(0.0, |p| t.cost.iter().map(|(r, c)| p.get(r).copied().unwrap_or(0.0).min(*c)).sum());
+        let paid: f32 = t.cost.iter().map(|(r, c)| (self.paid(tech, r) + self.joint_paid(t, r)).min(*c)).sum();
         paid / total.max(1e-6)
+    }
+
+    /// Share of a region-wide project paid by the other towns (0..1).
+    pub fn joint_progress(&self, rules: &Ruleset, tech: &str) -> f32 {
+        let Some(t) = rules.tech(tech).map(|t| &rules.techs[t]) else { return 0.0 };
+        let total: f32 = t.cost.values().sum();
+        let paid: f32 = t.cost.iter().map(|(r, c)| self.joint_paid(t, r).min(*c)).sum();
+        paid / total.max(1e-6)
+    }
+
+    /// What this town has spent on a project, of one resource.
+    fn paid(&self, tech: &str, resource: &str) -> f32 {
+        self.progress.get(tech).and_then(|p| p.get(resource)).copied().unwrap_or(0.0)
+    }
+
+    /// What the rest of the region has spent on a region-wide project.
+    fn joint_paid(&self, tech: &TechDef, resource: &str) -> f32 {
+        if !tech.regional {
+            return 0.0;
+        }
+        self.joint_in.get(&tech.id).and_then(|p| p.get(resource)).copied().unwrap_or(0.0)
     }
 
     /// Marks every project done (demo towns, tests, sandbox play).
@@ -677,15 +703,16 @@ impl GlassBox {
             self.research = None;
             return;
         };
-        let paid = self.progress.entry(id.clone()).or_default();
         let mut done = true;
         for (r, cost) in &t.cost {
             let Some(ri) = rules.resource(r) else { continue };
-            let have = paid.entry(r.clone()).or_default();
-            let take = (cost - *have).max(0.0).min(self.pools[ri].max(0.0));
+            // What the other towns of the region paid is not paid again.
+            let others = self.joint_paid(t, r);
+            let have = self.progress.entry(id.clone()).or_default().entry(r.clone()).or_default();
+            let take = (cost - others - *have).max(0.0).min(self.pools[ri].max(0.0));
             self.pools[ri] -= take;
             *have += take;
-            done &= *have >= cost - 1e-3;
+            done &= *have + others >= cost - 1e-3;
         }
         if done {
             self.progress.remove(&id);

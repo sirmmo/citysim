@@ -623,6 +623,144 @@ def archaeology_museum():
     return m
 
 
+def campus():
+    """A 7 x 5 university campus: a main hall with a portico and a clock
+    tower at the back, faculty wings down both sides of a long quad, a
+    domed library, a glass laboratory block, a residence tower and a
+    running track by the street (+z)."""
+    m = Model()
+    m.box(CONCRETE, 0.0, 0.0, 0.0, 7.0, 0.03, 5.0)
+    # Main hall at the back, with a gable roof.
+    m.box(STONE, 2.0, 0.03, 0.2, 5.0, 1.2, 1.3)
+    m.roof(ROOF, 2.0, 0.2, 5.0, 1.3, 1.2, 1.6)
+    for x in (2.3, 2.75, 3.2, 3.8, 4.25, 4.7):
+        m.box(GLASS, x - 0.1, 0.5, 1.3, x + 0.1, 1.0, 1.32)
+    # Portico: columns under a pediment.
+    for x in (3.05, 3.35, 3.65, 3.95):
+        m.cylinder(WHITE, x, 1.55, 0.05, 0.03, 0.8, n=8)
+    m.box(WHITE, 2.95, 0.8, 1.3, 4.05, 0.9, 1.65)
+    m.roof(WHITE, 2.95, 1.3, 4.05, 1.65, 0.9, 1.1)
+    # Clock tower over the hall.
+    m.box(STONE, 3.25, 1.2, 0.5, 3.75, 2.45, 1.0)
+    m.box(WHITE, 3.38, 2.0, 1.0, 3.62, 2.24, 1.01)
+    m.cone(ROOF, 3.5, 0.75, 0.37, 2.45, 2.9, n=4)
+    # Faculty wings down both sides of the quad, two storeys of brick.
+    for x0, x1 in ((0.9, 1.8), (5.2, 6.1)):
+        m.box(BRICK, x0, 0.03, 0.5, x1, 0.85, 3.2, top=DARK)
+        inner = x1 if x0 < 3 else x0 - 0.02
+        for z in (0.9, 1.5, 2.1, 2.7):
+            for y in (0.2, 0.55):
+                m.box(GLASS, inner, y, z - 0.14, inner + 0.02, y + 0.2, z + 0.14)
+    # The quad: lawn, crossing paths, a fountain, trees.
+    m.box(GRASS, 2.0, 0.03, 1.9, 5.0, 0.04, 3.5)
+    m.box(CONCRETE, 3.42, 0.04, 1.9, 3.58, 0.045, 3.5)
+    m.box(CONCRETE, 2.0, 0.04, 2.62, 5.0, 0.045, 2.78)
+    m.cylinder(STEEL, 3.5, 2.7, 0.2, 0.04, 0.1, n=10, top=WATER)
+    for (x, z) in ((2.4, 2.2), (4.6, 2.2), (2.4, 3.2), (4.6, 3.2)):
+        m.cylinder(EARTH, x, z, 0.03, 0.04, 0.22, n=6)
+        m.cone((0.25, 0.48, 0.25), x, z, 0.2, 0.2, 0.62, n=8)
+    # Domed library in the west corner.
+    m.box(STONE, 0.2, 0.03, 0.2, 1.6, 0.12, 0.45)
+    m.cylinder(STONE, 0.5, 3.9, 0.42, 0.03, 0.65, n=14)
+    m.cone(COPPER, 0.5, 3.9, 0.42, 0.65, 1.02, n=14)
+    # Glass laboratory block and the residence tower in the east corners.
+    m.box(GLASS, 5.3, 0.03, 3.5, 6.7, 0.7, 4.4, top=WHITE)
+    for x in (5.65, 6.0, 6.35):
+        m.box(WHITE, x - 0.02, 0.03, 4.4, x + 0.02, 0.7, 4.42)
+    m.box(WHITE, 6.25, 0.03, 0.3, 6.8, 1.9, 0.95, top=DARK)
+    for y in (0.3, 0.6, 0.9, 1.2, 1.5):
+        m.box(GLASS, 6.25, y, 0.95, 6.8, y + 0.14, 0.97)
+    m.box(STONE, 0.2, 0.03, 0.6, 0.75, 0.6, 2.8, top=ROOF)
+    # Running track with a pitch in it, by the street.
+    m.band((0.72, 0.36, 0.26), 2.6, 4.25, (1.05, 0.6, 0.035), (0.75, 0.33, 0.035), n=20)
+    m.box(GREEN, 2.0, 0.03, 4.0, 3.2, 0.036, 4.5)
+    # Gate on the street: posts and a path to the quad.
+    m.box(CONCRETE, 4.05, 0.03, 3.5, 4.25, 0.04, 5.0)
+    for x in (3.95, 4.35):
+        m.box(STONE, x - 0.06, 0.03, 4.8, x + 0.06, 0.5, 4.92, top=WHITE)
+    return m
+
+
+def solar_farm():
+    """A 4 x 4 solar farm: rows of tilted blue panels on a gravel field,
+    an inverter cabin and a mast by the street (+z)."""
+    m = Model()
+    m.box((0.62, 0.60, 0.52), 0.0, 0.0, 0.0, 4.0, 0.02, 4.0)
+    panel, frame = (0.13, 0.22, 0.48), (0.80, 0.82, 0.84)
+    for row in range(5):
+        z0 = 0.25 + row * 0.62
+        for x0 in (0.2, 2.1):
+            x1 = x0 + (1.7 if x0 < 1 or row < 4 else 0.9)
+            # The panel leans to the south: high edge at the back.
+            v = [(x0, 0.36, z0), (x1, 0.36, z0), (x1, 0.12, z0 + 0.42), (x0, 0.12, z0 + 0.42)]
+            m.poly(panel, v, [[0, 1, 2, 3]])
+            m.poly(frame, [(x0, 0.37, z0), (x1, 0.37, z0), (x1, 0.37, z0 - 0.02), (x0, 0.37, z0 - 0.02)], [[0, 1, 2, 3]])
+            # Cell lines.
+            n = int(round((x1 - x0) / 0.425))
+            for k in range(1, n):
+                x = x0 + k * (x1 - x0) / n
+                m.poly(frame, [(x - 0.008, 0.362, z0), (x + 0.008, 0.362, z0), (x + 0.008, 0.122, z0 + 0.42), (x - 0.008, 0.122, z0 + 0.42)], [[0, 1, 2, 3]])
+            for x in (x0 + 0.12, x1 - 0.12):
+                m.box(STEEL, x - 0.02, 0.02, z0 + 0.04, x + 0.02, 0.33, z0 + 0.08)
+    # Inverter cabin and a mast.
+    m.box(WHITE, 3.15, 0.02, 2.8, 3.8, 0.42, 3.4, top=DARK)
+    m.box(YELLOW, 3.3, 0.1, 3.4, 3.5, 0.3, 3.41)
+    m.cylinder(STEEL, 3.6, 3.7, 0.02, 0.02, 0.5, n=6)
+    return m
+
+
+def fusion_plant():
+    """A 7 x 6 fusion plant: the round reactor hall with its torus under a
+    glass crown, a ring of magnet power supplies, a long turbine hall,
+    cooling cells, a cryogenics yard of white tanks and a switchyard."""
+    m = Model()
+    m.box(CONCRETE, 0.0, 0.0, 0.0, 7.0, 0.03, 6.0)
+    hall, blue = (0.86, 0.88, 0.91), (0.25, 0.50, 0.80)
+    cx, cz = 2.5, 2.4
+    # Reactor hall: a wide drum, stepped, with the torus showing on top.
+    m.cylinder(hall, cx, cz, 1.9, 0.03, 0.9, n=28, top=(0.70, 0.73, 0.77))
+    m.cylinder(hall, cx, cz, 1.45, 0.9, 1.45, n=28, top=(0.70, 0.73, 0.77))
+    m.band(blue, cx, cz, (1.9, 1.9, 0.55), (1.9, 1.9, 0.68), n=28)
+    # The torus: a fat ring, and the glowing plasma seen through the crown.
+    m.band(STEEL, cx, cz, (1.25, 1.25, 1.45), (1.05, 1.05, 1.9), n=28)
+    m.band(STEEL, cx, cz, (1.05, 1.05, 1.9), (0.7, 0.7, 1.9), n=28)
+    m.band(STEEL, cx, cz, (0.7, 0.7, 1.9), (0.5, 0.5, 1.45), n=28)
+    m.band((0.95, 0.55, 0.95), cx, cz, (1.0, 1.0, 1.91), (0.75, 0.75, 1.91), n=28)
+    m.cylinder(DARK, cx, cz, 0.3, 1.45, 2.4, n=12, top=blue)
+    # Magnet coils: ribs around the drum.
+    for i in range(12):
+        a = 2 * math.pi * i / 12
+        x, z = cx + 1.93 * math.cos(a), cz + 1.93 * math.sin(a)
+        m.box((0.80, 0.45, 0.20), x - 0.07, 0.03, z - 0.07, x + 0.07, 1.05, z + 0.07)
+    # Turbine hall to the east, with a gable roof and pipes from the reactor.
+    m.box(hall, 4.7, 0.03, 0.4, 6.7, 1.0, 2.9)
+    m.roof_z((0.45, 0.50, 0.56), 4.7, 0.4, 6.7, 2.9, 1.0, 1.3)
+    m.box(blue, 4.7, 0.5, 2.9, 6.7, 0.62, 2.92)
+    for z in (1.2, 1.9):
+        m.pipe(STEEL, (4.3, 0.55, z), (4.75, 0.55, z), 0.09)
+    # Cooling cells: low boxes with fans.
+    for x in (4.8, 5.5, 6.2):
+        m.box((0.70, 0.73, 0.77), x, 0.03, 3.3, x + 0.55, 0.45, 3.95, top=DARK)
+        m.cylinder(STEEL, x + 0.275, 3.625, 0.2, 0.45, 0.5, n=10, top=DARK)
+    # Cryogenics yard: white helium tanks on their sides, and a tall one.
+    for z in (4.75, 5.15, 5.55):
+        m.pipe(WHITE, (0.4, 0.22, z), (1.9, 0.22, z), 0.16, n=10)
+    m.cylinder(WHITE, 2.5, 5.2, 0.28, 0.03, 1.1, n=12)
+    m.cone(WHITE, 2.5, 5.2, 0.28, 1.1, 1.3, n=12)
+    # Control building and car park by the street (+z).
+    m.box(WHITE, 3.3, 0.03, 4.6, 4.5, 0.6, 5.5, top=DARK)
+    m.box(GLASS, 3.4, 0.25, 5.5, 4.4, 0.45, 5.52)
+    # Switchyard: gantries and transformers.
+    for x in (5.0, 5.7, 6.4):
+        m.box(DARK, x, 0.03, 4.5, x + 0.35, 0.35, 4.95)
+        m.box(STEEL, x + 0.15, 0.35, 4.7, x + 0.2, 0.9, 4.75)
+    m.box(STEEL, 4.95, 0.88, 4.7, 6.8, 0.92, 4.75)
+    m.box(STEEL, 4.95, 0.03, 5.5, 5.0, 1.1, 5.55)
+    m.box(STEEL, 6.75, 0.03, 5.5, 6.8, 1.1, 5.55)
+    m.box(STEEL, 4.95, 1.06, 5.5, 6.8, 1.1, 5.55)
+    return m
+
+
 def icons():
     try:
         from PIL import Image, ImageDraw
@@ -775,6 +913,22 @@ def icons():
     d.line((54, 27, 54, 44), fill=(230, 190, 60), width=2)
     d.ellipse((51, 42, 57, 50), fill=(230, 190, 60))
     save_icon("university", im)
+    # Power, on a yellow tile.
+    power = (235, 205, 95)
+    im, d = tile(power)
+    d.ellipse((40, 8, 56, 24), fill=(250, 240, 150), outline=(200, 130, 30))
+    d.polygon([(8, 34), (40, 28), (52, 50), (14, 56)], fill=(40, 70, 150), outline=ink)
+    for t in (0.33, 0.66):
+        d.line((8 + 32 * t, 34 - 6 * t, 14 + 38 * t, 56 - 6 * t), fill=white, width=1)
+    d.line((11, 45, 46, 39), fill=white, width=1)
+    save_icon("power_plant_solar", im)
+    im, d = tile(power)
+    d.ellipse((8, 14, 56, 50), fill=(150, 160, 175), outline=ink)
+    d.ellipse((14, 19, 50, 45), fill=(235, 120, 235), outline=ink)
+    d.ellipse((24, 26, 40, 38), fill=power, outline=ink)
+    for (x, y) in ((32, 8), (32, 56), (4, 32), (60, 32)):
+        d.ellipse((x - 3, y - 3, x + 3, y + 3), fill=(210, 110, 40))
+    save_icon("power_plant_fusion", im)
     # Amenities, on a warm tile.
     warm = (225, 170, 110)
     im, d = tile(warm)
@@ -868,6 +1022,9 @@ def main():
     save("water/seaport/seaport", seaport(), "Seaport", 4, 3, 1.5, "Cargo ships to the rest of the world.")
     save("educationdept/high_school/high_school", high_school(), "High school", 4, 3, 1.25, "More research than a school, and education farther around.")
     save("educationdept/university/university", university(), "University", 5, 4, 2.6, "The most research, and education for the whole town.")
+    save("educationdept/campus/campus", campus(), "University", 7, 5, 2.9, "A campus: the most research, and education for the whole town.")
+    save("electricity/solar/solar", solar_farm(), "Solar farm", 4, 4, 0.5, "Clean power from a field of panels.")
+    save("electricity/fusion/fusion", fusion_plant(), "Fusion power plant", 7, 6, 2.4, "The most power there is, with no smoke.")
     save("amenity/stadium/stadium", stadium(), "Stadium", 6, 5, 2.15, "Crowds on match days.")
     save("amenity/mall/mall", mall(), "Shopping mall", 5, 4, 1.05, "A hundred shops under one roof.")
     save("amenity/museum/museum", museum(), "Museum", 3, 3, 1.45, "The town's collections.")

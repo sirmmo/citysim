@@ -696,6 +696,7 @@ requires = ["motorways"]             # projects to finish first (optional)
 unlocks = ["tower_2", "tower_3", "mall_3", "highway"]   # unit ids and tool ids
 bonus = { goods = 0.2 }              # 20% more goods once done (optional)
 excludes = ["service_economy"]       # rivals ruled out for good (optional)
+regional = true                      # paid for by the whole region (optional)
 ```
 
 - **Gates:** `requires` and the cost decide when a project opens. `tier` and
@@ -714,6 +715,11 @@ excludes = ["service_economy"]       # rivals ruled out for good (optional)
   market or a guild charter.
 - **Bonuses:** a finished project's `bonus` adds that share to the
   production of the resource (and of its kinds) in every building.
+- **Region-wide projects:** with `regional = true` every town of a region
+  pays into the project: what the other towns have paid is taken off the
+  cost, and once one town finishes it they all have it. Towns learn of each
+  other's payments from the region's summaries (written when a town is
+  saved, or monthly on a region server). A town outside a region pays it all.
 - **Choosing a project:** pick one in the 🔬 Research window, which groups
   projects by branch and tier and shows what each one rules out. A project
   draws on the pools each tick until it is paid for, and a progress bar
@@ -725,7 +731,7 @@ excludes = ["service_economy"]       # rivals ruled out for good (optional)
 
 | Tree | Branches and projects |
 |---|---|
-| `modern` (GlassBox) | Transport: Motorways (highway). Economy: Service economy (+10% taxes, +30% ideas) or Industrial policy (+20% goods, +10% fuel); Computing (+25% research). Education: Secondary education (high school), Higher education (university). Housing: Steel-frame towers (High-rise, Slab tower, Skyscraper). Industry: Aeronautics (Aeronautics works). Power: Nuclear fission (nuclear plant). Culture: Cultural institutions (archaeology museum, modern art museum, opera house), Mass entertainment (stadium, shopping mall) |
+| `modern` (GlassBox) | Transport: Motorways (highway). Economy: Service economy (+10% taxes, +30% ideas) or Industrial policy (+20% goods, +10% fuel); Computing (+25% research). Education: Secondary education (high school), Higher education (university). Housing: Steel-frame towers (High-rise, Slab tower, Skyscraper). Industry: Aeronautics (Aeronautics works). Power: Photovoltaics (solar farm), Nuclear fission (nuclear plant), Nuclear fusion (fusion plant; region-wide, 120,000 points). Culture: Cultural institutions (archaeology museum, modern art museum, opera house), Mass entertainment (stadium, shopping mall) |
 | `pre-industrial` | Streets: Paving (cobbled streets). Farming: Crop rotation (+20% food and fodder), Horse breeding (Stables). Charter: Free market (Market square, +15% taxes) or Guild charter (Craft hall, +20% goods). Housing: Masonry (Courtyard house, Insula block). Civic: Bathing & medicine (Bathhouse), Studium generale (Studium), Spectacles (Arena, Theatre), Printing (+30% ideas, +15% research). Trade: Banking (Merchants' exchange) |
 
 A school makes about 2 research points a tick, some 2,400 a year, so a

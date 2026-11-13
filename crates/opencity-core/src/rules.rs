@@ -936,6 +936,11 @@ pub struct TechDef {
     /// (`{ goods = 0.2 }` makes 20% more goods).
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub bonus: BTreeMap<String, f32>,
+    /// A project of the whole region: every town pays into it, what the
+    /// others have paid counts, and once one town finishes it they all
+    /// have it. A town on its own pays the lot.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub regional: bool,
 }
 
 fn first_tier() -> u32 {
@@ -1424,6 +1429,8 @@ pub fn structure_code(name: &str) -> Option<StructureCode> {
         "power_line" => PowerLine,
         "coal_plant" => CoalPlant,
         "nuclear_plant" => NuclearPlant,
+        "solar_plant" => SolarPlant,
+        "fusion_plant" => FusionPlant,
         "park" => Park,
         "fire_station" => FireDept,
         "police" => PoliceDept,

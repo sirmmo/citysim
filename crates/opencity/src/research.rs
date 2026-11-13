@@ -72,6 +72,10 @@ fn project(ui: &mut egui::Ui, gb: &opencity_core::glassbox::GlassBox, rules: &Ru
         };
         ui.label(RichText::new(format!("{mark} {}", t.name)).strong().color(colour));
         ui.label(RichText::new(format!("tier {}", t.tier)).small().color(Color32::GRAY));
+        if t.regional {
+            ui.label(RichText::new("region-wide").small().color(Color32::from_rgb(130, 180, 230)))
+                .on_hover_text("Every town of the region pays into this project, and all of them have it once it is done.");
+        }
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
             if current {
                 if ui.small_button("Stop").clicked() {
@@ -115,6 +119,10 @@ fn project(ui: &mut egui::Ui, gb: &opencity_core::glassbox::GlassBox, rules: &Ru
         let p = gb.research_progress(rules, &t.id);
         if p > 0.0 {
             ui.add(egui::ProgressBar::new(p).desired_height(6.0).show_percentage());
+        }
+        let others = gb.joint_progress(rules, &t.id);
+        if others > 0.0 {
+            ui.label(RichText::new(format!("{:.0}% paid by the other towns of the region", others * 100.0)).small().color(Color32::from_rgb(130, 180, 230)));
         }
     }
     ui.add_space(6.0);

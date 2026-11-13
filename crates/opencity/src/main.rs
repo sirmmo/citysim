@@ -666,6 +666,7 @@ impl Game {
                     r.deals = r.region.trade(slot, &self.city);
                     self.city.apply_trade(&r.deals);
                     self.city.apply_culture(&r.region.culture_for(slot));
+                    self.city.apply_joint(&r.region.joint_for(slot));
                 }
                 self.region_link();
             }
@@ -701,6 +702,7 @@ impl Game {
         r.deals = r.region.trade(slot, &self.city);
         self.city.apply_trade(&r.deals);
         self.city.apply_culture(&r.region.culture_for(slot));
+        self.city.apply_joint(&r.region.joint_for(slot));
         // Crossings a neighbour built toward us since (over the network).
         self.region_link();
     }

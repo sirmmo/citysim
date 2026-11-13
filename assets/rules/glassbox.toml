@@ -454,6 +454,8 @@ densities = [
 [services]
 coal_plant = "coal_plant"
 nuclear_plant = "nuclear_plant"
+solar_plant = "solar_farm"
+fusion_plant = "fusion_plant"
 fire_station = "fire_station"
 police = "police_station"
 hospital = "hospital"
@@ -950,8 +952,8 @@ emits = { education = { amount = 12.0, radius = 20 } }
 [[unit]]
 id = "university"
 name = "University"
-description = "Faculties, laboratories and a library: research at twelve times a school's pace, for a town with ideas enough to feed it."
-graphic = 392
+description = "Faculties, laboratories and a library on a campus of their own: research at twelve times a school's pace, for a town with ideas enough to feed it."
+graphic = 393
 produce = { research = 24 }
 needs = { workers = 40, power = 16, upkeep = 2.6, ideas = 8 }
 emits = { education = { amount = 16.0, radius = 30 } }
@@ -1013,3 +1015,23 @@ graphic = 341
 produce = { taxes = 2.4, ideas = 1 }
 needs = { workers = 50, shoppers = 110, goods = 45, power = 22, car = 45, water = 10, waste = 10, sewage = 6 }
 emits = { land_value = { amount = 2.0, radius = 6 } }
+
+# More ways to make power. A solar farm is clean and cheap to run and needs
+# hardly anyone, but makes little for the land it takes: a coal plant gets
+# 27 units of power from a tile, a solar farm under 8. A fusion plant powers
+# a region (sell what is left over through a power line across the border).
+[[unit]]
+id = "solar_farm"
+name = "Solar farm"
+description = "A field of panels: clean power with hardly any staff or upkeep, and little of it for the land it takes."
+graphic = 304
+produce = { power = 120 }
+needs = { workers = 1, upkeep = 0.1 }
+
+[[unit]]
+id = "fusion_plant"
+name = "Fusion power plant"
+description = "A star in a magnetic bottle: five times a nuclear plant's power, with no smoke and no waste."
+graphic = 305
+produce = { power = 6000 }
+needs = { workers = 40, upkeep = 5 }

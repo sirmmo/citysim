@@ -37,7 +37,7 @@ build = "commercial"
 ```
 
 Build kinds: `residential`, `commercial`, `industrial`, `road`,
-`power_line`, `coal_plant`, `nuclear_plant`, `park`, `trees`, `water`,
+`power_line`, `coal_plant`, `nuclear_plant`, `solar_plant`, `fusion_plant`, `park`, `trees`, `water`,
 `fire_station`, `police`, `hospital`, `school`, `high_school`, `university`, `stadium`, `mall`, `museum`,
 `modern_art_museum`, `opera_house`, `archaeology_museum`, `ignore`.
 `build = "from:<property>"` reads the kind from a property, which is how

@@ -155,6 +155,29 @@ cost = { research = 8000 }
 requires = ["steel_frame"]
 unlocks = ["nuclear_plant"]
 
+[[tech]]
+id = "photovoltaics"
+name = "Photovoltaics"
+description = "Silicon that turns daylight into current: solar farms, clean and cheap to run."
+category = "Power"
+tier = 1
+cost = { research = 2500 }
+unlocks = ["solar_plant"]
+
+# The biggest project there is: some four years of a university's research.
+# It is region-wide: in a region every town pays into it, and all of them
+# have it once it is done.
+[[tech]]
+id = "fusion"
+name = "Nuclear fusion"
+description = "The power of the sun, held in a magnetic bottle. A project for a whole region: every town pays into it, and all of them get it."
+category = "Power"
+tier = 4
+cost = { research = 120000 }
+requires = ["fission", "computing"]
+unlocks = ["fusion_plant"]
+regional = true
+
 # ---------------------------------------------------------------- culture
 # A plain museum needs no research.
 [[tech]]

@@ -62,6 +62,7 @@ smoke = true
 390 = "models/composed/school.compose"
 391 = "models/composed/high_school.compose"
 392 = "models/composed/university.compose"
+393 = "models/composed/campus.compose"
 386 = "models/composed/bus_stop.compose"
 387 = "models/composed/tram_stop.compose"
 388 = "models/composed/metro_station.compose"

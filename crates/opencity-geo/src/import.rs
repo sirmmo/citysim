@@ -314,7 +314,7 @@ fn priority(b: Build) -> u8 {
         Road => 1,
         Rail => 1,
         PowerLine | WaterPipe | Tram | Metro => 2,
-        CoalPlant | NuclearPlant => 3,
+        CoalPlant | NuclearPlant | SolarPlant | FusionPlant => 3,
         FireStation | Police | Hospital | School | HighSchool | University | Station | Harbour | PumpingStation | WaterTower | WaterTreatment | Dump
         | Recycling | Incinerator | BusStop | TramStop | MetroStation | Airport | Seaport => 4,
         Stadium | Mall | Museum | ModernArtMuseum | OperaHouse | ArchaeologyMuseum => 4,
@@ -335,6 +335,8 @@ fn code_of(b: Build) -> Option<StructureCode> {
         PowerLine => StructureCode::PowerLine,
         CoalPlant => StructureCode::CoalPlant,
         NuclearPlant => StructureCode::NuclearPlant,
+        SolarPlant => StructureCode::SolarPlant,
+        FusionPlant => StructureCode::FusionPlant,
         Park => StructureCode::Park,
         Trees => StructureCode::Flora,
         FireStation => StructureCode::FireDept,

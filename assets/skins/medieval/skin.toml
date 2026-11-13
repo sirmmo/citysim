@@ -2,7 +2,7 @@ name = "Middle Ages"
 description = "501-1449: walled towns of timber and stone, dirt lanes and cobbled market streets, no engines."
 era = "Middle Ages"
 
-disabled_tools = ["nuclear_plant", "power_line", "road", "highway", "rail", "station"]
+disabled_tools = ["nuclear_plant", "solar_plant", "fusion_plant", "power_line", "road", "highway", "rail", "station"]
 
 [applies]
 years = [501, 1449]

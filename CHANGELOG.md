@@ -2,6 +2,13 @@
 
 Release notes in full are on the [releases page](https://github.com/sirmmo/citysim/releases).
 
+## 0.2.58: Solar and fusion power, research by the region, a campus
+- **Solar farm** (4 × 4, $1,800): clean power with hardly any staff or upkeep, and little of it for the land it takes: 120 units, where a coal plant on fewer tiles makes 400. It waits for **Photovoltaics** (2,500 research points).
+- **Fusion power plant** (7 × 6, $40,000): 6,000 units of power, five nuclear plants' worth, with no smoke. It waits for **Nuclear fusion**, the biggest project in the tree: 120,000 research points, after Nuclear fission and Computing.
+- **Region-wide research.** Nuclear fusion is a project of the whole region: every town can pay into it, what the others have paid counts, and once one town finishes it they all have it. The Research window marks such projects and shows the share the other towns have paid. A town on its own pays the lot. In the rules: `regional = true` on a `[[tech]]`.
+- **The university is a campus** of 7 × 5 tiles, with faculty wings, a library, a laboratory and a residence tower around a quad. Universities built before keep their 5 × 4 building and work the same.
+- Map imports build solar farms from `plant:source=solar` and fusion plants from `plant:method=fusion`; exports write them back.
+
 ## 0.2.57: Amenities, fires that burn, mixed streets
 - **Amenities**, a new row in the sidebar: **Museum**, **Archaeology museum**, **Modern art museum**, **Opera house**, **Stadium** and **Shopping mall**. They take visitors (the shoppers of the homes around, who then have somewhere to go) and raise land value; the museums and the opera add ideas for the schools, the stadium and the mall pay taxes and draw crowds and cars. The plain museum needs no research; the others come with **Cultural institutions** and **Mass entertainment**. Before 1800: an **Arena** and a **Theatre**, after *Spectacles*.
 - **Fires burn, and spread.** A building that catches fire is no longer gone at once: it burns for some twenty ticks, with flames, smoke and a flame mark over the roof. Until then fire coverage may put it out and save it, and the fire may pass to the buildings next door. With no fire station in reach what burns is lost and a block can go; under good coverage most fires are out in a few ticks. A message counts the buildings lost and saved when the last fire is out.

@@ -18,7 +18,7 @@ tech_tree = "pre-industrial"
 policy_set = "pre-industrial"
 years = [-9999, 1799]
 # No electricity, and no asphalt: streets are dirt or paved.
-disabled_tools = ["power_line", "nuclear_plant", "road", "highway", "rail", "station", "water_pipe", "pumping_station", "water_tower", "water_treatment", "recycling", "incinerator", "tram", "bus_stop", "tram_stop", "metro", "metro_station", "airport", "seaport", "high_school", "mall", "museum", "modern_art_museum", "archaeology_museum"]
+disabled_tools = ["power_line", "nuclear_plant", "solar_plant", "fusion_plant", "road", "highway", "rail", "station", "water_pipe", "pumping_station", "water_tower", "water_treatment", "recycling", "incinerator", "tram", "bus_stop", "tram_stop", "metro", "metro_station", "airport", "seaport", "high_school", "mall", "museum", "modern_art_museum", "archaeology_museum"]
 
 [growth]
 level_up = 0.75

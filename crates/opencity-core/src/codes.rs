@@ -71,6 +71,10 @@ pub enum StructureCode {
     OperaHouse = 60,
     /// Archaeology museum: the town's past; ideas, and some schooling.
     ArchaeologyMuseum = 61,
+    /// Solar farm: clean power from a field of panels; little of it per tile.
+    SolarPlant = 62,
+    /// Fusion plant: the most power there is, with no smoke and no waste.
+    FusionPlant = 63,
 }
 
 impl StructureCode {
@@ -118,6 +122,8 @@ impl StructureCode {
             59 => ModernArtMuseum,
             60 => OperaHouse,
             61 => ArchaeologyMuseum,
+            62 => SolarPlant,
+            63 => FusionPlant,
             _ => return None,
         })
     }
@@ -131,7 +137,7 @@ impl StructureCode {
     }
 
     pub const fn is_power_plant(self) -> bool {
-        matches!(self, Self::CoalPlant | Self::NuclearPlant)
+        matches!(self, Self::CoalPlant | Self::NuclearPlant | Self::SolarPlant | Self::FusionPlant)
     }
 
     /// Places people go to: stadium, mall, museums, opera house.
@@ -205,6 +211,8 @@ impl StructureCode {
             ModernArtMuseum => GraphicCode::MODERN_ART_MUSEUM,
             OperaHouse => GraphicCode::OPERA_HOUSE,
             ArchaeologyMuseum => GraphicCode::ARCHAEOLOGY_MUSEUM,
+            SolarPlant => GraphicCode::EPLANT_SOLAR,
+            FusionPlant => GraphicCode::EPLANT_FUSION,
         }
     }
 
@@ -214,7 +222,7 @@ impl StructureCode {
             Residential | Park => StructureType::Residence,
             Commercial => StructureType::Commerce,
             Industrial => StructureType::Industry,
-            CoalPlant | NuclearPlant => StructureType::Electricity,
+            CoalPlant | NuclearPlant | SolarPlant | FusionPlant => StructureType::Electricity,
             Road | PowerLine | WaterPipe => StructureType::Path,
             PumpingStation | WaterTower | WaterTreatment => StructureType::Water,
             Dump | Recycling | Incinerator | BusStop | TramStop | MetroStation | Airport | Seaport => StructureType::Government,
@@ -258,6 +266,8 @@ impl StructureCode {
             ModernArtMuseum => 3500,
             OperaHouse => 6000,
             ArchaeologyMuseum => 3000,
+            SolarPlant => 1800,
+            FusionPlant => 40000,
             Test | Part => 0,
         }
     }
@@ -293,6 +303,8 @@ impl StructureCode {
             ModernArtMuseum => 25,
             OperaHouse => 45,
             ArchaeologyMuseum => 20,
+            SolarPlant => 5,
+            FusionPlant => 200,
         }
     }
 
@@ -319,6 +331,8 @@ impl StructureCode {
             ModernArtMuseum => 200,
             OperaHouse => 400,
             ArchaeologyMuseum => 200,
+            SolarPlant => 100,
+            FusionPlant => 2000,
             Test => 0,
         }
     }
@@ -358,6 +372,8 @@ impl GraphicCode {
     pub const ELINE_BASE: Self = Self(170);
     pub const EPLANT_COAL: Self = Self(300);
     pub const EPLANT_NUCLEAR: Self = Self(303);
+    pub const EPLANT_SOLAR: Self = Self(304);
+    pub const EPLANT_FUSION: Self = Self(305);
     pub const PARK0: Self = Self(320);
     pub const TREE_BEGIN: Self = Self(330);
     pub const TREE_END: Self = Self(334);
@@ -366,7 +382,10 @@ impl GraphicCode {
     pub const HOSPITAL_DEPT: Self = Self(370);
     pub const EDUCATION_DEPT: Self = Self(390);
     pub const HIGH_SCHOOL: Self = Self(391);
-    pub const UNIVERSITY: Self = Self(392);
+    /// The 5 x 4 university built before 0.2.58 (saves keep it).
+    pub const UNIVERSITY_OLD: Self = Self(392);
+    /// The university campus, 7 x 5.
+    pub const UNIVERSITY: Self = Self(393);
     pub const STADIUM: Self = Self(340);
     pub const MALL: Self = Self(341);
     pub const MUSEUM: Self = Self(342);
@@ -664,10 +683,12 @@ pub enum Tool {
     ModernArtMuseum,
     OperaHouse,
     ArchaeologyMuseum,
+    SolarPlant,
+    FusionPlant,
 }
 
 impl Tool {
-    pub const ALL: [Tool; 46] = [
+    pub const ALL: [Tool; 48] = [
         Tool::Destroy,
         Tool::ZoneResidential,
         Tool::ZoneCommercial,
@@ -714,6 +735,8 @@ impl Tool {
         Tool::ModernArtMuseum,
         Tool::OperaHouse,
         Tool::ArchaeologyMuseum,
+        Tool::SolarPlant,
+        Tool::FusionPlant,
     ];
 
     /// Stable identifier, used by skins and GeoJSON rules.
@@ -765,6 +788,8 @@ impl Tool {
             Tool::ModernArtMuseum => "modern_art_museum",
             Tool::OperaHouse => "opera_house",
             Tool::ArchaeologyMuseum => "archaeology_museum",
+            Tool::SolarPlant => "solar_plant",
+            Tool::FusionPlant => "fusion_plant",
         }
     }
 
@@ -808,6 +833,8 @@ impl Tool {
             Tool::ModernArtMuseum => S::ModernArtMuseum,
             Tool::OperaHouse => S::OperaHouse,
             Tool::ArchaeologyMuseum => S::ArchaeologyMuseum,
+            Tool::SolarPlant => S::SolarPlant,
+            Tool::FusionPlant => S::FusionPlant,
             // Metro tunnels run underground, under whatever stands there.
             Tool::Destroy | Tool::RaiseTerrain | Tool::LowerTerrain | Tool::Canal | Tool::MetroLine => return None,
         })

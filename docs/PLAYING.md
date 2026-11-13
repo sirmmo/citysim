@@ -351,6 +351,35 @@ both rule sets: every month each town takes in a tenth of the ideas the other
 towns of the region make, so a town of thinkers helps its neighbours'
 research. This happens in regions played alone and online.
 
+### Region-wide research
+
+Some projects are too big for one town and are marked **region-wide** in the
+Research window. **Nuclear fusion** is the one in the modern tree.
+
+- Every town of the region can pay into the project. What the other towns
+  have paid counts, and the window shows their share.
+- Once one town finishes it, every town of the region has it: the others
+  get the news the next time they are played, or within a month online.
+- Towns learn of each other's payments when a town is saved (a region
+  played alone) or once a month (online).
+- A town on its own pays the lot.
+
+## Power plants
+
+Under GlassBox rules a plant's power goes to whatever its network reaches.
+
+| Plant | Size | Cost | Power | Staff | Upkeep per tick | Notes | Research needed |
+|---|---|---|---|---|---|---|---|
+| Coal plant | 5 × 3 | $2,000 | 400 | 10 | 0.4 | pollutes around it | none |
+| Solar farm | 4 × 4 | $1,800 | 120 | 1 | 0.1 | clean; little power for the land it takes | Photovoltaics |
+| Nuclear plant | 6 × 6 | $5,000 | 1,200 | 25 | 1.6 | clean | Nuclear fission |
+| Fusion plant | 7 × 6 | $40,000 | 6,000 | 40 | 5 | clean; enough to sell to the neighbours | Nuclear fusion (region-wide) |
+
+Nuclear fusion costs 120,000 research points, fifteen times nuclear fission:
+about four years of one university's work. It needs Nuclear fission and
+Computing first. The solar farm and the fusion plant need GlassBox rules and
+are not built before 1800.
+
 ## Research
 
 Under GlassBox rules, ideas and research unlock buildings and tools:
@@ -363,6 +392,8 @@ Under GlassBox rules, ideas and research unlock buildings and tools:
    | School | 2 | 1 | 6 | from the start |
    | High school | 7 | 3 | 14 | Secondary education |
    | University | 24 | 8 | 40 | Higher education (after Secondary education) |
+
+   The university is a campus of 7 × 5 tiles (5 × 4 before 0.2.58: those already built keep their size and work the same). Museums, the opera house and the mall add ideas for the schools to work on.
 
    A university needs a town with cafés and restaurants enough to feed it ideas; short of them it works at part speed. Before 1800 the **Studium** (after *Studium generale*) makes 6 points to the academy's 1.5.
 3. In the **🔬 Research** window, pick a project. It draws on the pools each tick until it is paid for.

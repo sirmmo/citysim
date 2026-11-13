@@ -63,9 +63,24 @@ pub struct RegionCity {
     /// What it makes of each shared pool per tick (its culture).
     #[serde(default)]
     pub culture: BTreeMap<String, f32>,
+    /// What it has spent on each region-wide research project it has not
+    /// finished, by resource.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub joint: BTreeMap<String, BTreeMap<String, f32>>,
+    /// The region-wide projects it has finished: every town has them.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub joint_done: Vec<String>,
     /// The player who plays it (region servers).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub player: Option<String>,
+}
+
+/// Region-wide research as one town sees it: what the others have paid
+/// into each project, and the projects any of them finished.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct JointResearch {
+    pub paid: BTreeMap<String, BTreeMap<String, f32>>,
+    pub done: Vec<String>,
 }
 
 /// Share of the rest of the region's culture each city takes in.
@@ -343,6 +358,13 @@ impl Region {
             for (i, r) in rules.resources.iter().enumerate().filter(|(_, r)| r.shared) {
                 entry.culture.insert(r.id.clone(), gb.balances.produced.get(i).copied().unwrap_or(0.0));
             }
+            for t in rules.techs.iter().filter(|t| t.regional) {
+                if gb.researched.contains(&t.id) {
+                    entry.joint_done.push(t.id.clone());
+                } else if let Some(p) = gb.progress.get(&t.id).filter(|p| p.values().any(|v| *v > 0.0)) {
+                    entry.joint.insert(t.id.clone(), p.clone());
+                }
+            }
         }
         entry.player = self.city(slot).and_then(|c| c.player.clone());
         match self.cities.iter_mut().find(|c| c.slot == slot) {
@@ -361,6 +383,26 @@ impl Region {
             }
         }
         inflow
+    }
+
+    /// Region-wide research seen from `slot`: what every other town has
+    /// paid into each project, and the projects any of them finished.
+    pub fn joint_for(&self, slot: [u32; 2]) -> JointResearch {
+        let mut j = JointResearch::default();
+        for c in self.cities.iter().filter(|c| c.slot != slot) {
+            for (tech, paid) in &c.joint {
+                let sum = j.paid.entry(tech.clone()).or_default();
+                for (r, v) in paid {
+                    *sum.entry(r.clone()).or_default() += v.max(0.0);
+                }
+            }
+            for tech in &c.joint_done {
+                if !j.done.contains(tech) {
+                    j.done.push(tech.clone());
+                }
+            }
+        }
+        j
     }
 
     /// The open city's deals with its neighbours for the coming month:
@@ -407,6 +449,25 @@ impl City {
         let Some(rules) = self.rules().cloned() else { return };
         let Some(gb) = self.glassbox.as_mut() else { return };
         gb.culture_in = rules.resources.iter().map(|r| if r.shared { inflow.get(&r.id).copied().unwrap_or(0.0) } else { 0.0 }).collect();
+    }
+
+    /// Takes in the region's joint research: what the other towns paid into
+    /// each region-wide project, and the projects one of them finished,
+    /// which this town now has too (with a message for each).
+    pub fn apply_joint(&mut self, joint: &JointResearch) {
+        let Some(rules) = self.rules().cloned() else { return };
+        let Some(gb) = self.glassbox.as_mut() else { return };
+        gb.joint_in = joint.paid.clone();
+        for id in &joint.done {
+            let Some(t) = rules.tech(id).map(|t| &rules.techs[t]).filter(|t| t.regional) else { continue };
+            if gb.researched.insert(id.clone()) {
+                gb.progress.remove(id);
+                if gb.research.as_deref() == Some(id.as_str()) {
+                    gb.research = None;
+                }
+                self.messages.push(format!("Discovered with the region: {}", t.name));
+            }
+        }
     }
 
     /// Opens the crossings of a month's deals as gates of the network:

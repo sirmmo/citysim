@@ -5,7 +5,8 @@
 # key in `when` is present and has one of the listed values ("*" = any value).
 #
 # build = residential | commercial | industrial | road | power_line
-#       | coal_plant | nuclear_plant | park | trees | water
+#       | coal_plant | nuclear_plant | solar_plant | fusion_plant
+#       | park | trees | water
 #       | fire_station | police | hospital | school | high_school | university
 #       | stadium | mall | museum | modern_art_museum | opera_house
 #       | archaeology_museum | rail | station | harbour
@@ -42,11 +43,20 @@ build = "water"
 
 # --- Power --------------------------------------------------------------------
 [[rule]]
+when = { power = ["plant", "generator"], "plant:method" = "fusion" }
+build = "fusion_plant"
+[[rule]]
 when = { power = ["plant", "generator"], "plant:source" = "nuclear" }
 build = "nuclear_plant"
 [[rule]]
 when = { power = ["plant", "generator"], "generator:source" = "nuclear" }
 build = "nuclear_plant"
+[[rule]]
+when = { power = ["plant", "generator"], "plant:source" = "solar" }
+build = "solar_plant"
+[[rule]]
+when = { power = ["plant", "generator"], "generator:source" = "solar" }
+build = "solar_plant"
 [[rule]]
 when = { power = ["plant", "generator"], "plant:source" = "waste" }
 build = "incinerator"

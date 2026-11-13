@@ -59,7 +59,7 @@ the rules sets, tech trees, policy files and model sizes.
 | `export_geojson` | Writes the city as GeoJSON. |
 
 Tool ids for `apply_tool` include `residential`, `commercial`, `industrial`, `road`, `highway`,
-`paved_street`, `dirt_road`, `power_line`, `coal_plant`, `nuclear_plant`, `park`, `trees`,
+`paved_street`, `dirt_road`, `power_line`, `coal_plant`, `nuclear_plant`, `solar_plant`, `fusion_plant`, `park`, `trees`,
 `fire_dept`, `police_dept`, `hospital`, `school` and `bulldozer`. `list_tools` gives the exact
 set for the open city.
 

@@ -1059,6 +1059,95 @@ fn amenities_take_visitors_and_raise_land_value() {
 }
 
 #[test]
+fn solar_and_fusion_plants_make_power_and_the_campus_is_big() {
+    let r = rules();
+    let mut c = City::new(Terrain::flat(48, 32), None, Footprints::builtin(), 3);
+    c.fund = 10_000_000;
+    c.use_rules(r.clone());
+    assert_eq!(c.tool_locked_by(Tool::SolarPlant).as_deref(), Some("Photovoltaics"));
+    assert_eq!(c.tool_locked_by(Tool::FusionPlant).as_deref(), Some("Nuclear fusion"));
+    let fusion = &r.techs[r.tech("fusion").unwrap()];
+    assert!(fusion.regional && fusion.cost["research"] >= 10.0 * r.techs[r.tech("fission").unwrap()].cost["research"], "fusion is the biggest project");
+    c.research_all();
+    c.glassbox.as_mut().unwrap().disasters_off = true;
+    c.apply_tool(Tool::Road, (2, 10), (40, 10)).unwrap();
+    c.apply_tool(Tool::SolarPlant, (4, 5), (4, 5)).unwrap();
+    c.apply_tool(Tool::ZoneResidential, (3, 11), (20, 12)).unwrap();
+    for _ in 0..40 {
+        c.simulate_round();
+    }
+    let power = r.resource("power").unwrap();
+    let made = |c: &City| c.glassbox.as_ref().unwrap().balances.produced[power];
+    assert!((made(&c) - 120.0).abs() < 1.0, "a solar farm makes 120: {}", made(&c));
+    assert!(c.layer.structures().any(|(_, s)| s.code == StructureCode::Residential && s.level > 0), "homes grow on solar power");
+    c.apply_tool(Tool::FusionPlant, (24, 2), (24, 2)).unwrap();
+    for _ in 0..5 {
+        c.simulate_round();
+    }
+    assert!(made(&c) > 1000.0, "a fusion plant makes far more: {}", made(&c));
+    // The university is a 7 x 5 campus; those built before keep their model.
+    c.apply_tool(Tool::University, (24, 14), (24, 14)).unwrap();
+    let (_, s) = c.layer.structures().find(|(_, s)| s.code == StructureCode::University).unwrap();
+    assert_eq!(s.graphic, opencity_core::GraphicCode::UNIVERSITY);
+    let mut size = c.footprints().size(s.graphic);
+    if size.0 < size.1 {
+        size = (size.1, size.0);
+    }
+    assert_eq!(size, (7, 5));
+    assert_eq!(c.footprints().size(opencity_core::GraphicCode::UNIVERSITY_OLD), (5, 4));
+}
+
+#[test]
+fn a_region_researches_fusion_together() {
+    use opencity_core::region::Region;
+    let r = rules();
+    let town = |seed| {
+        let mut c = City::new(Terrain::flat(32, 32), None, Footprints::builtin(), seed);
+        c.use_rules(r.clone());
+        let gb = c.glassbox.as_mut().unwrap();
+        gb.disasters_off = true;
+        for t in ["steel_frame", "fission", "computing"] {
+            gb.researched.insert(t.to_string());
+        }
+        c
+    };
+    let research = r.resource("research").unwrap();
+    let cost = r.techs[r.tech("fusion").unwrap()].cost["research"];
+    let (mut west, mut east) = (town(1), town(2));
+    let mut region = Region::new("Test", [2, 1], 32, 1, Some("glassbox".into()));
+    // West pays 60% of it, then its player moves on.
+    {
+        let gb = west.glassbox.as_mut().unwrap();
+        gb.pools[research] = cost * 0.6;
+        assert!(gb.set_research(Some("fusion")));
+    }
+    west.simulate_round();
+    assert!((west.glassbox.as_ref().unwrap().research_progress(&r, "fusion") - 0.6).abs() < 0.01);
+    region.summarize([0, 0], "Westville", "west.ocsave.json", &west);
+    // East sees what was paid, and pays only the rest.
+    east.apply_joint(&region.joint_for([1, 0]));
+    {
+        let gb = east.glassbox.as_mut().unwrap();
+        assert!((gb.joint_progress(&r, "fusion") - 0.6).abs() < 0.01);
+        gb.pools[research] = cost * 0.5;
+        assert!(gb.set_research(Some("fusion")));
+    }
+    east.simulate_round();
+    let gb = east.glassbox.as_ref().unwrap();
+    assert!(gb.researched.contains("fusion"), "the region's 60% and the town's 40% finish it");
+    assert!((gb.pools[research] - cost * 0.1).abs() < cost * 0.01, "the town paid 40%, not 50%: {}", gb.pools[research]);
+    assert!(east.tool_locked_by(Tool::FusionPlant).is_none());
+    // Back in the west, the discovery is theirs too.
+    region.summarize([1, 0], "Eastville", "east.ocsave.json", &east);
+    assert_eq!(region.city([1, 0]).unwrap().joint_done, ["fusion"]);
+    west.apply_joint(&region.joint_for([0, 0]));
+    assert!(west.glassbox.as_ref().unwrap().researched.contains("fusion"));
+    assert!(west.messages.iter().any(|m| m.contains("Nuclear fusion")));
+    // A project that is not region-wide stays the town's own business.
+    assert!(!west.glassbox.as_ref().unwrap().researched.contains("photovoltaics"));
+}
+
+#[test]
 fn cousin_vinnie_brings_money_and_the_family() {
     let r = rules();
     let mut c = City::new(Terrain::flat(32, 24), None, Footprints::builtin(), 3);
@@ -1673,7 +1762,8 @@ fn higher_schools_make_research_faster() {
         c.use_rules(r.clone());
         c.research_all();
         c.apply_tool(Tool::CoalPlant, (2, 2), (2, 2)).unwrap();
-        c.apply_tool(tool, (8, 2), (8, 2)).unwrap();
+        // East of the road at 13: the campus is 7 x 5.
+        c.apply_tool(tool, (14, 2), (14, 2)).unwrap();
         for l in [8, 12, 16, 20] {
             c.apply_tool(Tool::Road, (2, l), (44, l)).unwrap();
         }
@@ -1749,7 +1839,7 @@ fn saves_survive_rules_that_gain_units() {
     let ids: Vec<&str> = r.units.iter().map(|u| u.id.as_str()).collect();
     let park = ids.iter().position(|i| *i == "park").unwrap();
     assert_eq!(&ids[park..park + 4], ["park", "high_school", "university", "museum"], "new units follow the old ones");
-    assert_eq!(ids.len(), park + 9, "a unit added to the shipped rules goes at the end, and this test learns its name");
+    assert_eq!(ids.len(), park + 11, "a unit added to the shipped rules goes at the end, and this test learns its name");
     let old = rules_named("pre-industrial");
     let old_ids: Vec<&str> = old.units.iter().map(|u| u.id.as_str()).collect();
     assert_eq!(&old_ids[old_ids.len() - 3..], ["studium", "arena", "theatre"]);
