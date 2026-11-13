@@ -2,6 +2,14 @@
 
 Release notes in full are on the [releases page](https://github.com/sirmmo/citysim/releases).
 
+## 0.2.53: Sensors and rush hours
+- **Sensors.** Inspect any tile and leave a sensor there (GlassBox rules). At a crossing it counts the trips driving past, in all and by what they carry (workers, shoppers, goods, cars…), along real road routes; on a building, what arrives and what leaves; anywhere, pollution, noise and the other maps. The inspector shows its readings, the GlassBox graphs plot them, and **Save CSV** writes one row per tick with the hour of day. **View > Sensors** lists them; they are saved with the city.
+- **Rush hours.** With day and night on, traffic follows the clock: people leave home around 8 and come back around 18, shoppers go out late in the morning and after work, deliveries run by day, rubbish is collected early, and the nights are quiet. The traffic roads show, traffic pollution and noise, and the vehicles on the map rise and fall with it. Over a day the traffic adds up to what it was, and how far people get still goes by the day's average: the economy runs every tick.
+- **Round the clock.** Hospitals, police and fire stations, and one shop or factory in twenty, work day and night in three shifts: their staff travel at 6, 14 and 22, not with the rush. The inspector marks them.
+- **In the rules:** `tide = { out = [8], back = [18], spread = 1.5 }` on a resource, `round_the_clock` on a unit (a flag) and on a zone (a share), and `[shifts]`. The pre-industrial rules have a day of their own: out at first light, a morning market, and a watch in two shifts.
+- `opencity-cli simulate --sensor NAME@W,L --sensor-csv DIR` records sensors in a headless run (`--no-tides` for traffic without a clock); the MCP server has a `sensors` tool.
+- Vehicles shown on the map are drawn with their own dice: what is shown no longer changes what happens.
+
 ## 0.2.52: Sounder GlassBox rules
 - **Homes need jobs and shops.** Workers and shoppers are `outlets` of a home: a house whose people find no work within reach empties, one with work but no shop gets by and never grows. People stop moving in while those already there look for work.
 - **Satisfaction weighs needs by size and importance** (`weight` on a resource: power counts for more than parking), and a need met by less than half starves a building. A shop without customers or a workshop without workers now closes instead of idling at 80 %.

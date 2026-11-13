@@ -153,17 +153,34 @@ fn fields(section: &str) -> &'static [&'static str] {
             "zone_rules",
             "agent_rules",
         ],
-        "resource" => &["id", "name", "transport", "network", "max_trip", "colour", "subtype", "parent", "share", "uses", "trail", "price", "shared", "weight"],
+        "resource" => {
+            &["id", "name", "transport", "network", "max_trip", "colour", "subtype", "parent", "share", "uses", "trail", "price", "shared", "weight", "tide"]
+        }
         "resource.subtype" => &["id", "name", "share", "max_trip", "colour", "uses", "trail"],
         "layer" => &["id", "name", "diffusion", "decay", "colour", "max"],
         "network" => &["id", "name", "structures", "through_buildings"],
         "network.vehicle" => &["id", "name", "model", "ways", "speed", "carries", "share", "direct", "meshes", "line"],
-        "unit" => {
-            &["id", "name", "description", "graphic", "produce", "needs", "sends", "outlets", "emits", "requires", "build_cost", "logs", "trade", "dispatch"]
-        }
-        "zone" => &["id", "name", "structure", "densities", "demand", "base_demand"],
+        "unit" => &[
+            "id",
+            "name",
+            "description",
+            "graphic",
+            "produce",
+            "needs",
+            "sends",
+            "outlets",
+            "emits",
+            "requires",
+            "build_cost",
+            "logs",
+            "trade",
+            "dispatch",
+            "round_the_clock",
+        ],
+        "zone" => &["id", "name", "structure", "densities", "demand", "base_demand", "round_the_clock"],
         "growth" => &["level_up", "level_down", "chance", "max_new", "road_access", "grace", "patience", "saturation", "neglect"],
         "administration" => &["name", "cost", "doubles_at", "unpaid"],
+        "shifts" => &["hours", "spread"],
         "disaster" => &["id", "name", "description", "every", "radius", "effect", "protection", "full", "near_water"],
         "tax" => &["id", "name", "description", "resource", "zones", "rate", "range", "demand", "satisfaction", "steep"],
         "policy" => &["id", "name", "description"],

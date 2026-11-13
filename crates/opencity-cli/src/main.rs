@@ -57,6 +57,17 @@ enum Command {
         /// Write the GlassBox metrics (one row per tick) to this CSV file.
         #[arg(long)]
         metrics: Option<PathBuf>,
+        /// Leave a sensor at a tile before the run: `W,L` or `NAME@W,L`
+        /// (repeatable). On a road it counts the trips driving past, on a
+        /// building what arrives and leaves; anywhere, the maps.
+        #[arg(long = "sensor", value_name = "[NAME@]W,L")]
+        sensors: Vec<String>,
+        /// Write each sensor's readings to `<DIR>/<name>.csv` after the run.
+        #[arg(long, value_name = "DIR")]
+        sensor_csv: Option<PathBuf>,
+        /// Keep traffic the same at any hour (no rush hours).
+        #[arg(long)]
+        no_tides: bool,
     },
     /// Print a summary of a saved city.
     Info { file: PathBuf },
@@ -326,7 +337,7 @@ fn main() -> Result<()> {
             print_summary(&city);
             save_city(&city, out)?;
         }
-        Command::Simulate { load, map, demo, game_rules, years, save, metrics } => {
+        Command::Simulate { load, map, demo, game_rules, years, save, metrics, sensors, sensor_csv, no_tides } => {
             let mut city = match load {
                 Some(p) => load_city(p, fp())?,
                 None => new_city(map, false, fp())?,
@@ -336,6 +347,20 @@ fn main() -> Result<()> {
             // Rules first: the demo town lays out what they allow (waterworks, trams).
             if *demo && load.is_none() {
                 scenario::demo_town(&mut city);
+            }
+            if *no_tides {
+                city.tides = false;
+            }
+            for spec in sensors {
+                let (name, at) = match spec.rsplit_once('@') {
+                    Some((n, at)) => (Some(n), at),
+                    None => (None, spec.as_str()),
+                };
+                let tile = at.split_once(',').and_then(|(w, l)| Some((w.trim().parse().ok()?, l.trim().parse().ok()?)));
+                let (w, l): (u32, u32) = tile.with_context(|| format!("--sensor {spec}: expected W,L or NAME@W,L"))?;
+                anyhow::ensure!(w < city.width() && l < city.length(), "--sensor {spec}: outside the map");
+                let gb = city.glassbox.as_mut().context("--sensor needs GlassBox rules (--game-rules)")?;
+                gb.add_sensor(name, (w, l)).map_err(|e| anyhow::anyhow!(e))?;
             }
             println!("{:>5} {:>9} {:>7} {:>6} {:>6} {:>6} {:>13}", "year", "fund", "people", "R", "C", "I", "power");
             let target = city.date.year + years;
@@ -356,6 +381,16 @@ fn main() -> Result<()> {
             }
             if let Some(p) = metrics {
                 write_metrics(&city, p)?;
+            }
+            if let Some(dir) = sensor_csv {
+                let gb = city.glassbox.as_ref().context("--sensor-csv needs GlassBox rules (--game-rules)")?;
+                std::fs::create_dir_all(dir).with_context(|| format!("creating {}", dir.display()))?;
+                for s in &gb.sensors {
+                    let path = dir.join(format!("{}.csv", s.name.replace(' ', "-")));
+                    let csv = gb.sensor_csv(&s.name).unwrap_or_default();
+                    std::fs::write(&path, &csv).with_context(|| format!("writing {}", path.display()))?;
+                    println!("wrote {} (sensor at {},{}: {} rows)", path.display(), s.at.0, s.at.1, csv.lines().count().saturating_sub(1));
+                }
             }
         }
         Command::Info { file } => print_summary(&load_city(file, fp())?),

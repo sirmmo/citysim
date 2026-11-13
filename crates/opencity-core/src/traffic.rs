@@ -145,6 +145,62 @@ pub fn find_route(
     Some(path)
 }
 
+/// The quickest routes on empty roads from one road tile to several (both
+/// ends included), for any road vehicle; `None` where no road leads.
+pub fn find_routes(layer: &BuildingLayer, terrain: &Terrain, from: (u32, u32), to: &[(u32, u32)]) -> Vec<Option<Vec<(u32, u32)>>> {
+    let is_road = |w, l| layer.structure_at(w, l).is_some_and(|s| s.code == StructureCode::Road && (!s.road.is_rail() || layer.is_level_crossing(w, l)));
+    let width = layer.width();
+    let idx = |(w, l): (u32, u32)| (l * width + w) as usize;
+    let n = (width * layer.length()) as usize;
+    if !is_road(from.0, from.1) {
+        return vec![None; to.len()];
+    }
+    let mut dist = vec![u32::MAX; n];
+    let mut prev = vec![u32::MAX; n];
+    let mut done = vec![false; n];
+    let mut heap = BinaryHeap::new();
+    let mut wanted: std::collections::HashSet<usize> = to.iter().filter(|t| is_road(t.0, t.1)).map(|&t| idx(t)).collect();
+    dist[idx(from)] = 0;
+    heap.push(Reverse((0u32, from)));
+    while let Some(Reverse((d, p))) = heap.pop() {
+        if d > dist[idx(p)] {
+            continue;
+        }
+        done[idx(p)] = true;
+        wanted.remove(&idx(p));
+        if wanted.is_empty() {
+            break;
+        }
+        for dir in Direction::ALL {
+            let Some(q) = terrain.neighbour(p.0, p.1, dir) else { continue };
+            if !is_road(q.0, q.1) {
+                continue;
+            }
+            let kind = layer.structure_at(q.0, q.1).map_or(RoadKind::Street, |s| s.road);
+            let nd = d + (tile_time(kind, 0) * 4.0).round() as u32;
+            if nd < dist[idx(q)] {
+                dist[idx(q)] = nd;
+                prev[idx(q)] = idx(p) as u32;
+                heap.push(Reverse((nd, q)));
+            }
+        }
+    }
+    to.iter()
+        .map(|&t| {
+            (t.0 < width && idx(t) < n && done[idx(t)]).then(|| {
+                let mut path = vec![t];
+                let mut cur = idx(t);
+                while cur != idx(from) {
+                    cur = prev[cur] as usize;
+                    path.push((cur as u32 % width, cur as u32 / width));
+                }
+                path.reverse();
+                path
+            })
+        })
+        .collect()
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum VehicleKind {
     Car,

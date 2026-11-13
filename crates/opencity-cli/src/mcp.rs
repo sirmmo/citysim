@@ -178,6 +178,42 @@ impl Server {
                 let (w, l) = point(a, "tile")?;
                 inspect(self.city()?, w, l)
             }
+            "sensors" => {
+                let city = self.city()?;
+                let (width, length) = (city.width(), city.length());
+                if let Some(t) = a.get("tides").and_then(Value::as_bool) {
+                    city.tides = t;
+                }
+                let tides = city.tides;
+                let hour = city.hour();
+                let gb = city.glassbox.as_mut().context("sensors need GlassBox rules")?;
+                if let Some(name) = a.get("remove").and_then(Value::as_str) {
+                    if !gb.remove_sensor(name) {
+                        bail!("no sensor called {name}");
+                    }
+                }
+                if a.get("add").is_some() {
+                    let at = point(a, "add")?;
+                    if at.0 >= width || at.1 >= length {
+                        bail!("that tile is outside the map");
+                    }
+                    gb.add_sensor(a.get("name").and_then(Value::as_str), at).map_err(|e| anyhow!("{e}"))?;
+                }
+                if let Some(name) = a.get("csv").and_then(Value::as_str) {
+                    let csv = gb.sensor_csv(name).with_context(|| format!("sensor {name} has recorded nothing yet"))?;
+                    return Ok(Value::String(csv));
+                }
+                let list: Vec<Value> = gb
+                    .sensors
+                    .iter()
+                    .enumerate()
+                    .map(|(i, s)| {
+                        let now: serde_json::Map<String, Value> = gb.readings.get(i).into_iter().flatten().map(|(k, v)| (k.clone(), json!(v))).collect();
+                        json!({ "name": s.name, "tile": [s.at.0, s.at.1], "now": now })
+                    })
+                    .collect();
+                Ok(json!({ "hour": hour, "tides": tides, "sensors": list }))
+            }
             "turn_building" => {
                 let (w, l) = point(a, "tile")?;
                 let facing = self.city()?.turn_building(w, l).map_err(|e| anyhow!("{e}"))?;
@@ -407,6 +443,10 @@ fn inspect(city: &City, w: u32, l: u32) -> Result<Value> {
 }
 
 fn text(v: &Value) -> String {
+    // Plain text (a sensor's CSV) goes out as it is.
+    if let Value::String(s) = v {
+        return s.clone();
+    }
     serde_json::to_string_pretty(v).unwrap_or_default()
 }
 
@@ -469,6 +509,9 @@ fn tools() -> Value {
             "density": { "type": "integer", "minimum": 0, "maximum": 2, "description": "Zone density under GlassBox rules: 0 low, 1 medium, 2 high" }
         }), &["tool", "from"]),
         tool("inspect_tile", "What is on a tile: structure, level, status, size, facing; under GlassBox rules the building, its needs, satisfaction and map layers.", json!({ "tile": point.clone() }), &["tile"]),
+        tool("sensors", "Sensors left on the map (GlassBox rules): each tick one records the trips driving past a road tile (in all and by resource), or what arrives at and leaves a building, and the map layers there. Lists them with the latest readings and the hour of day; `add` ([w, l], optional `name`) leaves one, `remove` takes one away, `csv` returns one's recorded readings as CSV, `tides` switches the daily tide of traffic on or off.", json!({
+            "add": point.clone(), "name": { "type": "string" }, "remove": { "type": "string" }, "csv": { "type": "string" }, "tides": { "type": "boolean" }
+        }), &[]),
         tool("turn_building", "Turn the plant or service on a tile a quarter clockwise.", json!({ "tile": point.clone() }), &["tile"]),
         tool("research", "List research projects with their state; pass `project` to research it (empty string stops).", json!({
             "project": { "type": "string" }

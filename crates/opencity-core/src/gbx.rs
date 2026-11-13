@@ -382,6 +382,7 @@ fn declare_resource(rules: &mut Ruleset, id: &str, transport: Transport, network
         price: 0.0,
         shared: false,
         weight: 1.0,
+        tide: None,
     });
 }
 

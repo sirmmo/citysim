@@ -86,6 +86,87 @@ pub struct ResourceDef {
     /// amount times this (power counts for more than parking).
     #[serde(default = "default_share", skip_serializing_if = "is_one_f32")]
     pub weight: f32,
+    /// When its trips are made, by the hour (`tide = { out = [8], back =
+    /// [18] }`: out in the morning, back in the evening). None: the same
+    /// at any hour. Kinds follow their resource.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tide: Option<TideDef>,
+}
+
+/// The hours of a resource's trips. Over a day the traffic is the same as
+/// without a tide; it gathers around these hours.
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct TideDef {
+    /// Hours (0 to 24) around which the trips set out.
+    pub out: Vec<f32>,
+    /// Hours around which they come back the way they went; none: one way.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub back: Vec<f32>,
+    /// How far around each hour the trips spread, in hours.
+    #[serde(default = "default_spread")]
+    pub spread: f32,
+    /// At takers that work round the clock these trips follow the shift
+    /// changes (`[shifts]`) instead: staff, not customers.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub shifts: bool,
+}
+
+fn default_spread() -> f32 {
+    1.5
+}
+
+impl TideDef {
+    /// How dense trips around `hours` are at `hour`, against an even day
+    /// (the mean over 24 hours is 1).
+    pub fn density(hours: &[f32], spread: f32, hour: f32) -> f32 {
+        if hours.is_empty() {
+            return 0.0;
+        }
+        let s = spread.max(0.25);
+        let peak = 24.0 / (hours.len() as f32 * s * (2.0 * std::f32::consts::PI).sqrt());
+        hours.iter().map(|p| (-1..=1).map(|k| (-(hour - p + 24.0 * k as f32).powi(2) / (2.0 * s * s)).exp()).sum::<f32>()).sum::<f32>() * peak
+    }
+
+    /// The share of a tick's trips on their way out and on their way back
+    /// at `hour` (together 1 on average over the day).
+    pub fn flow(&self, hour: f32) -> (f32, f32) {
+        let out = Self::density(&self.out, self.spread, hour);
+        if self.back.is_empty() {
+            (out, 0.0)
+        } else {
+            (out / 2.0, Self::density(&self.back, self.spread, hour) / 2.0)
+        }
+    }
+}
+
+/// Shift changes of the units that work round the clock (`[shifts]`).
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ShiftsDef {
+    /// Hours at which one shift relieves the other.
+    pub hours: Vec<f32>,
+    #[serde(default = "default_shift_spread")]
+    pub spread: f32,
+}
+
+fn default_shift_spread() -> f32 {
+    1.0
+}
+
+impl Default for ShiftsDef {
+    fn default() -> Self {
+        Self { hours: vec![6.0, 14.0, 22.0], spread: 1.0 }
+    }
+}
+
+impl ShiftsDef {
+    /// Staff arriving and leaving at `hour`: each change brings one shift
+    /// in and sends one home.
+    pub fn flow(&self, hour: f32) -> (f32, f32) {
+        let d = TideDef::density(&self.hours, self.spread, hour) / 2.0;
+        (d, d)
+    }
 }
 
 fn is_one_f32(v: &f32) -> bool {
@@ -148,6 +229,7 @@ fn flatten_resources<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Vec<Resou
                 price: r.price,
                 shared: false,
                 weight: r.weight,
+                tide: None,
             })
             .collect();
         out.push(r);
@@ -372,6 +454,10 @@ pub struct UnitDef {
     /// Vehicles it sends to the buildings it covers.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub dispatch: Option<Dispatch>,
+    /// Staffed day and night in shifts (hospitals, police, fire stations):
+    /// its staff come and go at the shift changes, not with the rush hours.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub round_the_clock: bool,
 }
 
 impl UnitDef {
@@ -433,6 +519,10 @@ pub struct ZoneDef {
     /// Demand always present (immigration, start-up).
     #[serde(default)]
     pub base_demand: f32,
+    /// Share of its buildings that work round the clock in shifts (0.05:
+    /// one in twenty), picked by where they stand.
+    #[serde(default, skip_serializing_if = "is_zero_f32")]
+    pub round_the_clock: f32,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -566,6 +656,9 @@ pub struct Ruleset {
     /// with the population.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub administration: Option<AdministrationDef>,
+    /// Shift changes of the units that work round the clock (`[shifts]`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub shifts: Option<ShiftsDef>,
 }
 
 /// Running the city (`[administration]`): paid from the treasury every tick
@@ -1011,6 +1104,22 @@ impl Ruleset {
         self.techs.iter().filter(move |t| t.unlocks.iter().any(|u| u == id))
     }
 
+    /// The tide of a resource (a kind follows the resource it is a kind of).
+    pub fn tide(&self, resource: usize) -> Option<&TideDef> {
+        self.resources[resource].tide.as_ref().or_else(|| self.resources[self.root(resource)].tide.as_ref())
+    }
+
+    /// Whether the building of this unit at tile index `key` works round
+    /// the clock: by its own rules, or as one of its zone's share.
+    pub fn round_the_clock(&self, unit: usize, key: u32) -> bool {
+        let def = &self.units[unit];
+        def.round_the_clock
+            || self.zone_of_unit(&def.id).is_some_and(|z| {
+                let share = self.zones[z].round_the_clock;
+                share > 0.0 && ((key.wrapping_mul(2_654_435_761) >> 12) % 1000) as f32 / 1000.0 < share
+            })
+    }
+
     /// Whether the resource travels on a network that names its vehicles.
     pub fn vehicle_network(&self, resource: usize) -> bool {
         self.resources[resource].network.as_deref().and_then(|n| self.network(n)).is_some_and(|n| !self.networks[n].vehicles.is_empty())
@@ -1024,7 +1133,26 @@ impl Ruleset {
     /// Checks every cross-reference.
     pub fn validate(&self) -> Result<(), RulesError> {
         let err = |message: String| Err(RulesError { rules: self.id.clone(), message });
+        let hours = |h: &[f32]| h.iter().all(|h| (0.0..=24.0).contains(h));
+        if let Some(sh) = &self.shifts {
+            if sh.hours.is_empty() || !hours(&sh.hours) {
+                return err("shifts: hours must be between 0 and 24".into());
+            }
+        }
+        for z in &self.zones {
+            if !(0.0..=1.0).contains(&z.round_the_clock) {
+                return err(format!("zone {}: round_the_clock is a share, 0 to 1", z.id));
+            }
+        }
         for r in &self.resources {
+            if let Some(t) = &r.tide {
+                if r.transport != Transport::Agents {
+                    return err(format!("resource {}: only agent resources have a tide", r.id));
+                }
+                if t.out.is_empty() || !hours(&t.out) || !hours(&t.back) {
+                    return err(format!("resource {}: tide hours must be between 0 and 24, with at least one in `out`", r.id));
+                }
+            }
             if let Some(p) = &r.parent {
                 match self.resource(p).map(|i| &self.resources[i]) {
                     None => return err(format!("resource {}: unknown parent {p}", r.id)),

@@ -71,8 +71,15 @@ pub enum Command {
     SetFunding(String, f32),
     /// Borrow from the bank.
     TakeLoan(i64),
-    /// Show day and night, seasons and weather on the map.
+    /// Show day and night, seasons and weather on the map; traffic then
+    /// follows the hour too.
     SetDayNight(bool),
+    /// Leave a sensor at a tile (GlassBox rules).
+    AddSensor((u32, u32)),
+    /// Take a sensor away, by name.
+    RemoveSensor(String),
+    /// Save what a sensor recorded as a CSV file.
+    SaveSensorCsv(String),
     /// Switch disasters by chance on or off.
     SetDisasters(bool),
     /// Set off a disaster by hand.
@@ -614,8 +621,24 @@ impl EguiUi {
                             }
                         }
                     });
-                    if ui.checkbox(&mut self.day_night, "Day and night, weather").changed() {
+                    if ui
+                        .checkbox(&mut self.day_night, "Day and night, weather")
+                        .on_hover_text(
+                            "With it, traffic follows the hour: people leave for work in the morning and come home in the evening, and the nights are quiet",
+                        )
+                        .changed()
+                    {
                         out.push(Command::SetDayNight(self.day_night));
+                    }
+                    if let Some(gb) = view.city.glassbox.as_ref().filter(|gb| !gb.sensors.is_empty()) {
+                        ui.menu_button(format!("Sensors ({})", gb.sensors.len()), |ui| {
+                            for s in &gb.sensors {
+                                if ui.button(format!("{} · tile {}, {}", s.name, s.at.0, s.at.1)).clicked() {
+                                    out.push(Command::Inspect(s.at));
+                                    ui.close_menu();
+                                }
+                            }
+                        });
                     }
                     if view.city.glassbox.is_some() {
                         ui.checkbox(&mut self.graphs.open, "GlassBox graphs (G)");
@@ -1099,6 +1122,7 @@ impl EguiUi {
                     let values: Vec<String> =
                         rules.layers.iter().enumerate().map(|(i, layer)| format!("{} {:.1}", layer.name, gb.layer_value(i, w, l, city.width()))).collect();
                     ui.label(RichText::new(values.join(" · ")).small().color(Color32::GRAY));
+                    sensor_section(ui, city, gb, (w, l), out);
                 }
             });
         if !open {
@@ -1376,11 +1400,64 @@ impl EguiUi {
     }
 }
 
+/// The sensor at a tile: what it reads now and its buttons, or the button
+/// that leaves one there.
+fn sensor_section(ui: &mut egui::Ui, city: &City, gb: &opencity_core::glassbox::GlassBox, tile: (u32, u32), out: &mut Vec<Command>) {
+    ui.separator();
+    let Some((i, s)) = gb.sensors.iter().enumerate().find(|(_, s)| s.at == tile) else {
+        let what = match city.layer.structure_at(tile.0, tile.1) {
+            Some(s) if s.code == StructureCode::Road => "the trips driving past, in all and by what they carry",
+            Some(s) if s.unit.is_some() => "what arrives at this building and what leaves it",
+            _ => "the maps at this tile",
+        };
+        if ui
+            .small_button("📡 Leave a sensor here")
+            .on_hover_text(format!("It records {what}, tick by tick, with the maps here. See it in the GlassBox graphs (G) or save it as a CSV file."))
+            .clicked()
+        {
+            out.push(Command::AddSensor(tile));
+        }
+        return;
+    };
+    let h = city.hour();
+    let clock = if gb.hour.is_some() { format!(" · {:02}:{:02}", h as u32, (h.fract() * 60.0) as u32) } else { String::new() };
+    ui.label(RichText::new(format!("📡 {}{clock}", s.name)).strong());
+    match gb.readings.get(i).filter(|r| !r.is_empty()) {
+        Some(r) => {
+            egui::Grid::new("sensor_now").num_columns(2).spacing([14.0, 2.0]).show(ui, |ui| {
+                // What moves first; the maps are already listed above.
+                for (k, v) in r.iter().filter(|(k, _)| gb.rules().is_none_or(|rules| rules.layers.iter().all(|l| &l.name != k))) {
+                    ui.label(RichText::new(k).small());
+                    ui.label(RichText::new(format!("{v:.1}")).small().monospace());
+                    ui.end_row();
+                }
+            });
+        }
+        None => {
+            ui.label(RichText::new("Its first reading comes with the next tick.").small().color(Color32::GRAY));
+        }
+    }
+    ui.horizontal(|ui| {
+        if ui.small_button("Save CSV").on_hover_text("Everything it recorded over the ticks kept (2000 at most), one row per tick, with the hour").clicked() {
+            out.push(Command::SaveSensorCsv(s.name.clone()));
+        }
+        if ui.small_button("Remove").clicked() {
+            out.push(Command::RemoveSensor(s.name.clone()));
+        }
+    });
+}
+
 /// A GlassBox unit's needs, deliveries and satisfaction.
 fn unit_details(ui: &mut egui::Ui, city: &City, gb: &opencity_core::glassbox::GlassBox, rules: &Ruleset, unit: usize, origin: (u32, u32)) {
     let def = &rules.units[unit];
     let Some(st) = gb.unit_state(origin.0, origin.1, city.width()) else { return };
     ui.add(egui::ProgressBar::new(st.satisfaction).text(format!("Satisfaction {:.0}%", st.satisfaction * 100.0)));
+    if rules.round_the_clock(unit, origin.1 * city.width() + origin.0) {
+        let hours: Vec<String> =
+            rules.shifts.clone().unwrap_or_default().hours.iter().map(|h| format!("{:02}:{:02}", *h as u32, (h.fract() * 60.0) as u32)).collect();
+        ui.label(RichText::new(format!("🕐 Works round the clock: shifts change at {}", hours.join(", "))).small())
+            .on_hover_text("Its staff come and go at the shift changes, not with the rush hours");
+    }
     if let Some(g) = gb.gates.iter().find(|g| g.is_world() && g.owner == Some(origin)) {
         let list = |m: &std::collections::BTreeMap<String, f32>| {
             let s: Vec<String> = m

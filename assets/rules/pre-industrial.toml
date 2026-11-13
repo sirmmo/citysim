@@ -39,6 +39,12 @@ cost = 0.0015
 doubles_at = 10000
 unpaid = 0.15
 
+# The day: trips gather around the hours of each resource's `tide`. The
+# watch and the guard keep two shifts, day and night.
+[shifts]
+hours = [6, 18]
+spread = 1.0
+
 # ---------------------------------------------------------------- resources
 [[resource]]
 id = "workers"
@@ -46,6 +52,7 @@ name = "Workers"
 transport = "agents"
 network = "road"
 max_trip = 30                     # tiles of street; dirt roads halve it
+tide = { out = [7], back = [18], spread = 1.5, shifts = true }   # out at first light, home at dusk
 colour = [0.35, 0.65, 1.0]
 price = 0.01                     # per unit traded with neighbouring cities
 
@@ -55,6 +62,7 @@ name = "Customers"
 transport = "agents"
 network = "road"
 max_trip = 22
+tide = { out = [9], back = [12], spread = 2 }   # the morning market
 colour = [1.0, 0.45, 0.75]
 price = 0.01                     # per unit traded with neighbouring cities
 
@@ -64,6 +72,7 @@ name = "Food"
 transport = "agents"
 network = "road"
 max_trip = 40
+tide = { out = [8], spread = 2.5 }
 colour = [0.55, 0.85, 0.3]
 price = 0.03                     # per unit traded with neighbouring cities
 
@@ -73,6 +82,7 @@ name = "Goods"
 transport = "agents"
 network = "road"
 max_trip = 40
+tide = { out = [10], spread = 3 }
 colour = [1.0, 0.7, 0.2]
 price = 0.04                     # per unit traded with neighbouring cities
 
@@ -84,6 +94,7 @@ name = "Carts"
 transport = "agents"
 network = "road"
 max_trip = 36
+tide = { out = [7], back = [18], spread = 2 }
 colour = [0.75, 0.6, 0.45]
 
   [[resource.subtype]]
@@ -107,6 +118,7 @@ name = "Fodder"
 transport = "agents"
 network = "road"
 max_trip = 36
+tide = { out = [8], spread = 2.5 }
 colour = [0.85, 0.85, 0.35]
 
 [[resource]]
@@ -115,6 +127,7 @@ name = "Refuse carting"
 transport = "agents"
 network = "road"
 max_trip = 25
+tide = { out = [5], spread = 2 }   # the night-soil men, before dawn
 colour = [0.65, 0.55, 0.35]
 
 [[resource]]
@@ -638,6 +651,7 @@ id = "watchtower"
 name = "Watchtower"
 description = "A watchman on the tower, buckets and hooks below."
 graphic = 350
+round_the_clock = true
 needs = { workers = 3, upkeep = 0.2 }
 emits = { fire_safety = { amount = 10.0, radius = 10, by_road = true } }
 dispatch = { model = "walker", every = 12 }
@@ -647,6 +661,7 @@ id = "guard_house"
 name = "Guard house"
 description = "The town guard and its night patrols."
 graphic = 360
+round_the_clock = true
 needs = { workers = 4, food = 1, upkeep = 0.2 }
 emits = { police_safety = { amount = 10.0, radius = 10, by_road = true } }
 dispatch = { model = "walker", every = 12 }

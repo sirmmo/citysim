@@ -37,6 +37,14 @@ cost = 0.008
 doubles_at = 20000
 unpaid = 0.15
 
+# The day. Resources with a `tide` make their trips around its hours (the
+# game's clock turns once a month); over a day the traffic adds up to the
+# same. Units that work round the clock (`round_the_clock = true`, and a
+# share of a zone's buildings) change shifts at these hours instead.
+[shifts]
+hours = [6, 14, 22]
+spread = 1.0
+
 # ---------------------------------------------------------------- resources
 [[resource]]
 id = "workers"
@@ -44,6 +52,7 @@ name = "Workers"
 transport = "agents"
 network = "road"
 max_trip = 30
+tide = { out = [8], back = [18], spread = 1.5, shifts = true }   # the commute; staff of round-the-clock units follow [shifts]
 colour = [0.35, 0.65, 1.0]       # links on the network view
 price = 0.02                     # per unit traded with neighbouring cities
 
@@ -53,6 +62,7 @@ name = "Shoppers"
 transport = "agents"
 network = "road"
 max_trip = 20
+tide = { out = [11, 17.5], back = [13, 19.5], spread = 2 }   # late morning and after work
 colour = [1.0, 0.45, 0.75]       # links on the network view
 price = 0.02                     # per unit traded with neighbouring cities
 
@@ -62,6 +72,7 @@ name = "Goods"
 transport = "agents"
 network = "road"
 max_trip = 40
+tide = { out = [10, 15], spread = 3 }   # deliveries by day, one way
 colour = [1.0, 0.7, 0.2]       # links on the network view
 price = 0.05                     # per unit traded with neighbouring cities
 
@@ -75,6 +86,7 @@ name = "Cars"
 transport = "agents"
 network = "road"
 max_trip = 30
+tide = { out = [8, 12], back = [14, 18], spread = 2, shifts = true }
 colour = [0.75, 0.75, 0.8]
 weight = 0.5                     # parking matters less than staff or customers
 
@@ -99,6 +111,7 @@ name = "Fuel"
 transport = "agents"
 network = "road"
 max_trip = 40
+tide = { out = [10, 15], spread = 3 }
 colour = [0.65, 0.45, 0.95]
 price = 0.04                     # per unit traded with neighbouring cities
 
@@ -133,6 +146,7 @@ name = "Rubbish collection"
 transport = "agents"
 network = "road"
 max_trip = 40
+tide = { out = [6], spread = 2 }   # the early round
 colour = [0.65, 0.55, 0.35]
 
 [[resource]]
@@ -399,6 +413,7 @@ densities = [
 id = "commercial"
 name = "Commercial"
 structure = "commercial"
+round_the_clock = 0.05          # one building in twenty works day and night, in shifts
 # Shops appear when shoppers and goods find nowhere to go.
 demand = [
   { resource = "shoppers", from = "undelivered", weight = 0.5 },
@@ -414,6 +429,7 @@ densities = [
 id = "industrial"
 name = "Industrial"
 structure = "industrial"
+round_the_clock = 0.05          # one building in twenty works day and night, in shifts
 base_demand = 1.0
 # Industry appears with unemployed workers and shops short of goods.
 demand = [
@@ -755,6 +771,7 @@ id = "fire_station"
 name = "Fire station"
 graphic = 350
 needs = { workers = 4, power = 2, upkeep = 0.3 }
+round_the_clock = true
 emits = { fire_safety = { amount = 10.0, radius = 12, by_road = true } }
 dispatch = { meshes = ["kenney/car-kit/firetruck"], every = 15 }
 
@@ -763,6 +780,7 @@ id = "police_station"
 name = "Police station"
 graphic = 360
 needs = { workers = 4, power = 2, upkeep = 0.3 }
+round_the_clock = true
 emits = { police_safety = { amount = 10.0, radius = 12, by_road = true } }
 dispatch = { meshes = ["kenney/car-kit/police"], every = 6 }
 
@@ -771,6 +789,7 @@ id = "hospital"
 name = "Hospital"
 graphic = 370
 needs = { workers = 10, power = 6, upkeep = 0.6 }
+round_the_clock = true
 emits = { health = { amount = 10.0, radius = 16, by_road = true } }
 dispatch = { meshes = ["kenney/car-kit/ambulance"], every = 10 }
 

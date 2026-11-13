@@ -1427,3 +1427,114 @@ fn traffic_emissions_scale_with_what_is_carried() {
         assert!(top > 0.0 && top <= r.layers[li].max, "{id} peaks at {top}, scale {}", r.layers[li].max);
     }
 }
+
+#[test]
+fn tides_keep_the_days_traffic_and_shifts_spread_it() {
+    let r = rules();
+    use opencity_core::rules::TideDef;
+    // Over a day a tide moves as much as no tide at all.
+    for res in r.resources.iter().filter(|x| x.tide.is_some()) {
+        let t = res.tide.as_ref().unwrap();
+        let day: f32 = (0..240).map(|k| t.flow(k as f32 / 10.0)).map(|(o, b)| o + b).sum::<f32>() / 240.0;
+        assert!((day - 1.0).abs() < 0.02, "{}: {day}", res.id);
+    }
+    let workers = r.resources[r.resource("workers").unwrap()].tide.clone().unwrap();
+    let (out8, back8) = workers.flow(8.0);
+    let (out18, back18) = workers.flow(18.0);
+    let (out3, back3) = workers.flow(3.0);
+    assert!(out8 > 2.0 && back8 < 0.01 && back18 > 2.0 && out18 < 0.01 && out3 + back3 < 0.02, "{out8} {back8} {out18} {back18} {out3} {back3}");
+    assert!((TideDef::density(&[23.0], 1.0, 0.5) - TideDef::density(&[23.0], 1.0, 21.5)).abs() < 1e-3, "the day wraps at midnight");
+    // Hospitals, police and fire stations work round the clock, and one
+    // shop or workshop in twenty.
+    for id in ["hospital", "police_station", "fire_station"] {
+        assert!(r.round_the_clock(r.unit(id).unwrap(), 7), "{id}");
+    }
+    assert!(!r.round_the_clock(r.unit("house_1").unwrap(), 7) && !r.round_the_clock(r.unit("school").unwrap(), 7));
+    for id in ["shop_1", "factory_2"] {
+        let n = (0..20_000).filter(|&k| r.round_the_clock(r.unit(id).unwrap(), k)).count();
+        assert!((700..1300).contains(&n), "{id}: {n} of 20000");
+    }
+    // Their staff change at the shifts: some are on the road at 22, none at noon.
+    let sh = r.shifts.clone().unwrap();
+    assert!(sh.flow(22.0).0 > 1.0 && sh.flow(10.0).0 < 0.01);
+}
+
+#[test]
+fn sensors_count_the_tide_of_traffic() {
+    use opencity_core::city::MS_PER_DAY;
+    let r = rules();
+    let mut c = City::new(Terrain::flat(60, 60), None, Footprints::builtin(), 5);
+    c.use_rules(r.clone());
+    opencity_core::scenario::demo_town(&mut c);
+    for _ in 0..240 {
+        c.update(MS_PER_DAY);
+    }
+    // Sensors at eight crossings and on eight homes.
+    let road = |c: &City, w: u32, l: u32| c.layer.structure_at(w, l).is_some_and(|s| s.code == StructureCode::Road);
+    let crossings: Vec<(u32, u32)> = c
+        .layer
+        .structures()
+        .filter(|(_, s)| s.code == StructureCode::Road)
+        .map(|(p, _)| p)
+        .filter(|&(w, l)| w > 0 && l > 0 && [(w - 1, l), (w + 1, l), (w, l - 1), (w, l + 1)].iter().filter(|t| road(&c, t.0, t.1)).count() >= 3)
+        .collect();
+    let homes: Vec<(u32, u32)> = c.layer.structures().filter(|(_, s)| s.code == StructureCode::Residential && s.unit.is_some()).map(|(p, _)| p).collect();
+    assert!(crossings.len() >= 8 && homes.len() >= 8, "{} crossings, {} homes", crossings.len(), homes.len());
+    let gb = c.glassbox.as_mut().unwrap();
+    for (k, p) in crossings.iter().step_by(crossings.len() / 8).take(8).enumerate() {
+        gb.add_sensor(Some(&format!("Crossing {k}")), *p).unwrap();
+    }
+    for (k, p) in homes.iter().step_by(homes.len() / 8).take(8).enumerate() {
+        gb.add_sensor(Some(&format!("Home {k}")), *p).unwrap();
+    }
+    assert!(gb.add_sensor(Some("Home 0"), (1, 1)).is_err(), "names are unique");
+    // Two days of the clock (a game month each).
+    for _ in 0..60 {
+        c.update(MS_PER_DAY);
+    }
+    let gb = c.glassbox.as_ref().unwrap();
+    let hours = gb.series.column("City/Hour").unwrap();
+    // Mean of a reading over the sensors and the ticks of some hours.
+    let mean = |kind: &str, what: &str, from: f32, to: f32| -> f32 {
+        let (mut sum, mut n) = (0.0, 0);
+        for k in 0..8 {
+            let col = gb.series.column(&format!("Sensor/{kind} {k}/{what}")).unwrap_or_else(|| panic!("no series for {kind} {k}/{what}"));
+            for (h, v) in hours.iter().zip(col).filter(|(h, v)| **h >= from && **h < to && v.is_finite()) {
+                let _ = h;
+                sum += v;
+                n += 1;
+            }
+        }
+        sum / n.max(1) as f32
+    };
+    let (rush, noon, night) = (mean("Crossing", "Trips", 7.0, 9.0), mean("Crossing", "Trips", 11.0, 14.0), mean("Crossing", "Trips", 1.0, 4.0));
+    // Shoppers and deliveries keep midday busy; the nights are quiet.
+    assert!(rush > 1.0 && rush > noon * 1.1 && night < rush * 0.1, "rush {rush}, noon {noon}, night {night}");
+    assert!(mean("Crossing", "Workers", 7.0, 9.0) > mean("Crossing", "Workers", 11.0, 14.0) * 5.0);
+    // Homes empty in the morning and fill in the evening.
+    let (out_am, in_am) = (mean("Home", "Leaving", 7.0, 9.0), mean("Home", "Arriving", 7.0, 9.0));
+    let (out_pm, in_pm) = (mean("Home", "Leaving", 17.0, 19.0), mean("Home", "Arriving", 17.0, 19.0));
+    assert!(out_am > in_am * 3.0 && in_pm > out_pm * 3.0 && out_am > 0.5, "morning {out_am} out {in_am} in, evening {out_pm} out {in_pm} in");
+    // The maps are read at the sensor too, and it all comes out as CSV.
+    assert!(gb.series.column("Sensor/Crossing 0/Noise").is_some());
+    let csv = gb.sensor_csv("Crossing 0").unwrap();
+    let head = csv.lines().next().unwrap();
+    assert!(head.starts_with("tick,hour,Trips,Workers,Shoppers"), "{head}");
+    assert!(csv.lines().count() > 60 && csv.lines().nth(1).unwrap().split(',').count() == head.split(',').count());
+    assert!(gb.sensor_csv("Nowhere").is_none());
+    // A saved city keeps its sensors.
+    let saved = serde_json::to_string(&c).unwrap();
+    let back: City = serde_json::from_str(&saved).unwrap();
+    assert_eq!(back.glassbox.as_ref().unwrap().sensors.len(), 16);
+    // Without tides the same crossings see the same traffic at any hour.
+    c.tides = false;
+    for _ in 0..60 {
+        c.update(MS_PER_DAY);
+    }
+    let gb = c.glassbox.as_ref().unwrap();
+    let col = gb.series.column("Sensor/Crossing 0/Trips").unwrap();
+    let last: Vec<f32> = col.iter().rev().take(60).cloned().collect();
+    let (lo, hi) = last.iter().fold((f32::MAX, 0f32), |(lo, hi), v| (lo.min(*v), hi.max(*v)));
+    assert!(hi > 0.0 && hi - lo <= hi * 0.5 + 1.0, "flat traffic swings from {lo} to {hi}");
+    assert!(c.glassbox.as_mut().unwrap().remove_sensor("Crossing 0"));
+}

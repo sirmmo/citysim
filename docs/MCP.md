@@ -51,6 +51,7 @@ the rules sets, tech trees, policy files and model sizes.
 | `list_tools` | The building tools these rules offer, and the research a locked tool waits for. |
 | `apply_tool` | Uses a tool from `from` to `to` (tiles as `[w, l]`). Zones and roads span the area. Plants and services go at `from` and turn to face the street. `density` sets the zone density (0 to 2). Costs money, like in the game. |
 | `inspect_tile` | What is on a tile: structure, level, status, size and facing. Under GlassBox rules it adds the building, what it makes and needs, its satisfaction, and the map layers there. |
+| `sensors` | Lists the sensors left on the map with their latest readings and the hour of day. `add` (`[w, l]`, optional `name`) leaves one: on a road it counts the trips driving past, on a building what arrives and leaves, anywhere the map layers. `remove` takes one away, `csv` returns one's recorded readings, `tides` switches rush hours on or off. |
 | `turn_building` | Turns a plant or service a quarter clockwise. |
 | `research` | Lists projects with their state (done, in progress, available, locked, ruled out) and progress. `project` starts one; an empty string stops it. |
 | `policies` | Lists taxes and policies. `taxes` (`{"property": 12}`) and `stances` (`{"growth": "open_city"}`) change them. |

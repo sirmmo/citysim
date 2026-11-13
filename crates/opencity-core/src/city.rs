@@ -287,6 +287,18 @@ pub struct City {
     /// Density used by the zone tools (GlassBox rules): 0 low, 1 medium, 2 high.
     #[serde(default)]
     pub zone_density: u8,
+    /// Traffic follows the hour of the day (rush hours, quiet nights) under
+    /// rules whose resources have a tide; off, it is the same at any hour.
+    #[serde(default = "yes")]
+    pub tides: bool,
+    /// Days are passing ([`City::update`]): rounds stepped by hand have no
+    /// hour, so their traffic has no tide.
+    #[serde(skip)]
+    clocked: bool,
+}
+
+fn yes() -> bool {
+    true
 }
 
 impl City {
@@ -321,6 +333,8 @@ impl City {
             footprints,
             glassbox: None,
             zone_density: 0,
+            tides: true,
+            clocked: false,
         };
         if let Some(density) = tree_density {
             assert_eq!(density.len(), (width * length) as usize, "tree density size");
@@ -548,6 +562,7 @@ impl City {
             return;
         }
         self.vehicles.retain_mut(|v| v.advance(dt as f32));
+        self.clocked = true;
         self.sim_clock_ms += dt;
         while self.sim_clock_ms >= self.sim_interval_ms() {
             self.sim_clock_ms -= self.sim_interval_ms();
@@ -580,18 +595,29 @@ impl City {
 
     fn simulate_glassbox(&mut self) {
         let mut gb = self.glassbox.take().unwrap();
+        gb.hour = (self.tides && self.clocked).then(|| self.hour());
         let trips = gb.tick(&mut self.layer, &self.terrain, &self.footprints, &mut self.fund, &mut self.rng);
         // Road traffic comes from the trips (`GlassBox::congestion`).
         // A sample of the trips becomes visible vehicles.
         // Picked at random, so every resource shows its vehicles (not
         // just those listed first, like workers on foot).
         let visible: Vec<&Trip> = trips.iter().filter(|t| t.amount >= 1.0).collect();
+        // What is shown follows the hour: fewer vehicles while little
+        // moves, each in the direction it goes now. These draws have their
+        // own dice, so what is shown never changes what happens.
+        let mut show = <Pcg32 as rand::SeedableRng>::seed_from_u64(gb.tick);
         for _ in 0..if visible.is_empty() { 0 } else { 10 } {
             let t = visible[self.rng.gen_range(0..visible.len())];
             if self.vehicles.len() >= MAX_VEHICLES {
                 break;
             }
-            let (Some(a), Some(b)) = (self.nearest_road(t.from), self.nearest_road(t.to)) else { continue };
+            let moving = t.out + t.back;
+            if moving < 1.0 && show.gen_range(0.0..1.0) >= moving {
+                continue;
+            }
+            let home = show.gen_range(0.0..moving.max(1e-6)) >= t.out;
+            let (from, to) = if home { (t.to, t.from) } else { (t.from, t.to) };
+            let (Some(a), Some(b)) = (self.nearest_road(from), self.nearest_road(to)) else { continue };
             // The rules say which vehicles carry the resource and on which
             // ways; networks without vehicles get the classic cars.
             let (kind, ways, top, cost, mesh) = match gb.rules().map(|r| r.vehicles_for(t.resource)) {

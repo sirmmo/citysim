@@ -152,6 +152,46 @@ pub struct Trip {
     pub from: (u32, u32),
     pub to: (u32, u32),
     pub amount: f32,
+    /// The share of `amount` on its way out (`from` → `to`) and on its way
+    /// back right now. Resources with a tide follow the clock (over a day
+    /// the two add up to 1 on average); the others are 1 and 0.
+    pub out: f32,
+    pub back: f32,
+    /// The share that goes by road vehicle: 1 by road, a little by bus,
+    /// 0 by rail, tram, metro or boat.
+    pub road: f32,
+}
+
+impl Trip {
+    /// What is on the move right now, both ways.
+    pub fn flow(&self) -> f32 {
+        self.amount * (self.out + self.back)
+    }
+}
+
+/// A probe the city left at a tile: every tick it records what passes and
+/// what the maps hold there (see [`GlassBox::readings`]), as series named
+/// `Sensor/<name>/…`.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct Sensor {
+    pub name: String,
+    pub at: (u32, u32),
+}
+
+/// The road tiles a trip starts and ends on.
+type Ends = ((u32, u32), (u32, u32));
+
+/// Sensors a city can hold.
+pub const MAX_SENSORS: usize = 32;
+
+/// Which road sensors each pair of road tiles' route passes (a bit each),
+/// kept while the roads and the sensors stay as they are.
+#[derive(Clone, Debug, Default)]
+struct SensorRoutes {
+    revision: u64,
+    tiles: Vec<(u32, u32)>,
+    passes: HashMap<(u32, u32), u32>,
+    doors: HashMap<u32, Option<(u32, u32)>>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -209,6 +249,11 @@ pub struct GlassBox {
     /// 1 is full; trips across busy cells take longer.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub congestion: Vec<f32>,
+    /// The same at this hour, when traffic has a tide: what the roads show.
+    /// How far trips get goes by `congestion`, the day's traffic (a tick
+    /// exchanges a day's worth, and people caught in the rush still arrive).
+    #[serde(skip)]
+    pub rush: Vec<f32>,
     /// Culture flowing in from the rest of the region, per tick and
     /// resource (shared pools).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -276,6 +321,19 @@ pub struct GlassBox {
     /// The city could not pay its administration last tick.
     #[serde(skip)]
     pub administration_unpaid: bool,
+    /// The hour of the day (0 to 24), set by the city before each tick:
+    /// trips of resources with a tide gather around their hours. None: no
+    /// clock, traffic is the same at any hour.
+    #[serde(skip)]
+    pub hour: Option<f32>,
+    /// Probes left on the map.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub sensors: Vec<Sensor>,
+    /// What each sensor read last tick, in the order of `sensors`.
+    #[serde(skip)]
+    pub readings: Vec<Vec<(String, f32)>>,
+    #[serde(skip)]
+    sensor_routes: SensorRoutes,
 }
 
 const NO_COMPONENT: u32 = u32::MAX;
@@ -348,6 +406,7 @@ impl GlassBox {
             deficit: Vec::new(),
             gates: Vec::new(),
             congestion: Vec::new(),
+            rush: Vec::new(),
             culture_in: Vec::new(),
             tax_rates: BTreeMap::new(),
             disasters_off: false,
@@ -368,6 +427,10 @@ impl GlassBox {
             within_reach: HashMap::new(),
             comp_root: HashMap::new(),
             administration_unpaid: false,
+            hour: None,
+            sensors: Vec::new(),
+            readings: Vec::new(),
+            sensor_routes: SensorRoutes::default(),
         }
     }
 
@@ -1067,7 +1130,21 @@ impl GlassBox {
             1.0 + CONGESTION_DELAY * sum / n.max(1) as f32
         };
         let mut load = vec![0f32; cells];
+        let mut load_now = vec![0f32; cells];
         let mut trips = Vec::new();
+        // Tides: by the clock, the share of a resource's trips to a unit
+        // that is on its way out and back right now. Staff of units that
+        // work round the clock come and go at the shift changes.
+        let hour = self.hour;
+        let clock: Vec<bool> = units.iter().map(|(p, u, _)| rules.round_the_clock(*u, idx(p.0, p.1))).collect();
+        let shifts = rules.shifts.clone().unwrap_or_default();
+        let tide = |a: usize, taker: Option<usize>| -> (f32, f32) {
+            match (hour, rules.tide(a)) {
+                (Some(h), Some(t)) if t.shifts && taker.is_some_and(|i| clock[i]) => shifts.flow(h),
+                (Some(h), Some(t)) => t.flow(h),
+                _ => (1.0, 0.0),
+            }
+        };
         for root in 0..nres {
             let res = &rules.resources[root];
             if res.transport != Transport::Agents || res.parent.is_some() {
@@ -1268,10 +1345,15 @@ impl GlassBox {
                                                 h if h == LINE + 3 => BUS_LOAD,
                                                 _ => 0.0,
                                             };
+                                            let (out, back) = tide(a, Some(i));
                                             if weight > 0.0 {
-                                                line_cells(sp, p, cw, |c| load[c] += take * weight);
+                                                line_cells(sp, p, cw, |c| {
+                                                    load[c] += take * weight;
+                                                    load_now[c] += take * weight * (out + back);
+                                                });
                                             }
-                                            trips.push(Trip { resource: a, from: sp, to: p, amount: take });
+                                            let road = if how == HIGHWAY { 1.0 } else { weight };
+                                            trips.push(Trip { resource: a, from: sp, to: p, amount: take, out, back, road });
                                             *tick_flows.entry(Link { resource: a, from: sp, to: p }).or_default() += take;
                                             if missing <= 1e-4 || !available(&left) {
                                                 break 'rings;
@@ -1473,7 +1555,8 @@ impl GlassBox {
                     bal.imported[ri] += take;
                     *gate.carried_in.entry(rid.clone()).or_default() += take;
                     if !grid {
-                        trips.push(Trip { resource: ri, from: gate.at, to: p, amount: take });
+                        let (out, back) = tide(ri, Some(i));
+                        trips.push(Trip { resource: ri, from: gate.at, to: p, amount: take, out, back, road: 1.0 });
                     }
                     *tick_flows.entry(Link { resource: ri, from: gate.at, to: p }).or_default() += take;
                 }
@@ -1499,7 +1582,8 @@ impl GlassBox {
                     bal.exported[ri] += take;
                     *gate.carried_out.entry(rid.clone()).or_default() += take;
                     if !grid {
-                        trips.push(Trip { resource: ri, from: p, to: gate.at, amount: take });
+                        let (out, back) = tide(ri, None);
+                        trips.push(Trip { resource: ri, from: p, to: gate.at, amount: take, out, back, road: 1.0 });
                     }
                     *tick_flows.entry(Link { resource: ri, from: p, to: gate.at }).or_default() += take;
                 }
@@ -1543,13 +1627,19 @@ impl GlassBox {
 
         // This tick's traffic joins the running average, and road tiles
         // show it (inspector, vehicles avoiding busy roads).
-        for (c, cong) in self.congestion.iter_mut().enumerate() {
-            let now = if road_cap[c] > 0.0 { load[c] / (road_cap[c] * ROAD_TRIPS) } else { 0.0 };
-            *cong = *cong * 0.8 + now * 0.2;
+        if self.rush.len() != cells {
+            self.rush = self.congestion.clone();
         }
+        for c in 0..cells {
+            let share = |load: &[f32]| if road_cap[c] > 0.0 { load[c] / (road_cap[c] * ROAD_TRIPS) } else { 0.0 };
+            self.congestion[c] = self.congestion[c] * 0.8 + share(&load) * 0.2;
+            self.rush[c] = self.rush[c] * 0.5 + share(&load_now) * 0.5;
+        }
+        // Roads show the traffic of the hour, when there is a clock.
+        let shown = if hour.is_some() { &self.rush } else { &self.congestion };
         let roads: Vec<(u32, u32)> = layer.structures().filter(|(_, s)| s.code == StructureCode::Road && !s.road.is_rail()).map(|(p, _)| p).collect();
         for (w, l) in roads {
-            let t = (self.congestion[((l / BUCKET) * cw + w / BUCKET) as usize] * 100.0).min(255.0) as u8;
+            let t = (shown[((l / BUCKET) * cw + w / BUCKET) as usize] * 100.0).min(255.0) as u8;
             if let Some(crate::layer::TileKind::Main(s)) = layer.tile_mut(w, l).map(|t| &mut t.kind) {
                 s.traffic = t;
             }
@@ -1679,7 +1769,7 @@ impl GlassBox {
                     if steps % ar.every.max(1) == 0 {
                         for a in &ar.areas {
                             let li = rules.layer(&a.layer).unwrap();
-                            emit(&mut self.layers[li], width, length, x as f32, z as f32, a.amount * t.amount, a.radius);
+                            emit(&mut self.layers[li], width, length, x as f32, z as f32, a.amount * t.flow(), a.radius);
                         }
                     }
                 }
@@ -1691,7 +1781,7 @@ impl GlassBox {
             if trail.is_empty() {
                 continue;
             }
-            let lis: Vec<(usize, f32)> = trail.iter().map(|(l, a)| (rules.layer(l).unwrap(), a * t.amount)).collect();
+            let lis: Vec<(usize, f32)> = trail.iter().map(|(l, a)| (rules.layer(l).unwrap(), a * t.flow())).collect();
             let (mut x, mut z) = (t.from.0 as i64, t.from.1 as i64);
             let (tx, tz) = (t.to.0 as i64, t.to.1 as i64);
             while (x, z) != (tx, tz) {
@@ -1812,8 +1902,178 @@ impl GlassBox {
         self.churn = [0; 4];
         self.grow(&rules, layer, terrain, footprints, rng);
         self.zone_rules(&rules, layer, terrain, footprints, rng);
+        self.read_sensors(&rules, layer, terrain, &trips);
         self.record(&rules, layer, *fund);
         trips
+    }
+
+    /// Leaves a sensor at a tile. Returns its name: the one given, or
+    /// `Sensor <n>`.
+    pub fn add_sensor(&mut self, name: Option<&str>, at: (u32, u32)) -> Result<String, String> {
+        if self.sensors.len() >= MAX_SENSORS {
+            return Err(format!("A city holds at most {MAX_SENSORS} sensors."));
+        }
+        let clean = |n: &str| n.trim().replace(['/', ',', '"'], " ");
+        let name = match name.map(clean).filter(|n| !n.is_empty()) {
+            Some(n) if self.sensors.iter().any(|s| s.name == n) => return Err(format!("There is already a sensor called {n}.")),
+            Some(n) => n,
+            None => (1..).map(|k| format!("Sensor {k}")).find(|n| self.sensors.iter().all(|s| &s.name != n)).unwrap(),
+        };
+        self.sensors.push(Sensor { name: name.clone(), at });
+        Ok(name)
+    }
+
+    pub fn remove_sensor(&mut self, name: &str) -> bool {
+        let n = self.sensors.len();
+        self.sensors.retain(|s| s.name != name);
+        self.readings.clear();
+        self.sensors.len() != n
+    }
+
+    /// What a sensor recorded (the ticks kept in [`Self::series`]) as CSV:
+    /// `tick`, `hour` when the city has a clock, then its readings.
+    pub fn sensor_csv(&self, name: &str) -> Option<String> {
+        let prefix = format!("Sensor/{name}/");
+        let cols: Vec<usize> = (0..self.series.names.len()).filter(|&i| self.series.names[i].starts_with(&prefix)).collect();
+        if cols.is_empty() {
+            return None;
+        }
+        let hour = self.series.column("City/Hour");
+        let mut out = String::from("tick");
+        if hour.is_some() {
+            out.push_str(",hour");
+        }
+        for &i in &cols {
+            out.push(',');
+            out.push_str(&self.series.names[i][prefix.len()..]);
+        }
+        out.push('\n');
+        for (row, tick) in self.series.ticks.iter().enumerate() {
+            if cols.iter().all(|&i| !self.series.columns[i][row].is_finite()) {
+                continue;
+            }
+            out.push_str(&tick.to_string());
+            let mut put = |v: f32, digits: usize| {
+                out.push(',');
+                if v.is_finite() {
+                    out.push_str(&format!("{v:.digits$}"));
+                }
+            };
+            if let Some(h) = hour {
+                put(h[row], 2);
+            }
+            for &i in &cols {
+                put(self.series.columns[i][row], 3);
+            }
+            out.push('\n');
+        }
+        Some(out)
+    }
+
+    /// What each sensor sees this tick. On a road: the trips driving past
+    /// (in units carried), in all and by resource, along the quickest road
+    /// route between their ends. On a building: what arrives and leaves,
+    /// and its satisfaction. Everywhere: the maps at the tile.
+    fn read_sensors(&mut self, rules: &Ruleset, layer: &BuildingLayer, terrain: &Terrain, trips: &[Trip]) {
+        self.readings.clear();
+        if self.sensors.is_empty() {
+            return;
+        }
+        let width = layer.width();
+        let nres = rules.resources.len();
+        let is_road = |(w, l): (u32, u32)| layer.tile(w, l).and_then(|t| t.structure()).is_some_and(|s| s.code == StructureCode::Road && !s.road.is_rail());
+        let inside = |(w, l): (u32, u32)| w < width && l < layer.length();
+        // Road sensors take a bit each; the others watch a building, if any.
+        let road_tiles: Vec<(u32, u32)> = self.sensors.iter().map(|s| s.at).filter(|&p| inside(p) && is_road(p)).collect();
+        let mut passing = vec![vec![0f32; nres]; road_tiles.len()];
+        if !road_tiles.is_empty() {
+            let cache = &mut self.sensor_routes;
+            if cache.revision != layer.revision() || cache.tiles != road_tiles {
+                *cache = SensorRoutes { revision: layer.revision(), tiles: road_tiles.clone(), ..Default::default() };
+            }
+            // The road tile each end of a trip opens onto.
+            let mut door = |p: (u32, u32)| -> Option<(u32, u32)> {
+                *cache.doors.entry(p.1 * width + p.0).or_insert_with(|| {
+                    (0..=5u32).find_map(|r| {
+                        let (w1, l1, w2, l2) = terrain.around(p.0, p.1, r);
+                        (Rect { w1, l1, w2, l2 }).tiles().filter(|&t| is_road(t)).min_by_key(|t| t.0.abs_diff(p.0) + t.1.abs_diff(p.1))
+                    })
+                })
+            };
+            let ends: Vec<Option<Ends>> = trips
+                .iter()
+                .map(|t| {
+                    (t.road > 0.0 && t.flow() > 0.0).then_some(())?;
+                    let (a, b) = (door(t.from)?, door(t.to)?);
+                    Some((a.min(b), a.max(b)))
+                })
+                .collect();
+            // Routes not met before, by where they start.
+            let mut missing: BTreeMap<(u32, u32), BTreeSet<(u32, u32)>> = BTreeMap::new();
+            for (a, b) in ends.iter().flatten() {
+                if !cache.passes.contains_key(&(a.1 * width + a.0, b.1 * width + b.0)) {
+                    missing.entry(*a).or_default().insert(*b);
+                }
+            }
+            for (a, targets) in missing {
+                let targets: Vec<(u32, u32)> = targets.into_iter().collect();
+                let routes = crate::traffic::find_routes(layer, terrain, a, &targets);
+                for (b, route) in targets.iter().zip(routes) {
+                    let mask = route.iter().flatten().fold(0u32, |m, t| m | road_tiles.iter().position(|s| s == t).map_or(0, |k| 1 << k));
+                    cache.passes.insert((a.1 * width + a.0, b.1 * width + b.0), mask);
+                }
+            }
+            for (t, e) in trips.iter().zip(&ends) {
+                let Some((a, b)) = e else { continue };
+                let mask = cache.passes[&(a.1 * width + a.0, b.1 * width + b.0)];
+                for (k, p) in passing.iter_mut().enumerate() {
+                    if mask & (1 << k) != 0 {
+                        p[rules.root(t.resource)] += t.flow() * t.road;
+                    }
+                }
+            }
+        }
+        let mut readings = Vec::with_capacity(self.sensors.len());
+        for s in &self.sensors {
+            let mut v: Vec<(String, f32)> = Vec::new();
+            if !inside(s.at) {
+                readings.push(v);
+                continue;
+            }
+            if let Some(k) = road_tiles.iter().position(|p| *p == s.at) {
+                v.push(("Trips".into(), passing[k].iter().sum()));
+                for (ri, r) in rules.resources.iter().enumerate() {
+                    if r.transport == Transport::Agents && r.parent.is_none() {
+                        v.push((r.name.clone(), passing[k][ri]));
+                    }
+                }
+            } else if let Some(o) =
+                layer.origin_of(s.at.0, s.at.1).filter(|o| layer.tile(o.0, o.1).and_then(|t| t.structure()).is_some_and(|st| st.unit.is_some()))
+            {
+                let (mut arriving, mut leaving) = (0f32, 0f32);
+                for t in trips {
+                    if t.to == o {
+                        arriving += t.amount * t.out;
+                        leaving += t.amount * t.back;
+                    }
+                    if t.from == o {
+                        leaving += t.amount * t.out;
+                        arriving += t.amount * t.back;
+                    }
+                }
+                v.push(("Arriving".into(), arriving));
+                v.push(("Leaving".into(), leaving));
+                if let Some(st) = self.units.get(&(o.1 * width + o.0)) {
+                    v.push(("Satisfaction".into(), st.satisfaction));
+                }
+            }
+            let i = (s.at.1 * width + s.at.0) as usize;
+            for (def, values) in rules.layers.iter().zip(&self.layers) {
+                v.push((def.name.clone(), values.get(i).copied().unwrap_or(0.0)));
+            }
+            readings.push(v);
+        }
+        self.readings = readings;
     }
 
     /// Samples this tick into [`Self::series`].
@@ -1860,6 +2120,14 @@ impl GlassBox {
             v.push((format!("Metric/{name}"), *m));
         }
         v.push(("City/Funds".into(), fund as f32));
+        if let Some(h) = self.hour {
+            v.push(("City/Hour".into(), h));
+        }
+        for (s, r) in self.sensors.iter().zip(&self.readings) {
+            for (k, x) in r {
+                v.push((format!("Sensor/{}/{k}", s.name), *x));
+            }
+        }
         for (label, n) in ["Built", "Abandoned", "Levelled up", "Levelled down"].iter().zip(self.churn) {
             v.push((format!("Growth/{label}"), n as f32));
         }

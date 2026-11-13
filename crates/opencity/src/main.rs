@@ -709,6 +709,7 @@ impl Game {
         attach_saved_rules(&mut city, &self.rulesets);
         self.camera = OrbitCamera::new(city.width(), city.length());
         self.city = city;
+        self.city.tides = self.day_night;
         self.drag_start = None;
         self.query = None;
         self.crossings = self.city.crossings();
@@ -994,7 +995,33 @@ impl Game {
                 Ok(l) => self.say(format!("Borrowed ${}: ${} a month for {} months", l.amount, l.payment, l.months_left)),
                 Err(e) => self.say(e),
             },
-            Command::SetDayNight(on) => self.day_night = on,
+            Command::SetDayNight(on) => {
+                self.day_night = on;
+                self.city.tides = on;
+            }
+            Command::AddSensor(tile) => {
+                if let Some(gb) = self.city.glassbox.as_mut() {
+                    match gb.add_sensor(None, tile) {
+                        Ok(name) => self.say(format!("{name} is recording at tile {}, {}.", tile.0, tile.1)),
+                        Err(e) => self.say(e),
+                    }
+                }
+            }
+            Command::RemoveSensor(name) => {
+                if let Some(gb) = self.city.glassbox.as_mut() {
+                    gb.remove_sensor(&name);
+                }
+            }
+            Command::SaveSensorCsv(name) => {
+                let csv = self.city.glassbox.as_ref().and_then(|gb| gb.sensor_csv(&name));
+                let file = format!("{}.csv", name.to_lowercase().replace(' ', "-"));
+                let path = self.save_file().parent().map(Path::to_path_buf).unwrap_or_default().join(file);
+                let said = match csv {
+                    Some(csv) => write_text_file(&path, &csv).unwrap_or_else(|e| format!("Could not save {}: {e}", path.display())),
+                    None => format!("{name} has recorded nothing yet."),
+                };
+                self.say(said);
+            }
             Command::SetDisasters(on) => {
                 if let Some(gb) = self.city.glassbox.as_mut() {
                     gb.disasters_off = !on;
@@ -1291,6 +1318,7 @@ impl Game {
         if let Some(r) = self.region.as_ref() {
             render::draw_crossings(&self.city, &region_gates(r, &self.crossings));
         }
+        render::draw_sensors(&self.city);
         if let (true, Some((rain, amount))) = (self.day_night, self.renderer.atmosphere.precipitation) {
             render::draw_precipitation(self.camera.target, get_time(), rain, amount);
         }

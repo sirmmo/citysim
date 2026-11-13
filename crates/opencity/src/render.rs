@@ -1014,6 +1014,18 @@ pub fn draw_crossings(city: &opencity_core::City, gates: &[(opencity_core::regio
     }
 }
 
+/// Sensors left on the map: a mast at a corner of the tile with a blue
+/// head, tall enough to show beside a house.
+pub fn draw_sensors(city: &opencity_core::City) {
+    let Some(gb) = &city.glassbox else { return };
+    for s in gb.sensors.iter().filter(|s| s.at.0 < city.width() && s.at.1 < city.length()) {
+        let (x, z) = (s.at.0 as f32 + 0.12, s.at.1 as f32 + 0.12);
+        let ground = height_at(&city.terrain, x, z);
+        draw_cube(vec3(x, ground + 0.7, z), vec3(0.04, 1.4, 0.04), None, Color::new(0.85, 0.85, 0.88, 1.0));
+        draw_cube(vec3(x, ground + 1.45, z), vec3(0.16, 0.12, 0.16), None, Color::new(0.20, 0.65, 0.95, 1.0));
+    }
+}
+
 /// Rain or snow falling around a point, at a moment (seconds).
 /// The sky panorama behind the scene: the part of an equirectangular image
 /// the camera looks at (by its yaw and pitch), tinted by the light. Drawn in

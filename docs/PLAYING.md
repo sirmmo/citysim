@@ -363,6 +363,8 @@ The **📜 Policies** window sets:
   - filter by resource and hide small flows;
   - list the busiest links and the biggest shortages;
   - click a building to see only its flows.
+- **📡 Sensors:** inspect any tile (`/`) and leave a sensor there. At a crossing it counts the traffic driving past, by what it carries; on a building, what arrives and leaves; anywhere, pollution, noise and the other maps. Read it in the inspector, plot it in the graphs, or save it as a CSV file. **View > Sensors** lists them.
+- **Rush hours:** with **View > Day and night** on, traffic follows the clock. People leave home around 8 and come back around 18, shoppers go out late in the morning and after work, deliveries run by day, and the streets are empty at night. Hospitals, police and fire stations, and one shop or factory in twenty, work round the clock in three shifts.
 - **📈 Graphs (G):** every series the engine samples (demand, flows, satisfaction, layers, metrics, funds, growth). Zoom, smooth, normalise, compare and export CSV.
 - **Vehicles:** cars, taxis and trucks in modern towns (Kenney car kit); people, handcarts and horse carts before 1800. What travels where follows the rules: no cars in the Middle Ages, no carts on the highway.
 - **View > Skin:** re-dresses the city for an era or a world (see [SKINS.md](SKINS.md)).

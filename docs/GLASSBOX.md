@@ -136,10 +136,37 @@ every other engine series (last 2000 ticks):
 opencity-cli simulate --demo --game-rules glassbox --years 5 --metrics metrics.csv
 ```
 
+## Sensors
+
+Metrics describe the whole city. A **sensor** records what happens at one
+tile, tick by tick: the trips driving past a road tile (in all and by
+resource), what arrives at and leaves a building, and the maps there. With
+the hour of day in the same file, it is the simulated counterpart of a
+traffic counter or an air-quality station, to set against measured data:
+
+```sh
+opencity-cli simulate --load bologna.ocsave.json --years 1 \
+    --sensor PortaSanFelice@41,57 --sensor-csv sensors/
+```
+
+```text
+tick,hour,Trips,Workers,Shoppers,Goods,Cars,…,Air quality (PM10),Noise
+9120,7.60,41.300,22.100,3.200,5.900,10.100,…,18.400,12.700
+```
+
+Sensors belong to a city, not to the rules: place them in the game's
+inspector, with `--sensor` or through MCP (see
+[RULES.md](RULES.md#sensors)). Traffic follows the hour when the rules give
+resources a `tide` ([RULES.md](RULES.md#the-day-tides-and-shifts)).
+
 ## Differences from GlassBox
 
 * Agents deliver within the tick they are sent. Senders are chosen by
-  straight-line distance, and visible vehicles follow real road paths.
+  straight-line distance; visible vehicles and the trips sensors count
+  follow real road paths.
+* A tick exchanges a day's worth at once. The hour of day does not gate
+  production; it decides how much of each resource's trips is on the road
+  (`tide`).
 * `{type}` placeholders expand over the kinds declared in the rules file
   (`[[resource.subtype]]`, see [RULES.md](RULES.md#the-model)), one line per kind.
   Kinds are declared in TOML, not in the script.

@@ -251,6 +251,88 @@ a running average, so it rises and falls over a few ticks.
   half of the congestion (bus lanes).
 - **On the map:** inspecting a road shows its congestion and how much
   slower trips are there, and cars route around busy roads.
+- **By the hour:** with a clock, roads show the traffic of the hour (see
+  below): the same street is busy at eight and empty at three in the
+  morning. Trip times go by the day's average.
+
+### The day: tides and shifts
+
+The game's clock turns once a month (the light you see with **View > Day and
+night**). Resources carried by agents can follow it with a `tide`:
+
+```toml
+[[resource]]
+id = "workers"
+tide = { out = [8], back = [18], spread = 1.5, shifts = true }
+
+[[resource]]
+id = "goods"
+tide = { out = [10, 15], spread = 3 }      # one way: no `back`
+```
+
+| Key | Meaning |
+|---|---|
+| `out` | Hours (0 to 24) around which the trips set out, from sender to taker |
+| `back` | Hours around which they come back the same way. Leave it out for one-way trips (deliveries). |
+| `spread` | How far around each hour the trips spread, in hours (1.5 by default) |
+| `shifts` | These are staff: at takers that work round the clock they follow `[shifts]` instead |
+
+- **The economy does not stop at night.** Every tick still delivers the same
+  workers, shoppers and goods: a tick's exchange stands for the day's. The
+  tide decides how much of it is **on the road at this hour**. Over a day it
+  adds up to what it would be without a tide.
+- **What follows the hour:** the traffic roads show (the inspector, and the
+  routes vehicles pick around busy roads), the pollution and noise that
+  agent rules and `trail` leave along the routes, the vehicles drawn on the
+  map and what sensors count.
+- **What does not:** how far people get. Trips are slowed by the day's
+  average congestion, as before: someone caught in the rush still arrives.
+- **Round the clock:** a unit with `round_the_clock = true` (hospitals,
+  police and fire stations in the shipped rules) and a share of a zone's
+  buildings (`round_the_clock = 0.05` on the commercial and industrial
+  zones: one in twenty, picked by where it stands) work in shifts. Their
+  staff travel at the shift changes, a shift arriving as another leaves:
+
+  ```toml
+  [shifts]
+  hours = [6, 14, 22]
+  spread = 1.0
+  ```
+
+  The inspector marks these buildings.
+- **Off:** with **View > Day and night** unticked (or `simulate --no-tides`)
+  traffic is the same at any hour, as in rules without tides.
+
+### Sensors
+
+A sensor is a probe left at a tile of the city (it is saved with it, 32 at
+most). Every tick it records, as series named `Sensor/<name>/…`:
+
+| Where | What it records |
+|---|---|
+| A road tile | `Trips`: what drives past, in units carried (a commuter, a load), both ways; then the same by resource (`Workers`, `Shoppers`, `Goods`…) |
+| A building | `Arriving` and `Leaving` (trips that end and start there, by the direction they go now) and its `Satisfaction` |
+| Any tile | The value of every map there (pollution, noise, land value…) |
+
+Trips are counted along the quickest road route between the road tiles their
+two ends open onto, so a sensor at a crossing sees the traffic that goes
+through it. Trips by rail, tram, metro and boat are not road traffic; bus
+passengers count for a tenth.
+
+- **Game:** inspect a tile (`/`) and press **Leave a sensor here**. The
+  inspector then shows its readings, **Save CSV** writes them next to the
+  saved city (a download in the browser), and **View > Sensors** lists them.
+  The series are in the GlassBox graphs (`G`) with all the others.
+- **CLI:**
+
+  ```sh
+  opencity-cli simulate --demo --game-rules glassbox --years 2 \
+      --sensor Centre@33,30 --sensor 18,22 --sensor-csv sensors/
+  ```
+
+  writes `sensors/Centre.csv` and `sensors/Sensor-1.csv`: `tick`, `hour`,
+  then the readings, one row per tick for the last 2000 ticks.
+- **MCP:** the `sensors` tool lists, adds, removes and returns the CSV.
 
 ### Vehicles
 
