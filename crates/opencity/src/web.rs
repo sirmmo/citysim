@@ -99,7 +99,10 @@ fn splash(what: &str, t0: f64) {
 /// installs the reader that serves them.
 pub async fn preload() -> Result<()> {
     let (tx, rx) = std::sync::mpsc::channel();
-    macroquad::miniquad::fs::load_file("assets.pack", move |r| {
+    // The pack of this very build: a browser that kept an older pack must
+    // not pair it with newer game code (buildings without models or rules).
+    let build = option_env!("GITHUB_SHA").unwrap_or(env!("CARGO_PKG_VERSION"));
+    macroquad::miniquad::fs::load_file(&format!("assets.pack?v={build}"), move |r| {
         let _ = tx.send(r.map_err(|e| e.to_string()));
     });
     let t0 = get_time();

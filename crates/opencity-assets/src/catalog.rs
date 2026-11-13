@@ -71,8 +71,10 @@ impl Catalog {
         Ok(Self { data_dir: data_dir.to_owned(), models })
     }
 
+    /// The models' footprints, over the built-in table: a building whose
+    /// model is missing from the data files still takes its plot.
     pub fn footprints(&self) -> Footprints {
-        let mut f = Footprints::new();
+        let mut f = Footprints::builtin();
         for (&gc, e) in &self.models {
             f.insert(gc, e.footprint);
         }

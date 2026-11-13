@@ -2,6 +2,10 @@
 
 Release notes in full are on the [releases page](https://github.com/sirmmo/citysim/releases).
 
+## 0.2.56: The browser version loads its own data
+- **Fixed: new buildings as empty 1 × 1 lots in the browser.** After an update the browser could pair the new game with the data files it had kept from the version before: the high school and university then had no model, no size and no rules. The game now asks for the data of its own build, and the page for the game of its own build.
+- A building whose model is missing from the data files still takes a plot of its proper size.
+
 ## 0.2.55: Empty lots, a clearer underground, safer saves
 - **Fixed: 0.2.54 loaded older cities with the wrong buildings.** Saves number each building's unit by its place in the rules, and 0.2.54 added the high school and university in the middle of the list: stations, stops, water works and landfills of a city saved earlier loaded as something else. The new units now stand at the end, and saves name their units, so a city is renumbered when the rules gain, lose or reorder units (also after editing rules).
 - **Empty lots pass power and water.** Zoned land that is not built on yet conducts like a building: a strip of zone carries power and water to the houses behind it.

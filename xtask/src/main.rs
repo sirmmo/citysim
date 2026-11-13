@@ -201,6 +201,15 @@ fn web_dist(out: &Path) -> Result<()> {
     for f in ["index.html", "citysim.js", "mq_js_bundle.js"] {
         fs::copy(root.join("web").join(f), out.join(f)).with_context(|| format!("copying web/{f}"))?;
     }
+    // Each build loads its own game code, whatever the browser kept (the
+    // game asks for its asset pack the same way, see `web.rs`).
+    let build = std::env::var("GITHUB_SHA")
+        .unwrap_or_else(|_| std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or_else(|_| "0".into(), |d| d.as_secs().to_string()));
+    let page = fs::read_to_string(out.join("index.html"))?;
+    if !page.contains("load(\"opencity.wasm\")") {
+        bail!("web/index.html no longer loads opencity.wasm the way web-dist stamps it");
+    }
+    fs::write(out.join("index.html"), page.replace("load(\"opencity.wasm\")", &format!("load(\"opencity.wasm?v={build}\")")))?;
     let assets = root.join("assets");
     let mut files = Vec::new();
     walk(&assets, &assets, &mut files)?;
