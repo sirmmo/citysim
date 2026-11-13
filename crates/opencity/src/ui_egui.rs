@@ -269,6 +269,18 @@ const GROUPS: &[Group] = &[
         true,
     ),
     (
+        "Amenities",
+        &[
+            ("museum", Action::Tool(Some(Tool::Museum)), "Museum", ""),
+            ("archaeology_museum", Action::Tool(Some(Tool::ArchaeologyMuseum)), "Archaeology museum", ""),
+            ("modern_art_museum", Action::Tool(Some(Tool::ModernArtMuseum)), "Modern art museum", ""),
+            ("opera_house", Action::Tool(Some(Tool::OperaHouse)), "Opera house", ""),
+            ("stadium", Action::Tool(Some(Tool::Stadium)), "Stadium", ""),
+            ("mall", Action::Tool(Some(Tool::Mall)), "Shopping mall", ""),
+        ],
+        true,
+    ),
+    (
         "Land",
         &[
             ("park_city", Action::Tool(Some(Tool::Park)), "Park", ""),
@@ -281,7 +293,7 @@ const GROUPS: &[Group] = &[
     ("Tools", &[("bulldozer", Action::Tool(Some(Tool::Destroy)), "Bulldozer", "X"), ("query", Action::Query, "Inspect", "/")], false),
 ];
 
-/// Water, waste, buses, trams and higher schools work only under GlassBox rules.
+/// Water, waste, buses, trams, higher schools and amenities work only under GlassBox rules.
 fn needs_rules(t: Tool) -> bool {
     matches!(
         t,
@@ -299,6 +311,12 @@ fn needs_rules(t: Tool) -> bool {
             | Tool::MetroStation
             | Tool::HighSchool
             | Tool::University
+            | Tool::Stadium
+            | Tool::Mall
+            | Tool::Museum
+            | Tool::ModernArtMuseum
+            | Tool::OperaHouse
+            | Tool::ArchaeologyMuseum
     )
 }
 
@@ -1456,6 +1474,23 @@ fn unit_details(ui: &mut egui::Ui, city: &City, gb: &opencity_core::glassbox::Gl
     let def = &rules.units[unit];
     let Some(st) = gb.unit_state(origin.0, origin.1, city.width()) else { return };
     ui.add(egui::ProgressBar::new(st.satisfaction).text(format!("Satisfaction {:.0}%", st.satisfaction * 100.0)));
+    if let Some((a, d)) = gb.affliction(origin.0, origin.1, city.width()).and_then(|a| Some((a, rules.disaster(&a.disaster)?))) {
+        use opencity_core::rules::DisasterEffect;
+        let left = a.until.saturating_sub(gb.tick);
+        let text = match d.effect {
+            DisasterEffect::Destroy => format!("🔥 On fire ({}): lost in {left} ticks unless it is put out", d.name),
+            DisasterEffect::Damage => format!("🌊 {}: damaged, for {left} more ticks", d.name),
+            DisasterEffect::Sicken => format!("✚ {}: its people are ill, for {left} more ticks", d.name),
+        };
+        let help = match (d.effect, d.protection.as_deref().and_then(|p| rules.layer(p))) {
+            (DisasterEffect::Destroy, Some(li)) => {
+                format!("{} here decides how soon it is put out, and whether it passes to the buildings next door", rules.layers[li].name)
+            }
+            (DisasterEffect::Destroy, None) => "Nothing in these rules puts it out".to_string(),
+            _ => "It passes by itself".to_string(),
+        };
+        ui.label(RichText::new(text).color(Color32::from_rgb(240, 130, 60))).on_hover_text(help);
+    }
     if rules.round_the_clock(unit, origin.1 * city.width() + origin.0) {
         let hours: Vec<String> =
             rules.shifts.clone().unwrap_or_default().hours.iter().map(|h| format!("{:02}:{:02}", *h as u32, (h.fract() * 60.0) as u32)).collect();

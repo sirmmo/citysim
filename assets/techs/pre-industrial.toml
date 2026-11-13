@@ -108,3 +108,12 @@ tier = 3
 cost = { research = 3000 }
 requires = ["masonry"]
 unlocks = ["exchange"]
+
+[[tech]]
+id = "spectacles"
+name = "Spectacles"
+description = "Bread and circuses: an arena for the games and a theatre for the players."
+category = "Civic"
+tier = 2
+cost = { research = 1200 }
+unlocks = ["stadium", "opera_house"]

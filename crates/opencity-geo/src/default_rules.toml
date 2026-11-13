@@ -7,7 +7,8 @@
 # build = residential | commercial | industrial | road | power_line
 #       | coal_plant | nuclear_plant | park | trees | water
 #       | fire_station | police | hospital | school | high_school | university
-#       | rail | station | harbour
+#       | stadium | mall | museum | modern_art_museum | opera_house
+#       | archaeology_museum | rail | station | harbour
 #       | water_pipe | pumping_station | water_tower | water_treatment
 #       | dump | recycling | incinerator | tram | bus_stop | tram_stop
 #       | metro | metro_station | airport | seaport | ignore
@@ -72,6 +73,28 @@ build = "university"
 [[rule]]
 when = { amenity = ["school", "kindergarten"] }
 build = "school"
+# Amenities: the special museums before the plain one.
+[[rule]]
+when = { tourism = "museum", museum = ["archaeological", "archaeology"] }
+build = "archaeology_museum"
+[[rule]]
+when = { tourism = "museum", museum = ["art", "modern_art"] }
+build = "modern_art_museum"
+[[rule]]
+when = { tourism = ["museum", "gallery"] }
+build = "museum"
+[[rule]]
+when = { amenity = ["theatre", "opera_house", "concert_hall"] }
+build = "opera_house"
+[[rule]]
+when = { leisure = "stadium" }
+build = "stadium"
+[[rule]]
+when = { building = "stadium" }
+build = "stadium"
+[[rule]]
+when = { shop = ["mall", "department_store"] }
+build = "mall"
 [[rule]]
 when = { building = "fire_station" }
 build = "fire_station"

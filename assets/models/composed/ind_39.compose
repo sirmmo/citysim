@@ -1,0 +1,15 @@
+# Heavy plant (a heavy plant): one of several Kenney City Kit Industrial buildings and a
+# tint, picked per plot. Written by scripts/gen-zone-variety.py. CC0 parts.
+variants = 10
+
+[[slot]]
+parts = ["../kenney/city-industrial/building-r.obj", "../kenney/city-industrial/building-a.obj", "../kenney/city-industrial/building-q.obj"]
+size = [2.9, 1.9]
+at = [0.05, 0.0, 0.05]
+tints = [[1, 1, 1], [1.0, 0.86, 0.74], [0.8, 0.88, 0.98], [1.0, 0.96, 0.78]]
+
+[[slot]]
+parts = ["../kenney/city-industrial/detail-tank-large.obj", "../kenney/city-industrial/chimney-large.obj", "../kenney/city-industrial/building-d.obj"]
+size = [0.9, 1.5]
+at = [3.02, 0.0, 0.2]
+tints = [[1, 1, 1], [1.0, 0.86, 0.74]]

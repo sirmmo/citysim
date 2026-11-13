@@ -671,6 +671,22 @@ impl City {
         self.spawn_line("bus");
         self.dispatch_services();
         self.respond_to_disasters();
+        // The fires are out: what they cost.
+        if let Some(gb) = self.glassbox.as_mut() {
+            let burning = gb
+                .afflictions
+                .values()
+                .any(|a| gb.rules().and_then(|r| r.disaster(&a.disaster)).is_some_and(|d| d.effect == crate::rules::DisasterEffect::Destroy));
+            if !burning && gb.fire_tally != (0, 0) {
+                let (lost, saved) = std::mem::take(&mut gb.fire_tally);
+                let n = |k: u32| if k == 1 { "1 building".to_string() } else { format!("{k} buildings") };
+                self.messages.push(match (lost, saved) {
+                    (0, _) => format!("The fire is out: {} saved, none lost.", n(saved)),
+                    (_, 0) => format!("The fire burnt itself out: {} lost. A fire station nearby would have saved some.", n(lost)),
+                    _ => format!("The fire is out: {} lost, {} saved.", n(lost), n(saved)),
+                });
+            }
+        }
         if let Some(gb) = &self.glassbox {
             self.notices.extend(gb.events.iter().cloned());
             // Research done: news for the player.
@@ -838,7 +854,8 @@ impl City {
             match fire {
                 Some(id) => {
                     if let Some(e) = self.strike(&id) {
-                        self.messages.push(format!("Arson at {}, {}: {} buildings burnt. Somebody didn't pay.", e.at.0, e.at.1, e.hit));
+                        let what = if e.burning { "set on fire" } else { "burnt" };
+                        self.messages.push(format!("Arson at {}, {}: {} buildings {what}. Somebody didn't pay.", e.at.0, e.at.1, e.hit));
                     }
                 }
                 None => {

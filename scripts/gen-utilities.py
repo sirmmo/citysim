@@ -61,6 +61,21 @@ class Model:
         v = [(x0, y0, z0), (x1, y0, z0), (x1, y0, z1), (x0, y0, z1), (x0, y1, zm), (x1, y1, zm)]
         self.poly(rgb, v, [[0, 1, 5, 4], [2, 3, 4, 5], [0, 4, 3], [1, 2, 5]])
 
+    def band(self, rgb, cx, cz, a, b, n=24):
+        """A band between two ellipses: a and b are (rx, rz, y)."""
+        v = []
+        for (rx, rz, y) in (a, b):
+            for i in range(n):
+                t = 2 * math.pi * i / n
+                v.append((cx + rx * math.cos(t), y, cz + rz * math.sin(t)))
+        self.poly(rgb, v, [[i, (i + 1) % n, n + (i + 1) % n, n + i] for i in range(n)])
+
+    def roof_z(self, rgb, x0, z0, x1, z1, y0, y1):
+        """A gable roof along z (its pediments face -z and +z)."""
+        xm = (x0 + x1) / 2
+        v = [(x0, y0, z0), (x1, y0, z0), (x1, y0, z1), (x0, y0, z1), (xm, y1, z0), (xm, y1, z1)]
+        self.poly(rgb, v, [[0, 3, 5, 4], [1, 4, 5, 2], [0, 4, 1], [3, 2, 5]])
+
     def pipe(self, rgb, a, b, r, n=8):
         """A horizontal pipe from a to b (points at its axis), along x or z."""
         (ax, ay, az), (bx, by, bz) = a, b
@@ -426,6 +441,188 @@ def university():
     return m
 
 
+STONE = (0.84, 0.80, 0.70)
+GLASS = (0.55, 0.72, 0.85)
+COPPER = (0.35, 0.58, 0.50)
+
+
+def stadium():
+    """A 6 x 5 stadium: an oval bowl of stands around a pitch, a roof ring
+    over the top rows, four floodlight masts, the gates on the street (+z)."""
+    m = Model()
+    m.box(CONCRETE, 0.0, 0.0, 0.0, 6.0, 0.03, 5.0)
+    cx, cz = 3.0, 2.45
+    # The pitch, with its lines.
+    m.box(GREEN, cx - 1.45, 0.03, cz - 0.9, cx + 1.45, 0.05, cz + 0.9)
+    m.box(WHITE, cx - 0.01, 0.05, cz - 0.9, cx + 0.01, 0.052, cz + 0.9)
+    m.cylinder(WHITE, cx, cz, 0.25, 0.05, 0.052, n=16, top=GREEN)
+    # Stands rising from the pitch to the rim, in two tiers.
+    m.band((0.75, 0.25, 0.22), cx, cz, (1.75, 1.2, 0.08), (2.3, 1.75, 0.6), n=28)
+    m.band((0.85, 0.85, 0.88), cx, cz, (2.3, 1.75, 0.7), (2.75, 2.2, 1.25), n=28)
+    m.band(DARK, cx, cz, (2.3, 1.75, 0.6), (2.3, 1.75, 0.7), n=28)
+    # The outer wall and the roof ring.
+    m.band(CONCRETE, cx, cz, (2.75, 2.2, 0.03), (2.75, 2.2, 1.25), n=28)
+    m.band(WHITE, cx, cz, (2.9, 2.35, 1.5), (2.05, 1.5, 1.6), n=28)
+    m.band(STEEL, cx, cz, (2.75, 2.2, 1.25), (2.9, 2.35, 1.5), n=28)
+    # Floodlights at the corners.
+    for x, z in ((0.3, 0.3), (5.7, 0.3), (0.3, 4.6), (5.7, 4.6)):
+        m.cylinder(STEEL, x, z, 0.04, 0.03, 1.9, n=6)
+        m.box(WHITE, x - 0.18, 1.9, z - 0.05, x + 0.18, 2.15, z + 0.05)
+    # Gates and a ticket hall on the street.
+    m.box(BRICK, 2.4, 0.03, 4.55, 3.6, 0.5, 4.9, top=DARK)
+    for x in (2.6, 3.0, 3.4):
+        m.box(DARK, x - 0.1, 0.03, 4.9, x + 0.1, 0.35, 4.91)
+    return m
+
+
+def mall():
+    """A 5 x 4 shopping mall: a low wide hall with a glass arcade down the
+    middle and two anchor stores, a canopy at the door, the car park on the
+    street side (+z)."""
+    m = Model()
+    m.box(DARK, 0.0, 0.0, 0.0, 5.0, 0.03, 4.0)
+    cream = (0.90, 0.86, 0.76)
+    m.box(cream, 0.15, 0.03, 0.15, 4.85, 0.7, 2.55, top=CONCRETE)
+    # Anchor stores at both ends, a little taller.
+    m.box((0.80, 0.42, 0.32), 0.15, 0.03, 0.15, 1.2, 0.95, 2.55, top=DARK)
+    m.box((0.35, 0.50, 0.68), 3.8, 0.03, 0.15, 4.85, 0.95, 2.55, top=DARK)
+    # The glass arcade over the mall's street.
+    m.box(GLASS, 1.2, 0.7, 1.05, 3.8, 0.78, 1.65)
+    m.roof(GLASS, 1.2, 1.05, 3.8, 1.65, 0.78, 1.05)
+    # Shop windows and the entrance under a canopy with a sign.
+    for x in (1.35, 1.8, 2.95, 3.4):
+        m.box(GLASS, x, 0.12, 2.55, x + 0.35, 0.45, 2.57)
+    m.box(DARK, 2.3, 0.03, 2.55, 2.7, 0.5, 2.58)
+    m.box(WHITE, 2.05, 0.52, 2.55, 2.95, 0.58, 2.95)
+    m.box(RED, 2.15, 0.78, 2.5, 2.85, 1.0, 2.58)
+    # Roof plant.
+    for x in (1.6, 3.2):
+        m.box(STEEL, x, 0.7, 0.4, x + 0.3, 0.82, 0.7)
+    # Car park: bays, a few cars, lamps.
+    for i in range(9):
+        x = 0.4 + i * 0.5
+        m.box(WHITE, x, 0.03, 3.0, x + 0.02, 0.034, 3.35)
+        m.box(WHITE, x, 0.03, 3.55, x + 0.02, 0.034, 3.9)
+    for x, z, c in ((0.48, 3.05, RED), (1.48, 3.05, WHITE), (2.98, 3.05, (0.2, 0.35, 0.6)), (3.48, 3.6, YELLOW), (0.98, 3.6, STEEL), (4.0, 3.05, GREEN)):
+        m.box(c, x, 0.03, z, x + 0.16, 0.11, z + 0.28, top=DARK)
+    for x in (1.25, 3.75):
+        m.cylinder(STEEL, x, 3.45, 0.02, 0.03, 0.6, n=6)
+        m.box(WHITE, x - 0.1, 0.6, 3.42, x + 0.1, 0.63, 3.48)
+    return m
+
+
+def museum():
+    """A 3 x 3 museum: a stone hall behind a portico of six columns under a
+    pediment, wide steps to the street (+z), a shallow dome."""
+    m = Model()
+    m.box(CONCRETE, 0.0, 0.0, 0.0, 3.0, 0.03, 3.0)
+    m.box(STONE, 0.25, 0.03, 0.2, 2.75, 0.95, 2.0, top=CONCRETE)
+    # Steps.
+    for i in range(4):
+        m.box(WHITE, 0.6, 0.03, 2.0, 2.4, 0.2 - i * 0.045, 2.35 + i * 0.1)
+    # Portico.
+    for i in range(6):
+        m.cylinder(WHITE, 0.75 + i * 0.3, 2.22, 0.05, 0.2, 0.85, n=8)
+    m.box(WHITE, 0.6, 0.85, 1.95, 2.4, 0.95, 2.35)
+    m.roof_z(STONE, 0.6, 1.2, 2.4, 2.35, 0.95, 1.25)
+    m.box(DARK, 1.35, 0.2, 2.0, 1.65, 0.7, 2.01)
+    # Dome on a drum.
+    m.cylinder(STONE, 1.5, 0.95, 0.5, 0.95, 1.1, n=16)
+    m.cone(COPPER, 1.5, 0.95, 0.5, 1.1, 1.45, n=16)
+    # Side wings' windows.
+    for z in (0.5, 1.0, 1.5):
+        m.box(GLASS, 0.23, 0.35, z, 0.25, 0.7, z + 0.22)
+        m.box(GLASS, 2.75, 0.35, z, 2.77, 0.7, z + 0.22)
+    # Banners by the door.
+    m.box(RED, 0.95, 0.3, 2.01, 1.1, 0.8, 2.02)
+    m.box((0.2, 0.35, 0.6), 1.9, 0.3, 2.01, 2.05, 0.8, 2.02)
+    return m
+
+
+def modern_art_museum():
+    """A 3 x 3 modern art museum: white boxes stacked off-centre, a glass
+    drum, a cantilever over the door and a red sculpture in the yard (+z)."""
+    m = Model()
+    m.box(CONCRETE, 0.0, 0.0, 0.0, 3.0, 0.03, 3.0)
+    m.box(WHITE, 0.3, 0.03, 0.3, 2.2, 0.6, 1.9, top=CONCRETE)
+    m.box((0.25, 0.27, 0.30), 0.9, 0.6, 0.15, 2.8, 1.1, 1.4, top=DARK)
+    m.box(WHITE, 0.15, 1.1, 0.6, 1.8, 1.55, 2.3, top=CONCRETE)
+    # Glass drum at the corner, with a flat cap.
+    m.cylinder(GLASS, 2.35, 1.95, 0.42, 0.03, 0.9, n=16, top=WHITE)
+    # A strip window and the door under the cantilever.
+    m.box(GLASS, 0.3, 1.25, 2.3, 1.7, 1.42, 2.32)
+    m.box(DARK, 0.9, 0.03, 1.9, 1.3, 0.45, 1.92)
+    # The sculpture: a red frame and a yellow ball.
+    m.box(RED, 0.4, 0.03, 2.5, 0.5, 0.9, 2.6)
+    m.box(RED, 0.4, 0.8, 2.5, 1.2, 0.9, 2.6)
+    m.box(RED, 1.1, 0.35, 2.5, 1.2, 0.9, 2.6)
+    m.cylinder(YELLOW, 1.7, 2.6, 0.14, 0.03, 0.31, n=10)
+    m.cone(YELLOW, 1.7, 2.6, 0.14, 0.31, 0.42, n=10)
+    return m
+
+
+def opera_house():
+    """A 4 x 3 opera house: a rounded foyer with columns on the street
+    (+z), the auditorium under a copper dome, the tall fly tower behind."""
+    m = Model()
+    m.box(CONCRETE, 0.0, 0.0, 0.0, 4.0, 0.03, 3.0)
+    # Fly tower at the back.
+    m.box(STONE, 1.1, 0.03, 0.15, 2.9, 1.9, 0.95, top=DARK)
+    # Auditorium.
+    m.box(STONE, 0.6, 0.03, 0.9, 3.4, 1.15, 2.0, top=CONCRETE)
+    m.cylinder(STONE, 2.0, 1.45, 0.75, 1.15, 1.3, n=20)
+    m.cone(COPPER, 2.0, 1.45, 0.75, 1.3, 1.85, n=20)
+    # The rounded foyer and its colonnade.
+    m.cylinder((0.90, 0.87, 0.80), 2.0, 2.0, 0.9, 0.03, 0.9, n=24, top=CONCRETE)
+    for i in range(7):
+        a = math.pi * (0.12 + 0.76 * i / 6)
+        m.cylinder(WHITE, 2.0 + 1.0 * math.cos(a), 2.0 + 0.85 * math.sin(a), 0.045, 0.1, 0.8, n=8)
+    m.band(WHITE, 2.0, 2.0, (1.08, 0.95, 0.8), (1.08, 0.95, 0.9), n=24)
+    # Steps and a red carpet.
+    m.box(WHITE, 1.3, 0.03, 2.6, 2.7, 0.1, 2.95)
+    m.box(RED, 1.85, 0.1, 2.6, 2.15, 0.105, 2.95)
+    # Wings with tall windows.
+    for x0 in (0.6, 3.1):
+        for z in (1.05, 1.45):
+            xw = 0.58 if x0 < 1 else 3.4
+            m.box(GLASS, xw, 0.35, z, xw + 0.02, 0.95, z + 0.2)
+    return m
+
+
+def archaeology_museum():
+    """A 3 x 3 archaeology museum: a low hall of brick and stone with a
+    glass pyramid over its court, a row of old columns and an open dig in
+    the yard (+z)."""
+    m = Model()
+    m.box(CONCRETE, 0.0, 0.0, 0.0, 3.0, 0.03, 3.0)
+    ochre = (0.80, 0.62, 0.40)
+    m.box(ochre, 0.2, 0.03, 0.2, 2.8, 0.75, 1.7, top=(0.62, 0.36, 0.28))
+    m.box(STONE, 0.2, 0.75, 0.2, 2.8, 0.82, 1.7)
+    # Glass pyramid over the court.
+    m.cone(GLASS, 1.5, 0.95, 0.55, 0.82, 1.3, n=4)
+    # Door in a stone frame.
+    m.box(STONE, 1.2, 0.03, 1.7, 1.8, 0.65, 1.78)
+    m.box(DARK, 1.35, 0.03, 1.78, 1.65, 0.5, 1.79)
+    # Old columns along the front: some whole, some broken.
+    for x, h in ((0.35, 0.7), (0.65, 0.42), (0.95, 0.7), (2.05, 0.7), (2.35, 0.25), (2.65, 0.55)):
+        m.cylinder(WHITE, x, 1.95, 0.06, 0.03, 0.03 + h, n=8)
+    m.box(WHITE, 0.27, 0.73, 1.87, 1.03, 0.8, 2.03)
+    # The dig: a pit cut into squares, with a wall found in it.
+    m.box(EARTH, 0.3, 0.03, 2.25, 1.7, 0.035, 2.85)
+    for x in (0.3, 0.76, 1.22, 1.68):
+        m.box(WHITE, x - 0.01, 0.035, 2.25, x + 0.01, 0.06, 2.85)
+    for z in (2.25, 2.55, 2.85):
+        m.box(WHITE, 0.3, 0.035, z - 0.01, 1.7, 0.06, z + 0.01)
+    m.box(STONE, 0.5, 0.035, 2.4, 1.3, 0.12, 2.47)
+    m.box(STONE, 1.23, 0.035, 2.47, 1.3, 0.1, 2.8)
+    # A shelter over part of it and a fallen column drum.
+    m.box(STEEL, 2.0, 0.4, 2.3, 2.75, 0.43, 2.8)
+    for x, z in ((2.02, 2.32), (2.73, 2.32), (2.02, 2.78), (2.73, 2.78)):
+        m.cylinder(STEEL, x, z, 0.015, 0.03, 0.4, n=6)
+    m.pipe(WHITE, (2.15, 0.09, 2.55), (2.6, 0.09, 2.55), 0.06)
+    return m
+
+
 def icons():
     try:
         from PIL import Image, ImageDraw
@@ -578,6 +775,83 @@ def icons():
     d.line((54, 27, 54, 44), fill=(230, 190, 60), width=2)
     d.ellipse((51, 42, 57, 50), fill=(230, 190, 60))
     save_icon("university", im)
+    # Amenities, on a warm tile.
+    warm = (225, 170, 110)
+    im, d = tile(warm)
+    d.ellipse((6, 16, 58, 50), fill=(200, 200, 205), outline=ink)
+    d.ellipse((14, 23, 50, 43), fill=(90, 160, 90), outline=ink)
+    d.line((32, 23, 32, 43), fill=white, width=1)
+    save_icon("stadium", im)
+    im, d = tile(warm)
+    d.rectangle((14, 24, 50, 54), fill=(235, 225, 200), outline=ink)
+    d.arc((22, 8, 42, 30), 180, 360, fill=ink, width=3)
+    d.rectangle((26, 34, 38, 44), fill=(200, 60, 50))
+    save_icon("mall", im)
+
+    def temple(bg, pediment):
+        im, d = tile(bg)
+        d.polygon([(8, 24), (32, 10), (56, 24)], fill=pediment, outline=ink)
+        d.rectangle((8, 48, 56, 54), fill=white, outline=ink)
+        for x in (13, 24, 35, 46):
+            d.rectangle((x, 26, x + 5, 48), fill=white, outline=ink)
+        return im, d
+
+    im, d = temple(warm, white)
+    save_icon("museum", im)
+    im, d = tile(warm)
+    d.rectangle((10, 28, 40, 52), fill=white, outline=ink)
+    d.rectangle((24, 14, 54, 36), fill=(60, 65, 75), outline=ink)
+    d.ellipse((38, 38, 54, 54), fill=(230, 190, 60), outline=ink)
+    d.rectangle((14, 34, 20, 46), fill=(200, 60, 50))
+    save_icon("modern_art_museum", im)
+    im, d = tile(warm)
+    d.pieslice((12, 14, 52, 54), 180, 360, fill=(90, 150, 130), outline=ink)
+    d.rectangle((10, 34, 54, 54), fill=white, outline=ink)
+    for x in (16, 26, 36, 46):
+        d.rectangle((x, 38, x + 3, 54), fill=ink)
+    d.line((32, 14, 32, 6), fill=ink, width=2)
+    save_icon("opera_house", im)
+    im, d = tile(warm)
+    d.rectangle((8, 48, 56, 54), fill=(150, 120, 80), outline=ink)
+    for x, top in ((13, 18), (26, 30), (39, 18)):
+        d.rectangle((x, top, x + 7, 48), fill=white, outline=ink)
+    d.rectangle((10, 12, 49, 18), fill=white, outline=ink)
+    d.polygon([(26, 30), (29, 26), (33, 30)], fill=white, outline=ink)
+    d.ellipse((46, 38, 56, 46), fill=white, outline=ink)
+    save_icon("archaeology_museum", im)
+    alerts(Image, ImageDraw)
+
+
+def alerts(Image, ImageDraw):
+    """Marks drawn over buildings in trouble: a bare flame (also used for
+    the flames themselves), a wave and a cross on round badges."""
+    def out(name, im):
+        im.save(os.path.join(ROOT, "graphism", "texture", name + ".png"))
+
+    S = 128
+    im = Image.new("RGBA", (S, S), (0, 0, 0, 0))
+    d = ImageDraw.Draw(im)
+    flame = [(64, 4), (84, 34), (92, 26), (108, 62), (110, 86), (96, 112), (64, 124), (32, 112), (18, 86), (22, 58), (38, 30), (46, 46)]
+    d.polygon(flame, fill=(120, 20, 10, 255))
+    d.polygon([(64 + (x - 64) * 0.86, 66 + (y - 66) * 0.88) for x, y in flame], fill=(240, 80, 20, 255))
+    d.polygon([(64 + (x - 64) * 0.58, 82 + (y - 82) * 0.6) for x, y in flame], fill=(255, 170, 30, 255))
+    d.polygon([(64 + (x - 64) * 0.3, 98 + (y - 98) * 0.32) for x, y in flame], fill=(255, 240, 150, 255))
+    out("alert_fire", im)
+    im = Image.new("RGBA", (S, S), (0, 0, 0, 0))
+    d = ImageDraw.Draw(im)
+    d.ellipse((4, 4, 124, 124), fill=(20, 50, 110, 255))
+    d.ellipse((12, 12, 116, 116), fill=(50, 120, 215, 255))
+    for y in (46, 68, 90):
+        pts = [(22 + i * 2, y + 7 * math.sin(i / 4.5)) for i in range(43)]
+        d.line(pts, fill=(255, 255, 255, 255), width=7)
+    out("alert_flood", im)
+    im = Image.new("RGBA", (S, S), (0, 0, 0, 0))
+    d = ImageDraw.Draw(im)
+    d.ellipse((4, 4, 124, 124), fill=(110, 20, 20, 255))
+    d.ellipse((12, 12, 116, 116), fill=(245, 245, 245, 255))
+    d.rectangle((52, 26, 76, 102), fill=(210, 40, 40, 255))
+    d.rectangle((26, 52, 102, 76), fill=(210, 40, 40, 255))
+    out("alert_sick", im)
 
 
 def main():
@@ -594,6 +868,12 @@ def main():
     save("water/seaport/seaport", seaport(), "Seaport", 4, 3, 1.5, "Cargo ships to the rest of the world.")
     save("educationdept/high_school/high_school", high_school(), "High school", 4, 3, 1.25, "More research than a school, and education farther around.")
     save("educationdept/university/university", university(), "University", 5, 4, 2.6, "The most research, and education for the whole town.")
+    save("amenity/stadium/stadium", stadium(), "Stadium", 6, 5, 2.15, "Crowds on match days.")
+    save("amenity/mall/mall", mall(), "Shopping mall", 5, 4, 1.05, "A hundred shops under one roof.")
+    save("amenity/museum/museum", museum(), "Museum", 3, 3, 1.45, "The town's collections.")
+    save("amenity/modern_art_museum/modern_art_museum", modern_art_museum(), "Modern art museum", 3, 3, 1.55, "A landmark, and what hangs in it.")
+    save("amenity/opera_house/opera_house", opera_house(), "Opera house", 4, 3, 1.9, "The best address in town.")
+    save("amenity/archaeology_museum/archaeology_museum", archaeology_museum(), "Archaeology museum", 3, 3, 1.3, "What was found under the town.")
     save("water/quay/quay", quay(), "Quay", 4, 3, 0.85, "The seaport's quay, dressed by models/composed/seaport.compose.")
     icons()
 

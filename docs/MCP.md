@@ -53,7 +53,7 @@ the rules sets, tech trees, policy files and model sizes.
 | `inspect_tile` | What is on a tile: structure, level, status, size and facing. Under GlassBox rules it adds the building, what it makes and needs, its satisfaction, and the map layers there. |
 | `sensors` | Lists the sensors left on the map with their latest readings and the hour of day. `add` (`[w, l]`, optional `name`) leaves one: on a road it counts the trips driving past, on a building what arrives and leaves, anywhere the map layers. `remove` takes one away, `csv` returns one's recorded readings, `tides` switches rush hours on or off. |
 | `turn_building` | Turns a plant or service a quarter clockwise. |
-| `research` | Lists projects with their state (done, in progress, available, locked, ruled out) and progress. `project` starts one; an empty string stops it. |
+| `research` | Lists projects with their state (done, in progress, available, locked, ruled out) and progress. `project` starts one; an empty string stops it; `all: true` finishes every project at once, for trying things out. |
 | `policies` | Lists taxes and policies. `taxes` (`{"property": 12}`) and `stances` (`{"growth": "open_city"}`) change them. |
 | `render_map` | Writes a top-down PNG of the city. |
 | `export_geojson` | Writes the city as GeoJSON. |

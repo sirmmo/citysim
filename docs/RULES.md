@@ -226,7 +226,9 @@ No power and no cars. The zones' densities are the town's grades:
 | Fields & crafts | Grain field, Farm, Farmstead | Quarry, Mine, Stone works | Foundry, Stables, Craft hall |
 
 Services: Fortified granary (the coal-plant tool), Watchtower, Guard house,
-Bathhouse, Academy, and the Public well (the park tool).
+Bathhouse, Academy, and the Public well (the park tool); later the Studium
+(the university tool), the Arena (the stadium tool) and the Theatre (the
+opera-house tool).
 
 ### Roads
 
@@ -404,6 +406,9 @@ effect = "destroy"                   # destroy | damage | sicken
 protection = "fire_safety"           # layer that protects (optional)
 full = 10.0                          # protection value that protects fully
 near_water = false                   # only on low ground near water (floods)
+lasts = 20                           # ticks a struck building stays in trouble (0: over at once)
+spread = 0.015                       # while it lasts: chance a tick of passing to each building next door
+relief = 0.25                        # while it lasts: chance a tick, at full protection, that it is dealt with
 ```
 
 - **Where it strikes:** a developed zone building, picked at random (low and
@@ -411,6 +416,22 @@ near_water = false                   # only on low ground near water (floods)
   risk of `1 − protection / full`, never under 5%; neighbours of the spot take
   70% of it.
 - **`destroy`** empties the plot, which rests longer than after an abandonment.
+- **A disaster that `lasts`** leaves the buildings it hit in trouble for that
+  many ticks, marked on the map (a flame, a wave, a cross) and in the
+  inspector. With `destroy` the building burns first and is lost only when
+  the time runs out:
+  - each tick it is put out, and saved, with a chance of `relief` ×
+    protection / `full` at its tile;
+  - each tick it passes to each developed zone building touching it with a
+    chance of `spread` × (1 − protection / `full`) there, never under 5% of
+    `spread`;
+  - a burning building that is abandoned or pulled down counts as lost.
+
+  With `damage` and `sicken` the harm is done at once, as before, and the
+  mark only shows where; `spread` passes the mark and the harm next door.
+  When the last fire is out a message says how many buildings were lost and
+  saved. The shipped fire burns 20 ticks (24 before 1800, where it spreads
+  faster and is put out less often).
 - **`damage`** drops the building a level, or empties a first-level plot.
 - **`sicken`** drops its satisfaction to 0.1, so it may decline.
 - **Responders:** the nearest service whose emissions include the protection
@@ -704,8 +725,8 @@ excludes = ["service_economy"]       # rivals ruled out for good (optional)
 
 | Tree | Branches and projects |
 |---|---|
-| `modern` (GlassBox) | Transport: Motorways (highway). Economy: Service economy (+10% taxes, +30% ideas) or Industrial policy (+20% goods, +10% fuel); Computing (+25% research). Education: Secondary education (high school), Higher education (university). Housing: Steel-frame towers (High-rise, Slab tower, Skyscraper). Industry: Aeronautics (Aeronautics works). Power: Nuclear fission (nuclear plant) |
-| `pre-industrial` | Streets: Paving (cobbled streets). Farming: Crop rotation (+20% food and fodder), Horse breeding (Stables). Charter: Free market (Market square, +15% taxes) or Guild charter (Craft hall, +20% goods). Housing: Masonry (Courtyard house, Insula block). Civic: Bathing & medicine (Bathhouse), Studium generale (Studium), Printing (+30% ideas, +15% research). Trade: Banking (Merchants' exchange) |
+| `modern` (GlassBox) | Transport: Motorways (highway). Economy: Service economy (+10% taxes, +30% ideas) or Industrial policy (+20% goods, +10% fuel); Computing (+25% research). Education: Secondary education (high school), Higher education (university). Housing: Steel-frame towers (High-rise, Slab tower, Skyscraper). Industry: Aeronautics (Aeronautics works). Power: Nuclear fission (nuclear plant). Culture: Cultural institutions (archaeology museum, modern art museum, opera house), Mass entertainment (stadium, shopping mall) |
+| `pre-industrial` | Streets: Paving (cobbled streets). Farming: Crop rotation (+20% food and fodder), Horse breeding (Stables). Charter: Free market (Market square, +15% taxes) or Guild charter (Craft hall, +20% goods). Housing: Masonry (Courtyard house, Insula block). Civic: Bathing & medicine (Bathhouse), Studium generale (Studium), Spectacles (Arena, Theatre), Printing (+30% ideas, +15% research). Trade: Banking (Merchants' exchange) |
 
 A school makes about 2 research points a tick, some 2,400 a year, so a
 project takes from a few months to a few years. A high school makes 7 a

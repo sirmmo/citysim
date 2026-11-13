@@ -143,6 +143,19 @@ pub struct DisasterEvent {
     pub name: String,
     pub at: (u32, u32),
     pub hit: u32,
+    /// The buildings hit burn on (and may yet be saved) instead of being
+    /// lost at once.
+    pub burning: bool,
+}
+
+/// A building in trouble for a while: on fire, under water, its people ill.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct Affliction {
+    /// The disaster's id in the rules.
+    pub disaster: String,
+    /// The tick it began, and the tick it ends by itself.
+    pub since: u64,
+    pub until: u64,
 }
 
 /// One trip made by agents this tick.
@@ -281,6 +294,14 @@ pub struct GlassBox {
     /// Disasters that struck during the last tick (for notices).
     #[serde(skip)]
     pub events: Vec<DisasterEvent>,
+    /// Buildings in trouble (burning, flooded, ill) by tile key, while a
+    /// disaster with `lasts` goes on.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub afflictions: BTreeMap<u32, Affliction>,
+    /// Buildings lost and saved since the last fire began: (lost, saved).
+    /// The city reports and clears it when nothing burns any more.
+    #[serde(skip)]
+    pub fire_tally: (u32, u32),
     /// Tax rates the city set, by tax id (others are at their default).
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub tax_rates: BTreeMap<String, f32>,
@@ -419,6 +440,8 @@ impl GlassBox {
             ledger: BTreeMap::new(),
             funding: BTreeMap::new(),
             events: Vec::new(),
+            afflictions: BTreeMap::new(),
+            fire_tally: (0, 0),
             climate: None,
             stances: BTreeMap::new(),
             discoveries: Vec::new(),
@@ -794,13 +817,18 @@ impl GlassBox {
             }
             let key = l * width + w;
             let Some(s) = layer.tile(w, l).and_then(|t| t.structure()).cloned() else { continue };
+            let mark = Affliction { disaster: d.id.clone(), since: self.tick, until: self.tick + d.lasts as u64 };
             match d.effect {
+                // A fire that lasts: the building burns, and is lost only if
+                // nobody puts it out in time (see `afflictions_tick`).
+                DisasterEffect::Destroy if d.lasts > 0 => {
+                    if let std::collections::btree_map::Entry::Vacant(e) = self.afflictions.entry(key) {
+                        e.insert(mark);
+                        hit += 1;
+                    }
+                }
                 DisasterEffect::Destroy => {
-                    if set_unit(layer, terrain, footprints, rng, w, l, None, 0, &rules) {
-                        self.units.remove(&key);
-                        let strikes = self.vacated.get(&key).map_or(1, |v| v.strikes.saturating_add(2));
-                        self.vacated.insert(key, Vacancy { since: self.tick, strikes });
-                        self.churn[1] += 1;
+                    if self.burn_down(&rules, layer, terrain, footprints, rng, w, l) {
                         hit += 1;
                     }
                 }
@@ -815,6 +843,8 @@ impl GlassBox {
                     if ok {
                         if k.is_none_or(|k| k == 0) {
                             self.units.remove(&key);
+                        } else if d.lasts > 0 {
+                            self.afflictions.insert(key, mark);
                         }
                         self.churn[3] += 1;
                         hit += 1;
@@ -823,14 +853,114 @@ impl GlassBox {
                 DisasterEffect::Sicken => {
                     if let Some(st) = self.units.get_mut(&key) {
                         st.satisfaction = st.satisfaction.min(0.1);
+                        if d.lasts > 0 {
+                            self.afflictions.insert(key, mark);
+                        }
                         hit += 1;
                     }
                 }
             }
         }
-        let event = DisasterEvent { id: d.id.clone(), name: d.name.clone(), at, hit };
+        let event = DisasterEvent { id: d.id.clone(), name: d.name.clone(), at, hit, burning: d.effect == DisasterEffect::Destroy && d.lasts > 0 };
         self.events.push(event.clone());
         Some(event)
+    }
+
+    /// A building lost to a disaster: its plot is empty and rests.
+    #[allow(clippy::too_many_arguments)]
+    fn burn_down(
+        &mut self,
+        rules: &Ruleset,
+        layer: &mut BuildingLayer,
+        terrain: &Terrain,
+        footprints: &Footprints,
+        rng: &mut impl Rng,
+        w: u32,
+        l: u32,
+    ) -> bool {
+        let key = l * layer.width() + w;
+        if !set_unit(layer, terrain, footprints, rng, w, l, None, 0, rules) {
+            return false;
+        }
+        self.units.remove(&key);
+        let strikes = self.vacated.get(&key).map_or(1, |v| v.strikes.saturating_add(2));
+        self.vacated.insert(key, Vacancy { since: self.tick, strikes });
+        self.churn[1] += 1;
+        true
+    }
+
+    /// The disaster a building is in, if any (by its origin tile).
+    pub fn affliction(&self, w: u32, l: u32, width: u32) -> Option<&Affliction> {
+        self.afflictions.get(&(l * width + w))
+    }
+
+    /// Buildings in trouble, one tick on: protection may end it (a fire put
+    /// out), it may pass to the buildings next door, and a fire nobody put
+    /// out in time takes the building.
+    fn afflictions_tick(&mut self, rules: &Ruleset, layer: &mut BuildingLayer, terrain: &Terrain, footprints: &Footprints, rng: &mut impl Rng) {
+        if self.afflictions.is_empty() {
+            return;
+        }
+        let width = layer.width();
+        let burning: Vec<(u32, Affliction)> = self.afflictions.iter().map(|(k, a)| (*k, a.clone())).collect();
+        for (key, a) in burning {
+            let (w, l) = (key % width, key / width);
+            let standing = layer.tile(w, l).and_then(|t| t.structure()).filter(|s| s.unit.is_some()).cloned();
+            let Some(d) = rules.disaster(&a.disaster) else {
+                self.afflictions.remove(&key);
+                continue;
+            };
+            let destroys = d.effect == DisasterEffect::Destroy;
+            // Gone meanwhile (abandoned, pulled down): a burning one is lost.
+            let Some(s) = standing else {
+                self.afflictions.remove(&key);
+                if destroys {
+                    self.fire_tally.0 += 1;
+                }
+                continue;
+            };
+            let protection = d.protection.as_deref().and_then(|p| rules.layer(p));
+            let cover = |gb: &Self, w: u32, l: u32| protection.map_or(0.0, |li| gb.layers[li][(l * width + w) as usize] / d.full).clamp(0.0, 1.0);
+            if d.relief > 0.0 && rng.r#gen::<f32>() < d.relief * cover(self, w, l) {
+                self.afflictions.remove(&key);
+                if destroys {
+                    self.fire_tally.1 += 1;
+                }
+                continue;
+            }
+            if self.tick >= a.until {
+                self.afflictions.remove(&key);
+                if destroys && self.burn_down(rules, layer, terrain, footprints, rng, w, l) {
+                    self.fire_tally.0 += 1;
+                }
+                continue;
+            }
+            if d.spread <= 0.0 {
+                continue;
+            }
+            // The buildings next door: those touching this one's footprint.
+            let (sw, sl) = s.size(footprints);
+            let (w1, l1) = (w.saturating_sub(1), l.saturating_sub(1));
+            let (w2, l2) = ((w + sw).min(width - 1), (l + sl).min(layer.length() - 1));
+            let mut next: Vec<(u32, u32)> = Rect { w1, l1, w2, l2 }.tiles().filter_map(|(x, y)| layer.origin_of(x, y)).filter(|p| *p != (w, l)).collect();
+            next.sort_unstable();
+            next.dedup();
+            for (x, y) in next {
+                let k = y * width + x;
+                let fuel = layer.tile(x, y).and_then(|t| t.structure()).is_some_and(|n| n.unit.is_some() && n.code.is_zone());
+                if !fuel || self.afflictions.contains_key(&k) {
+                    continue;
+                }
+                if rng.r#gen::<f32>() < d.spread * (1.0 - cover(self, x, y)).max(0.05) {
+                    if d.effect == DisasterEffect::Sicken {
+                        if let Some(st) = self.units.get_mut(&k) {
+                            st.satisfaction = st.satisfaction.min(0.1);
+                        }
+                    }
+                    self.afflictions.insert(k, Affliction { disaster: d.id.clone(), since: self.tick, until: self.tick + d.lasts as u64 });
+                }
+            }
+        }
     }
 
     /// Disasters striking by chance this tick.
@@ -858,6 +988,7 @@ impl GlassBox {
     pub fn tick(&mut self, layer: &mut BuildingLayer, terrain: &Terrain, footprints: &Footprints, fund: &mut i64, rng: &mut impl Rng) -> Vec<Trip> {
         let Some(rules) = self.rules.clone() else { return Vec::new() };
         self.events.clear();
+        self.afflictions_tick(&rules, layer, terrain, footprints, rng);
         self.chance_disasters(&rules, layer, terrain, footprints, rng);
         let nres = rules.resources.len();
         let (width, length) = (layer.width(), layer.length());

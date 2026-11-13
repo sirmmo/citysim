@@ -237,6 +237,10 @@ impl Server {
             }
             "research" => {
                 let city = self.city()?;
+                // For trying things out: every project done at once.
+                if a.get("all").and_then(Value::as_bool).unwrap_or(false) {
+                    city.research_all();
+                }
                 let gb = city.glassbox.as_mut().context("research needs GlassBox rules")?;
                 if let Some(t) = a.get("project") {
                     let t = t.as_str().filter(|s| !s.is_empty());
@@ -302,7 +306,7 @@ impl Server {
                 let rules = city.rules().cloned();
                 Ok(json!({
                     "chance": city.glassbox.as_ref().is_some_and(|g| !g.disasters_off),
-                    "struck": event.map(|e| json!({ "id": e.id, "name": e.name, "at": e.at, "hit": e.hit })),
+                    "struck": event.map(|e| json!({ "id": e.id, "name": e.name, "at": e.at, "hit": e.hit, "burning": e.burning })),
                     "disasters": rules.map(|r| r.disasters.iter().map(|d| json!({ "id": d.id, "name": d.name, "every": d.every, "radius": d.radius, "protection": d.protection })).collect::<Vec<_>>()),
                 }))
             }
@@ -513,8 +517,9 @@ fn tools() -> Value {
             "add": point.clone(), "name": { "type": "string" }, "remove": { "type": "string" }, "csv": { "type": "string" }, "tides": { "type": "boolean" }
         }), &[]),
         tool("turn_building", "Turn the plant or service on a tile a quarter clockwise.", json!({ "tile": point.clone() }), &["tile"]),
-        tool("research", "List research projects with their state; pass `project` to research it (empty string stops).", json!({
-            "project": { "type": "string" }
+        tool("research", "List research projects with their state; pass `project` to research it (empty string stops), or `all: true` to finish every project at once (for trying things out).", json!({
+            "project": { "type": "string" },
+            "all": { "type": "boolean" }
         }), &[]),
         tool("policies", "List taxes and policies; pass `taxes` ({id: rate %}) and/or `stances` ({policy: stance}) to change them.", json!({
             "taxes": { "type": "object", "additionalProperties": { "type": "number" } },

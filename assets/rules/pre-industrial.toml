@@ -18,7 +18,7 @@ tech_tree = "pre-industrial"
 policy_set = "pre-industrial"
 years = [-9999, 1799]
 # No electricity, and no asphalt: streets are dirt or paved.
-disabled_tools = ["power_line", "nuclear_plant", "road", "highway", "rail", "station", "water_pipe", "pumping_station", "water_tower", "water_treatment", "recycling", "incinerator", "tram", "bus_stop", "tram_stop", "metro", "metro_station", "airport", "seaport", "high_school"]
+disabled_tools = ["power_line", "nuclear_plant", "road", "highway", "rail", "station", "water_pipe", "pumping_station", "water_tower", "water_treatment", "recycling", "incinerator", "tram", "bus_stop", "tram_stop", "metro", "metro_station", "airport", "seaport", "high_school", "mall", "museum", "modern_art_museum", "archaeology_museum"]
 
 [growth]
 level_up = 0.75
@@ -215,9 +215,15 @@ id = "fire"
 name = "Great fire"
 description = "Timber and thatch catch: the fire leaps from roof to roof."
 every = 4000
-radius = 3
+radius = 2
 effect = "destroy"
 protection = "fire_safety"
+# Timber burns fast and the watch has only buckets: a building is lost after
+# `lasts` ticks, the fire passes next door more easily than in a modern
+# town, and is put out less often (see docs/RULES.md).
+lasts = 24
+spread = 0.025
+relief = 0.15
 
 [[disaster]]
 id = "flood"
@@ -227,6 +233,7 @@ every = 7000
 radius = 4
 effect = "damage"
 near_water = true
+lasts = 12
 
 [[disaster]]
 id = "plague"
@@ -236,6 +243,7 @@ every = 6000
 radius = 7
 effect = "sicken"
 protection = "health"
+lasts = 40
 
 # ---------------------------------------------------------------- map layers
 [[layer]]
@@ -355,6 +363,8 @@ police = "guard_house"
 hospital = "bathhouse"
 school = "academy"
 university = "studium"
+stadium = "arena"
+opera_house = "theatre"
 park = "well"
 dump = "midden"
 
@@ -721,3 +731,21 @@ produce = { research = 6 }
 needs = { workers = 12, food = 2, upkeep = 0.9, ideas = 1.5 }
 emits = { education = { amount = 14.0, radius = 22 } }
 
+# Spectacles: an arena for games and a theatre, both on the town's purse.
+[[unit]]
+id = "arena"
+name = "Arena"
+description = "Games, races and fights before the whole town: takings for the purse, and a crowd to feed."
+graphic = 340
+produce = { taxes = 0.3 }
+needs = { workers = 10, shoppers = 40, food = 2, upkeep = 0.8 }
+emits = { land_value = { amount = 3.0, radius = 10 } }
+
+[[unit]]
+id = "theatre"
+name = "Theatre"
+description = "Players, music and satire: ideas, and a better address around it."
+graphic = 344
+produce = { ideas = 1, taxes = 0.1 }
+needs = { workers = 6, shoppers = 15, food = 1, upkeep = 0.5 }
+emits = { land_value = { amount = 6.0, radius = 8 } }

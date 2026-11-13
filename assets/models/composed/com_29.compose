@@ -1,0 +1,9 @@
+# Skyscraper (towers): one of several Kenney City Kit Commercial buildings and a
+# tint, picked per plot. Written by scripts/gen-zone-variety.py. CC0 parts.
+variants = 10
+
+[[slot]]
+parts = ["../kenney/city-commercial/building-skyscraper-d.obj", "../kenney/city-commercial/building-skyscraper-b.obj", "../kenney/city-commercial/building-m.obj"]
+size = [2.84, 2.84]
+at = [0.08, 0.0, 0.08]
+tints = [[1, 1, 1], [1.0, 0.82, 0.7], [0.78, 0.88, 1.0], [0.86, 1.0, 0.86]]

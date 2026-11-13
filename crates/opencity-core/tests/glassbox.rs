@@ -944,6 +944,121 @@ fn disasters_strike_and_coverage_protects() {
 }
 
 #[test]
+fn fires_burn_on_spread_and_are_put_out() {
+    let r = rules();
+    let fire = r.disaster("fire").unwrap().clone();
+    assert!(fire.lasts > 0 && fire.spread > 0.0 && fire.relief > 0.0, "the shipped fire burns on");
+    let town = |station: bool, seed: u64| {
+        let mut c = City::new(Terrain::flat(48, 32), None, Footprints::builtin(), seed);
+        c.fund = 10_000_000;
+        c.use_rules(r.clone());
+        c.research_all();
+        c.glassbox.as_mut().unwrap().disasters_off = true;
+        c.apply_tool(Tool::Road, (2, 10), (40, 10)).unwrap();
+        c.apply_tool(Tool::Road, (2, 14), (40, 14)).unwrap();
+        c.apply_tool(Tool::Road, (2, 10), (2, 14)).unwrap();
+        c.apply_tool(Tool::CoalPlant, (4, 5), (4, 5)).unwrap();
+        c.apply_tool(Tool::ZoneResidential, (3, 11), (40, 12)).unwrap();
+        c.apply_tool(Tool::ZoneCommercial, (3, 13), (20, 13)).unwrap();
+        c.apply_tool(Tool::ZoneIndustrial, (24, 13), (40, 13)).unwrap();
+        if station {
+            c.apply_tool(Tool::FireDept, (20, 8), (20, 8)).unwrap();
+        }
+        for _ in 0..300 {
+            c.simulate_round();
+        }
+        c
+    };
+    // Sets a house alight near the middle and lets the fire run its course:
+    // (buildings lost, buildings that burnt at some time).
+    let run = |mut c: City| -> (usize, usize, bool) {
+        let width = c.width();
+        let built = |c: &City| c.layer.structures().filter(|(_, s)| s.unit.is_some() && s.code.is_zone()).map(|(p, _)| p).collect::<Vec<_>>();
+        let before = built(&c);
+        // The house doing best near the middle (where the fire station is,
+        // when there is one), so that little but the fire would empty it.
+        let gb = c.glassbox.as_mut().unwrap();
+        let mood = |p: &(u32, u32)| gb.unit_state(p.0, p.1, width).map_or(0.0, |u| u.satisfaction);
+        let home = |p: &&(u32, u32)| c.layer.structure_at(p.0, p.1).is_some_and(|s| s.code == StructureCode::Residential) && p.0.abs_diff(21) <= 5;
+        let at = *before.iter().filter(home).max_by(|a, b| mood(a).total_cmp(&mood(b))).unwrap();
+        let tick = gb.tick;
+        gb.afflictions
+            .insert(at.1 * width + at.0, opencity_core::glassbox::Affliction { disaster: "fire".into(), since: tick, until: tick + fire.lasts as u64 });
+        // It burns, and still stands.
+        c.simulate_round();
+        let mut burnt = std::collections::BTreeSet::new();
+        for _ in 0..400 {
+            burnt.extend(c.glassbox.as_ref().unwrap().afflictions.keys().copied());
+            if c.glassbox.as_ref().unwrap().afflictions.is_empty() {
+                break;
+            }
+            c.simulate_round();
+        }
+        assert!(c.glassbox.as_ref().unwrap().afflictions.is_empty(), "every fire ends");
+        let after = built(&c);
+        let lost = burnt.iter().filter(|k| !after.contains(&(*k % width, *k / width))).count();
+        (lost, burnt.len().max(1), c.messages.iter().any(|m| m.contains("fire")))
+    };
+    let (mut bare, mut covered) = ((0, 0), (0, 0));
+    for seed in 0..6 {
+        let (l, b, told) = run(town(false, seed));
+        assert!(told, "the outcome is reported");
+        bare = (bare.0 + l, bare.1 + b);
+        let (l, b, _) = run(town(true, seed));
+        covered = (covered.0 + l, covered.1 + b);
+    }
+    assert!(bare.0 >= 6, "with no fire station what burns is lost: {bare:?}");
+    assert!(bare.1 > 6, "and the fire passes next door at times: {bare:?}");
+    assert!(covered.0 * 3 < bare.0, "a fire station puts most fires out: {covered:?} vs {bare:?}");
+    assert!(covered.1 <= bare.1, "and they spread less: {covered:?} vs {bare:?}");
+}
+
+#[test]
+fn amenities_take_visitors_and_raise_land_value() {
+    let r = rules();
+    for (tool, unit) in [
+        (Tool::Stadium, "stadium"),
+        (Tool::Mall, "shopping_mall"),
+        (Tool::Museum, "museum"),
+        (Tool::ModernArtMuseum, "modern_art_museum"),
+        (Tool::OperaHouse, "opera_house"),
+        (Tool::ArchaeologyMuseum, "archaeology_museum"),
+    ] {
+        assert_eq!(r.services.get(tool.id()).map(String::as_str), Some(unit), "{} builds {unit}", tool.id());
+        let u = &r.units[r.unit(unit).unwrap()];
+        assert!(u.needs.contains_key("shoppers") && u.emits.contains_key("land_value"), "{unit} takes visitors and lifts land value");
+    }
+    let town = |museum: bool| {
+        let mut c = City::new(Terrain::flat(48, 32), None, Footprints::builtin(), 3);
+        c.fund = 10_000_000;
+        c.use_rules(r.clone());
+        c.research_all();
+        c.glassbox.as_mut().unwrap().disasters_off = true;
+        c.apply_tool(Tool::Road, (2, 10), (40, 10)).unwrap();
+        c.apply_tool(Tool::Road, (2, 14), (40, 14)).unwrap();
+        c.apply_tool(Tool::Road, (2, 10), (2, 14)).unwrap();
+        c.apply_tool(Tool::CoalPlant, (4, 5), (4, 5)).unwrap();
+        c.apply_tool(Tool::ZoneResidential, (3, 11), (40, 12)).unwrap();
+        c.apply_tool(Tool::ZoneCommercial, (3, 13), (20, 13)).unwrap();
+        c.apply_tool(Tool::ZoneIndustrial, (24, 13), (40, 13)).unwrap();
+        if museum {
+            c.apply_tool(Tool::Museum, (20, 7), (20, 7)).unwrap();
+        }
+        for _ in 0..300 {
+            c.simulate_round();
+        }
+        c
+    };
+    let (plain, with) = (town(false), town(true));
+    let lv = r.layer("land_value").unwrap();
+    let value = |c: &City| c.glassbox.as_ref().unwrap().layers[lv][(11 * c.width() + 21) as usize];
+    assert!(value(&with) > value(&plain) + 1.0, "land value by the museum: {} vs {}", value(&with), value(&plain));
+    let ideas = r.resource("ideas").unwrap();
+    let made = |c: &City| c.glassbox.as_ref().unwrap().balances.produced[ideas];
+    assert!(made(&with) > made(&plain), "a museum adds ideas: {} vs {}", made(&with), made(&plain));
+}
+
+#[test]
 fn cousin_vinnie_brings_money_and_the_family() {
     let r = rules();
     let mut c = City::new(Terrain::flat(32, 24), None, Footprints::builtin(), 3);
@@ -1632,9 +1747,12 @@ fn saves_survive_rules_that_gain_units() {
     // Units added since 0.2.53 stand at the end, so older saves (which
     // number units by their place in the rules) still mean what they meant.
     let ids: Vec<&str> = r.units.iter().map(|u| u.id.as_str()).collect();
-    assert_eq!(&ids[ids.len() - 3..], ["park", "high_school", "university"]);
+    let park = ids.iter().position(|i| *i == "park").unwrap();
+    assert_eq!(&ids[park..park + 4], ["park", "high_school", "university", "museum"], "new units follow the old ones");
+    assert_eq!(ids.len(), park + 9, "a unit added to the shipped rules goes at the end, and this test learns its name");
     let old = rules_named("pre-industrial");
-    assert_eq!(old.units.last().unwrap().id, "studium");
+    let old_ids: Vec<&str> = old.units.iter().map(|u| u.id.as_str()).collect();
+    assert_eq!(&old_ids[old_ids.len() - 3..], ["studium", "arena", "theatre"]);
     // From now on a save names its units, and is renumbered on loading
     // under rules that list them otherwise.
     let mut c = City::new(Terrain::flat(40, 24), None, Footprints::builtin(), 3);

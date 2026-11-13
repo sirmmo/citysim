@@ -717,6 +717,23 @@ pub struct DisasterDef {
     /// Strikes only near water, on low ground (floods).
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub near_water: bool,
+    /// Ticks a struck building stays in trouble (0: over at once). A
+    /// building hit by a disaster that destroys burns this long before it
+    /// is lost; for the others it is how long the mark stays on the map.
+    #[serde(default, skip_serializing_if = "is_zero_u32")]
+    pub lasts: u32,
+    /// While it lasts: the chance each tick of passing to each building
+    /// next door, scaled down by the protection there.
+    #[serde(default, skip_serializing_if = "is_zero_f32")]
+    pub spread: f32,
+    /// While it lasts: the chance each tick, under full protection, that
+    /// it is dealt with (a fire put out, the building saved).
+    #[serde(default, skip_serializing_if = "is_zero_f32")]
+    pub relief: f32,
+}
+
+fn is_zero_u32(v: &u32) -> bool {
+    *v == 0
 }
 
 /// What a disaster does to a building it hits.
@@ -1340,6 +1357,9 @@ impl Ruleset {
             if !(d.full.is_finite() && d.full > 0.0) {
                 return err(format!("disaster {}: full must be above 0", d.id));
             }
+            if !((0.0..=1.0).contains(&d.spread) && (0.0..=1.0).contains(&d.relief)) {
+                return err(format!("disaster {}: spread and relief are chances, between 0 and 1", d.id));
+            }
         }
         for t in &self.taxes {
             let at = |m: String| err(format!("tax {}: {m}", t.id));
@@ -1411,6 +1431,12 @@ pub fn structure_code(name: &str) -> Option<StructureCode> {
         "school" => School,
         "high_school" => HighSchool,
         "university" => University,
+        "stadium" => Stadium,
+        "mall" => Mall,
+        "museum" => Museum,
+        "modern_art_museum" => ModernArtMuseum,
+        "opera_house" => OperaHouse,
+        "archaeology_museum" => ArchaeologyMuseum,
         "water_pipe" => WaterPipe,
         "pumping_station" => PumpingStation,
         "water_tower" => WaterTower,

@@ -1164,6 +1164,74 @@ pub fn draw_smoke(city: &City, camera: &Camera3D, around: Vec3, time: f64, textu
     }
 }
 
+/// Buildings in trouble: a badge floating over each (a flame, a wave, a
+/// cross), and flames with black smoke on those that burn. `textures` are
+/// the three badges by effect (destroy, damage, sicken) and the smoke.
+pub fn draw_afflictions(city: &City, camera: &Camera3D, time: f64, textures: [&Texture2D; 4]) {
+    use opencity_core::rules::DisasterEffect;
+    let Some(gb) = &city.glassbox else { return };
+    if gb.afflictions.is_empty() {
+        return;
+    }
+    let Some(rules) = gb.rules() else { return };
+    let fwd = (camera.target - camera.position).normalize_or_zero();
+    let right = fwd.cross(Vec3::Y).normalize_or_zero();
+    let up = right.cross(fwd).normalize_or_zero();
+    let mut meshes: [Vec<Vertex>; 4] = Default::default();
+    let mut quad = |tex: usize, centre: Vec3, r: f32, colour: [u8; 4]| {
+        let v =
+            |dx: f32, dy: f32, u: f32, vv: f32| Vertex { position: centre + right * dx * r + up * dy * r, uv: vec2(u, vv), color: colour, normal: Vec4::ZERO };
+        if meshes[tex].len() + 4 <= 8000 {
+            meshes[tex].extend([v(-1.0, -1.0, 0.0, 1.0), v(1.0, -1.0, 1.0, 1.0), v(1.0, 1.0, 1.0, 0.0), v(-1.0, 1.0, 0.0, 0.0)]);
+        }
+    };
+    let t = time as f32;
+    for (key, a) in &gb.afflictions {
+        let (w, l) = (key % city.width(), key / city.width());
+        let (Some(s), Some(d)) = (city.layer.tile(w, l).and_then(|t| t.structure()), rules.disaster(&a.disaster)) else { continue };
+        let fp = city.footprints().get(s.graphic);
+        let (fw, fl) = (fp.width.max(1) as f32, fp.length.max(1) as f32);
+        let (cx, cz) = (w as f32 + fw / 2.0, l as f32 + fl / 2.0);
+        let ground = city.terrain.tile_max(w, l) as f32;
+        let roof = ground + fp.height.clamp(0.4, 4.0);
+        let seed = (w.wrapping_mul(73) ^ l.wrapping_mul(151)) as f32;
+        let tex = match d.effect {
+            DisasterEffect::Destroy => 0,
+            DisasterEffect::Damage => 1,
+            DisasterEffect::Sicken => 2,
+        };
+        if tex == 0 {
+            // Flames licking up the walls and over the roof, and smoke.
+            let flames = (3.0 * fw * fl).clamp(3.0, 12.0) as u32;
+            for k in 0..flames {
+                let ks = seed + k as f32 * 17.3;
+                let (ox, oz) = ((ks * 0.37).sin() * 0.4 * fw, (ks * 0.73).cos() * 0.4 * fl);
+                let flick = 0.75 + 0.25 * (t * 9.0 + ks).sin();
+                let y = ground + (roof - ground) * (0.35 + 0.6 * ((ks * 0.21).sin() * 0.5 + 0.5));
+                let r = 0.22 * flick * (0.8 + 0.4 * (ks * 0.11).cos().abs());
+                quad(0, vec3(cx + ox, y + r * 0.6, cz + oz), r, [255, 255, 255, 235]);
+            }
+            for k in 0..6 {
+                let p = ((t * 0.18 + k as f32 / 6.0 + seed * 0.013) % 1.0 + 1.0) % 1.0;
+                let centre = vec3(cx + p * p * 1.2, roof + p * 2.4, cz + p * 0.4);
+                let alpha = (1.0 - p).min(p * 6.0).clamp(0.0, 1.0) * 0.8;
+                quad(3, centre, 0.3 * fw.min(2.0) * (0.5 + p * 1.5), [255, 255, 255, (alpha * 255.0) as u8]);
+            }
+        }
+        // The badge, bobbing over the roof; it keeps a readable size from afar.
+        let top = vec3(cx, roof + 0.75 + 0.08 * (t * 3.0 + seed).sin(), cz);
+        let r = (camera.position.distance(top) * 0.022).clamp(0.3, 1.6);
+        quad(tex, top + up * r, r, [255, 255, 255, 255]);
+    }
+    for (vertices, texture) in meshes.into_iter().zip(textures) {
+        if vertices.is_empty() {
+            continue;
+        }
+        let indices = (0..vertices.len() as u16 / 4).flat_map(|q| [q * 4, q * 4 + 1, q * 4 + 2, q * 4, q * 4 + 2, q * 4 + 3]).collect();
+        draw_mesh(&Mesh { vertices, indices, texture: Some(texture.clone()) });
+    }
+}
+
 pub fn draw_precipitation(around: Vec3, time: f64, rain: bool, amount: f32) {
     let n = (600.0 * amount) as u32;
     let (fall, len, colour) = if rain { (9.0, 0.35, Color::new(0.75, 0.8, 0.9, 0.55)) } else { (1.2, 0.06, Color::new(1.0, 1.0, 1.0, 0.9)) };

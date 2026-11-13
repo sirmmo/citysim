@@ -1,0 +1,15 @@
+# Shops (a pair of shops): one of several Kenney City Kit Commercial buildings and a
+# tint, picked per plot. Written by scripts/gen-zone-variety.py. CC0 parts.
+variants = 10
+
+[[slot]]
+parts = ["../kenney/city-commercial/building-a.obj", "../kenney/city-commercial/building-c.obj", "../kenney/city-commercial/building-h.obj", "../kenney/city-commercial/building-f.obj"]
+size = [0.95, 0.94]
+at = [0.03, 0.0, 0.03]
+tints = [[1, 1, 1], [1.0, 0.82, 0.7], [0.78, 0.88, 1.0], [0.86, 1.0, 0.86], [1.0, 0.95, 0.74]]
+
+[[slot]]
+parts = ["../kenney/city-commercial/building-d.obj", "../kenney/city-commercial/building-b.obj", "../kenney/city-commercial/building-g.obj", "../kenney/city-commercial/building-c.obj"]
+size = [0.95, 0.94]
+at = [1.02, 0.0, 0.03]
+tints = [[1.0, 0.82, 0.7], [0.78, 0.88, 1.0], [0.86, 1.0, 0.86], [1.0, 0.95, 0.74], [1, 1, 1]]

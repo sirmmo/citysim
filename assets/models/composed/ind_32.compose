@@ -1,0 +1,15 @@
+# Joinery (works): one of several Kenney City Kit Industrial buildings and a
+# tint, picked per plot. Written by scripts/gen-zone-variety.py. CC0 parts.
+variants = 10
+
+[[slot]]
+parts = ["../kenney/city-industrial/building-i.obj", "../kenney/city-industrial/building-j.obj", "../kenney/city-industrial/building-o.obj"]
+size = [0.94, 0.94]
+at = [0.03, 0.0, 0.03]
+tints = [[1, 1, 1], [1.0, 0.86, 0.74], [0.8, 0.88, 0.98], [1.0, 0.96, 0.78]]
+
+[[slot]]
+parts = ["", "../kenney/city-industrial/chimney-basic.obj", ""]
+size = [0.14, 0.14]
+height = 0.8
+at = [0.06, 0.0, 0.06]

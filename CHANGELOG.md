@@ -2,6 +2,15 @@
 
 Release notes in full are on the [releases page](https://github.com/sirmmo/citysim/releases).
 
+## 0.2.57: Amenities, fires that burn, mixed streets
+- **Amenities**, a new row in the sidebar: **Museum**, **Archaeology museum**, **Modern art museum**, **Opera house**, **Stadium** and **Shopping mall**. They take visitors (the shoppers of the homes around, who then have somewhere to go) and raise land value; the museums and the opera add ideas for the schools, the stadium and the mall pay taxes and draw crowds and cars. The plain museum needs no research; the others come with **Cultural institutions** and **Mass entertainment**. Before 1800: an **Arena** and a **Theatre**, after *Spectacles*.
+- **Fires burn, and spread.** A building that catches fire is no longer gone at once: it burns for some twenty ticks, with flames, smoke and a flame mark over the roof. Until then fire coverage may put it out and save it, and the fire may pass to the buildings next door. With no fire station in reach what burns is lost and a block can go; under good coverage most fires are out in a few ticks. A message counts the buildings lost and saved when the last fire is out.
+- **Floods and epidemics show on the map** too: a wave mark on flooded buildings, a red cross on those whose people are ill, for as long as it lasts. The inspector says what a building suffers from.
+- **Mixed streets.** In the modern skin every level of shop, office and factory now picks, per plot, one of several buildings of its size and a tint, and factories a chimney or a tank: a row of shops is no longer one building repeated.
+- **In the rules:** `lasts`, `spread` and `relief` on a `[[disaster]]` (see RULES.md). A fire with no `lasts` destroys at once, as before.
+- Map imports build museums from `tourism=museum` (archaeology and art museums by their `museum` tag), an opera house from `amenity=theatre`, a stadium from `leisure=stadium` and a mall from `shop=mall`; exports write them back.
+- The MCP `disaster` tool reports whether the buildings hit are burning; `research` takes `all: true` to finish every project, for trying things out.
+
 ## 0.2.56: The browser version loads its own data
 - **Fixed: new buildings as empty 1 × 1 lots in the browser.** After an update the browser could pair the new game with the data files it had kept from the version before: the high school and university then had no model, no size and no rules. The game now asks for the data of its own build, and the page for the game of its own build.
 - A building whose model is missing from the data files still takes a plot of its proper size.

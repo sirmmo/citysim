@@ -154,3 +154,23 @@ tier = 3
 cost = { research = 8000 }
 requires = ["steel_frame"]
 unlocks = ["nuclear_plant"]
+
+# ---------------------------------------------------------------- culture
+# A plain museum needs no research.
+[[tech]]
+id = "cultural_institutions"
+name = "Cultural institutions"
+description = "Curators, digs and a resident orchestra: the archaeology museum, the modern art museum and the opera house."
+category = "Culture"
+tier = 1
+cost = { research = 1200 }
+unlocks = ["archaeology_museum", "modern_art_museum", "opera_house"]
+
+[[tech]]
+id = "mass_entertainment"
+name = "Mass entertainment"
+description = "Turnstiles, floodlights and car parks: the stadium and the shopping mall."
+category = "Culture"
+tier = 2
+cost = { research = 2000 }
+unlocks = ["stadium", "mall"]

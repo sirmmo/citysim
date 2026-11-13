@@ -1264,7 +1264,8 @@ impl Game {
         if let Some(e) = self.city.notices.pop() {
             self.city.notices.clear();
             self.audio.play_ui(audio::Ui::Alarm);
-            let lost = if e.hit == 1 { "1 building hit".to_string() } else { format!("{} buildings hit", e.hit) };
+            let what = if e.burning { "on fire" } else { "hit" };
+            let lost = if e.hit == 1 { format!("1 building {what}") } else { format!("{} buildings {what}", e.hit) };
             self.message = Some((format!("{} at {}, {}: {lost}", e.name, e.at.0, e.at.1), get_time() + 6.0));
         }
         self.city.speed = speed;
@@ -1317,6 +1318,11 @@ impl Game {
         }
         if let Some(r) = self.region.as_ref() {
             render::draw_crossings(&self.city, &region_gates(r, &self.crossings));
+        }
+        if self.city.glassbox.as_ref().is_some_and(|g| !g.afflictions.is_empty()) {
+            let t = ["alert_fire", "alert_flood", "alert_sick"].map(|n| self.renderer.ui_texture(&format!("graphism/texture/{n}.png")));
+            let smoke = self.renderer.ui_texture("graphism/texture/smoke_black.png");
+            render::draw_afflictions(&self.city, &cam, get_time(), [&t[0], &t[1], &t[2], &smoke]);
         }
         render::draw_sensors(&self.city);
         if let (true, Some((rain, amount))) = (self.day_night, self.renderer.atmosphere.precipitation) {

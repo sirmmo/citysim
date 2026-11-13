@@ -75,7 +75,7 @@ interface** makes it Large or Huge on top of that, and `--ui-scale 1.5`
 
 - **The sidebar:** zones and their density at the top. Below them, each
   family of tools is one row: **Roads, Rail, Waterways, Power, Water,
-  Waste, Services, Land**. The icon on the left picks the last tool you used
+  Waste, Services, Amenities, Land**. The icon on the left picks the last tool you used
   from that family; the name opens a submenu beside the sidebar with all of
   them, with their prices. A row shows the tool in use. Bulldozer and
   Inspect stay at the bottom.
@@ -179,6 +179,30 @@ interface** makes it Large or Huge on top of that, and `--ui-scale 1.5`
   health coverage against sickness; floods hit low ground by the water. A
   notice says where it struck and how many buildings it hit, and fire trucks
   head there. The **Disasters** menu switches them off or sets one off by hand.
+  - **A fire burns for a while.** Buildings on fire show flames, smoke and a
+    flame mark over the roof. Each stands for some twenty ticks; until then
+    fire coverage may put it out and save it, and the fire may pass to the
+    buildings next door, less easily where coverage is good. With no fire
+    station in reach, what burns is lost, and a whole block can go.
+    Bulldozing the neighbours makes a firebreak. When the last fire is out
+    a message counts the buildings lost and saved.
+  - Flooded buildings carry a wave mark and the ill a red cross, for as
+    long as it lasts. The inspector says what a building suffers from.
+- **Amenities** (their own row in the sidebar): places people go to. They
+  take visitors, who are the shoppers looking for somewhere to go, raise
+  the land value around them, and need staff, power and upkeep.
+
+  | Amenity | Size | Gives | Needs research |
+  |---|---|---|---|
+  | Museum | 3 × 3 | 1.5 ideas a tick, land value | no |
+  | Archaeology museum | 3 × 3 | 2 ideas, land value, some education around it | Cultural institutions |
+  | Modern art museum | 3 × 3 | 3 ideas, more land value | Cultural institutions |
+  | Opera house | 4 × 3 | 2 ideas, the most land value, over the widest area | Cultural institutions |
+  | Stadium | 6 × 5 | takings (taxes), land value far around; noise next door, 120 visitors and 40 cars a tick | Mass entertainment |
+  | Shopping mall | 5 × 4 | the taxes of a skyscraper, no upkeep; wants 110 shoppers, goods, and parking | Mass entertainment |
+
+  Ideas feed the schools (see Research). Before 1800 there are an **Arena**
+  and a **Theatre** (after *Spectacles*) and no museums or mall.
 - **Services cover what they can reach by road.** Fire, police and health
   coverage spreads along the streets from the building, so a station on a
   street cut off from a neighbourhood does not protect it. Fire trucks,

@@ -59,6 +59,18 @@ pub enum StructureCode {
     HighSchool = 54,
     /// University: the most research, and education for the whole town.
     University = 55,
+    /// Stadium: crowds on match days, takings for the city, noise next door.
+    Stadium = 56,
+    /// Shopping mall: a great many shops under one roof, with its car park.
+    Mall = 57,
+    /// Museum: visitors, ideas, and a better address around it.
+    Museum = 58,
+    /// Modern art museum: more ideas than a museum, and a landmark.
+    ModernArtMuseum = 59,
+    /// Opera house: the best address in town.
+    OperaHouse = 60,
+    /// Archaeology museum: the town's past; ideas, and some schooling.
+    ArchaeologyMuseum = 61,
 }
 
 impl StructureCode {
@@ -100,6 +112,12 @@ impl StructureCode {
             53 => Seaport,
             54 => HighSchool,
             55 => University,
+            56 => Stadium,
+            57 => Mall,
+            58 => Museum,
+            59 => ModernArtMuseum,
+            60 => OperaHouse,
+            61 => ArchaeologyMuseum,
             _ => return None,
         })
     }
@@ -116,8 +134,14 @@ impl StructureCode {
         matches!(self, Self::CoalPlant | Self::NuclearPlant)
     }
 
+    /// Places people go to: stadium, mall, museums, opera house.
+    pub const fn is_amenity(self) -> bool {
+        matches!(self, Self::Stadium | Self::Mall | Self::Museum | Self::ModernArtMuseum | Self::OperaHouse | Self::ArchaeologyMuseum)
+    }
+
     pub const fn is_public_service(self) -> bool {
         matches!(self, Self::FireDept | Self::PoliceDept | Self::Hospital | Self::School | Self::HighSchool | Self::University | Self::Station | Self::Harbour)
+            || self.is_amenity()
     }
 
     /// Water and waste buildings.
@@ -175,6 +199,12 @@ impl StructureCode {
             Seaport => GraphicCode::SEAPORT,
             HighSchool => GraphicCode::HIGH_SCHOOL,
             University => GraphicCode::UNIVERSITY,
+            Stadium => GraphicCode::STADIUM,
+            Mall => GraphicCode::MALL,
+            Museum => GraphicCode::MUSEUM,
+            ModernArtMuseum => GraphicCode::MODERN_ART_MUSEUM,
+            OperaHouse => GraphicCode::OPERA_HOUSE,
+            ArchaeologyMuseum => GraphicCode::ARCHAEOLOGY_MUSEUM,
         }
     }
 
@@ -189,6 +219,7 @@ impl StructureCode {
             PumpingStation | WaterTower | WaterTreatment => StructureType::Water,
             Dump | Recycling | Incinerator | BusStop | TramStop | MetroStation | Airport | Seaport => StructureType::Government,
             FireDept | PoliceDept | Hospital | School | HighSchool | University | Station | Harbour => StructureType::Government,
+            Stadium | Mall | Museum | ModernArtMuseum | OperaHouse | ArchaeologyMuseum => StructureType::Government,
             Flora => StructureType::Tree,
             Part | Test => StructureType::Undefined,
         }
@@ -221,6 +252,12 @@ impl StructureCode {
             Seaport => 6000,
             HighSchool => 3000,
             University => 8000,
+            Stadium => 9000,
+            Mall => 7000,
+            Museum => 2500,
+            ModernArtMuseum => 3500,
+            OperaHouse => 6000,
+            ArchaeologyMuseum => 3000,
             Test | Part => 0,
         }
     }
@@ -250,6 +287,12 @@ impl StructureCode {
             Seaport => 40,
             HighSchool => 30,
             University => 70,
+            Stadium => 60,
+            Mall => 20,
+            Museum => 20,
+            ModernArtMuseum => 25,
+            OperaHouse => 45,
+            ArchaeologyMuseum => 20,
         }
     }
 
@@ -270,6 +313,12 @@ impl StructureCode {
             MetroStation => 200,
             Airport | Seaport | University => 400,
             HighSchool => 200,
+            Stadium => 400,
+            Mall => 400,
+            Museum => 200,
+            ModernArtMuseum => 200,
+            OperaHouse => 400,
+            ArchaeologyMuseum => 200,
             Test => 0,
         }
     }
@@ -318,6 +367,12 @@ impl GraphicCode {
     pub const EDUCATION_DEPT: Self = Self(390);
     pub const HIGH_SCHOOL: Self = Self(391);
     pub const UNIVERSITY: Self = Self(392);
+    pub const STADIUM: Self = Self(340);
+    pub const MALL: Self = Self(341);
+    pub const MUSEUM: Self = Self(342);
+    pub const MODERN_ART_MUSEUM: Self = Self(343);
+    pub const OPERA_HOUSE: Self = Self(344);
+    pub const ARCHAEOLOGY_MUSEUM: Self = Self(345);
     pub const RAIL_STATION: Self = Self(395);
     pub const HARBOUR: Self = Self(396);
     /// Surface pipe pieces of 0.2.33 (pipes now run underground, unseen).
@@ -603,10 +658,16 @@ pub enum Tool {
     Seaport,
     HighSchool,
     University,
+    Stadium,
+    Mall,
+    Museum,
+    ModernArtMuseum,
+    OperaHouse,
+    ArchaeologyMuseum,
 }
 
 impl Tool {
-    pub const ALL: [Tool; 40] = [
+    pub const ALL: [Tool; 46] = [
         Tool::Destroy,
         Tool::ZoneResidential,
         Tool::ZoneCommercial,
@@ -647,6 +708,12 @@ impl Tool {
         Tool::Seaport,
         Tool::HighSchool,
         Tool::University,
+        Tool::Stadium,
+        Tool::Mall,
+        Tool::Museum,
+        Tool::ModernArtMuseum,
+        Tool::OperaHouse,
+        Tool::ArchaeologyMuseum,
     ];
 
     /// Stable identifier, used by skins and GeoJSON rules.
@@ -692,6 +759,12 @@ impl Tool {
             Tool::Seaport => "seaport",
             Tool::HighSchool => "high_school",
             Tool::University => "university",
+            Tool::Stadium => "stadium",
+            Tool::Mall => "mall",
+            Tool::Museum => "museum",
+            Tool::ModernArtMuseum => "modern_art_museum",
+            Tool::OperaHouse => "opera_house",
+            Tool::ArchaeologyMuseum => "archaeology_museum",
         }
     }
 
@@ -729,6 +802,12 @@ impl Tool {
             Tool::Seaport => S::Seaport,
             Tool::HighSchool => S::HighSchool,
             Tool::University => S::University,
+            Tool::Stadium => S::Stadium,
+            Tool::Mall => S::Mall,
+            Tool::Museum => S::Museum,
+            Tool::ModernArtMuseum => S::ModernArtMuseum,
+            Tool::OperaHouse => S::OperaHouse,
+            Tool::ArchaeologyMuseum => S::ArchaeologyMuseum,
             // Metro tunnels run underground, under whatever stands there.
             Tool::Destroy | Tool::RaiseTerrain | Tool::LowerTerrain | Tool::Canal | Tool::MetroLine => return None,
         })

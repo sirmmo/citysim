@@ -1,0 +1,14 @@
+# Plant (a plant with its yard): one of several Kenney City Kit Industrial buildings and a
+# tint, picked per plot. Written by scripts/gen-zone-variety.py. CC0 parts.
+variants = 10
+
+[[slot]]
+parts = ["../kenney/city-industrial/building-l.obj", "../kenney/city-industrial/building-a.obj", "../kenney/city-industrial/building-e.obj", "../kenney/city-industrial/building-f.obj"]
+size = [1.92, 1.92]
+at = [0.04, 0.0, 0.04]
+tints = [[1, 1, 1], [1.0, 0.86, 0.74], [0.8, 0.88, 0.98], [1.0, 0.96, 0.78]]
+
+[[slot]]
+parts = ["", "../kenney/city-industrial/chimney-medium.obj", "../kenney/city-industrial/detail-tank.obj"]
+size = [0.36, 0.36]
+at = [0.06, 0.0, 0.06]

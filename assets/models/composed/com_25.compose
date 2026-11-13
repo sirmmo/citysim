@@ -1,0 +1,9 @@
+# Department store (a big store): one of several Kenney City Kit Commercial buildings and a
+# tint, picked per plot. Written by scripts/gen-zone-variety.py. CC0 parts.
+variants = 10
+
+[[slot]]
+parts = ["../kenney/city-commercial/building-n.obj", "../kenney/city-commercial/building-j.obj"]
+size = [3.88, 3.88]
+at = [0.06, 0.0, 0.06]
+tints = [[1, 1, 1], [1.0, 0.82, 0.7], [0.78, 0.88, 1.0], [0.86, 1.0, 0.86], [1.0, 0.95, 0.74]]
