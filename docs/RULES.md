@@ -96,7 +96,9 @@ GlassBox `{type}` placeholder). A rule's `condition resource=car` follows every
 kind of car.
 
 **Networks** are made of structures (`road`, `power_line`). With
-`through_buildings`, adjacent buildings conduct too, as with OpenCity's power.
+`through_buildings`, adjacent buildings conduct too, as with OpenCity's power,
+and so does zoned land that is still empty: a strip of zone carries power
+and water to the houses behind it before anything is built on it.
 
 **Zones** (residential, commercial, industrial) have up to three
 **densities**. Each density lists the units that grow on it, level by level.
@@ -535,7 +537,8 @@ dispatch = { meshes = ["kenney/car-kit/firetruck"], every = 15 }
 - **`by_road`:** `radius` is a travel time in street tiles: a highway tile
   counts 0.4, a dirt road 2. Places take the value of the best road tile
   within 2 tiles of them, falling off with travel time plus the last steps
-  on foot. A fire station covers what its trucks can drive to; a house just
+  on foot, and from there it carries on across zoned land a tile at a time,
+  built on or still empty, so the back row of a deep block is covered too. A fire station covers what its trucks can drive to; a house just
   as near but on a street the station cannot reach stays uncovered. Level
   crossings count as road, other track does not.
 - **`dispatch`:** sends a vehicle now and then (about once every `every`

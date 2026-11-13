@@ -154,7 +154,11 @@ interface** makes it Large or Huge on top of that, and `--ui-scale 1.5`
   any Water tool, to fade the city and see the pipes. In this view the
   bulldozer digs up pipes and leaves everything above them; outside it,
   the bulldozer never touches pipes. The inspector says when a water
-  main runs under a tile.
+  main runs under a tile. What belongs to the mains stands out of the
+  faded city under a beacon: pumping stations in blue, water towers in
+  cyan, treatment plants in green. Metro stations glow orange (bus and
+  tram stops stay dim). With a water tool in hand the metro tunnels
+  fade, and with a metro tool the mains do.
 
   ![The underground view: water mains under the streets](underground.png)
 

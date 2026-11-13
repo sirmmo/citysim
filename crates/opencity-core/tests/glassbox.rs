@@ -1590,3 +1590,80 @@ fn higher_schools_make_research_faster() {
     assert!(old.units[old.unit("studium").unwrap()].produce["research"] > 2.0 * old.units[old.unit("academy").unwrap()].produce["research"]);
     assert!(!old.allows("high_school") && old.allows("university"));
 }
+
+#[test]
+fn empty_lots_pass_power_and_coverage() {
+    let r = rules();
+    let mut c = City::new(Terrain::flat(48, 24), None, Footprints::builtin(), 3);
+    c.fund = 10_000_000;
+    c.use_rules(r.clone());
+    c.research_all();
+    // The plant stands apart; only a strip of zoned land, too far from any
+    // street to be built on, joins it to the town.
+    c.apply_tool(Tool::CoalPlant, (2, 1), (2, 1)).unwrap();
+    c.apply_tool(Tool::ZoneCommercial, (7, 2), (20, 2)).unwrap();
+    c.apply_tool(Tool::ZoneCommercial, (20, 3), (20, 5)).unwrap();
+    c.apply_tool(Tool::Road, (15, 10), (44, 10)).unwrap();
+    // A block four plots deep: the back row is out of a street's reach.
+    c.apply_tool(Tool::ZoneResidential, (15, 6), (40, 9)).unwrap();
+    c.apply_tool(Tool::ZoneCommercial, (15, 11), (22, 11)).unwrap();
+    c.apply_tool(Tool::ZoneIndustrial, (23, 11), (30, 11)).unwrap();
+    c.apply_tool(Tool::FireDept, (33, 11), (33, 11)).unwrap();
+    for _ in 0..300 {
+        c.simulate_round();
+    }
+    assert!(c.layer.structure_at(12, 2).is_some_and(|s| s.unit.is_none()), "the strip stays empty");
+    let gb = c.glassbox.as_ref().unwrap();
+    let power = r.resource("power").unwrap();
+    assert!(gb.balances.delivered[power] > 5.0, "power crosses the empty strip: {}", gb.balances.delivered[power]);
+    assert!(units(&c, StructureCode::Residential) > 5);
+    // Fire cover reaches the back row through the plots in front, built on
+    // or not, and stops at open land as far from the street.
+    let fire = r.layer("fire_safety").unwrap();
+    let at = |w: u32, l: u32| gb.layers[fire][(l * 48 + w) as usize];
+    assert!(c.layer.structure_at(30, 6).is_some_and(|s| s.unit.is_none()));
+    assert!(at(30, 6) > 0.5 && at(30, 7) > at(30, 6) && at(30, 9) > at(30, 7), "{} {} {}", at(30, 6), at(30, 7), at(30, 9));
+    assert!(at(40, 14) < 0.01, "open land four tiles off the street: {}", at(40, 14));
+}
+
+#[test]
+fn saves_survive_rules_that_gain_units() {
+    let r = rules();
+    // Units added since 0.2.53 stand at the end, so older saves (which
+    // number units by their place in the rules) still mean what they meant.
+    let ids: Vec<&str> = r.units.iter().map(|u| u.id.as_str()).collect();
+    assert_eq!(&ids[ids.len() - 3..], ["park", "high_school", "university"]);
+    let old = rules_named("pre-industrial");
+    assert_eq!(old.units.last().unwrap().id, "studium");
+    // From now on a save names its units, and is renumbered on loading
+    // under rules that list them otherwise.
+    let mut c = City::new(Terrain::flat(40, 24), None, Footprints::builtin(), 3);
+    c.fund = 10_000_000;
+    c.use_rules(r.clone());
+    c.research_all();
+    c.apply_tool(Tool::CoalPlant, (6, 3), (6, 3)).unwrap();
+    c.apply_tool(Tool::Road, (4, 8), (35, 8)).unwrap();
+    c.apply_tool(Tool::Dump, (20, 4), (20, 4)).unwrap();
+    c.apply_tool(Tool::School, (26, 4), (26, 4)).unwrap();
+    let unit_at = |c: &City, rules: &Ruleset, w: u32, l: u32| rules.units[c.layer.structure_at(w, l).unwrap().unit.unwrap() as usize].id.clone();
+    assert_eq!(unit_at(&c, &r, 20, 4), "dump");
+    let saved = serde_json::to_string(&c).unwrap();
+    // The same rules with a unit put in front and one taken out.
+    let mut changed = (*r).clone();
+    let mut extra = changed.units[changed.unit("park").unwrap()].clone();
+    extra.id = "folly".into();
+    changed.units.insert(0, extra);
+    changed.units.retain(|u| u.id != "school");
+    changed.services.remove("school");
+    let changed = Arc::new(changed);
+    let mut back: City = serde_json::from_str(&saved).unwrap();
+    back.use_rules(changed.clone());
+    assert_eq!(unit_at(&back, &changed, 20, 4), "dump");
+    assert_eq!(unit_at(&back, &changed, 6, 3), "coal_plant");
+    assert!(back.layer.structure_at(26, 4).unwrap().unit.is_none(), "a unit the rules dropped");
+    back.simulate_round();
+    // Unchanged rules: nothing to renumber.
+    let mut same: City = serde_json::from_str(&saved).unwrap();
+    same.use_rules(r.clone());
+    assert_eq!(unit_at(&same, &r, 26, 4), "school");
+}

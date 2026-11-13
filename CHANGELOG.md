@@ -2,6 +2,12 @@
 
 Release notes in full are on the [releases page](https://github.com/sirmmo/citysim/releases).
 
+## 0.2.55: Empty lots, a clearer underground, safer saves
+- **Fixed: 0.2.54 loaded older cities with the wrong buildings.** Saves number each building's unit by its place in the rules, and 0.2.54 added the high school and university in the middle of the list: stations, stops, water works and landfills of a city saved earlier loaded as something else. The new units now stand at the end, and saves name their units, so a city is renumbered when the rules gain, lose or reorder units (also after editing rules).
+- **Empty lots pass power and water.** Zoned land that is not built on yet conducts like a building: a strip of zone carries power and water to the houses behind it.
+- **Fire, police and health cover reach the back rows.** Cover spreads from the street across zoned land a tile at a time, built on or not, where it used to stop two tiles from the road (plots develop three deep).
+- **Underground view:** metro stations glow orange under a beacon, so they are not taken for bus or tram stops, which stay dim. Pumping stations, water towers and treatment plants glow blue, cyan and green. With a metro tool in hand the water mains fade, and with a water tool the tunnels do.
+
 ## 0.2.54: High schools and universities
 - **High school** (4 × 3, $3,000): 7 research points a tick from 3 ideas, where a school makes 2 from 1, and education over a wider area. Unlocked by the new **Secondary education** project.
 - **University** (5 × 4, $8,000): 24 research points a tick from 8 ideas, with a staff of 40, and education for the whole town. Unlocked by **Higher education**, after Secondary education. It needs a town with cafés and restaurants enough to feed it ideas.

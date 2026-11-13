@@ -686,15 +686,6 @@ needs = { workers = 5, food = 1, upkeep = 0.3, ideas = 0.5 }
 emits = { education = { amount = 10.0, radius = 12 } }
 
 [[unit]]
-id = "studium"
-name = "Studium"
-description = "A university of masters and scholars: law, medicine and the arts, and research at four times an academy's pace."
-graphic = 392
-produce = { research = 6 }
-needs = { workers = 12, food = 2, upkeep = 0.9, ideas = 1.5 }
-emits = { education = { amount = 14.0, radius = 22 } }
-
-[[unit]]
 id = "quay"
 name = "Quay"
 description = "Boats tie up here: places near quays on one river, lake or coast trade as if next door."
@@ -719,3 +710,14 @@ description = "Clean water for the houses around it."
 graphic = 320
 build_cost = 20
 emits = { water = { amount = 10.0, radius = 4 }, land_value = { amount = 1.0, radius = 2 } }
+
+# New units go at the end: saves before 0.2.55 number units by their place here.
+[[unit]]
+id = "studium"
+name = "Studium"
+description = "A university of masters and scholars: law, medicine and the arts, and research at four times an academy's pace."
+graphic = 392
+produce = { research = 6 }
+needs = { workers = 12, food = 2, upkeep = 0.9, ideas = 1.5 }
+emits = { education = { amount = 14.0, radius = 22 } }
+

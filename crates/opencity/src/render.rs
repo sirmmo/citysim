@@ -811,12 +811,43 @@ impl Renderer {
     /// What runs underground, seen through everything: water mains (blue)
     /// and metro tunnels (orange, wider, a little lower), dark-edged, from
     /// tile centre to tile centre with a joint at each tile.
-    pub fn draw_pipes(&self, city: &City) {
+    ///
+    /// What belongs to them on the surface stands out of the faded city:
+    /// metro stations glow orange under a beacon (bus and tram stops stay
+    /// dim, so they are not taken for them), pumping stations, water towers
+    /// and treatment plants glow blue, cyan and green. With a tool in hand
+    /// (`focus`), the other system is drawn faintly.
+    pub fn draw_pipes(&self, city: &City, focus: Underground) {
         let layer = &city.layer;
-        let tunnel = [Color::new(0.20, 0.08, 0.02, 0.95), Color::new(0.95, 0.55, 0.20, 1.0)];
+        let faint = |on: bool, c: Color| if on { c } else { Color::new(c.r, c.g, c.b, c.a * 0.22) };
+        let (metro, water) = (focus != Underground::Water, focus != Underground::Metro);
+        let tunnel = [Color::new(0.20, 0.08, 0.02, 0.95), Color::new(0.95, 0.55, 0.20, 1.0)].map(|c| faint(metro, c));
         self.draw_underground(city, |w, l| layer.has_tunnel(w, l), layer.tunnels(), [0.2, 0.14], tunnel, 0.03);
-        let pipe = [Color::new(0.02, 0.10, 0.20, 0.95), Color::new(0.30, 0.70, 1.00, 1.0)];
+        let pipe = [Color::new(0.02, 0.10, 0.20, 0.95), Color::new(0.30, 0.70, 1.00, 1.0)].map(|c| faint(water, c));
         self.draw_underground(city, |w, l| layer.has_pipe(w, l), layer.pipes(), [0.13, 0.08], pipe, 0.06);
+        for ((w, l), s) in layer.structures() {
+            let (colour, shown) = match s.code {
+                StructureCode::MetroStation => (Color::new(1.0, 0.55, 0.12, 1.0), metro),
+                StructureCode::PumpingStation => (Color::new(0.25, 0.60, 1.0, 1.0), water),
+                StructureCode::WaterTower => (Color::new(0.35, 0.90, 1.0, 1.0), water),
+                StructureCode::WaterTreatment => (Color::new(0.35, 0.90, 0.55, 1.0), water),
+                _ => continue,
+            };
+            if !shown {
+                continue;
+            }
+            let (sw, sl) = s.size(city.footprints());
+            self.draw_data_overlay_rect(&city.terrain, Rect::sized(w, l, sw, sl), Color::new(colour.r, colour.g, colour.b, 0.7));
+            // A beacon over it: a mast with a bright head, seen through everything.
+            let (x, z) = (w as f32 + sw as f32 / 2.0, l as f32 + sl as f32 / 2.0);
+            let ground = height_at(&city.terrain, x, z).max(WATER_LEVEL);
+            let gl = unsafe { get_internal_gl() }.quad_gl;
+            gl.depth_test(false);
+            draw_cube(vec3(x, ground + 1.1, z), vec3(0.1, 2.2, 0.1), None, Color::new(0.95, 0.95, 0.95, 1.0));
+            draw_cube(vec3(x, ground + 2.4, z), vec3(0.5, 0.4, 0.5), None, colour);
+            let gl = unsafe { get_internal_gl() }.quad_gl;
+            gl.depth_test(true);
+        }
     }
 
     fn draw_underground(
@@ -875,6 +906,15 @@ impl Renderer {
             gl.geometry(&[v(x, c[0], z), v(x, c[1], z + 1.0), v(x + 1.0, c[2], z + 1.0), v(x + 1.0, c[3], z)], &[0, 1, 2, 0, 2, 3]);
         }
     }
+}
+
+/// What the underground view brings out: everything, or the system the
+/// tool in hand belongs to.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Underground {
+    All,
+    Water,
+    Metro,
 }
 
 /// Bilinear terrain height at a map position (tile units).

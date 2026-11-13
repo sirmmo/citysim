@@ -1342,7 +1342,12 @@ impl Game {
             set_default_camera();
             draw_rectangle(0.0, 0.0, screen_width(), screen_height(), Color::new(0.03, 0.05, 0.09, 0.55));
             set_camera(&cam);
-            self.renderer.draw_pipes(&self.city);
+            let focus = match self.active {
+                Some(Action::Tool(Some(Tool::MetroLine | Tool::MetroStation))) => render::Underground::Metro,
+                Some(Action::Tool(Some(Tool::WaterPipe | Tool::PumpingStation | Tool::WaterTower | Tool::WaterTreatment))) => render::Underground::Water,
+                _ => render::Underground::All,
+            };
+            self.renderer.draw_pipes(&self.city, focus);
         }
         if self.flow_view.on {
             self.draw_shortages();

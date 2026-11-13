@@ -197,6 +197,11 @@ struct SensorRoutes {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct GlassBox {
     pub rules_id: String,
+    /// The rules' unit ids in the order the buildings' unit numbers refer
+    /// to: a save made before the rules gained, lost or reordered units is
+    /// renumbered when the rules are attached (see `City::use_rules`).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub unit_ids: Vec<String>,
     /// Unit states by origin tile (linear index).
     pub units: BTreeMap<u32, UnitState>,
     /// Map layers, row-major, by layer index.
@@ -388,6 +393,7 @@ impl GlassBox {
         let n = (width * length) as usize;
         Self {
             rules_id: rules.id.clone(),
+            unit_ids: rules.units.iter().map(|u| u.id.clone()).collect(),
             units: BTreeMap::new(),
             layers: vec![vec![0.0; n]; rules.layers.len()],
             balances: Balances::default(),
@@ -434,14 +440,21 @@ impl GlassBox {
         }
     }
 
-    /// Re-attaches the rules after loading a save.
-    pub fn attach(&mut self, rules: Arc<Ruleset>, width: u32, length: u32) {
+    /// Re-attaches the rules after loading a save. Returns the unit ids
+    /// the save was written with when they differ from the rules' (empty
+    /// otherwise, or when the save does not say): the caller renumbers the
+    /// buildings.
+    pub fn attach(&mut self, rules: Arc<Ruleset>, width: u32, length: u32) -> Vec<String> {
+        let ids: Vec<String> = rules.units.iter().map(|u| u.id.clone()).collect();
+        let old = std::mem::replace(&mut self.unit_ids, ids);
+        let old = if old == self.unit_ids { Vec::new() } else { old };
         let n = (width * length) as usize;
         self.layers.resize(rules.layers.len(), vec![0.0; n]);
         self.demand.resize(rules.zones.len(), 0.0);
         self.pools.resize(rules.resources.len(), 0.0);
         self.rules = Some(rules);
         self.grid_cache = None;
+        old
     }
 
     /// Whether research has unlocked a unit or tool id: anything no project
@@ -2452,6 +2465,26 @@ fn emit_by_road(values: &mut [f32], layer: &BuildingLayer, terrain: &Terrain, r:
             }
         }
     }
+    // From there it carries on across zoned land, built on or still empty,
+    // a tile at a time: the back row of a deep block is covered through
+    // the plots in front of it.
+    let zoned = |i: usize| layer.structure_at(i as u32 % width, i as u32 / width).is_some_and(|s| s.code.is_zone());
+    let step = amount / rad;
+    let mut heap: std::collections::BinaryHeap<(u32, usize)> = got.iter().filter(|(i, _)| zoned(**i)).map(|(i, v)| ((v * 1000.0) as u32, *i)).collect();
+    while let Some((v, i)) = heap.pop() {
+        let v = v as f32 / 1000.0;
+        if got.get(&i).is_some_and(|&g| g > v + 1e-3) || v <= step {
+            continue;
+        }
+        for d in Direction::ALL {
+            let Some((nw, nl)) = terrain.neighbour(i as u32 % width, i as u32 / width, d) else { continue };
+            let j = (nl * width + nw) as usize;
+            if zoned(j) && got.get(&j).is_none_or(|&g| g < v - step - 1e-3) {
+                got.insert(j, v - step);
+                heap.push((((v - step) * 1000.0) as u32, j));
+            }
+        }
+    }
     for (i, v) in got {
         values[i] += v;
     }
@@ -2579,7 +2612,8 @@ pub fn conducts(net: &crate::rules::NetworkDef, layer: &BuildingLayer, w: u32, l
         Some(s) if s.code == StructureCode::Road && s.road.is_rail() => {
             net.structures.iter().any(|s| s == "rail") || (has(StructureCode::Road) && layer.is_level_crossing(w, l))
         }
-        Some(s) => has(s.code) || (net.through_buildings && s.unit.is_some()),
+        // Buildings pass it on, and so does zoned land not built on yet.
+        Some(s) => has(s.code) || (net.through_buildings && (s.unit.is_some() || s.code.is_zone())),
     }
 }
 

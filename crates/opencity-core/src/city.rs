@@ -361,7 +361,19 @@ impl City {
     pub fn use_rules(&mut self, rules: std::sync::Arc<Ruleset>) {
         let (w, l) = (self.width(), self.length());
         match &mut self.glassbox {
-            Some(g) => g.attach(rules, w, l),
+            Some(g) => {
+                // The save numbered its units by another list: renumber
+                // each building by its unit's id (one whose unit is gone
+                // goes back to an empty plot).
+                let old = g.attach(rules.clone(), w, l);
+                if !old.is_empty() {
+                    let origins: Vec<(u32, u32)> = self.layer.structures().filter(|(_, s)| s.unit.is_some()).map(|(p, _)| p).collect();
+                    for (w, l) in origins {
+                        let Some(s) = self.layer.structure_mut(w, l) else { continue };
+                        s.unit = s.unit.and_then(|u| old.get(u as usize)).and_then(|id| rules.unit(id)).map(|u| u as _);
+                    }
+                }
+            }
             None => {
                 self.convert_to_rules(&rules);
                 self.glassbox = Some(GlassBox::new(rules, w, l));
