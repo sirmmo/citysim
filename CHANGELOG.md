@@ -2,6 +2,9 @@
 
 Release notes in full are on the [releases page](https://github.com/sirmmo/citysim/releases).
 
+## 0.2.59: Right click in the browser
+- **Fixed: after a right click in the browser the map stayed tied to the mouse.** The browser's own menu opened over the game and took the release of the button, so the game went on turning the view as if it were held. The menu no longer opens over the map, and a button let go outside the map, over another part of the page or while the window loses focus is let go in the game too.
+
 ## 0.2.58: Solar and fusion power, research by the region, a campus
 - **Solar farm** (4 × 4, $1,800): clean power with hardly any staff or upkeep, and little of it for the land it takes: 120 units, where a coal plant on fewer tiles makes 400. It waits for **Photovoltaics** (2,500 research points).
 - **Fusion power plant** (7 × 6, $40,000): 6,000 units of power, five nuclear plants' worth, with no smoke. It waits for **Nuclear fusion**, the biggest project in the tree: 120,000 research points, after Nuclear fission and Computing.

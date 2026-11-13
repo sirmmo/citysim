@@ -27,6 +27,36 @@
     citysim_status("Could not start: " + e.message + ". The game needs WebGL and WebAssembly; " +
       "the desktop version is at https://github.com/sirmmo/citysim/releases.");
   });
+  // Mouse buttons the game still believes are held. The browser does not
+  // always tell the canvas a button was let go: the right-click menu takes
+  // the release, and so does letting go outside the window or over another
+  // element. The map then stayed tied to the mouse.
+  (function () {
+    var canvas = document.getElementById("glcanvas");
+    var held = {};
+    var bit = { 0: 1, 1: 4, 2: 2 }; // event.button -> its bit in event.buttons
+    function release(button, e) {
+      if (!held[button]) return;
+      held[button] = false;
+      if (typeof wasm_exports === "undefined" || !wasm_exports) return;
+      var at = mouse_relative_position(e && e.clientX || 0, e && e.clientY || 0);
+      wasm_exports.mouse_up(at.x, at.y, into_sapp_mousebutton(button));
+    }
+    function release_all(e) {
+      for (var b in held) release(Number(b), e);
+    }
+    canvas.addEventListener("contextmenu", function (e) { e.preventDefault(); });
+    canvas.addEventListener("mousedown", function (e) { held[e.button] = true; });
+    canvas.addEventListener("mouseup", function (e) { held[e.button] = false; });
+    // Let go anywhere else on the page or outside it.
+    window.addEventListener("mouseup", function (e) { if (e.target !== canvas) release(e.button, e); }, true);
+    window.addEventListener("blur", function () { release_all(null); });
+    document.addEventListener("visibilitychange", function () { if (document.hidden) release_all(null); });
+    // Whatever was missed: a move that reports the button up lets it go.
+    window.addEventListener("mousemove", function (e) {
+      for (var b in held) if (held[b] && !(e.buttons & bit[b])) release(Number(b), e);
+    }, true);
+  })();
   if (!window.WebAssembly) {
     citysim_status("This browser has no WebAssembly. The desktop version is at https://github.com/sirmmo/citysim/releases.");
   } else {
