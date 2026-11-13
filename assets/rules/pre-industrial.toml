@@ -18,7 +18,7 @@ tech_tree = "pre-industrial"
 policy_set = "pre-industrial"
 years = [-9999, 1799]
 # No electricity, and no asphalt: streets are dirt or paved.
-disabled_tools = ["power_line", "nuclear_plant", "road", "highway", "rail", "station", "water_pipe", "pumping_station", "water_tower", "water_treatment", "recycling", "incinerator", "tram", "bus_stop", "tram_stop", "metro", "metro_station", "airport", "seaport"]
+disabled_tools = ["power_line", "nuclear_plant", "road", "highway", "rail", "station", "water_pipe", "pumping_station", "water_tower", "water_treatment", "recycling", "incinerator", "tram", "bus_stop", "tram_stop", "metro", "metro_station", "airport", "seaport", "high_school"]
 
 [growth]
 level_up = 0.75
@@ -354,6 +354,7 @@ fire_station = "watchtower"
 police = "guard_house"
 hospital = "bathhouse"
 school = "academy"
+university = "studium"
 park = "well"
 dump = "midden"
 
@@ -683,6 +684,15 @@ graphic = 390
 produce = { research = 1.5 }
 needs = { workers = 5, food = 1, upkeep = 0.3, ideas = 0.5 }
 emits = { education = { amount = 10.0, radius = 12 } }
+
+[[unit]]
+id = "studium"
+name = "Studium"
+description = "A university of masters and scholars: law, medicine and the arts, and research at four times an academy's pace."
+graphic = 392
+produce = { research = 6 }
+needs = { workers = 12, food = 2, upkeep = 0.9, ideas = 1.5 }
+emits = { education = { amount = 14.0, radius = 22 } }
 
 [[unit]]
 id = "quay"

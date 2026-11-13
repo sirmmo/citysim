@@ -55,6 +55,10 @@ pub enum StructureCode {
     Airport = 52,
     /// Cargo ships to the rest of the world.
     Seaport = 53,
+    /// Secondary school: more research than a school, over a wider area.
+    HighSchool = 54,
+    /// University: the most research, and education for the whole town.
+    University = 55,
 }
 
 impl StructureCode {
@@ -94,6 +98,8 @@ impl StructureCode {
             51 => MetroStation,
             52 => Airport,
             53 => Seaport,
+            54 => HighSchool,
+            55 => University,
             _ => return None,
         })
     }
@@ -111,7 +117,7 @@ impl StructureCode {
     }
 
     pub const fn is_public_service(self) -> bool {
-        matches!(self, Self::FireDept | Self::PoliceDept | Self::Hospital | Self::School | Self::Station | Self::Harbour)
+        matches!(self, Self::FireDept | Self::PoliceDept | Self::Hospital | Self::School | Self::HighSchool | Self::University | Self::Station | Self::Harbour)
     }
 
     /// Water and waste buildings.
@@ -167,6 +173,8 @@ impl StructureCode {
             MetroStation => GraphicCode::METRO_STATION,
             Airport => GraphicCode::AIRPORT,
             Seaport => GraphicCode::SEAPORT,
+            HighSchool => GraphicCode::HIGH_SCHOOL,
+            University => GraphicCode::UNIVERSITY,
         }
     }
 
@@ -180,7 +188,7 @@ impl StructureCode {
             Road | PowerLine | WaterPipe => StructureType::Path,
             PumpingStation | WaterTower | WaterTreatment => StructureType::Water,
             Dump | Recycling | Incinerator | BusStop | TramStop | MetroStation | Airport | Seaport => StructureType::Government,
-            FireDept | PoliceDept | Hospital | School | Station | Harbour => StructureType::Government,
+            FireDept | PoliceDept | Hospital | School | HighSchool | University | Station | Harbour => StructureType::Government,
             Flora => StructureType::Tree,
             Part | Test => StructureType::Undefined,
         }
@@ -211,6 +219,8 @@ impl StructureCode {
             MetroStation => 2500,
             Airport => 12000,
             Seaport => 6000,
+            HighSchool => 3000,
+            University => 8000,
             Test | Part => 0,
         }
     }
@@ -238,6 +248,8 @@ impl StructureCode {
             MetroStation => 20,
             Airport => 80,
             Seaport => 40,
+            HighSchool => 30,
+            University => 70,
         }
     }
 
@@ -256,7 +268,8 @@ impl StructureCode {
             NuclearPlant => 800,
             BusStop | TramStop => 20,
             MetroStation => 200,
-            Airport | Seaport => 400,
+            Airport | Seaport | University => 400,
+            HighSchool => 200,
             Test => 0,
         }
     }
@@ -303,6 +316,8 @@ impl GraphicCode {
     pub const POLICE_DEPT: Self = Self(360);
     pub const HOSPITAL_DEPT: Self = Self(370);
     pub const EDUCATION_DEPT: Self = Self(390);
+    pub const HIGH_SCHOOL: Self = Self(391);
+    pub const UNIVERSITY: Self = Self(392);
     pub const RAIL_STATION: Self = Self(395);
     pub const HARBOUR: Self = Self(396);
     /// Surface pipe pieces of 0.2.33 (pipes now run underground, unseen).
@@ -586,10 +601,12 @@ pub enum Tool {
     MetroStation,
     Airport,
     Seaport,
+    HighSchool,
+    University,
 }
 
 impl Tool {
-    pub const ALL: [Tool; 38] = [
+    pub const ALL: [Tool; 40] = [
         Tool::Destroy,
         Tool::ZoneResidential,
         Tool::ZoneCommercial,
@@ -628,6 +645,8 @@ impl Tool {
         Tool::MetroStation,
         Tool::Airport,
         Tool::Seaport,
+        Tool::HighSchool,
+        Tool::University,
     ];
 
     /// Stable identifier, used by skins and GeoJSON rules.
@@ -671,6 +690,8 @@ impl Tool {
             Tool::MetroStation => "metro_station",
             Tool::Airport => "airport",
             Tool::Seaport => "seaport",
+            Tool::HighSchool => "high_school",
+            Tool::University => "university",
         }
     }
 
@@ -706,6 +727,8 @@ impl Tool {
             Tool::MetroStation => S::MetroStation,
             Tool::Airport => S::Airport,
             Tool::Seaport => S::Seaport,
+            Tool::HighSchool => S::HighSchool,
+            Tool::University => S::University,
             // Metro tunnels run underground, under whatever stands there.
             Tool::Destroy | Tool::RaiseTerrain | Tool::LowerTerrain | Tool::Canal | Tool::MetroLine => return None,
         })

@@ -9,7 +9,8 @@
 #   exclude  rival projects: finishing one rules the others out for good.
 # `category` and `tier` only arrange the research window; `requires` and the
 # cost are the gates, so a deep project opens as soon as its requirements do.
-# A school makes about 2 research points a tick, some 2,400 a year.
+# A school makes about 2 research points a tick, some 2,400 a year; a high
+# school 7 and a university 24.
 
 name = "Modern"
 description = "Roads, towers, industry and power for a modern city, and the economy it bets on."
@@ -101,6 +102,26 @@ category = "Economy"
 tier = 2
 cost = { research = 3000 }
 bonus = { research = 0.25 }
+
+# ---------------------------------------------------------------- education
+[[tech]]
+id = "secondary_education"
+name = "Secondary education"
+description = "Schooling past the age of twelve: high schools make research three times as fast as a school."
+category = "Education"
+tier = 1
+cost = { research = 1000 }
+unlocks = ["high_school"]
+
+[[tech]]
+id = "higher_education"
+name = "Higher education"
+description = "Faculties and laboratories: a university makes research twelve times as fast as a school."
+category = "Education"
+tier = 2
+requires = ["secondary_education"]
+cost = { research = 3500 }
+unlocks = ["university"]
 
 # ---------------------------------------------------------------- housing
 [[tech]]

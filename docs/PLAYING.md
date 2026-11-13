@@ -328,7 +328,15 @@ research. This happens in regions played alone and online.
 Under GlassBox rules, ideas and research unlock buildings and tools:
 
 1. People meeting in cafés, shops and malls (taverns, inns and market squares before 1800) have **ideas**, which go into a city-wide pool.
-2. Schools (academies) turn ideas into **research points**.
+2. Schools (academies) turn ideas into **research points**. Higher schools do it faster and get more out of each idea:
+
+   | Building | Research per tick | Ideas used | Staff | Unlocked by |
+   |---|---|---|---|---|
+   | School | 2 | 1 | 6 | from the start |
+   | High school | 7 | 3 | 14 | Secondary education |
+   | University | 24 | 8 | 40 | Higher education (after Secondary education) |
+
+   A university needs a town with cafés and restaurants enough to feed it ideas; short of them it works at part speed. Before 1800 the **Studium** (after *Studium generale*) makes 6 points to the academy's 1.5.
 3. In the **🔬 Research** window, pick a project. It draws on the pools each tick until it is paid for.
 
 The window groups projects by branch and sorts them by tier, and shows for each one:

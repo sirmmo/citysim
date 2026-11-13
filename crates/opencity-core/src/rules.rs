@@ -1409,6 +1409,8 @@ pub fn structure_code(name: &str) -> Option<StructureCode> {
         "police" => PoliceDept,
         "hospital" => Hospital,
         "school" => School,
+        "high_school" => HighSchool,
+        "university" => University,
         "water_pipe" => WaterPipe,
         "pumping_station" => PumpingStation,
         "water_tower" => WaterTower,

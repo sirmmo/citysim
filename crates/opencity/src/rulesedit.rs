@@ -84,6 +84,8 @@ const STRUCTURES: &[&str] = &[
     "police",
     "hospital",
     "school",
+    "high_school",
+    "university",
     "water_pipe",
     "pumping_station",
     "water_tower",

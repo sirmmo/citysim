@@ -1538,3 +1538,55 @@ fn sensors_count_the_tide_of_traffic() {
     assert!(hi > 0.0 && hi - lo <= hi * 0.5 + 1.0, "flat traffic swings from {lo} to {hi}");
     assert!(c.glassbox.as_mut().unwrap().remove_sensor("Crossing 0"));
 }
+
+#[test]
+fn higher_schools_make_research_faster() {
+    let r = rules();
+    // Each waits for its research: the high school first, then the university.
+    let mut c = City::new(Terrain::flat(48, 48), None, Footprints::builtin(), 7);
+    c.use_rules(r.clone());
+    assert_eq!(c.tool_locked_by(Tool::HighSchool).as_deref(), Some("Secondary education"));
+    assert_eq!(c.tool_locked_by(Tool::University).as_deref(), Some("Higher education"));
+    assert!(c.tool_locked_by(Tool::School).is_none());
+    let gb = c.glassbox.as_ref().unwrap();
+    assert!(gb.can_research(&r, "secondary_education") && !gb.can_research(&r, "higher_education"));
+    // The same town around a school, a high school and a university.
+    let research = r.resource("research").unwrap();
+    let town = |tool: Tool| {
+        let mut c = City::new(Terrain::flat(48, 48), None, Footprints::builtin(), 7);
+        c.fund = 10_000_000;
+        c.use_rules(r.clone());
+        c.research_all();
+        c.apply_tool(Tool::CoalPlant, (2, 2), (2, 2)).unwrap();
+        c.apply_tool(tool, (8, 2), (8, 2)).unwrap();
+        for l in [8, 12, 16, 20] {
+            c.apply_tool(Tool::Road, (2, l), (44, l)).unwrap();
+        }
+        for w in [1, 7, 13, 45] {
+            c.apply_tool(Tool::Road, (w, if w == 7 || w == 13 { 2 } else { 8 }), (w, 20)).unwrap();
+        }
+        c.apply_tool(Tool::ZoneResidential, (2, 9), (44, 11)).unwrap();
+        c.apply_tool(Tool::ZoneIndustrial, (2, 13), (44, 15)).unwrap();
+        c.apply_tool(Tool::ZoneCommercial, (2, 17), (44, 19)).unwrap();
+        let mut made = 0.0;
+        for t in 0..2000 {
+            c.simulate_round();
+            if t >= 1500 {
+                made += c.glassbox.as_ref().unwrap().balances.produced[research] / 500.0;
+            }
+        }
+        made
+    };
+    let (school, high, university) = (town(Tool::School), town(Tool::HighSchool), town(Tool::University));
+    assert!(school > 1.0 && high > school * 2.0 && university > high * 1.5, "research per tick: school {school}, high school {high}, university {university}");
+    // More comes out of each idea, too.
+    let per_idea = |id: &str| {
+        let u = &r.units[r.unit(id).unwrap()];
+        u.produce["research"] / u.needs["ideas"]
+    };
+    assert!(per_idea("school") < per_idea("high_school") && per_idea("high_school") < per_idea("university"));
+    // Before the printing press, a studium outdoes an academy.
+    let old = rules_named("pre-industrial");
+    assert!(old.units[old.unit("studium").unwrap()].produce["research"] > 2.0 * old.units[old.unit("academy").unwrap()].produce["research"]);
+    assert!(!old.allows("high_school") && old.allows("university"));
+}

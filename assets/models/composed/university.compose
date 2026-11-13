@@ -1,0 +1,73 @@
+# University: a tall Kenney commercial main hall at the back, two wings
+# down the sides and a quad with trees open to the street (+z). CC0 parts.
+variants = 8
+
+[[slot]]
+parts = ["../kenney/city-commercial/building-n.obj", "../kenney/city-commercial/building-l.obj"]
+size = [2.4, 2.4]
+at = [1.3, 0.0, 0.15]
+tints = [[1.0, 0.95, 0.85], [0.98, 0.93, 0.86]]
+
+[[slot]]
+parts = ["../kenney/city-commercial/building-k.obj"]
+size = [1.5, 1.2]
+at = [0.1, 0.0, 1.2]
+rotations = [90]
+tints = [[1.0, 0.88, 0.8], [0.95, 0.9, 0.85]]
+
+[[slot]]
+parts = ["../kenney/city-commercial/building-e.obj", "../kenney/city-commercial/building-d.obj"]
+size = [1.1, 1.2]
+at = [3.8, 0.0, 1.3]
+tints = [[1.0, 0.92, 0.84], [1.0, 1.0, 1.0]]
+
+[[slot]]
+parts = ["../kenney/nature/tree_oak.obj", "../kenney/nature/tree_default.obj", "../kenney/nature/tree_fat.obj"]
+size = [0.45, 0.45]
+at = [1.8, 0.0, 2.8]
+rotations = [0, 90, 180, 270]
+
+[[slot]]
+parts = ["../kenney/nature/tree_tall.obj", "../kenney/nature/tree_oak.obj", "../kenney/nature/tree_detailed.obj"]
+size = [0.45, 0.45]
+at = [2.9, 0.0, 2.8]
+rotations = [0, 90, 180, 270]
+
+[[slot]]
+parts = ["../kenney/nature/tree_default.obj", "../kenney/nature/tree_fat.obj", ""]
+size = [0.4, 0.4]
+at = [0.4, 0.0, 3.3]
+rotations = [0, 90, 180, 270]
+
+[[slot]]
+parts = ["../kenney/nature/tree_oak.obj", ""]
+size = [0.4, 0.4]
+at = [4.2, 0.0, 3.3]
+rotations = [0, 90, 180, 270]
+
+[[slot]]
+parts = ["../kenney/city-suburban/path-long.obj"]
+size = [0.35, 1.2]
+at = [2.33, 0.0, 2.6]
+
+[[slot]]
+parts = ["../kenney/city-suburban/planter.obj"]
+size = [0.4, 0.3]
+at = [1.4, 0.0, 3.5]
+
+[[slot]]
+parts = ["../kenney/city-suburban/planter.obj"]
+size = [0.4, 0.3]
+at = [3.2, 0.0, 3.5]
+
+[[slot]]
+parts = ["../kenney/city-roads/light-square.obj"]
+size = [0.1, 0.24]
+height = 0.6
+at = [2.1, 0.0, 3.7]
+
+[[slot]]
+parts = ["../kenney/city-roads/light-square.obj"]
+size = [0.1, 0.24]
+height = 0.6
+at = [2.85, 0.0, 3.7]

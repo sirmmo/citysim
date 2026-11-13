@@ -6,7 +6,8 @@
 #
 # build = residential | commercial | industrial | road | power_line
 #       | coal_plant | nuclear_plant | park | trees | water
-#       | fire_station | police | hospital | school | rail | station | harbour
+#       | fire_station | police | hospital | school | high_school | university
+#       | rail | station | harbour
 #       | water_pipe | pumping_station | water_tower | water_treatment
 #       | dump | recycling | incinerator | tram | bus_stop | tram_stop
 #       | metro | metro_station | airport | seaport | ignore
@@ -66,7 +67,10 @@ build = "police"
 when = { amenity = ["hospital", "clinic"] }
 build = "hospital"
 [[rule]]
-when = { amenity = ["school", "university", "college", "kindergarten"] }
+when = { amenity = ["university", "college"] }
+build = "university"
+[[rule]]
+when = { amenity = ["school", "kindergarten"] }
 build = "school"
 [[rule]]
 when = { building = "fire_station" }
@@ -75,7 +79,10 @@ build = "fire_station"
 when = { building = "hospital" }
 build = "hospital"
 [[rule]]
-when = { building = ["school", "university", "college"] }
+when = { building = ["university", "college"] }
+build = "university"
+[[rule]]
+when = { building = "school" }
 build = "school"
 
 # --- Roads ------------------------------------------------------------------

@@ -363,6 +363,69 @@ def quay():
     return m
 
 
+def high_school():
+    """A 4 x 3 secondary school: a long two-storey brick block with a
+    flat roof, a gym hall at one end and a yard on the street side (+z)."""
+    m = Model()
+    m.box(CONCRETE, 0.0, 0.0, 0.0, 4.0, 0.03, 3.0)
+    # Classroom block along the back, windows as a dark band per floor.
+    m.box(BRICK, 0.2, 0.03, 0.2, 2.9, 0.95, 1.3, top=DARK)
+    for y in (0.3, 0.68):
+        m.box((0.55, 0.72, 0.85), 0.3, y, 1.3, 2.8, y + 0.16, 1.32)
+    # Entrance with a canopy.
+    m.box(WHITE, 1.3, 0.03, 1.3, 1.8, 0.5, 1.5, top=CONCRETE)
+    m.box(DARK, 1.42, 0.03, 1.5, 1.68, 0.38, 1.51)
+    # Gym hall with a shallow gable roof.
+    m.box(WHITE, 3.0, 0.03, 0.2, 3.8, 0.8, 1.6)
+    m.roof(ROOF, 3.0, 0.2, 3.8, 1.6, 0.8, 1.05)
+    # The yard: a sports court and a flagpole.
+    m.box(GREEN, 0.3, 0.03, 1.8, 1.9, 0.035, 2.8)
+    m.box(WHITE, 1.08, 0.035, 1.8, 1.12, 0.037, 2.8)
+    m.box((0.80, 0.45, 0.30), 2.3, 0.03, 1.9, 3.7, 0.035, 2.7)
+    m.cylinder(STEEL, 2.05, 2.75, 0.02, 0.03, 1.2, n=6)
+    m.box(RED, 2.07, 1.0, 2.74, 2.35, 1.18, 2.76)
+    return m
+
+
+def university():
+    """A 5 x 4 campus: a main hall with a portico and a clock tower, two
+    wings around a green quad, and a domed library."""
+    m = Model()
+    m.box(CONCRETE, 0.0, 0.0, 0.0, 5.0, 0.03, 4.0)
+    stone = (0.84, 0.80, 0.70)
+    # Main hall at the back, with a gable roof.
+    m.box(stone, 1.2, 0.03, 0.2, 3.8, 1.1, 1.2)
+    m.roof(ROOF, 1.2, 0.2, 3.8, 1.2, 1.1, 1.45)
+    for x in (1.5, 2.0, 2.5, 3.0, 3.5):
+        m.box((0.55, 0.72, 0.85), x - 0.1, 0.5, 1.2, x + 0.1, 0.9, 1.22)
+    # Portico: columns under a pediment.
+    for x in (2.1, 2.37, 2.63, 2.9):
+        m.cylinder(WHITE, x, 1.42, 0.05, 0.03, 0.75, n=8)
+    m.box(WHITE, 2.0, 0.75, 1.2, 3.0, 0.85, 1.5)
+    # Clock tower over the hall.
+    m.box(stone, 2.3, 1.1, 0.45, 2.7, 2.2, 0.85)
+    m.box(WHITE, 2.4, 1.8, 0.85, 2.6, 2.0, 0.86)
+    m.cone(ROOF, 2.5, 0.65, 0.3, 2.2, 2.6, n=4)
+    # Two wings down the sides.
+    for x0, x1 in ((0.2, 1.1), (3.9, 4.8)):
+        m.box(BRICK, x0, 0.03, 0.4, x1, 0.8, 2.9, top=DARK)
+        for z in (0.8, 1.4, 2.0, 2.6):
+            xw = x1 if x0 < 1 else x0 - 0.02
+            m.box((0.55, 0.72, 0.85), xw, 0.35, z - 0.12, xw + 0.02, 0.6, z + 0.12)
+    # The quad: lawn, crossing paths, a fountain.
+    m.box(GRASS, 1.3, 0.03, 1.7, 3.7, 0.04, 3.1)
+    m.box(CONCRETE, 2.42, 0.04, 1.7, 2.58, 0.045, 3.1)
+    m.box(CONCRETE, 1.3, 0.04, 2.32, 3.7, 0.045, 2.48)
+    m.cylinder(STEEL, 2.5, 2.4, 0.16, 0.04, 0.1, n=10, top=WATER)
+    # Domed library by the street (+z).
+    m.cylinder(stone, 0.75, 3.4, 0.42, 0.03, 0.6, n=12)
+    m.cone((0.35, 0.55, 0.50), 0.75, 3.4, 0.42, 0.6, 0.95, n=12)
+    # Gate posts on the street.
+    for x in (2.2, 2.8):
+        m.box(stone, x - 0.06, 0.03, 3.7, x + 0.06, 0.45, 3.82, top=WHITE)
+    return m
+
+
 def icons():
     try:
         from PIL import Image, ImageDraw
@@ -500,6 +563,21 @@ def icons():
     d.line((16, 12, 50, 12), fill=ink, width=3)
     d.line((36, 12, 36, 28), fill=ink, width=2)
     save_icon("seaport", im)
+    # High school: a building with a flag. University: a mortarboard.
+    green = (120, 185, 130)
+    im, d = tile(green)
+    d.rectangle((10, 30, 54, 52), fill=(190, 100, 80), outline=ink)
+    for x in (16, 28, 40):
+        d.rectangle((x, 36, x + 8, 44), fill=(170, 210, 235))
+    d.line((32, 30, 32, 10), fill=ink, width=2)
+    d.polygon([(33, 10), (48, 15), (33, 20)], fill=(200, 60, 50))
+    save_icon("high_school", im)
+    im, d = tile(green)
+    d.polygon([(32, 14), (58, 26), (32, 38), (6, 26)], fill=ink)
+    d.polygon([(18, 33), (18, 44), (32, 50), (46, 44), (46, 33), (32, 40)], fill=(60, 80, 110))
+    d.line((54, 27, 54, 44), fill=(230, 190, 60), width=2)
+    d.ellipse((51, 42, 57, 50), fill=(230, 190, 60))
+    save_icon("university", im)
 
 
 def main():
@@ -514,6 +592,8 @@ def main():
     save("transit/metro_station/metro_station", metro_station(), "Metro station", 1, 1, 0.78, "Stairs down to the metro.")
     save("transit/airport/airport", airport(), "Airport", 6, 3, 1.7, "Flights to the rest of the world.")
     save("water/seaport/seaport", seaport(), "Seaport", 4, 3, 1.5, "Cargo ships to the rest of the world.")
+    save("educationdept/high_school/high_school", high_school(), "High school", 4, 3, 1.25, "More research than a school, and education farther around.")
+    save("educationdept/university/university", university(), "University", 5, 4, 2.6, "The most research, and education for the whole town.")
     save("water/quay/quay", quay(), "Quay", 4, 3, 0.85, "The seaport's quay, dressed by models/composed/seaport.compose.")
     icons()
 

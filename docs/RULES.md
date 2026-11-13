@@ -638,7 +638,7 @@ Pooled resources build networks that are not on the map. The shipped
 rules chain them:
 
 ```
-cafés, restaurants, business centres ──ideas──▶ pool ──▶ schools ──research points──▶ pool ──▶ projects
+cafés, restaurants, business centres ──ideas──▶ pool ──▶ schools, high schools, universities ──research points──▶ pool ──▶ projects
 (taverns, coaching inns, market squares and shops before 1800; academies)
 ```
 
@@ -701,11 +701,13 @@ excludes = ["service_economy"]       # rivals ruled out for good (optional)
 
 | Tree | Branches and projects |
 |---|---|
-| `modern` (GlassBox) | Transport: Motorways (highway). Economy: Service economy (+10% taxes, +30% ideas) or Industrial policy (+20% goods, +10% fuel); Computing (+25% research). Housing: Steel-frame towers (High-rise, Slab tower, Skyscraper). Industry: Aeronautics (Aeronautics works). Power: Nuclear fission (nuclear plant) |
-| `pre-industrial` | Streets: Paving (cobbled streets). Farming: Crop rotation (+20% food and fodder), Horse breeding (Stables). Charter: Free market (Market square, +15% taxes) or Guild charter (Craft hall, +20% goods). Housing: Masonry (Courtyard house, Insula block). Civic: Bathing & medicine (Bathhouse), Printing (+30% ideas, +15% research). Trade: Banking (Merchants' exchange) |
+| `modern` (GlassBox) | Transport: Motorways (highway). Economy: Service economy (+10% taxes, +30% ideas) or Industrial policy (+20% goods, +10% fuel); Computing (+25% research). Education: Secondary education (high school), Higher education (university). Housing: Steel-frame towers (High-rise, Slab tower, Skyscraper). Industry: Aeronautics (Aeronautics works). Power: Nuclear fission (nuclear plant) |
+| `pre-industrial` | Streets: Paving (cobbled streets). Farming: Crop rotation (+20% food and fodder), Horse breeding (Stables). Charter: Free market (Market square, +15% taxes) or Guild charter (Craft hall, +20% goods). Housing: Masonry (Courtyard house, Insula block). Civic: Bathing & medicine (Bathhouse), Studium generale (Studium), Printing (+30% ideas, +15% research). Trade: Banking (Merchants' exchange) |
 
 A school makes about 2 research points a tick, some 2,400 a year, so a
-project takes from a few months to a few years.
+project takes from a few months to a few years. A high school makes 7 a
+tick from 3 ideas and a university 24 from 8 (a school: 2 from 1); each
+waits for its own project and teaches a wider area.
 
 ### Taxes and policies
 

@@ -1,0 +1,53 @@
+# High school: a long Kenney commercial block of classrooms, a gym hall
+# beside it, a fenced yard with trees on the street side (+z). CC0 parts.
+variants = 8
+
+[[slot]]
+parts = ["../kenney/city-commercial/building-k.obj"]
+size = [2.5, 1.4]
+at = [0.15, 0.0, 0.15]
+tints = [[1.0, 0.9, 0.8], [0.95, 0.88, 0.82], [1.0, 0.95, 0.85]]
+
+[[slot]]
+parts = ["../kenney/city-commercial/building-e.obj", "../kenney/city-commercial/building-d.obj"]
+size = [1.15, 1.0]
+at = [2.75, 0.0, 0.25]
+tints = [[0.95, 0.97, 1.0], [1.0, 1.0, 1.0]]
+
+[[slot]]
+parts = ["../kenney/city-suburban/fence-1x3.obj"]
+size = [1.3, 0.5]
+at = [0.1, 0.0, 2.4]
+
+[[slot]]
+parts = ["../kenney/city-suburban/fence-1x3.obj"]
+size = [1.3, 0.5]
+at = [2.6, 0.0, 2.4]
+
+[[slot]]
+parts = ["../kenney/nature/tree_default.obj", "../kenney/nature/tree_oak.obj", "../kenney/nature/tree_fat.obj"]
+size = [0.4, 0.4]
+at = [0.3, 0.0, 1.9]
+rotations = [0, 90, 180, 270]
+
+[[slot]]
+parts = ["../kenney/nature/tree_oak.obj", "../kenney/nature/tree_tall.obj"]
+size = [0.4, 0.4]
+at = [3.3, 0.0, 1.9]
+rotations = [0, 90, 180, 270]
+
+[[slot]]
+parts = ["../kenney/city-suburban/planter.obj", ""]
+size = [0.4, 0.3]
+at = [1.1, 0.0, 1.9]
+
+[[slot]]
+parts = ["../kenney/city-suburban/path-long.obj"]
+size = [0.3, 0.9]
+at = [1.85, 0.0, 1.6]
+
+[[slot]]
+parts = ["../kenney/city-roads/light-square.obj"]
+size = [0.1, 0.24]
+height = 0.6
+at = [3.75, 0.0, 2.6]

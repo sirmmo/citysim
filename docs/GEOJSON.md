@@ -38,7 +38,7 @@ build = "commercial"
 
 Build kinds: `residential`, `commercial`, `industrial`, `road`,
 `power_line`, `coal_plant`, `nuclear_plant`, `park`, `trees`, `water`,
-`fire_station`, `police`, `hospital`, `school`, `ignore`.
+`fire_station`, `police`, `hospital`, `school`, `high_school`, `university`, `ignore`.
 `build = "from:<property>"` reads the kind from a property, which is how
 exported files re-import losslessly.
 

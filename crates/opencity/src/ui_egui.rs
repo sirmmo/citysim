@@ -263,6 +263,8 @@ const GROUPS: &[Group] = &[
             ("police", Action::Tool(Some(Tool::PoliceDept)), "Police", ""),
             ("hospital", Action::Tool(Some(Tool::Hospital)), "Hospital", ""),
             ("education", Action::Tool(Some(Tool::School)), "School", ""),
+            ("high_school", Action::Tool(Some(Tool::HighSchool)), "High school", ""),
+            ("university", Action::Tool(Some(Tool::University)), "University", ""),
         ],
         true,
     ),
@@ -279,7 +281,7 @@ const GROUPS: &[Group] = &[
     ("Tools", &[("bulldozer", Action::Tool(Some(Tool::Destroy)), "Bulldozer", "X"), ("query", Action::Query, "Inspect", "/")], false),
 ];
 
-/// Water, waste, buses and trams work only under GlassBox rules.
+/// Water, waste, buses, trams and higher schools work only under GlassBox rules.
 fn needs_rules(t: Tool) -> bool {
     matches!(
         t,
@@ -295,6 +297,8 @@ fn needs_rules(t: Tool) -> bool {
             | Tool::TramStop
             | Tool::MetroLine
             | Tool::MetroStation
+            | Tool::HighSchool
+            | Tool::University
     )
 }
 

@@ -2,6 +2,13 @@
 
 Release notes in full are on the [releases page](https://github.com/sirmmo/citysim/releases).
 
+## 0.2.54: High schools and universities
+- **High school** (4 × 3, $3,000): 7 research points a tick from 3 ideas, where a school makes 2 from 1, and education over a wider area. Unlocked by the new **Secondary education** project.
+- **University** (5 × 4, $8,000): 24 research points a tick from 8 ideas, with a staff of 40, and education for the whole town. Unlocked by **Higher education**, after Secondary education. It needs a town with cafés and restaurants enough to feed it ideas.
+- Both are in the Services menu with their own icons; the modern skin composes them from the Kenney city kits, the other skins get a generated school block and a campus with a clock tower.
+- **Before 1800:** the **Studium**, a university of masters and scholars (6 research points to the academy's 1.5), after the *Studium generale* project. No high school in those rules.
+- Map imports build a university from `amenity=university` and `college`; exports write them back.
+
 ## 0.2.53: Sensors and rush hours
 - **Sensors.** Inspect any tile and leave a sensor there (GlassBox rules). At a crossing it counts the trips driving past, in all and by what they carry (workers, shoppers, goods, cars…), along real road routes; on a building, what arrives and what leaves; anywhere, pollution, noise and the other maps. The inspector shows its readings, the GlassBox graphs plot them, and **Save CSV** writes one row per tick with the hour of day. **View > Sensors** lists them; they are saved with the city.
 - **Rush hours.** With day and night on, traffic follows the clock: people leave home around 8 and come back around 18, shoppers go out late in the morning and after work, deliveries run by day, rubbish is collected early, and the nights are quiet. The traffic roads show, traffic pollution and noise, and the vehicles on the map rise and fall with it. Over a day the traffic adds up to what it was, and how far people get still goes by the day's average: the economy runs every tick.

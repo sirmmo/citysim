@@ -58,6 +58,8 @@ fn tags(code: StructureCode, level: u8) -> Map<String, Value> {
         PoliceDept => ("police", &[("amenity", "police")]),
         Hospital => ("hospital", &[("amenity", "hospital")]),
         School => ("school", &[("amenity", "school")]),
+        HighSchool => ("high_school", &[("amenity", "school"), ("isced:level", "3")]),
+        University => ("university", &[("amenity", "university")]),
         Station => ("station", &[("railway", "station"), ("building", "train_station")]),
         Harbour => ("harbour", &[("landuse", "port"), ("harbour", "yes")]),
         WaterPipe => ("water_pipe", &[("man_made", "pipeline"), ("substance", "water")]),

@@ -80,6 +80,15 @@ cost = { research = 1200 }
 unlocks = ["hospital"]
 
 [[tech]]
+id = "studium"
+name = "Studium generale"
+description = "Masters and scholars form a university: research at four times an academy's pace."
+category = "Civic"
+tier = 2
+cost = { research = 1500 }
+unlocks = ["university"]
+
+[[tech]]
 id = "printing"
 name = "Printing"
 description = "Movable type: pamphlets in the taverns, books in the academy."

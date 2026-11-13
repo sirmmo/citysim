@@ -450,6 +450,8 @@ fire_station = "fire_station"
 police = "police_station"
 hospital = "hospital"
 school = "school"
+high_school = "high_school"
+university = "university"
 park = "park"
 station = "station"
 harbour = "harbour"
@@ -800,6 +802,27 @@ graphic = 390
 produce = { research = 2 }
 needs = { workers = 6, power = 3, upkeep = 0.4, ideas = 1 }
 emits = { education = { amount = 10.0, radius = 14 } }
+
+# Higher schools turn ideas into research faster, and get more out of each
+# idea: a school makes 2 points from 1 idea, a high school 7 from 3, a
+# university 24 from 8. They teach farther around, and cost more to run.
+[[unit]]
+id = "high_school"
+name = "High school"
+description = "Secondary schooling: three times a school's research, and education farther around."
+graphic = 391
+produce = { research = 7 }
+needs = { workers = 14, power = 6, upkeep = 0.9, ideas = 3 }
+emits = { education = { amount = 12.0, radius = 20 } }
+
+[[unit]]
+id = "university"
+name = "University"
+description = "Faculties, laboratories and a library: research at twelve times a school's pace, for a town with ideas enough to feed it."
+graphic = 392
+produce = { research = 24 }
+needs = { workers = 40, power = 16, upkeep = 2.6, ideas = 8 }
+emits = { education = { amount = 16.0, radius = 30 } }
 
 [[unit]]
 id = "station"
