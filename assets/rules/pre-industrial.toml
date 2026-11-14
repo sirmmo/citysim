@@ -46,6 +46,33 @@ unpaid = 0.15
 workers = "workers"
 homeless_leave = 0.003
 
+# What residents hold against whoever runs the town (see the modern rules).
+[[complaint]]
+name = "Smoke and dirt"
+layer = "pollution"
+above = 15
+points = 12
+advice = "Keep the workshops away from the houses."
+
+[[complaint]]
+name = "No well near"
+layer = "water"
+below = 1
+points = 8
+advice = "Dig a well within reach."
+
+[[complaint]]
+name = "Nobody to fight a fire"
+layer = "fire_safety"
+below = 1
+points = 6
+
+[[complaint]]
+name = "No watch"
+layer = "police_safety"
+below = 1
+points = 6
+
 [shifts]
 hours = [6, 18]
 spread = 1.0

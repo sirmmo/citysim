@@ -14,6 +14,7 @@ mod gpu;
 mod graphs;
 #[cfg(not(target_os = "android"))]
 mod network;
+mod news;
 #[cfg(not(target_os = "android"))]
 mod policies;
 mod region;
@@ -125,6 +126,9 @@ struct Args {
     /// Open the policy window (screenshots, docs).
     #[arg(long, hide = true)]
     show_policies: bool,
+    /// Open the news window (screenshots, docs).
+    #[arg(long, hide = true)]
+    show_news: bool,
     /// Set the hour of day (screenshots, docs).
     #[arg(long, hide = true)]
     at_hour: Option<f32>,
@@ -1553,6 +1557,10 @@ async fn main() -> Result<()> {
     #[cfg(not(target_os = "android"))]
     if let (true, Some(ui)) = (s.args.show_policies, game.egui.as_mut()) {
         ui.open_policies();
+    }
+    #[cfg(not(target_os = "android"))]
+    if let (true, Some(ui)) = (s.args.show_news, game.egui.as_mut()) {
+        ui.open_news();
     }
     if let Some(m) = s.args.month {
         game.city.date.month = m.clamp(1, 12);

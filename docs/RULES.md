@@ -211,6 +211,11 @@ landfill, recycling, incinerator ──rubbish collection──▶ level 3 build
   from one tick to the next: `homeless_leave` is the share that leaves town
   each tick. Both
   rule sets have it.
+- `[[complaint]]` lists what residents hold against the mayor: a `layer`
+  `above` or `below` a value where they live, a `name` as they would put
+  it, the `points` of approval it costs when every resident lives with it,
+  and optionally `advice` for the news window. The share is counted over
+  homes by the people each houses.
 - `water_pollution` is an ordinary map layer: units emit into it (a
   negative amount cleans, as the reed bed does), pumping stations
   `require` it under 8, and the script (`glassbox.gbx`) takes land value

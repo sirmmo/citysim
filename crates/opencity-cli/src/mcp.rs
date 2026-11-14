@@ -342,6 +342,14 @@ impl Server {
                     })).collect::<Vec<_>>(),
                 }))
             }
+            "news" => {
+                let city = self.city()?;
+                Ok(json!({
+                    "advice": city.advice().into_iter().map(|a| json!({ "text": a.text, "at": a.at })).collect::<Vec<_>>(),
+                    "complaints": city.complaints().into_iter().map(|c| json!({ "name": c.name, "share_of_residents": c.share, "points": c.points, "worst_at": c.at })).collect::<Vec<_>>(),
+                    "news": city.news.iter().map(|n| json!({ "date": n.date.to_string(), "text": n.text })).collect::<Vec<_>>(),
+                }))
+            }
             "mayor" => {
                 let city = self.city()?;
                 if let Some(on) = a.get("elections").and_then(Value::as_bool) {
@@ -565,6 +573,7 @@ fn tools() -> Value {
             "funding": { "type": "object", "additionalProperties": { "type": "number" } }, "borrow": { "type": "integer", "minimum": 1 }
         }), &[]),
         tool("goals", "The scenario's goals: how far each has come, deadlines, and whether the game is won or lost.", json!({}), &[]),
+        tool("news", "What needs the mayor now (`advice`: shortages, joblessness, the homeless, complaints, debt, a coming vote; some with the tile where it is worst), what residents complain about where they live (`complaints`: share of residents and the approval points each costs), and the city's news so far, oldest first.", json!({}), &[]),
         tool("mayor", "The mayor's approval rating (0..1): the points out of 100 that make it (needs met, debt, people leaving, disasters, the family), where it is heading, and the vote. Under `voted_out_below` for 12 months in a row, a city of `voters_needed` people or more votes the mayor out: time then stands still and tools are refused until `stay` is `again` (a new term from 50%) or `for_life` (no more votes). `elections` switches the votes on or off.", json!({
             "elections": { "type": "boolean" }, "stay": { "type": "string", "enum": ["again", "for_life"] }
         }), &[]),

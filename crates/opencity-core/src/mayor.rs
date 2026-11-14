@@ -22,6 +22,45 @@ pub const OUST_MONTHS: u8 = 12;
 /// Smaller places than this have no vote.
 pub const VOTERS: u32 = 500;
 
+/// News kept for the player to read again.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct News {
+    pub date: Date,
+    pub text: String,
+}
+
+/// News the city keeps.
+pub const NEWS_KEPT: usize = 80;
+
+/// Something residents complain about, as it stands now.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Complaint {
+    pub name: String,
+    /// Share of residents living with it, 0..1.
+    pub share: f32,
+    /// Approval it costs now, in points out of 100.
+    pub points: f32,
+    /// The home that has it worst.
+    pub at: Option<(u32, u32)>,
+    pub advice: String,
+}
+
+/// Something the mayor should look at.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Advice {
+    pub text: String,
+    /// A place to look, when there is one.
+    pub at: Option<(u32, u32)>,
+}
+
+pub(crate) fn buildings(n: u32) -> String {
+    if n == 1 {
+        "1 building".to_string()
+    } else {
+        format!("{n} buildings")
+    }
+}
+
 /// The mayor's standing (saved with the city).
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
@@ -108,6 +147,9 @@ impl City {
             let share = gb.homeless / (self.population as f32 + gb.homeless);
             v.push(("People without a home".to_string(), -(share * 200.0).min(20.0)));
         }
+        for c in self.complaints().into_iter().filter(|c| c.points >= 0.5) {
+            v.push((format!("{} ({:.0}% of residents)", c.name, c.share * 100.0), -c.points));
+        }
         if self.mayor.shock >= 0.5 {
             v.push(("Recent disasters".to_string(), -self.mayor.shock));
         }
@@ -120,6 +162,143 @@ impl City {
     /// The most people the city had at a month's end these last three years.
     fn best_of_late(&self) -> u32 {
         self.mayor.past.iter().copied().max().unwrap_or(0)
+    }
+
+    /// What residents complain about where they live (the rules'
+    /// `[[complaint]]`s), each with the share of residents living with it.
+    pub fn complaints(&self) -> Vec<Complaint> {
+        let (Some(gb), Some(rules)) = (&self.glassbox, self.rules()) else { return Vec::new() };
+        if rules.complaints.is_empty() {
+            return Vec::new();
+        }
+        let width = self.width();
+        let pop = rules.population.as_deref();
+        let homes: Vec<((u32, u32), f32)> = self
+            .layer
+            .structures()
+            .filter(|(_, s)| s.code == StructureCode::Residential)
+            .filter_map(|(p, s)| {
+                let def = rules.units.get(s.unit? as usize)?;
+                Some((p, pop.and_then(|r| def.produce.get(r)).copied().unwrap_or(1.0)))
+            })
+            .collect();
+        let all: f32 = homes.iter().map(|(_, n)| n).sum();
+        if all <= 0.0 {
+            return Vec::new();
+        }
+        rules
+            .complaints
+            .iter()
+            .filter_map(|c| {
+                let li = rules.layer(&c.layer)?;
+                // How far past the line a home is; the worst one is shown.
+                let (mut with, mut worst) = (0.0f32, None::<(f32, (u32, u32))>);
+                for (p, n) in &homes {
+                    let v = gb.layer_value(li, p.0, p.1, width);
+                    let past = c.above.map(|a| v - a).or(c.below.map(|b| b - v)).unwrap_or(0.0);
+                    if past > 0.0 {
+                        with += n;
+                        if worst.is_none_or(|(w, _)| past > w) {
+                            worst = Some((past, *p));
+                        }
+                    }
+                }
+                let share = with / all;
+                Some(Complaint { name: c.name.clone(), share, points: share * c.points, at: worst.map(|(_, p)| p), advice: c.advice.clone() })
+            })
+            .collect()
+    }
+
+    /// What the mayor should look at now, most pressing first.
+    pub fn advice(&self) -> Vec<Advice> {
+        let mut v = Vec::new();
+        let mut say = |text: String, at: Option<(u32, u32)>| v.push(Advice { text, at });
+        if self.ousted() {
+            say("You have been voted out of office.".into(), None);
+        } else if let Some(left) = self.mayor.months_left() {
+            say(
+                format!(
+                    "Approval is at {:.0}%: the council votes you out in {left} months unless it is back above {:.0}%.",
+                    self.mayor.approval * 100.0,
+                    OUST_BELOW * 100.0
+                ),
+                None,
+            );
+        }
+        if self.fund < 0 {
+            say("The city is in debt: nothing can be built. Raise taxes, cut funding or take a loan (Budget).".into(), None);
+        }
+        if let Some(m) = &self.mafia {
+            say(format!("The family is in town (hold {:.0}%): police stations drive them out.", m.heat * 100.0 / 3.0), None);
+        }
+        if let (Some(gb), Some(rules)) = (&self.glassbox, self.rules()) {
+            use crate::rules::Transport;
+            let b = &gb.balances;
+            for (i, r) in rules.resources.iter().enumerate() {
+                if matches!(r.transport, Transport::City | Transport::Pool | Transport::Local) || r.parent.is_some() {
+                    continue;
+                }
+                let (got, missing) = (b.delivered.get(i).copied().unwrap_or(0.0), b.unmet.get(i).copied().unwrap_or(0.0));
+                let wanted = got + missing;
+                if wanted >= 5.0 && missing > wanted * 0.15 {
+                    say(format!("{} short: {got:.0} of {wanted:.0} wanted are delivered.", r.name), None);
+                }
+            }
+            if rules.people.is_some() {
+                if gb.jobless > 0.1 {
+                    say(format!("{:.0}% of workers have no job: zone works and shops, or crime follows.", gb.jobless * 100.0), None);
+                }
+                if gb.homeless >= 5.0 {
+                    say(format!("{:.0} people have no home: zone homes where there is room, or they leave.", gb.homeless), None);
+                }
+            }
+            let mut complaints = self.complaints();
+            complaints.sort_by(|a, b| b.points.total_cmp(&a.points));
+            for c in complaints.into_iter().filter(|c| c.share >= 0.15) {
+                let advice = if c.advice.is_empty() { String::new() } else { format!(" {}", c.advice) };
+                say(format!("{}: {:.0}% of residents live with it.{advice}", c.name, c.share * 100.0), c.at);
+            }
+            // Plants that can fail, run on too little.
+            for d in rules.disasters.iter().filter(|d| d.source.is_some()) {
+                let id = d.source.as_deref().unwrap();
+                let Some(u) = rules.unit(id) else { continue };
+                let at = self.layer.structures().find(|(_, s)| s.unit == Some(u as u16)).map(|(p, _)| p);
+                if at.is_some() && gb.funding_of(id) < 0.95 {
+                    say(
+                        format!("The {} runs on {:.0}% of its budget: an accident is likelier.", rules.units[u].name.to_lowercase(), gb.funding_of(id) * 100.0),
+                        at,
+                    );
+                }
+            }
+            if let Some((z, d)) = rules.zones.iter().zip(&gb.demand).max_by(|a, b| a.1.total_cmp(b.1)).filter(|(_, d)| **d > 25.0) {
+                say(format!("{} land is wanted (demand {d:.0}): zone more of it.", z.name), None);
+            }
+        } else if self.values.power < 0 {
+            say("Power is short: build another plant.".into(), None);
+        }
+        v
+    }
+
+    /// Keeps a line of news for the player to read again.
+    pub fn report(&mut self, text: String) {
+        // Said twice (by hand and by the day's round): kept once.
+        if self.news.iter().rev().take(3).any(|n| n.date == self.date && n.text == text) {
+            return;
+        }
+        self.news.push_back(News { date: self.date, text });
+        while self.news.len() > NEWS_KEPT {
+            self.news.pop_front();
+        }
+    }
+
+    /// Files what was said since `(messages, notices)` were this long.
+    pub(crate) fn keep_news(&mut self, since: (usize, usize)) {
+        let said: Vec<String> = self.messages.iter().skip(since.0).cloned().collect();
+        let struck: Vec<String> =
+            self.notices.iter().skip(since.1).map(|e| format!("{} at {}, {}: {} hit.", e.name, e.at.0, e.at.1, buildings(e.hit))).collect();
+        for text in struck.into_iter().chain(said) {
+            self.report(text);
+        }
     }
 
     /// Where the approval rating is heading, 0..1.

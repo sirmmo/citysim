@@ -278,6 +278,9 @@ pub struct City {
     /// Cousin Vinnie's family, once called (see [`City::cheat`]).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub mafia: Option<Mafia>,
+    /// The city's news, oldest first: what was said to the player, kept.
+    #[serde(default, skip_serializing_if = "VecDeque::is_empty")]
+    pub news: VecDeque<crate::mayor::News>,
     /// The mayor's approval rating and the vote that can end the term.
     #[serde(default)]
     pub mayor: crate::mayor::Mayor,
@@ -328,6 +331,7 @@ impl City {
             border_links: Vec::new(),
             mafia: None,
             mayor: Default::default(),
+            news: VecDeque::new(),
             ledger: BTreeMap::new(),
             last_ledger: BTreeMap::new(),
             loans: Vec::new(),
@@ -587,6 +591,7 @@ impl City {
             return;
         }
         self.vehicles.retain_mut(|v| v.advance(dt as f32));
+        let said = (self.messages.len(), self.notices.len());
         self.clocked = true;
         self.sim_clock_ms += dt;
         while self.sim_clock_ms >= self.sim_interval_ms() {
@@ -598,6 +603,7 @@ impl City {
             self.day_clock_ms -= MS_PER_DAY;
             self.next_day();
         }
+        self.keep_news(said);
     }
 
     /// One round of every micro-simulator.
@@ -904,6 +910,7 @@ impl City {
         let e = gb.strike(id, None, &mut self.layer, &self.terrain, &self.footprints, &mut self.rng);
         self.glassbox = Some(gb);
         if let Some(e) = &e {
+            self.report(format!("{} at {}, {}: {} hit.", e.name, e.at.0, e.at.1, crate::mayor::buildings(e.hit)));
             self.shaken(e);
             self.respond_to_disasters();
             self.notices.push(e.clone());

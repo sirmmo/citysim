@@ -50,6 +50,79 @@ unpaid = 0.15
 workers = "workers"
 homeless_leave = 0.003
 
+# What residents hold against the mayor: a map layer too high (`above`) or
+# too low (`below`) where they live. Each costs its `points` of approval
+# times the share of residents living with it.
+[[complaint]]
+name = "Crime"
+layer = "crime"
+above = 4
+points = 20
+advice = "Jobs bring it down for good, a police station at once."
+
+[[complaint]]
+name = "Smoke from works and plants"
+layer = "pollution"
+above = 20
+points = 12
+advice = "Keep industry and power plants away from homes, or downwind parks between."
+
+[[complaint]]
+name = "Dirty air from traffic"
+layer = "AirQuality.pm10"
+above = 12
+points = 10
+advice = "Trams, buses and the Vehicles policy take cars off the streets."
+
+[[complaint]]
+name = "Noise"
+layer = "Noise.level"
+above = 14
+points = 8
+advice = "Busy roads, airports and amusement parks are loud: give homes some distance."
+
+[[complaint]]
+name = "Dirty ground water"
+layer = "water_pollution"
+above = 8
+points = 10
+advice = "Treat the sewage, and keep landfills and heavy industry away."
+
+[[complaint]]
+name = "Radiation"
+layer = "radiation"
+above = 1
+points = 20
+advice = "It fades in time; nothing else helps."
+
+[[complaint]]
+name = "No fire station near"
+layer = "fire_safety"
+below = 1
+points = 6
+advice = "Fire stations cover the streets their trucks can drive."
+
+[[complaint]]
+name = "No police near"
+layer = "police_safety"
+below = 1
+points = 6
+advice = "Police stations cover the streets their cars can drive."
+
+[[complaint]]
+name = "No hospital near"
+layer = "health"
+below = 1
+points = 6
+advice = "Hospitals cover the streets their ambulances can drive."
+
+[[complaint]]
+name = "No school near"
+layer = "education"
+below = 1
+points = 5
+advice = "Build a school within reach."
+
 [shifts]
 hours = [6, 14, 22]
 spread = 1.0

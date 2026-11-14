@@ -583,6 +583,12 @@ mayor. Hover it to see what makes it up, in points out of 100.
   more. High taxes, unpopular policies and unpaid clerks lower it, as does
   land unfit to live on. Under classic rules it is the share of zones with
   power instead.
+- **Complaints:** what residents live with at home. Each costs its points
+  times the share of residents living with it:
+  - crime (20), radiation (20);
+  - smoke from works and plants (12), dirty air from traffic (10), dirty
+    ground water (10), noise (8);
+  - no fire station, police or hospital within reach (6 each), no school (5).
 - **Debt:** 10 points off while the city's money is below zero.
 - **People leaving:** up to 40 points off when the city has lost more than
   one in twenty of the people it had at its best in the last three years.
@@ -612,6 +618,26 @@ a few months to show and a few months to be forgiven.
 
 The MCP server has a `mayor` tool with the rating, its parts and the vote.
 The command line's `simulate` runs without votes unless given `--elections`.
+
+## News and advice
+
+The **📰 News** button in the City panel opens the news window; the number on
+it is how many things need you.
+
+- **What needs you now**, most pressing first:
+  - a coming vote, debt, the family;
+  - resources running short (power, water, goods…);
+  - people out of work or without a home;
+  - complaints shared by more than one resident in seven, each with a
+    **Show** button that takes you to the home that has it worst, and a
+    line on what helps;
+  - a plant that can fail running on a cut budget;
+  - a zone in high demand.
+- **News:** the last 80 things the game told you, with their dates, newest
+  first: disasters, discoveries, the council's warnings, the family's
+  visits. It is saved with the city.
+
+The MCP server has a `news` tool with the same lists.
 
 ## Cheats
 

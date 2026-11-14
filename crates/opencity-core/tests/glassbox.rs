@@ -2120,7 +2120,7 @@ fn a_badly_run_city_votes_its_mayor_out() {
     years(&mut c, 2);
     eprintln!("well run: pop {} approval {:.2} {:?}", c.population, c.mayor.approval, c.approval_factors());
     assert!(c.population >= 500, "a city big enough to vote: {}", c.population);
-    assert!(c.mayor.approval > 0.5 && !c.ousted(), "a city that works likes its mayor: {}", c.mayor.approval);
+    assert!(c.mayor.approval > 0.4 && !c.ousted(), "a city that works, even with no services, keeps its mayor: {}", c.mayor.approval);
     assert_eq!(c.goal_value("approval") as f32, c.mayor.approval * 100.0);
     // The power plant goes, and taxes go up as far as they can.
     let plant = c.layer.structures().find(|(_, s)| s.code == StructureCode::CoalPlant).map(|(p, _)| p).unwrap();
@@ -2216,4 +2216,47 @@ fn the_jobless_turn_to_crime_and_the_homeless_wait_for_room() {
     let later = c.glassbox.as_ref().unwrap().homeless;
     eprintln!("later {later:.1}");
     assert!(later < out * 0.6, "they find room or leave: {later} of {out}");
+}
+
+#[test]
+fn residents_complain_and_the_news_is_kept() {
+    let r = rules();
+    let mut c = City::new(Terrain::flat(64, 48), None, Footprints::builtin(), 11);
+    c.use_rules(r.clone());
+    c.fund = 1_000_000;
+    c.research_all();
+    c.glassbox.as_mut().unwrap().disasters_off = true;
+    assert!(c.complaints().is_empty() && c.news.is_empty(), "nobody lives here yet");
+    c.apply_tool(Tool::CoalPlant, (40, 2), (40, 2)).unwrap();
+    for l in [8, 12, 16, 20] {
+        c.apply_tool(Tool::Road, (2, l), (60, l)).unwrap();
+    }
+    c.apply_tool(Tool::Road, (45, 2), (45, 20)).unwrap();
+    c.apply_tool(Tool::ZoneResidential, (2, 9), (60, 11)).unwrap();
+    c.apply_tool(Tool::ZoneIndustrial, (2, 13), (60, 15)).unwrap();
+    c.apply_tool(Tool::ZoneCommercial, (2, 17), (60, 19)).unwrap();
+    for _ in 0..300 {
+        c.simulate_round();
+    }
+    let of = |c: &City, name: &str| c.complaints().into_iter().find(|x| x.name == name).unwrap();
+    let fire = of(&c, "No fire station near");
+    assert!(fire.share > 0.99 && fire.at.is_some(), "no fire station anywhere: {fire:?}");
+    assert_eq!(fire.points, 6.0);
+    let before = c.approval_target();
+    assert!(c.approval_factors().iter().any(|(what, p)| what.starts_with("No fire station near") && *p == -6.0));
+    assert!(c.advice().iter().any(|a| a.text.starts_with("No fire station near") && a.at == fire.at));
+    // A fire station on the homes' street: those it reaches stop complaining.
+    c.apply_tool(Tool::FireDept, (20, 5), (20, 5)).unwrap();
+    for _ in 0..30 {
+        c.simulate_round();
+    }
+    let fire = of(&c, "No fire station near");
+    assert!(fire.share < 0.85, "the station covers part of town: {}", fire.share);
+    assert!(c.approval_target() > before, "and the mayor is liked better for it");
+    // What happens is kept as news, once.
+    let e = c.strike("fire").expect("a fire");
+    assert_eq!(c.news.len(), 1);
+    assert!(c.news[0].text.starts_with(&e.name), "{:?}", c.news);
+    c.update(opencity_core::city::MS_PER_DAY);
+    assert_eq!(c.news.iter().filter(|n| n.text.starts_with(&e.name)).count(), 1, "{:?}", c.news);
 }

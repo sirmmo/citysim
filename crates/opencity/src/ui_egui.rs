@@ -162,6 +162,7 @@ pub struct EguiUi {
     show_policies: bool,
     show_region: bool,
     show_budget: bool,
+    show_news: bool,
     show_goals: bool,
     day_night: bool,
     /// Scenarios offered in File > New scenario… (loaded when it opens).
@@ -382,6 +383,7 @@ impl EguiUi {
             show_policies: false,
             show_region: false,
             show_budget: false,
+            show_news: false,
             show_goals: false,
             day_night: true,
             scenarios: Vec::new(),
@@ -485,6 +487,10 @@ impl EguiUi {
         self.show_region = true;
     }
 
+    pub fn open_news(&mut self) {
+        self.show_news = true;
+    }
+
     pub fn open_policies(&mut self) {
         self.show_policies = true;
     }
@@ -531,6 +537,9 @@ impl EguiUi {
         }
         if self.show_goals {
             crate::goalsui::window(ctx, &mut self.show_goals, view.city);
+        }
+        if self.show_news {
+            crate::news::window(ctx, &mut self.show_news, view.city, &mut out);
         }
         if self.show_budget {
             crate::budget::window(ctx, &mut self.show_budget, view.city, &mut out);
@@ -1019,6 +1028,11 @@ impl EguiUi {
                     }
                     if ui.button("💰 Budget").on_hover_text("Money by line, service funding and loans").clicked() {
                         self.show_budget = !self.show_budget;
+                    }
+                    let n = view.city.advice().len();
+                    let news = if n > 0 { format!("📰 News ({n})") } else { "📰 News".to_string() };
+                    if ui.button(news).on_hover_text("What needs you now, and the news so far").clicked() {
+                        self.show_news = !self.show_news;
                     }
                     if view.region.is_some() && ui.button("🗺 Region").on_hover_text("The region's cities and this month's trade").clicked() {
                         self.show_region = !self.show_region;

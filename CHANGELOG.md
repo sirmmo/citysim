@@ -2,6 +2,14 @@
 
 Release notes in full are on the [releases page](https://github.com/sirmmo/citysim/releases).
 
+## 0.2.67: Complaints, news and advice
+- **Complaints reach the mayor.** Approval now loses points for what residents live with at home: crime and radiation (up to 20 each), smoke from works and plants (12), dirty air from traffic (10), dirty ground water (10), noise (8), and no fire station, police or hospital (6 each) or school (5) within reach. Each counts by the share of residents living with it. A town that meets every need but has no services now sits near 75%, not 98%.
+- **News and advice**, a new window behind the 📰 News button in the City panel. The top lists what needs you now: a coming vote, debt, shortages, people out of work or without a home, complaints shared by many (with a Show button to the home that has it worst and a line on what helps), a nuclear plant on a cut budget, a zone in high demand.
+- **The news is kept:** the last 80 things the game told you, with their dates, saved with the city.
+- The MCP server has a `news` tool with the advice, the complaints and the news.
+- For rules authors: `[[complaint]]` (a layer above or below a value, a name, points, advice). Both rule sets have a list.
+- Cities saved earlier lose approval gradually if they lack services; the vote still needs 12 months under 30%.
+
 ## 0.2.66: Jobs, homes and crime
 - **Crime**, a new data layer (modern rules). It rises where people with no job live, and everywhere while the family is in town. Shops and the better homes lose half their satisfaction where it is above 6, and land loses value above 4.
 - **Police stations bring crime down** along the streets their cars can reach, most of all close by.

@@ -680,6 +680,9 @@ pub struct Ruleset {
     /// Disasters (`[[disaster]]`).
     #[serde(default, rename = "disaster", skip_serializing_if = "Vec::is_empty")]
     pub disasters: Vec<DisasterDef>,
+    /// What residents hold against the mayor (`[[complaint]]`).
+    #[serde(default, rename = "complaint", skip_serializing_if = "Vec::is_empty")]
+    pub complaints: Vec<ComplaintDef>,
     /// Running the city (`[administration]`): a cost per head that grows
     /// with the population.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -690,6 +693,28 @@ pub struct Ruleset {
     /// Shift changes of the units that work round the clock (`[shifts]`).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub shifts: Option<ShiftsDef>,
+}
+
+/// Something residents complain about (`[[complaint]]`): a map layer too
+/// high or too low where they live. It costs the mayor `points` of approval
+/// (out of 100) times the share of residents living with it.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ComplaintDef {
+    /// How residents put it ("Dirty air").
+    pub name: String,
+    pub layer: String,
+    /// They complain where the layer is above this…
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub above: Option<f32>,
+    /// …or below this (coverage).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub below: Option<f32>,
+    /// Approval lost when every resident lives with it.
+    pub points: f32,
+    /// What to do about it, for the advice list.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub advice: String,
 }
 
 /// People without a job or a home (`[people]`). The jobless are those of
@@ -1244,6 +1269,14 @@ impl Ruleset {
         for z in &self.zones {
             if !(0.0..=1.0).contains(&z.round_the_clock) {
                 return err(format!("zone {}: round_the_clock is a share, 0 to 1", z.id));
+            }
+        }
+        for c in &self.complaints {
+            if self.layer(&c.layer).is_none() {
+                return err(format!("complaint {}: unknown layer {}", c.name, c.layer));
+            }
+            if c.above.is_some() == c.below.is_some() {
+                return err(format!("complaint {}: give either above or below", c.name));
             }
         }
         if let Some(p) = &self.people {
