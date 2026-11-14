@@ -831,6 +831,8 @@ impl Renderer {
                 StructureCode::PumpingStation => (Color::new(0.25, 0.60, 1.0, 1.0), water),
                 StructureCode::WaterTower => (Color::new(0.35, 0.90, 1.0, 1.0), water),
                 StructureCode::WaterTreatment => (Color::new(0.35, 0.90, 0.55, 1.0), water),
+                StructureCode::Waterworks => (Color::new(0.25, 0.60, 1.0, 1.0), water),
+                StructureCode::SewageOutfall => (Color::new(0.70, 0.55, 0.30, 1.0), water),
                 _ => continue,
             };
             if !shown {

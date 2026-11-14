@@ -2021,6 +2021,21 @@ impl GlassBox {
                 emit(&mut self.layers[li], width, length, cx, cz, e.amount * eff, rad);
             }
         }
+        // Spills: what a need left unmet leaves on the map at the building
+        // (sewage with no treatment plant on its mains).
+        for (n, (p, _, r)) in units.iter().enumerate() {
+            for (ri, v) in need[n].iter().copied().enumerate().filter(|(ri, v)| *v > 0.0 && !rules.resources[*ri].spill.is_empty()) {
+                let missing = (v - self.units[&idx(p.0, p.1)].received[ri]).max(0.0);
+                if missing <= 0.0 {
+                    continue;
+                }
+                let (cx, cz) = ((r.w1 + r.w2) as f32 / 2.0, (r.l1 + r.l2) as f32 / 2.0);
+                let rad = 1 + (r.w2 - r.w1).max(r.l2 - r.l1).div_ceil(2);
+                for (l, a) in &rules.resources[ri].spill {
+                    emit(&mut self.layers[rules.layer(l).unwrap()], width, length, cx, cz, a * missing, rad);
+                }
+            }
+        }
         // Agent rules: emissions along the routes of this tick's trips, less
         // (or more) of them under some policy stances.
         let traffic = self.traffic_factors(&rules);

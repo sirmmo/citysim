@@ -63,6 +63,30 @@ unitRule skyscraperComfort
     appliesTo tower_3
     map AirQuality.pm10 atMost 15
     map Noise.level atMost 20
+    map water_pollution atMost 10
+end
+
+# --- Water: the better homes want clean ground water, and land over dirty -
+# water loses value.
+unitRule familyHouseWater
+    appliesTo house_3
+    map water_pollution atMost 10
+end
+
+unitRule apartmentBlockWater
+    appliesTo townhouse_3
+    map water_pollution atMost 10
+end
+
+unitRule highRiseWater
+    appliesTo tower_2
+    map water_pollution atMost 10
+end
+
+mapRule dirtyWaterValue
+    rate 10
+    map water_pollution atLeast 5
+    map land_value in 0.5
 end
 
 # --- Zones: clean neighbourhoods attract family houses directly, while ----

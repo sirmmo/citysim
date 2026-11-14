@@ -1097,7 +1097,14 @@ impl Game {
             || matches!(
                 self.active,
                 Some(Action::Tool(Some(
-                    Tool::WaterPipe | Tool::PumpingStation | Tool::WaterTower | Tool::WaterTreatment | Tool::MetroLine | Tool::MetroStation
+                    Tool::WaterPipe
+                        | Tool::PumpingStation
+                        | Tool::WaterTower
+                        | Tool::WaterTreatment
+                        | Tool::Waterworks
+                        | Tool::SewageOutfall
+                        | Tool::MetroLine
+                        | Tool::MetroStation
                 )))
             )
     }
@@ -1360,7 +1367,9 @@ impl Game {
             set_camera(&cam);
             let focus = match self.active {
                 Some(Action::Tool(Some(Tool::MetroLine | Tool::MetroStation))) => render::Underground::Metro,
-                Some(Action::Tool(Some(Tool::WaterPipe | Tool::PumpingStation | Tool::WaterTower | Tool::WaterTreatment))) => render::Underground::Water,
+                Some(Action::Tool(Some(
+                    Tool::WaterPipe | Tool::PumpingStation | Tool::WaterTower | Tool::WaterTreatment | Tool::Waterworks | Tool::SewageOutfall,
+                ))) => render::Underground::Water,
                 _ => render::Underground::All,
             };
             self.renderer.draw_pipes(&self.city, focus);

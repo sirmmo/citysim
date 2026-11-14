@@ -77,6 +77,12 @@ pub enum StructureCode {
     FusionPlant = 63,
     /// Wind turbine: a little clean power from one tile, more when the weather is rough.
     WindTurbine = 64,
+    /// Waterworks: filters what it draws; clean water from any ground.
+    Waterworks = 65,
+    /// Sewage outfall: lets the sewage of its mains out untreated.
+    SewageOutfall = 66,
+    /// Reed bed: a planted pond that cleans the ground water around it.
+    Wetland = 67,
 }
 
 impl StructureCode {
@@ -127,6 +133,9 @@ impl StructureCode {
             62 => SolarPlant,
             63 => FusionPlant,
             64 => WindTurbine,
+            65 => Waterworks,
+            66 => SewageOutfall,
+            67 => Wetland,
             _ => return None,
         })
     }
@@ -155,7 +164,18 @@ impl StructureCode {
 
     /// Water and waste buildings.
     pub const fn is_utility(self) -> bool {
-        matches!(self, Self::PumpingStation | Self::WaterTower | Self::WaterTreatment | Self::Dump | Self::Recycling | Self::Incinerator)
+        matches!(
+            self,
+            Self::PumpingStation
+                | Self::WaterTower
+                | Self::WaterTreatment
+                | Self::Dump
+                | Self::Recycling
+                | Self::Incinerator
+                | Self::Waterworks
+                | Self::SewageOutfall
+                | Self::Wetland
+        )
     }
 
     /// Bus and tram stops.
@@ -217,6 +237,9 @@ impl StructureCode {
             SolarPlant => GraphicCode::EPLANT_SOLAR,
             FusionPlant => GraphicCode::EPLANT_FUSION,
             WindTurbine => GraphicCode::EPLANT_WIND,
+            Waterworks => GraphicCode::WATERWORKS,
+            SewageOutfall => GraphicCode::SEWAGE_OUTFALL,
+            Wetland => GraphicCode::WETLAND,
         }
     }
 
@@ -228,7 +251,7 @@ impl StructureCode {
             Industrial => StructureType::Industry,
             CoalPlant | NuclearPlant | SolarPlant | FusionPlant | WindTurbine => StructureType::Electricity,
             Road | PowerLine | WaterPipe => StructureType::Path,
-            PumpingStation | WaterTower | WaterTreatment => StructureType::Water,
+            PumpingStation | WaterTower | WaterTreatment | Waterworks | SewageOutfall | Wetland => StructureType::Water,
             Dump | Recycling | Incinerator | BusStop | TramStop | MetroStation | Airport | Seaport => StructureType::Government,
             FireDept | PoliceDept | Hospital | School | HighSchool | University | Station | Harbour => StructureType::Government,
             Stadium | Mall | Museum | ModernArtMuseum | OperaHouse | ArchaeologyMuseum => StructureType::Government,
@@ -273,6 +296,9 @@ impl StructureCode {
             SolarPlant => 1800,
             FusionPlant => 40000,
             WindTurbine => 600,
+            Waterworks => 2600,
+            SewageOutfall => 300,
+            Wetland => 400,
             Test | Part => 0,
         }
     }
@@ -311,6 +337,9 @@ impl StructureCode {
             SolarPlant => 5,
             FusionPlant => 200,
             WindTurbine => 2,
+            Waterworks => 20,
+            SewageOutfall => 2,
+            Wetland => 2,
         }
     }
 
@@ -340,6 +369,9 @@ impl StructureCode {
             SolarPlant => 100,
             FusionPlant => 2000,
             WindTurbine => 40,
+            Waterworks => 200,
+            SewageOutfall => 50,
+            Wetland => 50,
             Test => 0,
         }
     }
@@ -381,6 +413,9 @@ impl GraphicCode {
     pub const EPLANT_NUCLEAR: Self = Self(303);
     pub const EPLANT_SOLAR: Self = Self(304);
     pub const EPLANT_FUSION: Self = Self(305);
+    pub const WETLAND: Self = Self(378);
+    pub const SEWAGE_OUTFALL: Self = Self(377);
+    pub const WATERWORKS: Self = Self(376);
     pub const EPLANT_WIND: Self = Self(306);
     pub const PARK0: Self = Self(320);
     pub const TREE_BEGIN: Self = Self(330);
@@ -694,10 +729,13 @@ pub enum Tool {
     SolarPlant,
     FusionPlant,
     WindTurbine,
+    Waterworks,
+    SewageOutfall,
+    Wetland,
 }
 
 impl Tool {
-    pub const ALL: [Tool; 49] = [
+    pub const ALL: [Tool; 52] = [
         Tool::Destroy,
         Tool::ZoneResidential,
         Tool::ZoneCommercial,
@@ -747,6 +785,9 @@ impl Tool {
         Tool::SolarPlant,
         Tool::FusionPlant,
         Tool::WindTurbine,
+        Tool::Waterworks,
+        Tool::SewageOutfall,
+        Tool::Wetland,
     ];
 
     /// Stable identifier, used by skins and GeoJSON rules.
@@ -801,6 +842,9 @@ impl Tool {
             Tool::SolarPlant => "solar_plant",
             Tool::FusionPlant => "fusion_plant",
             Tool::WindTurbine => "wind_turbine",
+            Tool::Waterworks => "waterworks",
+            Tool::SewageOutfall => "sewage_outfall",
+            Tool::Wetland => "wetland",
         }
     }
 
@@ -847,6 +891,9 @@ impl Tool {
             Tool::SolarPlant => S::SolarPlant,
             Tool::FusionPlant => S::FusionPlant,
             Tool::WindTurbine => S::WindTurbine,
+            Tool::Waterworks => S::Waterworks,
+            Tool::SewageOutfall => S::SewageOutfall,
+            Tool::Wetland => S::Wetland,
             // Metro tunnels run underground, under whatever stands there.
             Tool::Destroy | Tool::RaiseTerrain | Tool::LowerTerrain | Tool::Canal | Tool::MetroLine => return None,
         })

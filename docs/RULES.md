@@ -193,7 +193,14 @@ landfill, recycling, incinerator ──rubbish collection──▶ level 3 build
   connected buildings, like power. Pipes lie underground, so a tile can
   have a street (or a building) and a pipe at once; any network listing
   `water_pipe` runs along them.
-- `sewage` (sewage treatment) shares the water mains.
+- `sewage` (sewage treatment) shares the water mains. It has a `spill`:
+  what a need for a resource leaves on map layers at the building when it
+  is not met, per unit missing and tick (`spill = { water_pollution =
+  0.06 }`). Any resource can have one.
+- `water_pollution` is an ordinary map layer: units emit into it (a
+  negative amount cleans, as the reed bed does), pumping stations
+  `require` it under 8, and the script (`glassbox.gbx`) takes land value
+  where it is above 5 and asks the better homes for less than 10.
 - `waste` (rubbish collection) travels by road, at most 40 tiles, on
   rubbish trucks (`garbage_truck`, which carries only `waste`).
 - A building's need is its power need. Sewage and rubbish need half of it.
@@ -753,7 +760,7 @@ regional = true                      # paid for by the whole region (optional)
 
 | Tree | Branches and projects |
 |---|---|
-| `modern` (GlassBox) | Transport: Motorways (highway), Electric vehicles (the Vehicles policies). Economy: Service economy (+10% taxes, +30% ideas) or Industrial policy (+20% goods, +10% fuel); Computing (+25% research). Education: Secondary education (high school), Higher education (university). Housing: Steel-frame towers (High-rise, Slab tower, Skyscraper). Industry: Aeronautics (Aeronautics works). Power: Photovoltaics (solar farm), Wind power (wind turbine), Nuclear fission (nuclear plant), Nuclear fusion (fusion plant; region-wide, 120,000 points). Culture: Cultural institutions (archaeology museum, modern art museum, opera house), Mass entertainment (stadium, shopping mall) |
+| `modern` (GlassBox) | Transport: Motorways (highway), Electric vehicles (the Vehicles policies). Economy: Service economy (+10% taxes, +30% ideas) or Industrial policy (+20% goods, +10% fuel); Computing (+25% research). Education: Secondary education (high school), Higher education (university). Housing: Steel-frame towers (High-rise, Slab tower, Skyscraper). Industry: Aeronautics (Aeronautics works), Water purification (waterworks). Power: Photovoltaics (solar farm), Wind power (wind turbine), Nuclear fission (nuclear plant), Nuclear fusion (fusion plant; region-wide, 120,000 points). Culture: Cultural institutions (archaeology museum, modern art museum, opera house), Mass entertainment (stadium, shopping mall) |
 | `pre-industrial` | Streets: Paving (cobbled streets). Farming: Crop rotation (+20% food and fodder), Horse breeding (Stables). Charter: Free market (Market square, +15% taxes) or Guild charter (Craft hall, +20% goods). Housing: Masonry (Courtyard house, Insula block). Civic: Bathing & medicine (Bathhouse), Studium generale (Studium), Spectacles (Arena, Theatre), Printing (+30% ideas, +15% research). Trade: Banking (Merchants' exchange) |
 
 A school makes about 2 research points a tick, some 2,400 a year, so a

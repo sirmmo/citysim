@@ -139,6 +139,8 @@ name = "Sewage treatment"
 transport = "grid"
 network = "water"
 colour = [0.55, 0.45, 0.30]
+# Sewage nobody treats runs into the ground under the building.
+spill = { water_pollution = 0.06 }
 
 [[resource]]
 id = "waste"
@@ -427,6 +429,19 @@ colour = [0.75, 0.95, 0.2]
 max = 40.0
 uninhabitable = 4.0
 
+# Dirty water in the ground: untreated sewage, sewage outfalls, landfills
+# and heavy industry. Pumping stations give half their water above 8, land
+# loses value above 5, and the better homes want it under 10 (see the
+# script). It seeps to the tiles around and clears in a few months once
+# its source is gone; reed beds clean it.
+[[layer]]
+id = "water_pollution"
+name = "Water pollution"
+diffusion = 0.1
+decay = 0.03
+colour = [0.45, 0.35, 0.15]
+max = 25.0
+
 # ---------------------------------------------------------------- zones
 [[zone]]
 id = "residential"
@@ -502,6 +517,9 @@ seaport = "seaport"
 pumping_station = "pumping_station"
 water_tower = "water_tower"
 water_treatment = "water_treatment"
+waterworks = "waterworks"
+sewage_outfall = "sewage_outfall"
+wetland = "wetland"
 dump = "dump"
 recycling = "recycling"
 incinerator = "incinerator"
@@ -722,7 +740,7 @@ graphic = 32
 produce = { goods = 3, taxes = 0.06, fuel = 1.5 }
 needs = { workers = 3, power = 2, car = 1.5, water = 2 }
 sends = ["goods", "fuel"]
-emits = { pollution = { amount = 1.5, radius = 2 } }
+emits = { pollution = { amount = 1.5, radius = 2 }, water_pollution = { amount = 0.8, radius = 2 } }
 
 [[unit]]
 id = "workshop_3"
@@ -762,7 +780,7 @@ graphic = 36
 produce = { goods = 12, taxes = 0.24, fuel = 6 }
 needs = { workers = 10, power = 5, car = 5, water = 5, waste = 2.5, sewage = 2.5 }
 sends = ["goods", "fuel"]
-emits = { pollution = { amount = 4.0, radius = 3 } }
+emits = { pollution = { amount = 4.0, radius = 3 }, water_pollution = { amount = 1.0, radius = 3 } }
 requires = { fire_safety = { min = 1 } }
 
 [[unit]]
@@ -773,7 +791,7 @@ graphic = 37
 produce = { goods = 16, taxes = 0.3, fuel = 20 }
 needs = { workers = 14, power = 6, car = 7 }
 sends = ["goods", "fuel"]
-emits = { pollution = { amount = 5.0, radius = 4 } }
+emits = { pollution = { amount = 5.0, radius = 4 }, water_pollution = { amount = 2.0, radius = 4 } }
 
 [[unit]]
 id = "plant_2"
@@ -783,7 +801,7 @@ graphic = 38
 produce = { goods = 30, taxes = 0.6, fuel = 6 }
 needs = { workers = 25, power = 12, car = 12.5, water = 12, sewage = 6 }
 sends = ["goods", "fuel"]
-emits = { pollution = { amount = 8.0, radius = 5 } }
+emits = { pollution = { amount = 8.0, radius = 5 }, water_pollution = { amount = 2.5, radius = 4 } }
 requires = { fire_safety = { min = 1 } }
 
 [[unit]]
@@ -906,11 +924,11 @@ trade = { shoppers = 40, goods = 8 }
 [[unit]]
 id = "pumping_station"
 name = "Pumping station"
-description = "Pumps clean water into the mains; it needs clean ground around it."
+description = "Pumps ground water into the mains as it finds it: it needs clean air and clean ground water around it."
 graphic = 380
 produce = { water = 300 }
 needs = { workers = 4, power = 8, upkeep = 0.3 }
-requires = { pollution = { max = 30 } }
+requires = { pollution = { max = 30 }, water_pollution = { max = 8 } }
 
 [[unit]]
 id = "water_tower"
@@ -922,8 +940,8 @@ needs = { upkeep = 0.05 }
 
 [[unit]]
 id = "water_treatment"
-name = "Water treatment plant"
-description = "Cleans the sewage of the buildings on its mains."
+name = "Sewage treatment plant"
+description = "Cleans the sewage of the buildings on its mains, so that none of it reaches the ground water."
 graphic = 382
 produce = { sewage = 300 }
 needs = { workers = 8, power = 10, upkeep = 0.5 }
@@ -937,7 +955,7 @@ graphic = 383
 produce = { waste = 60 }
 sends = ["waste"]
 needs = { workers = 3, upkeep = 0.1 }
-emits = { pollution = { amount = 4.0, radius = 4 }, land_value = { amount = -2.0, radius = 5 } }
+emits = { pollution = { amount = 4.0, radius = 4 }, land_value = { amount = -2.0, radius = 5 }, water_pollution = { amount = 1.5, radius = 4 } }
 
 [[unit]]
 id = "recycling"
@@ -1081,3 +1099,32 @@ produce = { power = 25 }
 needs = { upkeep = 0.04 }
 follows = "wind"
 emits = { "Noise.level" = { amount = 2.0, radius = 2 } }
+
+# Clean water. What is not treated ends up in the ground water (the Water
+# pollution map): sewage with no treatment plant on its mains, what a sewage
+# outfall lets out, landfills and heavy industry. A pumping station on dirty
+# ground gives half its water; a waterworks filters whatever it draws.
+[[unit]]
+id = "waterworks"
+name = "Waterworks"
+description = "Settling basins, filters and chlorine: twice a pumping station's water, clean whatever the ground it stands on."
+graphic = 376
+produce = { water = 600 }
+needs = { workers = 8, power = 14, upkeep = 0.7 }
+
+[[unit]]
+id = "sewage_outfall"
+name = "Sewage outfall"
+description = "A pipe that lets the sewage of its mains out as it comes: no staff, no power, next to no money, and a ground water nobody should drink for ten tiles around."
+graphic = 377
+produce = { sewage = 200 }
+needs = { upkeep = 0.05 }
+emits = { water_pollution = { amount = 3.0, radius = 6 }, land_value = { amount = -2.0, radius = 4 } }
+
+[[unit]]
+id = "wetland"
+name = "Reed bed"
+description = "A pond planted with reeds that takes dirt out of the ground water around it, and is pleasant to walk by."
+graphic = 378
+needs = { upkeep = 0.05 }
+emits = { water_pollution = { amount = -2.5, radius = 5 }, land_value = { amount = 1.0, radius = 3 } }

@@ -785,6 +785,57 @@ def wind_turbine():
     return m
 
 
+def waterworks():
+    """A 3 x 3 waterworks: a brick filter hall at the back, two settling
+    basins and a white clear-water tank in front, a pump house by the street."""
+    m = Model()
+    m.box(CONCRETE, 0.0, 0.0, 0.0, 3.0, 0.03, 3.0)
+    m.box(BRICK, 0.2, 0.03, 0.2, 2.8, 0.6, 1.1)
+    m.roof(ROOF, 0.15, 0.15, 2.85, 1.15, 0.6, 0.86)
+    for x in (0.5, 1.1, 1.7, 2.3):
+        m.box(WATER, x, 0.25, 1.1, x + 0.25, 0.48, 1.105)
+    for cx in (0.62, 1.5):
+        m.cylinder(CONCRETE, cx, 2.05, 0.38, 0.03, 0.2, n=16, top=WATER)
+        m.box(STEEL, cx - 0.38, 0.2, 2.03, cx + 0.38, 0.24, 2.07)
+        m.cylinder(STEEL, cx, 2.05, 0.04, 0.2, 0.3, n=6)
+        m.pipe(PIPE, (cx, 0.12, 1.1), (cx, 0.12, 1.68), 0.05)
+    m.cylinder(WHITE, 2.38, 2.1, 0.46, 0.03, 0.78, n=16, top=STEEL)
+    m.cone(STEEL, 2.38, 2.1, 0.46, 0.78, 0.92)
+    m.pipe(PIPE, (2.38, 0.12, 1.1), (2.38, 0.12, 1.65), 0.05)
+    m.box(WHITE, 0.2, 0.03, 2.6, 0.75, 0.32, 2.9, top=DARK)
+    return m
+
+
+def sewage_outfall():
+    """A sewage outfall on one tile: a concrete headwall with a pipe, and
+    a brown pool in the grass in front of it."""
+    m = Model()
+    m.box(GRASS, 0.0, 0.0, 0.0, 1.0, 0.02, 1.0)
+    m.box(CONCRETE, 0.18, 0.02, 0.14, 0.82, 0.32, 0.3)
+    m.pipe(DARK, (0.5, 0.17, 0.3), (0.5, 0.17, 0.46), 0.1)
+    m.cylinder((0.42, 0.36, 0.22), 0.5, 0.66, 0.3, 0.02, 0.035, n=12)
+    m.cylinder((0.36, 0.30, 0.18), 0.5, 0.56, 0.12, 0.035, 0.04, n=8)
+    m.box(YELLOW, 0.72, 0.32, 0.2, 0.8, 0.44, 0.22)
+    return m
+
+
+def wetland():
+    """A 2 x 2 reed bed: two shallow ponds in the grass, ringed with reeds."""
+    m = Model()
+    m.box(GRASS, 0.0, 0.0, 0.0, 2.0, 0.02, 2.0)
+    m.cylinder(WATER, 0.8, 0.9, 0.6, 0.02, 0.035, n=14)
+    m.cylinder(WATER, 1.35, 1.25, 0.45, 0.02, 0.036, n=12)
+    reed, head = (0.36, 0.50, 0.22), (0.40, 0.28, 0.18)
+    for i in range(30):
+        a = i * 2.4
+        r = 0.5 + 0.3 * ((i * 7) % 5) / 5
+        x, z = 1.05 + 1.15 * r * math.cos(a), 1.05 + r * math.sin(a)
+        h = 0.22 + 0.1 * ((i * 3) % 4) / 4
+        m.box(reed, x - 0.012, 0.02, z - 0.012, x + 0.012, h, z + 0.012)
+        m.box(head, x - 0.02, h, z - 0.02, x + 0.02, h + 0.07, z + 0.02)
+    return m
+
+
 def icons():
     try:
         from PIL import Image, ImageDraw
@@ -834,6 +885,26 @@ def icons():
     d.ellipse((37, 35, 51, 49), fill=water)
     d.polygon([(40, 10), (46, 22), (34, 22)], fill=white)
     save_icon("water_treatment", im)
+    im, d = tile(blue)
+    d.ellipse((10, 30, 34, 54), fill=water, outline=ink)
+    d.rectangle((36, 22, 54, 54), fill=white, outline=ink)
+    d.polygon([(34, 22), (56, 22), (45, 12)], fill=(150, 160, 175), outline=ink)
+    d.polygon([(22, 8), (15, 22), (29, 22)], fill=water, outline=ink)
+    d.ellipse((15, 15, 29, 28), fill=water, outline=ink)
+    save_icon("water_works", im)
+    im, d = tile(blue)
+    d.rectangle((8, 16, 40, 32), fill=(150, 150, 150), outline=ink)
+    d.ellipse((34, 16, 46, 32), fill=(60, 60, 60), outline=ink)
+    for (x, y) in ((46, 36), (40, 46), (50, 50)):
+        d.polygon([(x, y - 7), (x - 4, y + 2), (x + 4, y + 2)], fill=(120, 85, 40))
+        d.ellipse((x - 4, y - 2, x + 4, y + 6), fill=(120, 85, 40))
+    save_icon("sewage_outfall", im)
+    im, d = tile(blue)
+    d.ellipse((6, 36, 58, 58), fill=water, outline=ink)
+    for x, h in ((16, 26), (24, 34), (32, 30), (40, 36), (48, 24)):
+        d.line((x, 48, x, 48 - h), fill=(40, 110, 50), width=2)
+        d.ellipse((x - 3, 48 - h - 8, x + 3, 48 - h + 2), fill=(110, 70, 40), outline=ink)
+    save_icon("wetland", im)
     im, d = tile(brown)
     d.polygon([(6, 52), (22, 26), (36, 34), (58, 52)], fill=(120, 95, 60))
     for (x, y, c) in ((20, 34, (200, 60, 50)), (30, 40, (230, 190, 60)), (40, 44, (70, 150, 80))):
@@ -1044,6 +1115,9 @@ def main():
     save("water/pumping_station/pumping_station", pumping_station(), "Pumping station", 2, 2, 0.9, "Pumps water into the mains.")
     save("water/water_tower/water_tower", water_tower(), "Water tower", 1, 1, 1.8, "Stores water up high.")
     save("water/water_treatment/water_treatment", water_treatment(), "Water treatment plant", 3, 3, 0.8, "Cleans the sewage.")
+    save("water/waterworks/waterworks", waterworks(), "Waterworks", 3, 3, 0.92, "Clean water from any ground.")
+    save("water/outfall/outfall", sewage_outfall(), "Sewage outfall", 1, 1, 0.44, "Lets the sewage out as it comes.")
+    save("water/wetland/wetland", wetland(), "Reed bed", 2, 2, 0.4, "Cleans the ground water around it.")
     save("waste/dump/dump", dump(), "Landfill", 3, 3, 0.7, "Where the rubbish goes.")
     save("waste/recycling/recycling", recycling(), "Recycling centre", 2, 2, 0.66, "Sorts what can be used again.")
     save("waste/incinerator/incinerator", incinerator(), "Incinerator", 2, 2, 2.2, "Burns rubbish for power.")

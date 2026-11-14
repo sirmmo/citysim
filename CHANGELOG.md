@@ -2,6 +2,17 @@
 
 Release notes in full are on the [releases page](https://github.com/sirmmo/citysim/releases).
 
+## 0.2.63: Clean water
+- **Water pollution**, a new data layer: dirty water in the ground. It comes from sewage nobody treats (it runs into the ground under the building that made it), from landfills, and from the slaughterhouse, the tank farm, the refinery and the steelworks. It seeps to the tiles around and clears within a few months once its source is gone.
+- **What it does:** a pumping station on dirty ground (above 8) gives half its water, land above 5 loses value, and family houses, apartment blocks, high-rises and slab towers above 10 are half as content.
+- **Waterworks** (3 × 3, $2,600): filters what it draws, so it gives clean water from any ground, and twice a pumping station's. It waits for **Water purification** (1,800 research points).
+- **Sewage outfall** (1 × 1, $300): lets the sewage of its mains out untreated. No staff, no power, next to no upkeep, and dirty ground water for some ten tiles around: a cheap start, well away from pumps and homes.
+- **Reed bed** (2 × 2, $400): a planted pond that cleans the ground water around it.
+- The water treatment plant is now called **Sewage treatment plant**, which is what it does.
+- **In a city saved earlier**, a landfill or heavy industry next to a pumping station now costs water. The demo town's landfill has moved away from its pumps; towns already built from it keep the old layout.
+- **In the rules:** `spill` on a resource (what an unmet need leaves on a map layer), and emissions with a negative amount clean a layer (see RULES.md).
+- Map imports build a waterworks from `man_made=water_works` (a pumping station from `man_made=pumping_station`), an outfall from `man_made=outfall` and a reed bed from `natural=wetland` with `wetland=reedbed`.
+
 ## 0.2.62: Nuclear accidents
 - **A nuclear plant can have an accident**, and how it is run decides how likely that is. With its staff, its upkeep and its full budget a plant is safe for about a hundred years; at half its funding, or short of workers, it is one accident in ten years. The **Atomic age** energy policy doubles the risk. Until now a plant on half its budget made the same power for half the money; that saving has a price.
 - **What an accident does:** the plant is lost, most homes, shops and factories within seven tiles are evacuated at once, and the land is contaminated. A new **Radiation** data layer shows it; where it is above 4 nothing is built and nobody stays. It fades by half every seven months: the edge of the zone comes back within months, the middle after more than two years.

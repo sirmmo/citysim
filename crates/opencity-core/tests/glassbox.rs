@@ -1229,6 +1229,49 @@ fn a_nuclear_accident_empties_the_land_around_the_plant() {
 }
 
 #[test]
+fn untreated_sewage_dirties_the_ground_water() {
+    let r = rules();
+    let mut c = City::new(Terrain::flat(64, 48), None, Footprints::builtin(), 5);
+    c.use_rules(r.clone());
+    c.fund = 1_000_000;
+    assert_eq!(c.tool_locked_by(Tool::Waterworks).as_deref(), Some("Water purification"));
+    assert!(c.tool_locked_by(Tool::SewageOutfall).is_none() && c.tool_locked_by(Tool::Wetland).is_none());
+    c.research_all();
+    c.glassbox.as_mut().unwrap().disasters_off = true;
+    c.apply_tool(Tool::Road, (2, 10), (60, 10)).unwrap();
+    // A mall makes sewage; with no plant on its mains it runs into the ground.
+    c.apply_tool(Tool::Mall, (4, 11), (4, 11)).unwrap();
+    let dirt = r.layer("water_pollution").unwrap();
+    let at = |c: &City, w: u32, l: u32| c.glassbox.as_ref().unwrap().layers[dirt][(l * 64 + w) as usize];
+    let run = |c: &mut City, n: u32| (0..n).for_each(|_| c.simulate_round());
+    run(&mut c, 80);
+    let spilt = at(&c, 6, 12);
+    assert!(spilt > 1.0 && at(&c, 41, 9) < 0.01, "sewage in the ground under the mall: {spilt}");
+    // An outfall on its mains takes the sewage away, and lets it out there.
+    c.apply_tool(Tool::SewageOutfall, (41, 11), (41, 11)).unwrap();
+    c.apply_tool(Tool::WaterPipe, (6, 13), (41, 13)).unwrap();
+    c.apply_tool(Tool::WaterPipe, (41, 11), (41, 13)).unwrap();
+    // Two pumping stations, one by the outfall and one far from it.
+    c.apply_tool(Tool::PumpingStation, (43, 8), (43, 8)).unwrap();
+    c.apply_tool(Tool::PumpingStation, (20, 8), (20, 8)).unwrap();
+    run(&mut c, 150);
+    assert!(at(&c, 6, 12) < spilt * 0.3, "the mall's ground is clean again: {} from {spilt}", at(&c, 6, 12));
+    assert!(at(&c, 43, 8) > 8.0, "and the outfall's is not: {}", at(&c, 43, 8));
+    let mood = |c: &City, w: u32, l: u32| c.glassbox.as_ref().unwrap().unit_state(w, l, 64).unwrap().satisfaction;
+    assert!(mood(&c, 43, 8) < 0.7 * mood(&c, 20, 8), "a pump on dirty ground gives less: {} against {}", mood(&c, 43, 8), mood(&c, 20, 8));
+    // A waterworks there does not mind, and reed beds clean the ground.
+    let mut reeds = c.clone();
+    reeds.apply_tool(Tool::Wetland, (43, 11), (43, 11)).unwrap();
+    reeds.apply_tool(Tool::Wetland, (38, 11), (38, 11)).unwrap();
+    reeds.apply_tool(Tool::Wetland, (40, 7), (40, 7)).unwrap();
+    run(&mut c, 100);
+    run(&mut reeds, 100);
+    assert!(at(&reeds, 43, 8) < 0.7 * at(&c, 43, 8), "reed beds clean it: {} against {}", at(&reeds, 43, 8), at(&c, 43, 8));
+    let waterworks = &r.units[r.unit("waterworks").unwrap()];
+    assert!(waterworks.requires.is_empty() && waterworks.produce["water"] > r.units[r.unit("pumping_station").unwrap()].produce["water"]);
+}
+
+#[test]
 fn a_region_researches_fusion_together() {
     use opencity_core::region::Region;
     let r = rules();
@@ -1970,7 +2013,7 @@ fn saves_survive_rules_that_gain_units() {
     let ids: Vec<&str> = r.units.iter().map(|u| u.id.as_str()).collect();
     let park = ids.iter().position(|i| *i == "park").unwrap();
     assert_eq!(&ids[park..park + 4], ["park", "high_school", "university", "museum"], "new units follow the old ones");
-    assert_eq!(ids.len(), park + 12, "a unit added to the shipped rules goes at the end, and this test learns its name");
+    assert_eq!(ids.len(), park + 15, "a unit added to the shipped rules goes at the end, and this test learns its name");
     let old = rules_named("pre-industrial");
     let old_ids: Vec<&str> = old.units.iter().map(|u| u.id.as_str()).collect();
     assert_eq!(&old_ids[old_ids.len() - 3..], ["studium", "arena", "theatre"]);

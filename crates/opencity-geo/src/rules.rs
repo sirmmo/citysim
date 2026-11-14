@@ -19,6 +19,9 @@ pub enum Build {
     SolarPlant,
     FusionPlant,
     WindTurbine,
+    Waterworks,
+    SewageOutfall,
+    Wetland,
     Park,
     Trees,
     Water,
@@ -68,6 +71,9 @@ impl Build {
             "solar_plant" => SolarPlant,
             "fusion_plant" => FusionPlant,
             "wind_turbine" => WindTurbine,
+            "waterworks" => Waterworks,
+            "sewage_outfall" => SewageOutfall,
+            "wetland" => Wetland,
             "park" => Park,
             "trees" => Trees,
             "water" => Water,
@@ -118,6 +124,9 @@ impl Build {
             SolarPlant => "solar_plant",
             FusionPlant => "fusion_plant",
             WindTurbine => "wind_turbine",
+            Waterworks => "waterworks",
+            SewageOutfall => "sewage_outfall",
+            Wetland => "wetland",
             Park => "park",
             Trees => "trees",
             Water => "water",
@@ -265,6 +274,10 @@ mod tests {
         assert_eq!(r.classify(&props(&[("power", "plant"), ("plant:source", "solar")])), Some(Build::SolarPlant));
         assert_eq!(r.classify(&props(&[("power", "generator"), ("generator:source", "solar")])), Some(Build::SolarPlant));
         assert_eq!(r.classify(&props(&[("power", "generator"), ("generator:source", "wind")])), Some(Build::WindTurbine));
+        assert_eq!(r.classify(&props(&[("man_made", "water_works")])), Some(Build::Waterworks));
+        assert_eq!(r.classify(&props(&[("man_made", "pumping_station")])), Some(Build::PumpingStation));
+        assert_eq!(r.classify(&props(&[("man_made", "outfall")])), Some(Build::SewageOutfall));
+        assert_eq!(r.classify(&props(&[("natural", "wetland"), ("wetland", "reedbed")])), Some(Build::Wetland));
         assert_eq!(r.classify(&props(&[("power", "plant"), ("plant:source", "coal")])), Some(Build::CoalPlant));
         assert_eq!(r.classify(&props(&[("highway", "residential")])), Some(Build::Road));
         assert_eq!(r.classify(&props(&[("highway", "footway")])), None);

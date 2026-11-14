@@ -99,9 +99,10 @@ pub fn demo_town(city: &mut City) {
         try_tool(main, (w1.saturating_sub(5), l0 - 1), (w1 - 1, l0 - 1));
     }
     // Water and waste (GlassBox rules): a pumping station, a treatment
-    // plant, a water tower and a dump along a street north of the grid.
+    // plant, a dump and a water tower along a street north of the grid.
+    // The dump stands away from the pumps: it dirties the ground water.
     let gb = city.glassbox.is_some();
-    let utilities = [(Tool::PumpingStation, 1, 3), (Tool::Dump, 4, 4), (Tool::WaterTreatment, 8, 4), (Tool::WaterTower, 12, 2)];
+    let utilities = [(Tool::PumpingStation, 1, 3), (Tool::WaterTreatment, 4, 4), (Tool::Dump, 8, 4), (Tool::WaterTower, 12, 2)];
     if gb && l0 >= 5 && utilities.iter().any(|u| allows(city, u.0)) {
         try_tool_on(city, main, (w0, l0 - 1), (w0 + 13, l0 - 1));
         for (tool, dw, dl) in utilities {

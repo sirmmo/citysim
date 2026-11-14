@@ -246,7 +246,10 @@ const GROUPS: &[Group] = &[
             ("water_pipe", Action::Tool(Some(Tool::WaterPipe)), "Water pipe", ""),
             ("water_pump", Action::Tool(Some(Tool::PumpingStation)), "Pumping station", ""),
             ("water_tower", Action::Tool(Some(Tool::WaterTower)), "Water tower", ""),
-            ("water_treatment", Action::Tool(Some(Tool::WaterTreatment)), "Water treatment plant", ""),
+            ("water_works", Action::Tool(Some(Tool::Waterworks)), "Waterworks", ""),
+            ("water_treatment", Action::Tool(Some(Tool::WaterTreatment)), "Sewage treatment plant", ""),
+            ("sewage_outfall", Action::Tool(Some(Tool::SewageOutfall)), "Sewage outfall", ""),
+            ("wetland", Action::Tool(Some(Tool::Wetland)), "Reed bed", ""),
         ],
         true,
     ),
@@ -304,6 +307,9 @@ fn needs_rules(t: Tool) -> bool {
             | Tool::PumpingStation
             | Tool::WaterTower
             | Tool::WaterTreatment
+            | Tool::Waterworks
+            | Tool::SewageOutfall
+            | Tool::Wetland
             | Tool::Dump
             | Tool::Recycling
             | Tool::Incinerator

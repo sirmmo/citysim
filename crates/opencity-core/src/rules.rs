@@ -91,6 +91,11 @@ pub struct ResourceDef {
     /// at any hour. Kinds follow their resource.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tide: Option<TideDef>,
+    /// What a need for it that is not met leaves on map layers at the
+    /// building, per unit missing and tick (`spill = { water_pollution =
+    /// 0.06 }` on sewage: what is not treated runs into the ground).
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub spill: BTreeMap<String, f32>,
 }
 
 /// The hours of a resource's trips. Over a day the traffic is the same as
@@ -230,6 +235,7 @@ fn flatten_resources<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Vec<Resou
                 shared: false,
                 weight: r.weight,
                 tide: None,
+                spill: BTreeMap::new(),
             })
             .collect();
         out.push(r);
@@ -1217,6 +1223,9 @@ impl Ruleset {
             }
         }
         for r in &self.resources {
+            if let Some(l) = r.spill.keys().find(|l| self.layer(l).is_none()) {
+                return err(format!("resource {}: spill on unknown layer {l}", r.id));
+            }
             if let Some(t) = &r.tide {
                 if r.transport != Transport::Agents {
                     return err(format!("resource {}: only agent resources have a tide", r.id));
@@ -1500,6 +1509,9 @@ pub fn structure_code(name: &str) -> Option<StructureCode> {
         "solar_plant" => SolarPlant,
         "fusion_plant" => FusionPlant,
         "wind_turbine" => WindTurbine,
+        "waterworks" => Waterworks,
+        "sewage_outfall" => SewageOutfall,
+        "wetland" => Wetland,
         "park" => Park,
         "fire_station" => FireDept,
         "police" => PoliceDept,

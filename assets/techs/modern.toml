@@ -173,6 +173,15 @@ cost = { research = 2500 }
 unlocks = ["solar_plant"]
 
 [[tech]]
+id = "water_purification"
+name = "Water purification"
+description = "Sand filters and chlorine: waterworks, with clean water from any ground."
+category = "Industry"
+tier = 1
+cost = { research = 1800 }
+unlocks = ["waterworks"]
+
+[[tech]]
 id = "wind_power"
 name = "Wind power"
 description = "Three blades on a steel mast: wind turbines, a little power from a single tile."

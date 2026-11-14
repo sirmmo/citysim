@@ -140,11 +140,36 @@ interface** makes it Large or Huge on top of that, and `--ui-scale 1.5`
 - **Water** (GlassBox rules): bigger buildings want water, and dense
   ones want their sewage treated. Water reaches them through pipes laid
   underground.
-  - **Pumping station:** pumps water into the mains. It needs power and
-    clean ground around it.
+  - **Pumping station:** pumps ground water into the mains as it finds
+    it. It needs power, clean air and clean ground water around it.
   - **Water tower:** a small store of water that needs no power.
-  - **Water treatment plant:** treats the sewage of the buildings on its
+  - **Waterworks** (3 × 3, $2,600, after *Water purification*): filters
+    what it draws. Twice a pumping station's water, clean whatever the
+    ground it stands on.
+  - **Sewage treatment plant:** treats the sewage of the buildings on its
     mains; nobody wants to live next to one.
+  - **Sewage outfall** (1 × 1, $300): lets the sewage of its mains out as
+    it comes. No staff, no power, next to no upkeep, and dirty ground
+    water for some ten tiles around. A cheap start for a small town, well
+    away from its pumps and homes.
+  - **Reed bed** (2 × 2, $400): a planted pond that cleans the ground
+    water around it and raises land value a little.
+
+  **Water pollution.** Dirty water in the ground has its own map (**View >
+  Data layer > Water pollution**). It comes from sewage nobody treats (it
+  runs into the ground under the building that made it), from sewage
+  outfalls, from landfills, and from the slaughterhouse, the tank farm,
+  the refinery and the steelworks. It seeps to the tiles around and clears
+  within a few months once its source is gone. Where it is high:
+  - a pumping station above 8 gives half its water;
+  - land above 5 loses value;
+  - family houses, apartment blocks, high-rises and slab towers above 10
+    are half as content.
+
+  So: treat the sewage, keep landfills, outfalls and heavy industry away
+  from the pumps, plant reed beds where the ground is dirty, or draw the
+  town's water through a waterworks. In a city saved before 0.2.63 a
+  landfill next to a pumping station now costs water: move one of them.
   - **Water pipe:** drag it like a road. Pipes go underground, under
     streets, buildings or open land, and cost the same everywhere. A
     building gets water from a pipe under it, or under the street beside
@@ -156,7 +181,7 @@ interface** makes it Large or Huge on top of that, and `--ui-scale 1.5`
   the bulldozer never touches pipes. The inspector says when a water
   main runs under a tile. What belongs to the mains stands out of the
   faded city under a beacon: pumping stations in blue, water towers in
-  cyan, treatment plants in green. Metro stations glow orange (bus and
+  cyan, sewage treatment plants in green, outfalls in brown. Metro stations glow orange (bus and
   tram stops stay dim). With a water tool in hand the metro tunnels
   fade, and with a metro tool the mains do.
 
