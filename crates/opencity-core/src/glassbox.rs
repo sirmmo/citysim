@@ -550,6 +550,35 @@ impl GlassBox {
         b
     }
 
+    /// The share of each kind of a resource (0 for resources that are not
+    /// kinds): what the rules write, unless a policy stance says otherwise.
+    pub fn kind_shares(&self, rules: &Ruleset) -> Vec<f32> {
+        let mut s: Vec<f32> = rules.resources.iter().map(|r| if r.parent.is_some() { r.share } else { 0.0 }).collect();
+        for st in self.active_stances(rules) {
+            for (k, v) in &st.kinds {
+                if let Some(i) = rules.resource(k) {
+                    s[i] = *v;
+                }
+            }
+        }
+        s
+    }
+
+    /// What traffic leaves on each map layer under the policy stances, as
+    /// a factor on the areas of agent rules (1 unless a stance changes it).
+    pub fn traffic_factors(&self, rules: &Ruleset) -> Vec<f32> {
+        let mut f = vec![1.0f32; rules.layers.len()];
+        for st in self.active_stances(rules) {
+            for (l, v) in &st.traffic {
+                if let Some(i) = rules.layer(l) {
+                    f[i] += v;
+                }
+            }
+        }
+        f.iter_mut().for_each(|x| *x = x.max(0.0));
+        f
+    }
+
     /// What every unit needs of each resource under the policy stances, as
     /// a factor on the written amount (1 unless a stance changes it).
     pub fn need_factors(&self, rules: &Ruleset) -> Vec<f32> {
@@ -1109,6 +1138,7 @@ impl GlassBox {
             .map(|(u, def)| def.produce.keys().map(|r| (r.clone(), self.tax_factor(&rules, unit_zone[u], r))).collect())
             .collect();
         let sky: Vec<f32> = rules.units.iter().map(|u| self.sky_factor(u)).collect();
+        let kind_share = self.kind_shares(&rules);
         for (p, u, _) in &units {
             let def = &rules.units[*u];
             let st = self.units.get_mut(&idx(p.0, p.1)).unwrap();
@@ -1121,7 +1151,7 @@ impl GlassBox {
                 let up = (1.0 + boost[ri] + if rules.root(ri) != ri { boost[rules.root(ri)] } else { 0.0 }) * unit_tax[*u].get(r).copied().unwrap_or(1.0);
                 let made = amount * eff * up;
                 add(&mut bal.produced, ri, rules.root(ri), made);
-                for (k, f) in split(&rules, ri) {
+                for (k, f) in split(&rules, &kind_share, ri) {
                     if k != ri {
                         bal.produced[k] += made * f;
                     }
@@ -1561,7 +1591,7 @@ impl GlassBox {
             }
             // Room to grow. What a sender has to spare is what it has left,
             // up to a tick's production (not what piled up unsent).
-            let shares = split(&rules, root);
+            let shares = split(&rules, &kind_share, root);
             let nominal: Vec<Vec<f32>> = rules
                 .units
                 .iter()
@@ -1940,7 +1970,9 @@ impl GlassBox {
                 emit(&mut self.layers[li], width, length, cx, cz, e.amount * eff, rad);
             }
         }
-        // Agent rules: emissions along the routes of this tick's trips.
+        // Agent rules: emissions along the routes of this tick's trips, less
+        // (or more) of them under some policy stances.
+        let traffic = self.traffic_factors(&rules);
         for ar in &rules.agent_rules {
             let wanted: Vec<usize> = ar.resources.iter().filter_map(|r| rules.resource(r)).collect();
             let follows = |r: usize| ar.resources.is_empty() || wanted.contains(&r) || wanted.contains(&rules.root(r));
@@ -1958,7 +1990,7 @@ impl GlassBox {
                     if steps % ar.every.max(1) == 0 {
                         for a in &ar.areas {
                             let li = rules.layer(&a.layer).unwrap();
-                            emit(&mut self.layers[li], width, length, x as f32, z as f32, a.amount * t.flow(), a.radius);
+                            emit(&mut self.layers[li], width, length, x as f32, z as f32, a.amount * t.flow() * traffic[li], a.radius);
                         }
                     }
                 }
@@ -2710,13 +2742,13 @@ fn add(v: &mut [f32], k: usize, root: usize, x: f32) {
 }
 
 /// What producing `resource` makes: itself, or its kinds by share.
-fn split(rules: &Ruleset, resource: usize) -> Vec<(usize, f32)> {
+fn split(rules: &Ruleset, share: &[f32], resource: usize) -> Vec<(usize, f32)> {
     let kinds = rules.kinds(resource);
-    let total: f32 = kinds.iter().map(|&k| rules.resources[k].share).sum();
+    let total: f32 = kinds.iter().map(|&k| share[k]).sum();
     if kinds.is_empty() || total <= 0.0 {
         vec![(resource, 1.0)]
     } else {
-        kinds.into_iter().map(|k| (k, rules.resources[k].share / total)).collect()
+        kinds.into_iter().map(|k| (k, share[k] / total)).collect()
     }
 }
 

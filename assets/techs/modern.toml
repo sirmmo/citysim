@@ -54,6 +54,14 @@ cost = { research = 3000 }
 unlocks = ["metro", "metro_station"]
 
 [[tech]]
+id = "electric_vehicles"
+name = "Electric vehicles"
+description = "Batteries good enough for the road, and chargers to fill them: opens the Vehicles policies, which put the town's cars on the grid."
+category = "Transport"
+tier = 2
+cost = { research = 3500 }
+
+[[tech]]
 id = "ports"
 name = "Ports"
 description = "Quays, cranes and customs: cargo ships trade with the rest of the world."

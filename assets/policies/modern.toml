@@ -12,8 +12,10 @@
 #
 # [[policy]]: an axis of stances; the first is the default. A stance may
 # need a research project (`requires`), and adds production `bonus`es,
-# changes what units need (`needs`, a share per resource), adds zone `demand`, `satisfaction` for every unit and a running `cost` per tick
-# (negative: income). A city makes some 25-30 in taxes a tick at 1,000 people.
+# changes what units need (`needs`, a share per resource), adds zone `demand`,
+# `satisfaction` for every unit and a running `cost` per tick (negative:
+# income). `kinds` sets the shares of a resource's kinds (electric and
+# petrol cars), `traffic` what every trip leaves on a map layer. A city makes some 25-30 in taxes a tick at 1,000 people.
 
 name = "Modern"
 description = "Property, sales and business taxes; transport, energy, education and growth policies."
@@ -153,3 +155,36 @@ name = "Strict zoning"
 description = "Low limits and green belts: slower growth, nicer streets."
 demand = { residential = -2.0, commercial = -1.0 }
 satisfaction = 0.03
+
+# What the cars run on. In the rules one car in four is electric: it leaves
+# no fumes on its way and charges from the grid at home, where a petrol car
+# burns fuel. `traffic` covers the rest of the road: commuters, vans and
+# lorries (the agent rules of rules/glassbox.gbx) switch too, and electric
+# motors are quieter. Tyres and brakes still leave some dust.
+[[policy]]
+id = "vehicles"
+name = "Vehicles"
+
+[[policy.stance]]
+id = "balanced"
+name = "As they come"
+description = "People buy the car they like: one in four is electric."
+
+[[policy.stance]]
+id = "ev_grants"
+name = "Electric car grants"
+description = "Grants for electric cars and chargers along the streets: most cars run on the grid, vans and lorries follow."
+requires = "electric_vehicles"
+kinds = { "car.electric" = 0.6, "car.gasoline" = 0.4 }
+traffic = { "AirQuality.pm10" = -0.3, "Noise.level" = -0.15 }
+cost = 0.8
+
+[[policy.stance]]
+id = "combustion_ban"
+name = "Combustion ban"
+description = "No engine that burns fuel in town: clean, quiet streets, a heavier load on the grid, no more petrol sold, and some who miss their old car."
+requires = "electric_vehicles"
+kinds = { "car.electric" = 1.0, "car.gasoline" = 0.0 }
+traffic = { "AirQuality.pm10" = -0.8, "Noise.level" = -0.4 }
+satisfaction = -0.02
+cost = 0.4

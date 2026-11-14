@@ -72,6 +72,19 @@ pub fn window(ctx: &egui::Context, open: &mut bool, city: &City, out: &mut Vec<C
                             .iter()
                             .map(|(z, d)| format!("{} demand {d:+.1}", rules.zones.iter().find(|x| &x.id == z).map_or(z.as_str(), |x| x.name.as_str()))),
                     );
+                    parts.extend(st.kinds.iter().filter(|(_, s)| **s > 0.0).map(|(k, s)| {
+                        let total: f32 = gb
+                            .kind_shares(rules)
+                            .iter()
+                            .enumerate()
+                            .filter(|(i, _)| rules.resource(k).is_some_and(|j| rules.resources[*i].parent == rules.resources[j].parent))
+                            .map(|(_, v)| v)
+                            .sum();
+                        format!("{:.0}% {}", s / total.max(1e-6) * 100.0, name_of(k))
+                    }));
+                    parts.extend(st.traffic.iter().map(|(l, b)| {
+                        format!("{:+.0}% {} from traffic", b * 100.0, rules.layer(l).map_or(l.to_string(), |i| rules.layers[i].name.to_lowercase()))
+                    }));
                     if st.satisfaction != 0.0 {
                         parts.push(format!("satisfaction {:+.0}", st.satisfaction * 100.0));
                     }

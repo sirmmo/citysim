@@ -442,10 +442,11 @@ The **📜 Policies** window sets:
   - The window shows the effect on income, demand and satisfaction.
 - **A stance for each policy.** Every policy has a default stance and alternatives with trade-offs: production bonuses, more or less demand, happier or unhappier people, and a running cost or income.
   - Some stances wait for research. Atomic age needs fission, Festivals the free market, Long hours the guild charter.
+  - **Vehicles** (after the research project *Electric vehicles*) sets what the town's cars run on. One car in four is electric to begin with. *Electric car grants* makes it six in ten, with 30% less fine dust and 15% less noise from all traffic, for $0.8 a tick. *Combustion ban* makes every car electric: 80% less dust and 40% less noise from traffic, no fuel burnt, more power drawn at home (0.3 per car trip), and people two points less happy. Watch the *Air quality* and *Noise* data layers, and the grid: a town that bans engines needs the power plants for it.
 
 | Rules | Taxes | Policies |
 |---|---|---|
-| Modern | Property, sales, business (9 %) | Transport, Energy, Education, Growth |
+| Modern | Property, sales, business (9 %) | Transport, Energy, Education, Growth, Vehicles |
 | Pre-industrial | Hearth tax, market tolls, guild dues | Labour, Provision, Gates |
 
 ## Seeing the city

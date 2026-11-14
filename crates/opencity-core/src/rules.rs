@@ -840,6 +840,17 @@ pub struct StanceDef {
     /// Demand added per zone id.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub demand: BTreeMap<String, f32>,
+    /// Shares of the kinds of a resource under this stance, in place of
+    /// those the rules write (`{ "car.electric" = 0.6, "car.gasoline" =
+    /// 0.4 }`). Kinds not named keep their share.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub kinds: BTreeMap<String, f32>,
+    /// Change in what traffic leaves on map layers (the areas of agent
+    /// rules), as a share per layer (`{ "Noise.level" = -0.3 }`: a third
+    /// less noise from every trip). What a kind leaves by its own `trail`
+    /// follows the kind's share instead.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub traffic: BTreeMap<String, f32>,
     /// Satisfaction added to every unit (0.05 is five points).
     #[serde(default)]
     pub satisfaction: f32,
@@ -1415,6 +1426,15 @@ impl Ruleset {
                 }
                 if let Some(z) = st.demand.keys().find(|z| !self.zones.iter().any(|d| &d.id == *z)) {
                     return at(format!("stance {}: demand for unknown zone {z}", st.id));
+                }
+                if let Some(k) = st.kinds.keys().find(|k| self.resource(k).is_none_or(|i| self.resources[i].parent.is_none())) {
+                    return at(format!("stance {}: {k} is not a kind of a resource", st.id));
+                }
+                if st.kinds.values().any(|s| !s.is_finite() || *s < 0.0) {
+                    return at(format!("stance {}: shares of kinds cannot be negative", st.id));
+                }
+                if let Some(l) = st.traffic.keys().find(|l| self.layer(l).is_none()) {
+                    return at(format!("stance {}: traffic on unknown layer {l}", st.id));
                 }
                 if !(st.satisfaction.is_finite() && st.cost.is_finite() && st.bonus.values().all(|b| b.is_finite() && *b > -1.0)) {
                     return at(format!("stance {}: numbers out of range", st.id));

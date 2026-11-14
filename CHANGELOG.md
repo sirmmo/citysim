@@ -2,6 +2,10 @@
 
 Release notes in full are on the [releases page](https://github.com/sirmmo/citysim/releases).
 
+## 0.2.61: Electric cars
+- **A Vehicles policy** in the Policies window, after the new research project **Electric vehicles** (3,500 points). One car in four is electric to begin with; **Electric car grants** make it six in ten and **Combustion ban** all of them. Electric cars leave no fumes along their routes and charge from the grid at home, so the air and the noise maps clear along the busy roads, the fuel industry sells less, and the town needs more power. The ban costs two points of everyone's satisfaction.
+- **In the rules:** a policy stance can set the shares of a resource's kinds (`kinds = { "car.electric" = 0.6, "car.gasoline" = 0.4 }`) and scale what traffic leaves on a map layer (`traffic = { "Noise.level" = -0.3 }`). See RULES.md.
+
 ## 0.2.60: Wind turbines, and sun that sets
 - **Wind turbine** (1 × 1, $600): 25 units of clean power on average from a single tile, with no staff. It makes more in rough weather, nearly twice in a storm, and less on a fine day; it hums, so keep it off the best streets. It waits for **Wind power** (1,500 research points).
 - **Solar farms follow the sun.** Nothing at night and three to four times their rated 120 at noon; more over summer's long days, less in winter and under clouds. A town on solar power alone now goes dark at night: keep another plant or enough turbines on the grid. With *Day and night* off in the View menu there is no hour, and the farms make the day's average.

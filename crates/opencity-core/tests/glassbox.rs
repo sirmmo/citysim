@@ -1142,6 +1142,51 @@ fn sun_and_wind_power_follow_the_sky() {
 }
 
 #[test]
+fn electric_car_policies_clear_the_air() {
+    let r = rules();
+    let mut c = City::new(Terrain::flat(48, 48), None, Footprints::builtin(), 7);
+    c.use_rules(r.clone());
+    c.fund = 1_000_000;
+    // The stances wait for their research.
+    assert!(!c.glassbox.as_mut().unwrap().set_stance("vehicles", "combustion_ban"));
+    c.research_all();
+    c.glassbox.as_mut().unwrap().disasters_off = true;
+    c.apply_tool(Tool::CoalPlant, (2, 2), (2, 2)).unwrap();
+    for l in [8, 12, 16, 20] {
+        c.apply_tool(Tool::Road, (2, l), (44, l)).unwrap();
+    }
+    c.apply_tool(Tool::Road, (7, 2), (7, 20)).unwrap();
+    c.apply_tool(Tool::ZoneResidential, (2, 9), (44, 11)).unwrap();
+    c.apply_tool(Tool::ZoneIndustrial, (2, 13), (44, 15)).unwrap();
+    c.apply_tool(Tool::ZoneCommercial, (2, 17), (44, 19)).unwrap();
+    for _ in 0..300 {
+        c.simulate_round();
+    }
+    let (petrol, electric) = (r.resource("car.gasoline").unwrap(), r.resource("car.electric").unwrap());
+    let (pm10, noise) = (r.layer("AirQuality.pm10").unwrap(), r.layer("Noise.level").unwrap());
+    let read = |c: &City| {
+        let gb = c.glassbox.as_ref().unwrap();
+        let sum = |l: usize| gb.layers[l].iter().sum::<f32>();
+        (gb.balances.produced[petrol], gb.balances.produced[electric], sum(pm10), sum(noise))
+    };
+    let mut banned = c.clone();
+    assert!(banned.glassbox.as_mut().unwrap().set_stance("vehicles", "combustion_ban"));
+    let mut grants = c.clone();
+    assert!(grants.glassbox.as_mut().unwrap().set_stance("vehicles", "ev_grants"));
+    for _ in 0..40 {
+        c.simulate_round();
+        banned.simulate_round();
+        grants.simulate_round();
+    }
+    let (a, g, b) = (read(&c), read(&grants), read(&banned));
+    assert!(a.0 > 0.0 && (a.1 / (a.0 + a.1) - 0.25).abs() < 0.01, "one car in four is electric: {a:?}");
+    assert!((g.1 / (g.0 + g.1) - 0.6).abs() < 0.01, "six in ten with grants: {g:?}");
+    assert!(b.0 == 0.0 && b.1 > 0.0, "none burns fuel under the ban: {b:?}");
+    assert!(g.2 < 0.85 * a.2 && b.2 < 0.4 * a.2, "the air clears: {} {} {}", a.2, g.2, b.2);
+    assert!(g.3 < a.3 && b.3 < 0.8 * a.3, "the streets are quieter: {} {} {}", a.3, g.3, b.3);
+}
+
+#[test]
 fn a_region_researches_fusion_together() {
     use opencity_core::region::Region;
     let r = rules();

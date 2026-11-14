@@ -739,7 +739,7 @@ regional = true                      # paid for by the whole region (optional)
 
 | Tree | Branches and projects |
 |---|---|
-| `modern` (GlassBox) | Transport: Motorways (highway). Economy: Service economy (+10% taxes, +30% ideas) or Industrial policy (+20% goods, +10% fuel); Computing (+25% research). Education: Secondary education (high school), Higher education (university). Housing: Steel-frame towers (High-rise, Slab tower, Skyscraper). Industry: Aeronautics (Aeronautics works). Power: Photovoltaics (solar farm), Wind power (wind turbine), Nuclear fission (nuclear plant), Nuclear fusion (fusion plant; region-wide, 120,000 points). Culture: Cultural institutions (archaeology museum, modern art museum, opera house), Mass entertainment (stadium, shopping mall) |
+| `modern` (GlassBox) | Transport: Motorways (highway), Electric vehicles (the Vehicles policies). Economy: Service economy (+10% taxes, +30% ideas) or Industrial policy (+20% goods, +10% fuel); Computing (+25% research). Education: Secondary education (high school), Higher education (university). Housing: Steel-frame towers (High-rise, Slab tower, Skyscraper). Industry: Aeronautics (Aeronautics works). Power: Photovoltaics (solar farm), Wind power (wind turbine), Nuclear fission (nuclear plant), Nuclear fusion (fusion plant; region-wide, 120,000 points). Culture: Cultural institutions (archaeology museum, modern art museum, opera house), Mass entertainment (stadium, shopping mall) |
 | `pre-industrial` | Streets: Paving (cobbled streets). Farming: Crop rotation (+20% food and fodder), Horse breeding (Stables). Charter: Free market (Market square, +15% taxes) or Guild charter (Craft hall, +20% goods). Housing: Masonry (Courtyard house, Insula block). Civic: Bathing & medicine (Bathhouse), Studium generale (Studium), Spectacles (Arena, Theatre), Printing (+30% ideas, +15% research). Trade: Banking (Merchants' exchange) |
 
 A school makes about 2 research points a tick, some 2,400 a year, so a
@@ -799,6 +799,8 @@ requires = "fission"                 # research project (optional)
 bonus = { power = 0.3 }              # production share, as for research
 needs = { car = -0.5 }               # what every unit needs, as a share (half the parking)
 demand = { residential = -1.0 }      # per zone id
+kinds = { "car.electric" = 0.6, "car.gasoline" = 0.4 }   # shares of a resource's kinds, in place of the rules'
+traffic = { "Noise.level" = -0.3 }   # what every trip leaves on a map layer (agent rules), as a share
 satisfaction = -0.02                 # for every unit
 cost = 0.5                           # treasury per tick; negative earns
 ```
@@ -951,7 +953,7 @@ policy_set = "my_policies"         # policies/my_policies.toml (optional)
 [[tech]]                           # id, name, description, category, tier, cost, requires, unlocks, bonus, excludes
 [[tax]]                            # id, name, description, resource, zones, rate, range, demand, satisfaction
 [[policy]]                         # id, name, description
-  [[policy.stance]]                # id, name, description, requires, bonus, demand, satisfaction, cost
+  [[policy.stance]]                # id, name, description, requires, bonus, needs, demand, kinds, traffic, satisfaction, cost
 ```
 
 A tech tree file holds `name`, `description` and `[[tech]]` entries; a
