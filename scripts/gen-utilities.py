@@ -763,7 +763,7 @@ def fusion_plant():
 
 def wind_turbine():
     """A wind turbine on one tile: a tapering white mast, a nacelle and
-    three blades facing the street (+z), on a small concrete pad."""
+    a hub facing the street (+z), on a small concrete pad."""
     m = Model()
     m.cylinder(CONCRETE, 0.5, 0.5, 0.2, 0.0, 0.04, n=12)
     m.cylinder(WHITE, 0.5, 0.5, 0.07, 0.04, 2.1, n=10, r1=0.035)
@@ -773,15 +773,8 @@ def wind_turbine():
     hub = (0.5, 2.12, 0.70)
     m.poly(WHITE, [(hub[0] + 0.05 * math.cos(2 * math.pi * i / 8), hub[1] + 0.05 * math.sin(2 * math.pi * i / 8), 0.66) for i in range(8)] + [(hub[0], hub[1], 0.76)],
            [[i, (i + 1) % 8, 8] for i in range(8)])
-    # Three blades in the plane z = 0.7: thin tapering quads, seen from both sides.
-    for k in range(3):
-        a = math.pi / 2 + 2 * math.pi * k / 3
-        ux, uy = math.cos(a), math.sin(a)
-        px, py = -uy, ux
-        root, tip, w0, w1 = 0.04, 0.56, 0.045, 0.012
-        v = [(hub[0] + ux * root + px * w0, hub[1] + uy * root + py * w0, 0.70), (hub[0] + ux * root - px * w0, hub[1] + uy * root - py * w0, 0.70),
-             (hub[0] + ux * tip - px * w1, hub[1] + uy * tip - py * w1, 0.71), (hub[0] + ux * tip + px * w1, hub[1] + uy * tip + py * w1, 0.71)]
-        m.poly((0.88, 0.89, 0.90), v, [[0, 1, 2, 3], [3, 2, 1, 0]])
+    # The three blades are drawn by the game, turning with the wind
+    # (render::draw_turbines): hub at (0.5, 2.12, 0.705), 0.56 long.
     return m
 
 

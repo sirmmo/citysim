@@ -638,6 +638,8 @@ a few months to show and a few months to be forgiven.
     problems still to fix;
   - **Stay on as mayor for life:** no more votes in this city;
   - **Start a new city.**
+- **Before 1800** a town is slower to turn on whoever runs it: two years
+  under 25%, in a town of 200 people or more.
 - **Without elections:** untick **View > Elections** to play with no votes
   at all. The rating is still shown.
 - **Scenarios** can set goals on it with the `approval` metric (in percent).

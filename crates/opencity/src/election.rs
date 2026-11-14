@@ -2,7 +2,7 @@
 //! it would go today, and the campaign promises.
 
 use egui_macroquad::egui::{self, Color32, RichText};
-use opencity_core::mayor::{FATIGUE, MAX_PROMISES, PROMISE_BROKEN, PROMISE_KEPT, TERM_YEARS};
+use opencity_core::mayor::{FATIGUE, MAX_PROMISES, PROMISE_BROKEN, PROMISE_KEPT};
 use opencity_core::City;
 
 use crate::ui_egui::Command;
@@ -80,7 +80,7 @@ pub fn window(ctx: &egui::Context, open: &mut bool, city: &City, out: &mut Vec<C
                 });
             }
         } else if m.promises.len() < MAX_PROMISES {
-            ui.label(RichText::new(format!("Promises are made in the first year of a term (terms last {TERM_YEARS} years).")).small().color(Color32::GRAY));
+            ui.label(RichText::new(format!("Promises are made in the first year of a term (terms last {} years).", city.vote_rules().term_years)).small().color(Color32::GRAY));
         }
     });
 }

@@ -1166,6 +1166,53 @@ pub fn draw_smoke(city: &City, camera: &Camera3D, around: Vec3, time: f64, textu
     }
 }
 
+/// The blades of the wind turbines, turning with the wind (the model has
+/// the mast and the hub only). `wind` is the wind's share of an average
+/// day (see `City::sky`): they stand still in a calm.
+pub fn draw_turbines(city: &City, around: Vec3, time: f64, wind: f32, light: f32) {
+    const REACH: f32 = 60.0;
+    // The hub in the model, and the blades around it (scripts/gen-utilities.py).
+    const HUB: (f32, f32, f32) = (0.5, 2.12, 0.705);
+    const BLADE: (f32, f32, f32, f32) = (0.04, 0.56, 0.045, 0.012);
+    let c = (light * 226.0).min(255.0) as u8;
+    let colour = [c, c, c, 255];
+    let mut vertices: Vec<Vertex> = Vec::new();
+    for ((w, l), s) in city.layer.structures() {
+        if s.code != StructureCode::WindTurbine {
+            continue;
+        }
+        if (w as f32 - around.x).abs() > REACH || (l as f32 - around.z).abs() > REACH || vertices.len() + 12 > 6000 {
+            continue;
+        }
+        // As the model is turned (gpu::turn): x' = c x - s z + tw, z' = s x + c z + tl.
+        let [tc, ts, tw, tl] = crate::gpu::turn(s.facing, city.footprints().size(s.graphic));
+        let turn = |x: f32, z: f32| vec3(tc * x - ts * z + tw, 0.0, ts * x + tc * z + tl);
+        let base = vec3(w as f32, city.terrain.tile_corners(w, l)[0] as f32 + MODEL_LIFT, l as f32);
+        let hub = base + turn(HUB.0, HUB.2) + Vec3::Y * HUB.1;
+        // The blades turn in the plane across the way the hub faces.
+        let across = vec3(tc, 0.0, ts);
+        let seed = (w.wrapping_mul(73) ^ l.wrapping_mul(151)) as f32;
+        let angle = seed + time as f32 * 2.2 * wind.clamp(0.0, 2.5);
+        for k in 0..3 {
+            let a = angle + std::f32::consts::TAU * k as f32 / 3.0;
+            let along = across * a.cos() + Vec3::Y * a.sin();
+            let side = across * -a.sin() + Vec3::Y * a.cos();
+            let (root, tip, w0, w1) = BLADE;
+            for p in [along * root + side * w0, along * root - side * w0, along * tip - side * w1, along * tip + side * w1] {
+                vertices.push(Vertex { position: hub + p, uv: vec2(0.5, 0.5), color: colour, normal: Vec4::ZERO });
+            }
+        }
+    }
+    if vertices.is_empty() {
+        return;
+    }
+    // Both faces, so they show from behind too.
+    let indices = (0..vertices.len() as u16 / 4)
+        .flat_map(|q| [q * 4, q * 4 + 1, q * 4 + 2, q * 4, q * 4 + 2, q * 4 + 3, q * 4 + 2, q * 4 + 1, q * 4, q * 4 + 3, q * 4 + 2, q * 4])
+        .collect();
+    draw_mesh(&Mesh { vertices, indices, texture: None });
+}
+
 /// Buildings in trouble: a badge floating over each (a flame, a wave, a
 /// cross), and flames with black smoke on those that burn. `textures` are
 /// the three badges by effect (destroy, damage, sicken) and the smoke.

@@ -2,6 +2,12 @@
 
 Release notes in full are on the [releases page](https://github.com/sirmmo/citysim/releases).
 
+## 0.2.72: Turning turbines and rules for the vote
+- **Wind turbine blades turn**, faster in rough weather and not at all in a calm. With the weather off the map (View > Day and night, weather) they turn at an even pace.
+- **Rules decide when a town turns on its mayor:** a `[mayor]` table sets the approval line, the months under it, the smallest town that votes and the length of a term. The modern rules keep 30%, 12 months, 500 people and 4 years.
+- **Before 1800** it takes two years under 25%, in a town of 200 people or more, and terms last 5 years.
+- Checked: tourists nobody takes in one town of a region drive on to the neighbour's attractions.
+
 ## 0.2.71: Fields and mines follow the land
 - **Before 1800 the land decides what fields and mines give.** Two new data layers are read off the terrain: *Fertile ground* (flat land, best by rivers, lakes and the sea) and *Stone and ore* (high and steep ground).
 - **Grain fields, farms and farmsteads** make half as much again on the best ground by the water, as before on ordinary plain land, and three quarters on slopes.

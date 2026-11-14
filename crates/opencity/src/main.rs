@@ -1041,7 +1041,7 @@ impl Game {
             Command::SetTerms(on) => {
                 self.city.set_terms(on);
                 if on {
-                    self.say(format!("Terms of office: the first election is in {} years.", opencity_core::mayor::TERM_YEARS));
+                    self.say(format!("Terms of office: the first election is in {} years.", self.city.vote_rules().term_years));
                 }
             }
             Command::Promise(i) => {
@@ -1370,6 +1370,12 @@ impl Game {
             let (white, black) = (self.renderer.ui_texture("graphism/texture/smoke_white.png"), self.renderer.ui_texture("graphism/texture/smoke_black.png"));
             let a = self.renderer.atmosphere.sky;
             render::draw_smoke(&self.city, &cam, self.camera.target, get_time(), [&white, &black], ((a.x + a.y + a.z) / 3.0).clamp(0.25, 1.0));
+        }
+        {
+            let a = self.renderer.atmosphere.sky;
+            // Without the weather on the map they turn at an even pace.
+            let wind = if self.day_night { self.city.sky()[1] } else { 1.0 };
+            render::draw_turbines(&self.city, self.camera.target, get_time(), wind, ((a.x + a.y + a.z) / 3.0).clamp(0.25, 1.0));
         }
         if let Some(r) = self.region.as_ref() {
             render::draw_crossings(&self.city, &region_gates(r, &self.crossings));

@@ -2440,3 +2440,82 @@ fn fields_and_mines_make_more_on_the_right_land() {
     assert!(near > 1.3 && (far - 1.0).abs() < 0.01, "{near} {far}");
     assert_eq!(gb.yield_at(&r, mine, 16, 16, w).unwrap().0, 0.75);
 }
+
+#[test]
+fn tourists_go_on_to_the_town_next_door() {
+    use opencity_core::region::Region;
+    let r = rules();
+    let tourists = r.resource("tourists").unwrap();
+    let town = |edge_west: bool| {
+        let mut c = City::new(Terrain::flat(40, 28), None, Footprints::builtin(), 9);
+        c.fund = 10_000_000;
+        c.use_rules(r.clone());
+        c.research_all();
+        c.glassbox.as_mut().unwrap().disasters_off = true;
+        c.apply_tool(Tool::Road, (4, 8), (35, 8)).unwrap();
+        c.apply_tool(Tool::Road, (4, 12), (35, 12)).unwrap();
+        c.apply_tool(Tool::Road, (4, 8), (4, 12)).unwrap();
+        c.apply_tool(Tool::Road, (4, 16), (35, 16)).unwrap();
+        c.apply_tool(Tool::Road, (35, 8), (35, 16)).unwrap();
+        c.apply_tool(Tool::ZoneResidential, (5, 9), (20, 11)).unwrap();
+        c.apply_tool(Tool::ZoneIndustrial, (21, 9), (33, 9)).unwrap();
+        c.apply_tool(Tool::ZoneCommercial, (21, 11), (33, 11)).unwrap();
+        c.apply_tool(Tool::CoalPlant, (6, 3), (6, 3)).unwrap();
+        if edge_west {
+            c.apply_tool(Tool::Road, (0, 10), (4, 10)).unwrap();
+        } else {
+            c.apply_tool(Tool::Road, (35, 10), (39, 10)).unwrap();
+        }
+        c
+    };
+    // West: a railway station, and nothing for its visitors to see.
+    let mut west = town(false);
+    west.apply_tool(Tool::Station, (10, 17), (10, 17)).unwrap();
+    for _ in 0..300 {
+        west.simulate_round();
+    }
+    let mut region = Region::new("Test", [2, 1], 40, 1, Some("glassbox".into()));
+    region.summarize([0, 0], "Westville", "west.ocsave.json", &west);
+    assert!(region.cities[0].surplus.get("tourists").is_some_and(|v| *v > 1.0), "visitors nobody takes in: {:?}", region.cities[0].surplus);
+    // East: an observation tower and no way in but the road from the west.
+    let run = |trade: bool| {
+        let mut east = town(true);
+        east.apply_tool(Tool::ObservationTower, (10, 17), (10, 17)).unwrap();
+        let mut came = 0.0;
+        for t in 0..300 {
+            if trade && t % 30 == 29 {
+                let deals = region.trade([1, 0], &east);
+                east.apply_trade(&deals);
+            }
+            east.simulate_round();
+            came += east.glassbox.as_ref().unwrap().balances.imported[tourists];
+        }
+        let mood = east.glassbox.as_ref().unwrap().unit_state(10, 17, 40).unwrap().satisfaction;
+        (came, mood)
+    };
+    let (none, lonely) = run(false);
+    let (came, visited) = run(true);
+    eprintln!("tourists over the border: {came}, tower {lonely} -> {visited}");
+    assert_eq!(none, 0.0);
+    assert!(came > 0.0, "visitors drive on from the neighbour's station");
+    assert!(visited > lonely + 0.1, "and the tower has its visitors: {visited} from {lonely}");
+}
+
+#[test]
+fn rules_set_when_a_town_turns_on_its_mayor() {
+    let mut c = City::new(Terrain::flat(16, 16), None, Footprints::builtin(), 1);
+    let usual = c.vote_rules();
+    assert_eq!((usual.oust_below, usual.oust_months, usual.voters, usual.term_years), (0.30, 12, 500, 4), "classic rules");
+    c.use_rules(rules());
+    assert_eq!(c.vote_rules(), usual, "the modern rules keep them");
+    c.set_terms(true);
+    assert_eq!(c.years_to_election(), Some(4));
+    let mut old = City::new(Terrain::flat(16, 16), None, Footprints::builtin(), 1);
+    old.use_rules(rules_named("pre-industrial"));
+    let v = old.vote_rules();
+    assert_eq!((v.oust_below, v.oust_months, v.voters, v.term_years), (0.25, 24, 200, 5));
+    old.set_terms(true);
+    assert_eq!(old.years_to_election(), Some(5));
+    old.mayor.low_months = 4;
+    assert_eq!(old.months_to_vote(), Some(20));
+}

@@ -3,9 +3,8 @@ MATERIAL "m" rgb 0.78 0.77 0.74  amb 0.2 0.2 0.2  emis 0 0 0  spec 0 0 0  shi 10
 MATERIAL "m" rgb 0.92 0.93 0.94  amb 0.2 0.2 0.2  emis 0 0 0  spec 0 0 0  shi 10  trans 0
 MATERIAL "m" rgb 0.8 0.82 0.84  amb 0.2 0.2 0.2  emis 0 0 0  spec 0 0 0  shi 10  trans 0
 MATERIAL "m" rgb 0.75 0.25 0.2  amb 0.2 0.2 0.2  emis 0 0 0  spec 0 0 0  shi 10  trans 0
-MATERIAL "m" rgb 0.88 0.89 0.9  amb 0.2 0.2 0.2  emis 0 0 0  spec 0 0 0  shi 10  trans 0
 OBJECT world
-kids 12
+kids 9
 OBJECT poly
 name "Wind turbine"
 numvert 24
@@ -493,73 +492,4 @@ refs 3
 7 0 0
 0 0 0
 8 0 0
-kids 0
-OBJECT poly
-name "Wind turbine"
-numvert 4
-0.4550 2.1600 0.7000
-0.5450 2.1600 0.7000
-0.5120 2.6800 0.7100
-0.4880 2.6800 0.7100
-numsurf 2
-SURF 0x30
-mat 4
-refs 4
-0 0 0
-1 0 0
-2 0 0
-3 0 0
-SURF 0x30
-mat 4
-refs 4
-3 0 0
-2 0 0
-1 0 0
-0 0 0
-kids 0
-OBJECT poly
-name "Wind turbine"
-numvert 4
-0.4879 2.0610 0.7000
-0.4429 2.1390 0.7000
-0.0090 1.8504 0.7100
-0.0210 1.8296 0.7100
-numsurf 2
-SURF 0x30
-mat 4
-refs 4
-0 0 0
-1 0 0
-2 0 0
-3 0 0
-SURF 0x30
-mat 4
-refs 4
-3 0 0
-2 0 0
-1 0 0
-0 0 0
-kids 0
-OBJECT poly
-name "Wind turbine"
-numvert 4
-0.5571 2.1390 0.7000
-0.5121 2.0610 0.7000
-0.9790 1.8296 0.7100
-0.9910 1.8504 0.7100
-numsurf 2
-SURF 0x30
-mat 4
-refs 4
-0 0 0
-1 0 0
-2 0 0
-3 0 0
-SURF 0x30
-mat 4
-refs 4
-3 0 0
-2 0 0
-1 0 0
-0 0 0
 kids 0

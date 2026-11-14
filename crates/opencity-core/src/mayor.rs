@@ -15,7 +15,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::{City, Date, Status, StructureCode};
 
-/// Approval under this share counts against the mayor.
+/// Approval under this share counts against the mayor (unless the rules'
+/// `[mayor]` says otherwise, as for the three below).
 pub const OUST_BELOW: f32 = 0.30;
 /// Months in a row under it before the vote.
 pub const OUST_MONTHS: u8 = 12;
@@ -129,13 +130,25 @@ impl Default for Mayor {
 }
 
 impl Mayor {
-    /// Months left before the vote, once the rating counts against the mayor.
-    pub fn months_left(&self) -> Option<u8> {
-        (self.low_months > 0).then(|| OUST_MONTHS.saturating_sub(self.low_months))
+    /// Months left before the vote, once the rating counts against the
+    /// mayor, when the vote comes after `months` in a row.
+    pub fn months_left(&self, months: u8) -> Option<u8> {
+        (self.low_months > 0).then(|| months.saturating_sub(self.low_months))
     }
 }
 
 impl City {
+    /// When this city turns on its mayor: its rules' `[mayor]`, or the
+    /// usual (30%, 12 months, 500 people, terms of 4 years).
+    pub fn vote_rules(&self) -> crate::rules::MayorDef {
+        self.rules().and_then(|r| r.mayor).unwrap_or_default()
+    }
+
+    /// Months left before the vote of no confidence, once it is coming.
+    pub fn months_to_vote(&self) -> Option<u8> {
+        self.mayor.months_left(self.vote_rules().oust_months)
+    }
+
     /// What the city makes of its mayor right now, in points out of 100:
     /// what each thing adds or takes away, the first being where it starts.
     pub fn approval_factors(&self) -> Vec<(String, f32)> {
@@ -258,12 +271,12 @@ impl City {
         let mut say = |text: String, at: Option<(u32, u32)>| v.push(Advice { text, at });
         if self.ousted() {
             say("You have been voted out of office.".into(), None);
-        } else if let Some(left) = self.mayor.months_left() {
+        } else if let Some(left) = self.months_to_vote() {
             say(
                 format!(
                     "Approval is at {:.0}%: the council votes you out in {left} months unless it is back above {:.0}%.",
                     self.mayor.approval * 100.0,
-                    OUST_BELOW * 100.0
+                    self.vote_rules().oust_below * 100.0
                 ),
                 None,
             );
@@ -376,6 +389,7 @@ impl City {
     /// year of it under the line ends in a vote.
     pub(crate) fn mayor_month(&mut self) {
         let target = self.approval_target();
+        let vr = self.vote_rules();
         let m = &mut self.mayor;
         m.approval += (target - m.approval) * 0.2;
         m.shock *= 0.85;
@@ -385,12 +399,12 @@ impl City {
         }
         // Those who left still have their say.
         let voters = m.past.iter().copied().max().unwrap_or(0);
-        if !m.elections || voters < VOTERS {
+        if !m.elections || voters < vr.voters {
             m.low_months = 0;
             return;
         }
         let pct = (m.approval * 100.0).round();
-        if m.approval >= OUST_BELOW {
+        if m.approval >= vr.oust_below {
             if m.low_months > 0 && m.low_months <= 2 {
                 self.messages.push(format!("Approval is back at {pct}%: the council lets the matter rest."));
             }
@@ -398,7 +412,7 @@ impl City {
             return;
         }
         m.low_months += 1;
-        let left = OUST_MONTHS.saturating_sub(m.low_months);
+        let left = vr.oust_months.saturating_sub(m.low_months);
         if left == 0 {
             m.ousted = Some(self.date);
             self.messages.push(format!("Vote of no confidence: with {pct}% behind you, the city has voted you out of office."));
@@ -406,7 +420,7 @@ impl City {
             let months = if left == 1 { "1 month".to_string() } else { format!("{left} months") };
             self.messages.push(format!(
                 "Only {pct}% of the city is behind you. The council votes you out in {months} unless approval is back above {:.0}%.",
-                OUST_BELOW * 100.0
+                vr.oust_below * 100.0
             ));
         }
     }
@@ -421,6 +435,7 @@ impl City {
     /// life, with no more votes.
     pub fn stay_in_office(&mut self, for_life: bool) {
         let year = self.date.year;
+        let term = self.vote_rules().term_years;
         let m = &mut self.mayor;
         m.ousted = None;
         m.low_months = 0;
@@ -435,7 +450,7 @@ impl City {
             m.terms_won = 0;
             m.promises.clear();
             if m.terms {
-                m.election_year = Some(year + TERM_YEARS);
+                m.election_year = Some(year + term);
             }
         }
     }
@@ -444,6 +459,7 @@ impl City {
     /// [`TERM_YEARS`] years decides whether the mayor stays, by approval
     /// and by the promises kept. The first is that many years from now.
     pub fn set_terms(&mut self, on: bool) {
+        let term = self.vote_rules().term_years;
         let m = &mut self.mayor;
         if on == m.terms {
             return;
@@ -451,7 +467,7 @@ impl City {
         m.terms = on;
         m.promises.clear();
         m.terms_won = 0;
-        m.election_year = on.then_some(self.date.year + TERM_YEARS);
+        m.election_year = on.then_some(self.date.year + term);
         if on {
             m.elections = true;
         }
@@ -464,7 +480,7 @@ impl City {
 
     /// Promises can be made in the first year of a term.
     pub fn can_promise(&self) -> bool {
-        self.mayor.promises.len() < MAX_PROMISES && self.years_to_election().is_some_and(|y| y >= TERM_YEARS)
+        self.mayor.promises.len() < MAX_PROMISES && self.years_to_election().is_some_and(|y| y >= self.vote_rules().term_years)
     }
 
     /// What the mayor could promise for this term, from how the city
@@ -548,7 +564,7 @@ impl City {
         self.mayor.promises.clear();
         if share >= 50.0 {
             self.mayor.terms_won += 1;
-            self.mayor.election_year = Some(self.date.year + TERM_YEARS);
+            self.mayor.election_year = Some(self.date.year + self.vote_rules().term_years);
             self.mayor.low_months = 0;
             self.messages.push(format!("Election won with {share:.0}% of the vote{promises}. Four more years: you can make new promises this year."));
         } else {

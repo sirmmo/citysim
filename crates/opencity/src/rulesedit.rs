@@ -216,6 +216,7 @@ fn fields(section: &str) -> &'static [&'static str] {
         "growth" => &["level_up", "level_down", "chance", "max_new", "road_access", "grace", "patience", "saturation", "neglect"],
         "administration" => &["name", "cost", "doubles_at", "unpaid"],
         "complaint" => &["name", "layer", "above", "below", "points", "advice"],
+        "mayor" => &["oust_below", "oust_months", "voters", "term_years"],
         "people" => &["workers", "homeless_leave"],
         "shifts" => &["hours", "spread"],
         "disaster" => &["id", "name", "description", "every", "radius", "effect", "protection", "full", "near_water"],

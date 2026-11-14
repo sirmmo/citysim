@@ -704,9 +704,9 @@ impl EguiUi {
                         .checkbox(&mut elections, "Elections")
                         .on_hover_text(format!(
                             "With them, a city of {} people or more votes you out after {} months in a row with approval under {:.0}%. Without, you are mayor for life",
-                            opencity_core::mayor::VOTERS,
-                            opencity_core::mayor::OUST_MONTHS,
-                            opencity_core::mayor::OUST_BELOW * 100.0
+                            view.city.vote_rules().voters,
+                            view.city.vote_rules().oust_months,
+                            view.city.vote_rules().oust_below * 100.0
                         ))
                         .changed()
                     {
@@ -717,7 +717,7 @@ impl EguiUi {
                         .checkbox(&mut terms, "Terms of office and promises")
                         .on_hover_text(format!(
                             "An election every {} years: you stay with half the vote, which is your approval, plus {:.0} for each campaign promise kept, less {:.0} for each broken",
-                            opencity_core::mayor::TERM_YEARS,
+                            view.city.vote_rules().term_years,
                             opencity_core::mayor::PROMISE_KEPT,
                             opencity_core::mayor::PROMISE_BROKEN
                         ))
@@ -1278,8 +1278,8 @@ impl EguiUi {
                 ui.label(RichText::new(format!("{:.0}% of the city is behind you.", city.mayor.approval * 100.0)).heading().color(red));
                 ui.label(format!(
                     "After {} months under {:.0}%, the council held a vote of no confidence, and you lost it. The city stands still until you decide what next.",
-                    opencity_core::mayor::OUST_MONTHS,
-                    opencity_core::mayor::OUST_BELOW * 100.0
+                    city.vote_rules().oust_months,
+                    city.vote_rules().oust_below * 100.0
                 ));
             }
             ui.add_space(4.0);
@@ -2027,12 +2027,13 @@ fn chart(ui: &mut egui::Ui, city: &City) {
 
 /// The mayor's approval rating in the menu bar; hovering lists what makes it.
 fn approval_label(ui: &mut egui::Ui, city: &City) {
-    use opencity_core::mayor::{OUST_BELOW, OUST_MONTHS, VOTERS};
+    let vr = city.vote_rules();
+    let (below, months, voters) = (vr.oust_below, vr.oust_months, vr.voters);
     let m = &city.mayor;
     let text = RichText::new(format!("Approval {:.0}%", m.approval * 100.0)).monospace();
-    let text = if m.approval < OUST_BELOW {
+    let text = if m.approval < below {
         text.color(Color32::from_rgb(240, 90, 80)).strong()
-    } else if m.approval < OUST_BELOW + 0.12 {
+    } else if m.approval < below + 0.12 {
         text.color(Color32::from_rgb(235, 190, 90))
     } else {
         text
@@ -2044,10 +2045,10 @@ fn approval_label(ui: &mut egui::Ui, city: &City) {
         ui.separator();
         let rule = if !m.elections {
             "No elections: you are mayor for life (View > Elections).".to_string()
-        } else if let Some(left) = m.months_left() {
-            format!("The council votes you out in {left} months unless approval is back above {:.0}%.", OUST_BELOW * 100.0)
+        } else if let Some(left) = city.months_to_vote() {
+            format!("The council votes you out in {left} months unless approval is back above {:.0}%.", below * 100.0)
         } else {
-            format!("Under {:.0}% for {OUST_MONTHS} months in a row, a city of {VOTERS} people or more votes its mayor out.", OUST_BELOW * 100.0)
+            format!("Under {:.0}% for {months} months in a row, a city of {voters} people or more votes its mayor out.", below * 100.0)
         };
         ui.label(RichText::new(rule).small());
     });

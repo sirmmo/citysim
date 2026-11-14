@@ -41,6 +41,14 @@ unpaid = 0.15
 
 # The day: trips gather around the hours of each resource's `tide`. The
 # watch and the guard keep two shifts, day and night.
+# Before 1800 a town is slower to turn on whoever runs it, and smaller
+# places have a say: two years under a quarter, in a town of 200 or more.
+[mayor]
+oust_below = 0.25
+oust_months = 24
+voters = 200
+term_years = 5
+
 # People without a job or a home (see the modern rules).
 [people]
 workers = "workers"

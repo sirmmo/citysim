@@ -725,6 +725,9 @@ pub struct Ruleset {
     /// People without a job or a home (`[people]`).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub people: Option<PeopleDef>,
+    /// When a city turns on its mayor (`[mayor]`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mayor: Option<MayorDef>,
     /// Shift changes of the units that work round the clock (`[shifts]`).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub shifts: Option<ShiftsDef>,
@@ -750,6 +753,27 @@ pub struct ComplaintDef {
     /// What to do about it, for the advice list.
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub advice: String,
+}
+
+/// When a city turns on its mayor (`[mayor]`); what is left out is as in
+/// [`MayorDef::default`].
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct MayorDef {
+    /// Approval (0..1) under which the months count against the mayor.
+    pub oust_below: f32,
+    /// Months in a row under it before the vote of no confidence.
+    pub oust_months: u8,
+    /// Smaller places than this have no vote.
+    pub voters: u32,
+    /// Years between elections, with terms of office.
+    pub term_years: u32,
+}
+
+impl Default for MayorDef {
+    fn default() -> Self {
+        Self { oust_below: 0.30, oust_months: 12, voters: 500, term_years: 4 }
+    }
 }
 
 /// People without a job or a home (`[people]`). The jobless are those of
@@ -1323,6 +1347,11 @@ impl Ruleset {
             }
             if c.above.is_some() == c.below.is_some() {
                 return err(format!("complaint {}: give either above or below", c.name));
+            }
+        }
+        if let Some(m) = &self.mayor {
+            if !(0.0..=1.0).contains(&m.oust_below) || m.oust_months == 0 || m.term_years == 0 {
+                return err("mayor: oust_below is a share (0 to 1), oust_months and term_years at least 1".into());
             }
         }
         if let Some(p) = &self.people {

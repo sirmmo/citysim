@@ -216,6 +216,11 @@ landfill, recycling, incinerator ──rubbish collection──▶ level 3 build
   it, the `points` of approval it costs when every resident lives with it,
   and optionally `advice` for the news window. The share is counted over
   homes by the people each houses.
+- `[mayor]` sets when a town turns on its mayor: `oust_below` (approval as
+  a share, 0.30), `oust_months` (12), `voters` (the smallest town that
+  votes, 500) and `term_years` (4, with terms of office). The modern rules
+  leave them as they are; the pre-industrial rules use 0.25, 24 months, 200
+  people and terms of 5 years.
 - `water_pollution` is an ordinary map layer: units emit into it (a
   negative amount cleans, as the reed bed does), pumping stations
   `require` it under 8, and the script (`glassbox.gbx`) takes land value
