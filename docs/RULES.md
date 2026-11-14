@@ -291,6 +291,14 @@ tide = { out = [10, 15], spread = 3 }      # one way: no `back`
   map and what sensors count.
 - **What does not:** how far people get. Trips are slowed by the day's
   average congestion, as before: someone caught in the rush still arrives.
+- **Sun and wind:** a unit with `follows = "sun"` or `follows = "wind"`
+  makes its `produce` times what the sky gives. The sun is 0 at night and
+  about 3 at noon (1 on average over a spring day; without a clock,
+  the day's average at all times), times the clouds (1.3 clear, 0.8
+  cloudy, 0.5 rain or snow, 0.3 storm). The wind is 0.7 in clear weather,
+  1.1 under clouds or snow, 1.4 in rain and 1.9 in a storm, times the
+  season (0.8 in summer to 1.2 in winter) and a gust of a quarter up and
+  down. Anything a unit makes can follow the sky, not only power.
 - **Round the clock:** a unit with `round_the_clock = true` (hospitals,
   police and fire stations in the shipped rules) and a share of a zone's
   buildings (`round_the_clock = 0.05` on the commercial and industrial
@@ -731,7 +739,7 @@ regional = true                      # paid for by the whole region (optional)
 
 | Tree | Branches and projects |
 |---|---|
-| `modern` (GlassBox) | Transport: Motorways (highway). Economy: Service economy (+10% taxes, +30% ideas) or Industrial policy (+20% goods, +10% fuel); Computing (+25% research). Education: Secondary education (high school), Higher education (university). Housing: Steel-frame towers (High-rise, Slab tower, Skyscraper). Industry: Aeronautics (Aeronautics works). Power: Photovoltaics (solar farm), Nuclear fission (nuclear plant), Nuclear fusion (fusion plant; region-wide, 120,000 points). Culture: Cultural institutions (archaeology museum, modern art museum, opera house), Mass entertainment (stadium, shopping mall) |
+| `modern` (GlassBox) | Transport: Motorways (highway). Economy: Service economy (+10% taxes, +30% ideas) or Industrial policy (+20% goods, +10% fuel); Computing (+25% research). Education: Secondary education (high school), Higher education (university). Housing: Steel-frame towers (High-rise, Slab tower, Skyscraper). Industry: Aeronautics (Aeronautics works). Power: Photovoltaics (solar farm), Wind power (wind turbine), Nuclear fission (nuclear plant), Nuclear fusion (fusion plant; region-wide, 120,000 points). Culture: Cultural institutions (archaeology museum, modern art museum, opera house), Mass entertainment (stadium, shopping mall) |
 | `pre-industrial` | Streets: Paving (cobbled streets). Farming: Crop rotation (+20% food and fodder), Horse breeding (Stables). Charter: Free market (Market square, +15% taxes) or Guild charter (Craft hall, +20% goods). Housing: Masonry (Courtyard house, Insula block). Civic: Bathing & medicine (Bathhouse), Studium generale (Studium), Spectacles (Arena, Theatre), Printing (+30% ideas, +15% research). Trade: Banking (Merchants' exchange) |
 
 A school makes about 2 research points a tick, some 2,400 a year, so a

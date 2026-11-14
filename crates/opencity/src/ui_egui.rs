@@ -236,6 +236,7 @@ const GROUPS: &[Group] = &[
             ("power_plant_nuclear", Action::Tool(Some(Tool::NuclearPlant)), "Nuclear plant", ""),
             ("power_plant_solar", Action::Tool(Some(Tool::SolarPlant)), "Solar farm", ""),
             ("power_plant_fusion", Action::Tool(Some(Tool::FusionPlant)), "Fusion plant", ""),
+            ("power_plant_wind", Action::Tool(Some(Tool::WindTurbine)), "Wind turbine", ""),
         ],
         true,
     ),
@@ -321,6 +322,7 @@ fn needs_rules(t: Tool) -> bool {
             | Tool::ArchaeologyMuseum
             | Tool::SolarPlant
             | Tool::FusionPlant
+            | Tool::WindTurbine
     )
 }
 
@@ -741,7 +743,16 @@ impl EguiUi {
                     RichText::new(format!("{:02}:{:02} · {} · {}", h as u32, ((h.fract()) * 60.0) as u32, city.season().name(), city.weather.name()))
                         .monospace(),
                 )
-                .on_hover_text(format!("{}, {}", city.season().name(), city.weather.name()));
+                .on_hover_text({
+                    let [sun, wind] = city.sky();
+                    format!(
+                        "{}, {}\nSun {:.0}% and wind {:.0}% of an average day: what solar farms and wind turbines make now.",
+                        city.season().name(),
+                        city.weather.name(),
+                        sun * 100.0,
+                        wind * 100.0
+                    )
+                });
                 let fund = RichText::new(format!("$ {}", city.fund)).monospace().strong();
                 ui.label(if city.fund < 0 { fund.color(Color32::from_rgb(240, 90, 80)) } else { fund });
                 ui.label(RichText::new(format!("Pop {}", city.population)).monospace());
@@ -1563,7 +1574,18 @@ fn unit_details(ui: &mut egui::Ui, city: &City, gb: &opencity_core::glassbox::Gl
                 continue;
             }
             ui.label(format!("makes {}", rules.resources[i].name));
-            ui.label(RichText::new(format!("{amount:.1}")).monospace());
+            match def.follows {
+                // What the sky leaves of it right now.
+                Some(f) => {
+                    let sky = gb.sky_factor(def);
+                    let what = if f == opencity_core::rules::Follows::Sun { "sun" } else { "wind" };
+                    ui.label(RichText::new(format!("{:.1} of {amount:.1}", amount * sky)).monospace())
+                        .on_hover_text(format!("It makes what the {what} gives: {:.0}% of an average day right now.", sky * 100.0));
+                }
+                None => {
+                    ui.label(RichText::new(format!("{amount:.1}")).monospace());
+                }
+            }
             ui.end_row();
         }
         for (l, b) in &def.requires {

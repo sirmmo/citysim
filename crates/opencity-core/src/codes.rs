@@ -75,6 +75,8 @@ pub enum StructureCode {
     SolarPlant = 62,
     /// Fusion plant: the most power there is, with no smoke and no waste.
     FusionPlant = 63,
+    /// Wind turbine: a little clean power from one tile, more when the weather is rough.
+    WindTurbine = 64,
 }
 
 impl StructureCode {
@@ -124,6 +126,7 @@ impl StructureCode {
             61 => ArchaeologyMuseum,
             62 => SolarPlant,
             63 => FusionPlant,
+            64 => WindTurbine,
             _ => return None,
         })
     }
@@ -137,7 +140,7 @@ impl StructureCode {
     }
 
     pub const fn is_power_plant(self) -> bool {
-        matches!(self, Self::CoalPlant | Self::NuclearPlant | Self::SolarPlant | Self::FusionPlant)
+        matches!(self, Self::CoalPlant | Self::NuclearPlant | Self::SolarPlant | Self::FusionPlant | Self::WindTurbine)
     }
 
     /// Places people go to: stadium, mall, museums, opera house.
@@ -213,6 +216,7 @@ impl StructureCode {
             ArchaeologyMuseum => GraphicCode::ARCHAEOLOGY_MUSEUM,
             SolarPlant => GraphicCode::EPLANT_SOLAR,
             FusionPlant => GraphicCode::EPLANT_FUSION,
+            WindTurbine => GraphicCode::EPLANT_WIND,
         }
     }
 
@@ -222,7 +226,7 @@ impl StructureCode {
             Residential | Park => StructureType::Residence,
             Commercial => StructureType::Commerce,
             Industrial => StructureType::Industry,
-            CoalPlant | NuclearPlant | SolarPlant | FusionPlant => StructureType::Electricity,
+            CoalPlant | NuclearPlant | SolarPlant | FusionPlant | WindTurbine => StructureType::Electricity,
             Road | PowerLine | WaterPipe => StructureType::Path,
             PumpingStation | WaterTower | WaterTreatment => StructureType::Water,
             Dump | Recycling | Incinerator | BusStop | TramStop | MetroStation | Airport | Seaport => StructureType::Government,
@@ -268,6 +272,7 @@ impl StructureCode {
             ArchaeologyMuseum => 3000,
             SolarPlant => 1800,
             FusionPlant => 40000,
+            WindTurbine => 600,
             Test | Part => 0,
         }
     }
@@ -305,6 +310,7 @@ impl StructureCode {
             ArchaeologyMuseum => 20,
             SolarPlant => 5,
             FusionPlant => 200,
+            WindTurbine => 2,
         }
     }
 
@@ -333,6 +339,7 @@ impl StructureCode {
             ArchaeologyMuseum => 200,
             SolarPlant => 100,
             FusionPlant => 2000,
+            WindTurbine => 40,
             Test => 0,
         }
     }
@@ -374,6 +381,7 @@ impl GraphicCode {
     pub const EPLANT_NUCLEAR: Self = Self(303);
     pub const EPLANT_SOLAR: Self = Self(304);
     pub const EPLANT_FUSION: Self = Self(305);
+    pub const EPLANT_WIND: Self = Self(306);
     pub const PARK0: Self = Self(320);
     pub const TREE_BEGIN: Self = Self(330);
     pub const TREE_END: Self = Self(334);
@@ -685,10 +693,11 @@ pub enum Tool {
     ArchaeologyMuseum,
     SolarPlant,
     FusionPlant,
+    WindTurbine,
 }
 
 impl Tool {
-    pub const ALL: [Tool; 48] = [
+    pub const ALL: [Tool; 49] = [
         Tool::Destroy,
         Tool::ZoneResidential,
         Tool::ZoneCommercial,
@@ -737,6 +746,7 @@ impl Tool {
         Tool::ArchaeologyMuseum,
         Tool::SolarPlant,
         Tool::FusionPlant,
+        Tool::WindTurbine,
     ];
 
     /// Stable identifier, used by skins and GeoJSON rules.
@@ -790,6 +800,7 @@ impl Tool {
             Tool::ArchaeologyMuseum => "archaeology_museum",
             Tool::SolarPlant => "solar_plant",
             Tool::FusionPlant => "fusion_plant",
+            Tool::WindTurbine => "wind_turbine",
         }
     }
 
@@ -835,6 +846,7 @@ impl Tool {
             Tool::ArchaeologyMuseum => S::ArchaeologyMuseum,
             Tool::SolarPlant => S::SolarPlant,
             Tool::FusionPlant => S::FusionPlant,
+            Tool::WindTurbine => S::WindTurbine,
             // Metro tunnels run underground, under whatever stands there.
             Tool::Destroy | Tool::RaiseTerrain | Tool::LowerTerrain | Tool::Canal | Tool::MetroLine => return None,
         })

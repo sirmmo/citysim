@@ -456,6 +456,7 @@ coal_plant = "coal_plant"
 nuclear_plant = "nuclear_plant"
 solar_plant = "solar_farm"
 fusion_plant = "fusion_plant"
+wind_turbine = "wind_turbine"
 fire_station = "fire_station"
 police = "police_station"
 hospital = "hospital"
@@ -1020,13 +1021,20 @@ emits = { land_value = { amount = 2.0, radius = 6 } }
 # hardly anyone, but makes little for the land it takes: a coal plant gets
 # 27 units of power from a tile, a solar farm under 8. A fusion plant powers
 # a region (sell what is left over through a power line across the border).
+#
+# `follows` ties what a unit makes to the sky. "sun": nothing at night and
+# three to four times the written amount at noon (120 is the mean over a
+# spring day), more in summer's long days, less under clouds. "wind": less
+# in fine weather, nearly twice as much in a storm, with gusts. A town on
+# sun and wind alone goes dark now and then: keep another plant on the grid.
 [[unit]]
 id = "solar_farm"
 name = "Solar farm"
-description = "A field of panels: clean power with hardly any staff or upkeep, and little of it for the land it takes."
+description = "A field of panels: clean power with hardly any staff or upkeep, by day only, and little of it for the land it takes."
 graphic = 304
 produce = { power = 120 }
 needs = { workers = 1, upkeep = 0.1 }
+follows = "sun"
 
 [[unit]]
 id = "fusion_plant"
@@ -1035,3 +1043,13 @@ description = "A star in a magnetic bottle: five times a nuclear plant's power, 
 graphic = 305
 produce = { power = 6000 }
 needs = { workers = 40, upkeep = 5 }
+
+[[unit]]
+id = "wind_turbine"
+name = "Wind turbine"
+description = "A mast on a single tile: clean power that comes and goes with the weather, and a hum for the neighbours."
+graphic = 306
+produce = { power = 25 }
+needs = { upkeep = 0.04 }
+follows = "wind"
+emits = { "Noise.level" = { amount = 2.0, radius = 2 } }

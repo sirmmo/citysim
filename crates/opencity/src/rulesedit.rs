@@ -81,6 +81,7 @@ const STRUCTURES: &[&str] = &[
     "nuclear_plant",
     "solar_plant",
     "fusion_plant",
+    "wind_turbine",
     "park",
     "fire_station",
     "police",

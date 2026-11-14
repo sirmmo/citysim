@@ -23,6 +23,7 @@ pub const COAL_PLANT_POWER: i32 = 20_000;
 pub const NUCLEAR_PLANT_POWER: i32 = 50_000;
 pub const SOLAR_PLANT_POWER: i32 = 6_000;
 pub const FUSION_PLANT_POWER: i32 = 250_000;
+pub const WIND_TURBINE_POWER: i32 = 1_500;
 pub const SERVICE_POWER_CONSUMPTION: i32 = 50;
 /// Radius within which a consumer picks up power from a powered tile.
 pub const POWER_CONSUMER_RANGE: u32 = 2;
@@ -223,6 +224,7 @@ pub fn refresh_values(layer: &BuildingLayer) -> SimValues {
                     StructureCode::NuclearPlant => v.power_capacity += NUCLEAR_PLANT_POWER,
                     StructureCode::SolarPlant => v.power_capacity += SOLAR_PLANT_POWER,
                     StructureCode::FusionPlant => v.power_capacity += FUSION_PLANT_POWER,
+                    StructureCode::WindTurbine => v.power_capacity += WIND_TURBINE_POWER,
                     c if c.is_public_service() => v.power -= SERVICE_POWER_CONSUMPTION * powered,
                     _ => {}
                 }

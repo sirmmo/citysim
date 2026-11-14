@@ -458,6 +458,18 @@ pub struct UnitDef {
     /// its staff come and go at the shift changes, not with the rush hours.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub round_the_clock: bool,
+    /// What it makes follows the sky: `"sun"` (the hour, the season and
+    /// the clouds) or `"wind"` (the weather, and gusts).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub follows: Option<Follows>,
+}
+
+/// What a unit's production follows (`follows`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Follows {
+    Sun,
+    Wind,
 }
 
 impl UnitDef {
@@ -1431,6 +1443,7 @@ pub fn structure_code(name: &str) -> Option<StructureCode> {
         "nuclear_plant" => NuclearPlant,
         "solar_plant" => SolarPlant,
         "fusion_plant" => FusionPlant,
+        "wind_turbine" => WindTurbine,
         "park" => Park,
         "fire_station" => FireDept,
         "police" => PoliceDept,

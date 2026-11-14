@@ -356,6 +356,11 @@ pub struct GlassBox {
     /// clock, traffic is the same at any hour.
     #[serde(skip)]
     pub hour: Option<f32>,
+    /// How much sun and wind there is now, against an average day (1),
+    /// set by the city before each tick: units that `follow` one make
+    /// that much of what the rules write. None: an average day.
+    #[serde(skip)]
+    pub sky: Option<[f32; 2]>,
     /// Probes left on the map.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub sensors: Vec<Sensor>,
@@ -462,6 +467,7 @@ impl GlassBox {
             comp_root: HashMap::new(),
             administration_unpaid: false,
             hour: None,
+            sky: None,
             sensors: Vec::new(),
             readings: Vec::new(),
             sensor_routes: SensorRoutes::default(),
@@ -516,6 +522,17 @@ impl GlassBox {
     /// Whether a rival project already done rules this one out for good.
     pub fn ruled_out(&self, rules: &Ruleset, tech: &str) -> bool {
         !self.researched.contains(tech) && rules.tech_excluded(tech, &self.researched)
+    }
+
+    /// How much of what the rules write a unit makes under this sky: 1,
+    /// unless it follows the sun or the wind.
+    pub fn sky_factor(&self, unit: &crate::rules::UnitDef) -> f32 {
+        let [sun, wind] = self.sky.unwrap_or([1.0; 2]);
+        match unit.follows {
+            Some(crate::rules::Follows::Sun) => sun,
+            Some(crate::rules::Follows::Wind) => wind,
+            None => 1.0,
+        }
     }
 
     /// Extra production from finished projects and policy stances, as a
@@ -1091,10 +1108,11 @@ impl GlassBox {
             .enumerate()
             .map(|(u, def)| def.produce.keys().map(|r| (r.clone(), self.tax_factor(&rules, unit_zone[u], r))).collect())
             .collect();
+        let sky: Vec<f32> = rules.units.iter().map(|u| self.sky_factor(u)).collect();
         for (p, u, _) in &units {
             let def = &rules.units[*u];
             let st = self.units.get_mut(&idx(p.0, p.1)).unwrap();
-            let eff = st.satisfaction.max(0.25);
+            let eff = st.satisfaction.max(0.25) * sky[*u];
             for (m, n) in &def.logs {
                 *metrics.entry(m.clone()).or_default() += n * eff;
             }

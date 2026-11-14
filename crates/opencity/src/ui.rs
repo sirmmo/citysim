@@ -74,6 +74,7 @@ const TOOLS: &[(&str, Action, &str)] = &[
     ("power_plant_nuclear", Action::Tool(Some(Tool::NuclearPlant)), "Nuclear power plant"),
     ("power_plant_solar", Action::Tool(Some(Tool::SolarPlant)), "Solar farm"),
     ("power_plant_fusion", Action::Tool(Some(Tool::FusionPlant)), "Fusion power plant"),
+    ("power_plant_wind", Action::Tool(Some(Tool::WindTurbine)), "Wind turbine"),
     ("park_city", Action::Tool(Some(Tool::Park)), "Park"),
     ("tree", Action::Tool(Some(Tool::Trees)), "Trees (T)"),
     ("fire", Action::Tool(Some(Tool::FireDept)), "Fire department"),

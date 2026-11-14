@@ -54,6 +54,7 @@ fn tags(code: StructureCode, level: u8) -> Map<String, Value> {
         NuclearPlant => ("nuclear_plant", &[("power", "plant"), ("plant:source", "nuclear")]),
         SolarPlant => ("solar_plant", &[("power", "plant"), ("plant:source", "solar")]),
         FusionPlant => ("fusion_plant", &[("power", "plant"), ("plant:source", "nuclear"), ("plant:method", "fusion")]),
+        WindTurbine => ("wind_turbine", &[("power", "generator"), ("generator:source", "wind")]),
         Park => ("park", &[("leisure", "park")]),
         Flora => ("trees", &[("natural", "tree")]),
         FireDept => ("fire_station", &[("amenity", "fire_station")]),

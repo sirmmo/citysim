@@ -371,14 +371,39 @@ Under GlassBox rules a plant's power goes to whatever its network reaches.
 | Plant | Size | Cost | Power | Staff | Upkeep per tick | Notes | Research needed |
 |---|---|---|---|---|---|---|---|
 | Coal plant | 5 × 3 | $2,000 | 400 | 10 | 0.4 | pollutes around it | none |
-| Solar farm | 4 × 4 | $1,800 | 120 | 1 | 0.1 | clean; little power for the land it takes | Photovoltaics |
+| Solar farm | 4 × 4 | $1,800 | 120 on average | 1 | 0.1 | clean; by day only; little power for the land it takes | Photovoltaics |
+| Wind turbine | 1 × 1 | $600 | 25 on average | none | 0.04 | clean; comes and goes with the weather; a hum for the neighbours | Wind power |
 | Nuclear plant | 6 × 6 | $5,000 | 1,200 | 25 | 1.6 | clean | Nuclear fission |
 | Fusion plant | 7 × 6 | $40,000 | 6,000 | 40 | 5 | clean; enough to sell to the neighbours | Nuclear fusion (region-wide) |
 
 Nuclear fusion costs 120,000 research points, fifteen times nuclear fission:
 about four years of one university's work. It needs Nuclear fission and
-Computing first. The solar farm and the fusion plant need GlassBox rules and
-are not built before 1800.
+Computing first. The solar farm, the wind turbine and the fusion plant need
+GlassBox rules and are not built before 1800.
+
+### Sun and wind
+
+Solar farms and wind turbines make what the sky gives. The clock in the top
+bar shows the hour, the season and the weather; hover it for the sun and the
+wind right now, as a share of an average day. A plant's inspector shows what
+it makes at the moment next to its rated power.
+
+- **Sun.** Nothing at night, the rated power on average over a spring day
+  of ordinary weather, and three to four times that at noon. Summer days
+  are longer (a quarter more over the day), winter days shorter (a quarter
+  less). A clear sky gives 130%, clouds 80%, rain and snow 50%, a storm
+  30%. With *Day and night*
+  switched off in the View menu there is no hour: the farms then make the
+  day's average at all times.
+- **Wind.** Half as much again in rain, nearly twice in a storm, less in
+  fine weather; more in winter and autumn than in summer. It also comes in
+  gusts, a quarter up and down, over some hundred ticks.
+
+The clock turns once a month, so a night lasts about ten days of the
+calendar. A town on sun alone goes dark for that long: keep a plant that
+runs at any hour on the same grid, or enough turbines for the night. What a
+farm makes at noon beyond what the town uses is lost, or sold to the
+neighbours through a power line across the border.
 
 ## Research
 

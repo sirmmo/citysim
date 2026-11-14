@@ -761,6 +761,30 @@ def fusion_plant():
     return m
 
 
+def wind_turbine():
+    """A wind turbine on one tile: a tapering white mast, a nacelle and
+    three blades facing the street (+z), on a small concrete pad."""
+    m = Model()
+    m.cylinder(CONCRETE, 0.5, 0.5, 0.2, 0.0, 0.04, n=12)
+    m.cylinder(WHITE, 0.5, 0.5, 0.07, 0.04, 2.1, n=10, r1=0.035)
+    # Nacelle, along z, and the hub in front of it.
+    m.box(WHITE, 0.44, 2.06, 0.38, 0.56, 2.18, 0.66, top=(0.80, 0.82, 0.84))
+    m.box(RED, 0.44, 2.10, 0.38, 0.56, 2.14, 0.385)
+    hub = (0.5, 2.12, 0.70)
+    m.poly(WHITE, [(hub[0] + 0.05 * math.cos(2 * math.pi * i / 8), hub[1] + 0.05 * math.sin(2 * math.pi * i / 8), 0.66) for i in range(8)] + [(hub[0], hub[1], 0.76)],
+           [[i, (i + 1) % 8, 8] for i in range(8)])
+    # Three blades in the plane z = 0.7: thin tapering quads, seen from both sides.
+    for k in range(3):
+        a = math.pi / 2 + 2 * math.pi * k / 3
+        ux, uy = math.cos(a), math.sin(a)
+        px, py = -uy, ux
+        root, tip, w0, w1 = 0.04, 0.56, 0.045, 0.012
+        v = [(hub[0] + ux * root + px * w0, hub[1] + uy * root + py * w0, 0.70), (hub[0] + ux * root - px * w0, hub[1] + uy * root - py * w0, 0.70),
+             (hub[0] + ux * tip - px * w1, hub[1] + uy * tip - py * w1, 0.71), (hub[0] + ux * tip + px * w1, hub[1] + uy * tip + py * w1, 0.71)]
+        m.poly((0.88, 0.89, 0.90), v, [[0, 1, 2, 3], [3, 2, 1, 0]])
+    return m
+
+
 def icons():
     try:
         from PIL import Image, ImageDraw
@@ -929,6 +953,14 @@ def icons():
     for (x, y) in ((32, 8), (32, 56), (4, 32), (60, 32)):
         d.ellipse((x - 3, y - 3, x + 3, y + 3), fill=(210, 110, 40))
     save_icon("power_plant_fusion", im)
+    im, d = tile(power)
+    d.polygon([(30, 58), (34, 58), (33, 26), (31, 26)], fill=white, outline=ink)
+    for k in range(3):
+        a = math.pi / 2 + 2 * math.pi * k / 3 + 0.3
+        ux, uy = math.cos(a), -math.sin(a)
+        d.polygon([(32 - uy * 3, 24 + ux * 3), (32 + uy * 3, 24 - ux * 3), (32 + ux * 22, 24 + uy * 22)], fill=white, outline=ink)
+    d.ellipse((28, 20, 36, 28), fill=(210, 60, 50), outline=ink)
+    save_icon("power_plant_wind", im)
     # Amenities, on a warm tile.
     warm = (225, 170, 110)
     im, d = tile(warm)
@@ -1025,6 +1057,7 @@ def main():
     save("educationdept/campus/campus", campus(), "University", 7, 5, 2.9, "A campus: the most research, and education for the whole town.")
     save("electricity/solar/solar", solar_farm(), "Solar farm", 4, 4, 0.5, "Clean power from a field of panels.")
     save("electricity/fusion/fusion", fusion_plant(), "Fusion power plant", 7, 6, 2.4, "The most power there is, with no smoke.")
+    save("electricity/wind/wind", wind_turbine(), "Wind turbine", 1, 1, 2.7, "A little clean power, more in rough weather.")
     save("amenity/stadium/stadium", stadium(), "Stadium", 6, 5, 2.15, "Crowds on match days.")
     save("amenity/mall/mall", mall(), "Shopping mall", 5, 4, 1.05, "A hundred shops under one roof.")
     save("amenity/museum/museum", museum(), "Museum", 3, 3, 1.45, "The town's collections.")

@@ -18,6 +18,7 @@ pub enum Build {
     NuclearPlant,
     SolarPlant,
     FusionPlant,
+    WindTurbine,
     Park,
     Trees,
     Water,
@@ -66,6 +67,7 @@ impl Build {
             "nuclear_plant" => NuclearPlant,
             "solar_plant" => SolarPlant,
             "fusion_plant" => FusionPlant,
+            "wind_turbine" => WindTurbine,
             "park" => Park,
             "trees" => Trees,
             "water" => Water,
@@ -115,6 +117,7 @@ impl Build {
             NuclearPlant => "nuclear_plant",
             SolarPlant => "solar_plant",
             FusionPlant => "fusion_plant",
+            WindTurbine => "wind_turbine",
             Park => "park",
             Trees => "trees",
             Water => "water",
@@ -261,6 +264,7 @@ mod tests {
         assert_eq!(r.classify(&props(&[("power", "plant"), ("plant:source", "nuclear"), ("plant:method", "fusion")])), Some(Build::FusionPlant));
         assert_eq!(r.classify(&props(&[("power", "plant"), ("plant:source", "solar")])), Some(Build::SolarPlant));
         assert_eq!(r.classify(&props(&[("power", "generator"), ("generator:source", "solar")])), Some(Build::SolarPlant));
+        assert_eq!(r.classify(&props(&[("power", "generator"), ("generator:source", "wind")])), Some(Build::WindTurbine));
         assert_eq!(r.classify(&props(&[("power", "plant"), ("plant:source", "coal")])), Some(Build::CoalPlant));
         assert_eq!(r.classify(&props(&[("highway", "residential")])), Some(Build::Road));
         assert_eq!(r.classify(&props(&[("highway", "footway")])), None);

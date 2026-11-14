@@ -1078,7 +1078,8 @@ fn solar_and_fusion_plants_make_power_and_the_campus_is_big() {
     }
     let power = r.resource("power").unwrap();
     let made = |c: &City| c.glassbox.as_ref().unwrap().balances.produced[power];
-    assert!((made(&c) - 120.0).abs() < 1.0, "a solar farm makes 120: {}", made(&c));
+    let sun = c.sky()[0];
+    assert!((made(&c) - 120.0 * sun).abs() < 1.0, "a solar farm makes 120 on an average day: {} under {sun}", made(&c));
     assert!(c.layer.structures().any(|(_, s)| s.code == StructureCode::Residential && s.level > 0), "homes grow on solar power");
     c.apply_tool(Tool::FusionPlant, (24, 2), (24, 2)).unwrap();
     for _ in 0..5 {
@@ -1095,6 +1096,49 @@ fn solar_and_fusion_plants_make_power_and_the_campus_is_big() {
     }
     assert_eq!(size, (7, 5));
     assert_eq!(c.footprints().size(opencity_core::GraphicCode::UNIVERSITY_OLD), (5, 4));
+}
+
+#[test]
+fn sun_and_wind_power_follow_the_sky() {
+    use opencity_core::city::{Speed, Weather};
+    let r = rules();
+    let mut c = City::new(Terrain::flat(48, 32), None, Footprints::builtin(), 3);
+    c.fund = 10_000_000;
+    c.use_rules(r.clone());
+    assert_eq!(c.tool_locked_by(Tool::WindTurbine).as_deref(), Some("Wind power"));
+    c.research_all();
+    c.glassbox.as_mut().unwrap().disasters_off = true;
+    c.apply_tool(Tool::Road, (2, 10), (40, 10)).unwrap();
+    c.apply_tool(Tool::WindTurbine, (12, 9), (12, 9)).unwrap();
+    let power = r.resource("power").unwrap();
+    let made = |c: &City| c.glassbox.as_ref().unwrap().balances.produced[power];
+    let under = |c: &mut City, w: Weather| {
+        c.weather = w;
+        for _ in 0..15 {
+            c.simulate_round();
+        }
+        made(c)
+    };
+    // A turbine makes its 25 times what the wind gives: more in a storm.
+    let calm = under(&mut c, Weather::Clear);
+    assert!((calm - 25.0 * c.sky()[1]).abs() < 1.5, "a turbine in fine weather: {calm} under {:?}", c.sky());
+    let storm = under(&mut c, Weather::Storm);
+    assert!(storm > 2.0 * calm, "a storm turns the blades faster: {storm} against {calm}");
+    // A solar farm makes less under clouds, and nothing at night.
+    c.apply_tool(Tool::Destroy, (12, 9), (12, 9)).unwrap();
+    c.apply_tool(Tool::SolarPlant, (4, 5), (4, 5)).unwrap();
+    let clear = under(&mut c, Weather::Clear);
+    let rain = under(&mut c, Weather::Rain);
+    assert!(clear > 0.0 && rain < 0.5 * clear, "clouds dim the panels: {rain} against {clear}");
+    // With the clock running the sun follows the hour: the 16th of the
+    // month is the evening, the 6th noon.
+    c.speed = Speed::Normal;
+    c.update(0.001);
+    c.date.day = 16;
+    assert!((c.hour() - 20.0).abs() < 0.1, "{}", c.hour());
+    assert_eq!(under(&mut c, Weather::Clear), 0.0, "no sun at night");
+    c.date.day = 6;
+    assert!(under(&mut c, Weather::Clear) > 2.0 * clear, "the most at noon");
 }
 
 #[test]
@@ -1839,7 +1883,7 @@ fn saves_survive_rules_that_gain_units() {
     let ids: Vec<&str> = r.units.iter().map(|u| u.id.as_str()).collect();
     let park = ids.iter().position(|i| *i == "park").unwrap();
     assert_eq!(&ids[park..park + 4], ["park", "high_school", "university", "museum"], "new units follow the old ones");
-    assert_eq!(ids.len(), park + 11, "a unit added to the shipped rules goes at the end, and this test learns its name");
+    assert_eq!(ids.len(), park + 12, "a unit added to the shipped rules goes at the end, and this test learns its name");
     let old = rules_named("pre-industrial");
     let old_ids: Vec<&str> = old.units.iter().map(|u| u.id.as_str()).collect();
     assert_eq!(&old_ids[old_ids.len() - 3..], ["studium", "arena", "theatre"]);

@@ -164,6 +164,15 @@ tier = 1
 cost = { research = 2500 }
 unlocks = ["solar_plant"]
 
+[[tech]]
+id = "wind_power"
+name = "Wind power"
+description = "Three blades on a steel mast: wind turbines, a little power from a single tile."
+category = "Power"
+tier = 1
+cost = { research = 1500 }
+unlocks = ["wind_turbine"]
+
 # The biggest project there is: some four years of a university's research.
 # It is region-wide: in a region every town pays into it, and all of them
 # have it once it is done.

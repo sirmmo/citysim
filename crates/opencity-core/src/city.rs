@@ -608,6 +608,7 @@ impl City {
     fn simulate_glassbox(&mut self) {
         let mut gb = self.glassbox.take().unwrap();
         gb.hour = (self.tides && self.clocked).then(|| self.hour());
+        gb.sky = Some(self.sky_at(gb.tick));
         let trips = gb.tick(&mut self.layer, &self.terrain, &self.footprints, &mut self.fund, &mut self.rng);
         // Road traffic comes from the trips (`GlassBox::congestion`).
         // A sample of the trips becomes visible vehicles.
@@ -1048,6 +1049,56 @@ impl City {
 
     pub fn season(&self) -> Season {
         Season::of_month(self.date.month)
+    }
+
+    /// The sun and the wind now, against an average day (1): the share of
+    /// their rated output that solar farms and wind turbines make.
+    pub fn sky(&self) -> [f32; 2] {
+        self.sky_at(self.glassbox.as_ref().map_or(0, |g| g.tick))
+    }
+
+    /// The sun follows the hour (when the city has a clock: none at night,
+    /// three times the average at noon), the length of the season's days
+    /// and the clouds. The wind follows the weather and the season, with
+    /// gusts that come and go over some hundred ticks.
+    fn sky_at(&self, tick: u64) -> [f32; 2] {
+        let s = self.season();
+        let clouds = match self.weather {
+            Weather::Clear => 1.3,
+            Weather::Cloudy => 0.8,
+            Weather::Rain | Weather::Snow => 0.5,
+            Weather::Storm => 0.3,
+        };
+        // Half the length of the day, in hours.
+        let half_day = match s {
+            Season::Summer => 7.5,
+            Season::Winter => 4.5,
+            _ => 6.0,
+        };
+        let daylight = if self.tides && self.clocked {
+            let from_noon = (self.hour() - 12.0).abs();
+            if from_noon < half_day {
+                std::f32::consts::PI * (std::f32::consts::FRAC_PI_2 * from_noon / half_day).cos()
+            } else {
+                0.0
+            }
+        } else {
+            half_day / 6.0
+        };
+        let blow = match self.weather {
+            Weather::Clear => 0.7,
+            Weather::Cloudy | Weather::Snow => 1.1,
+            Weather::Rain => 1.4,
+            Weather::Storm => 1.9,
+        };
+        let windy = match s {
+            Season::Winter => 1.2,
+            Season::Autumn => 1.1,
+            Season::Spring => 1.0,
+            Season::Summer => 0.8,
+        };
+        let gust = 1.0 + 0.25 * (tick as f32 / 17.0).sin();
+        [clouds * daylight, blow * windy * gust]
     }
 
     /// How the season and the weather change the odds of disasters that

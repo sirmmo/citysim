@@ -2,6 +2,13 @@
 
 Release notes in full are on the [releases page](https://github.com/sirmmo/citysim/releases).
 
+## 0.2.60: Wind turbines, and sun that sets
+- **Wind turbine** (1 × 1, $600): 25 units of clean power on average from a single tile, with no staff. It makes more in rough weather, nearly twice in a storm, and less on a fine day; it hums, so keep it off the best streets. It waits for **Wind power** (1,500 research points).
+- **Solar farms follow the sun.** Nothing at night and three to four times their rated 120 at noon; more over summer's long days, less in winter and under clouds. A town on solar power alone now goes dark at night: keep another plant or enough turbines on the grid. With *Day and night* off in the View menu there is no hour, and the farms make the day's average.
+- The clock in the top bar tells the sun and the wind of the moment when you hover it, and a plant's inspector shows what it makes right now next to its rated power.
+- **In the rules:** `follows = "sun"` or `follows = "wind"` on a `[[unit]]` (see RULES.md).
+- Map imports build wind turbines from `generator:source=wind`; exports write them back.
+
 ## 0.2.59: Right click in the browser
 - **Fixed: after a right click in the browser the map stayed tied to the mouse.** The browser's own menu opened over the game and took the release of the button, so the game went on turning the view as if it were held. The menu no longer opens over the map, and a button let go outside the map, over another part of the page or while the window loses focus is let go in the game too.
 
