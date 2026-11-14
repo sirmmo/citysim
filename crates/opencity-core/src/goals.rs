@@ -88,8 +88,10 @@ impl Default for Start {
 #[serde(deny_unknown_fields)]
 pub struct GoalDef {
     pub name: String,
-    /// What is measured: `population`, `fund`, `approval` (the mayor's
-    /// rating, in percent), `buildings` (developed),
+    /// What is measured: `population`, `fund`, `debt` (money owed, loans
+    /// included), `approval` (the mayor's rating, in percent), `jobless`
+    /// (percent of workers), `homeless` (people), `complaint:<name>`
+    /// (percent of residents living with it), `buildings` (developed),
     /// `research:<project>` (1 when done), `unit:<unit id>` (how many),
     /// `structure:<kind>` (station, harbour, school…: how many),
     /// `produced:<resource>` or `unmet:<resource>` (per tick).
@@ -171,6 +173,10 @@ impl City {
             "population" => self.population as f64,
             "fund" => self.fund as f64,
             "approval" => (self.mayor.approval * 100.0) as f64,
+            "jobless" => self.glassbox.as_ref().map_or(0.0, |g| g.jobless as f64 * 100.0),
+            "homeless" => self.glassbox.as_ref().map_or(0.0, |g| g.homeless as f64),
+            "debt" => (-self.fund).max(0) as f64 + self.loans.iter().map(|l| (l.payment * l.months_left as i64) as f64).sum::<f64>(),
+            "complaint" => self.complaints().iter().find(|c| c.name == arg).map_or(0.0, |c| c.share as f64 * 100.0),
             "buildings" => self.layer.structures().filter(|(_, s)| s.unit.is_some() || (s.code.is_zone() && s.level > 0)).count() as f64,
             "research" => self.glassbox.as_ref().is_some_and(|g| g.researched.contains(arg)) as u8 as f64,
             "unit" => {

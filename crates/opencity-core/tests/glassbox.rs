@@ -2260,3 +2260,48 @@ fn residents_complain_and_the_news_is_kept() {
     c.update(opencity_core::city::MS_PER_DAY);
     assert_eq!(c.news.iter().filter(|n| n.text.starts_with(&e.name)).count(), 1, "{:?}", c.news);
 }
+
+#[test]
+fn terms_of_office_end_in_an_election_decided_by_approval_and_promises() {
+    use opencity_core::city::MS_PER_DAY;
+    let mut c = City::new(Terrain::flat(32, 32), None, Footprints::builtin(), 3);
+    c.use_rules(rules());
+    c.glassbox.as_mut().unwrap().disasters_off = true;
+    assert!(c.years_to_election().is_none() && c.promise(c.promise_offers().remove(0)).is_err(), "terms are opt-in");
+    c.set_terms(true);
+    assert_eq!(c.years_to_election(), Some(4));
+    // Two promises at most, in the first year: one easy to keep, one not.
+    let offers = c.promise_offers();
+    let people = offers.iter().find(|g| g.metric == "population").unwrap().clone();
+    let money = offers.iter().find(|g| g.metric == "fund").unwrap().clone();
+    c.promise(people).unwrap();
+    assert!(c.promise_offers().iter().all(|g| g.metric != "population"), "not offered twice");
+    c.promise(money.clone()).unwrap();
+    assert!(c.promise(money).is_err(), "two at most");
+    // An empty town: 60% approval, both promises broken.
+    assert_eq!(c.vote_forecast().round(), 40.0);
+    c.fund = 1_000_000;
+    assert_eq!(c.vote_forecast().round(), 56.0, "the treasury promise is kept");
+    let years = |c: &mut City, n: u32| {
+        for _ in 0..n * 360 {
+            c.update(MS_PER_DAY);
+        }
+    };
+    years(&mut c, 4);
+    assert!(!c.ousted() && c.mayor.terms_won == 1 && c.mayor.last_vote.is_some_and(|v| v.round() == 56.0), "{:?}", c.mayor);
+    assert!(c.mayor.promises.is_empty() && c.years_to_election() == Some(4) && c.can_promise());
+    assert!(c.news.iter().any(|n| n.text.starts_with("Election won with 56%")), "{:?}", c.news);
+    // The next term: a promise broken and a term served cost the election.
+    let people = c.promise_offers().into_iter().find(|g| g.metric == "population").unwrap();
+    c.promise(people).unwrap();
+    c.mayor.approval = 0.6;
+    assert_eq!(c.vote_forecast().round(), 47.0);
+    years(&mut c, 5);
+    let out = c.mayor.ousted.expect("the election is lost");
+    assert!(c.mayor.by_election && out.year == 8 && out.month == 1 && out.day == 1, "{out:?}");
+    // Back for a new term, or without terms at all.
+    c.stay_in_office(false);
+    assert!(!c.ousted() && c.years_to_election() == Some(4) && c.mayor.terms_won == 0);
+    c.set_terms(false);
+    assert!(c.years_to_election().is_none());
+}

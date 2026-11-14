@@ -1207,6 +1207,7 @@ impl City {
         if self.date.month > 12 {
             self.date.month = 1;
             self.date.year += 1;
+            self.election();
             self.pay_bills(true);
             self.history.pop_front();
             self.history.push_back(Record {

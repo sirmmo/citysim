@@ -342,7 +342,8 @@ research_all = false         # demo = true lays out the demo town
 
 [[goal]]
 name = "5,000 people"
-metric = "population"        # population, fund, approval (percent), buildings, research:<id>,
+metric = "population"        # population, fund, debt, approval, jobless (percent), homeless,
+                             # complaint:<name> (percent of residents), buildings, research:<id>,
 at_least = 5000              # unit:<id>, structure:<kind>, produced:<res>, unmet:<res>
 within_years = 10            # or always = true; at_most for upper bounds
 ```
@@ -618,6 +619,30 @@ a few months to show and a few months to be forgiven.
 
 The MCP server has a `mayor` tool with the rating, its parts and the vote.
 The command line's `simulate` runs without votes unless given `--elections`.
+
+## Terms of office and promises
+
+An opt-in mode: tick **View > Terms of office and promises**. Without it
+nothing here applies.
+
+- **An election every four years**, on the first day of the year. The first
+  is four years after you switch the mode on.
+- **Your share of the vote** is your approval in percent,
+  - plus 6 for each campaign promise kept on election day,
+  - less 10 for each promise broken,
+  - less 3 for each term already served, up to three.
+- **Half the vote wins** four more years. With less you are out, with the
+  same choices as after a vote of no confidence; running again starts a new
+  term.
+- **Promises:** in the first year of a term you can make up to two, picked
+  from what the city offers: more people, a complaint halved, fewer than 5%
+  out of work, money in the treasury, or getting out of debt. A promise
+  cannot be taken back, and it is judged as the city stands on election day.
+- **The Election button** in the City panel shows the date, how the vote
+  would go today and how each promise stands.
+- The vote of no confidence still applies between elections.
+
+The MCP server's `mayor` tool takes `terms` and `promise`.
 
 ## News and advice
 

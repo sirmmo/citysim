@@ -6,8 +6,9 @@ mod bake;
 #[cfg(not(target_os = "android"))]
 mod budget;
 mod camera;
-mod flows;
 #[cfg(not(target_os = "android"))]
+mod election;
+mod flows;
 mod goalsui;
 mod gpu;
 #[cfg(not(target_os = "android"))]
@@ -129,6 +130,9 @@ struct Args {
     /// Open the news window (screenshots, docs).
     #[arg(long, hide = true)]
     show_news: bool,
+    /// Open the election window (screenshots, docs).
+    #[arg(long, hide = true)]
+    show_election: bool,
     /// Set the hour of day (screenshots, docs).
     #[arg(long, hide = true)]
     at_hour: Option<f32>,
@@ -1034,6 +1038,22 @@ impl Game {
                     self.city.stay_in_office(true);
                 }
             }
+            Command::SetTerms(on) => {
+                self.city.set_terms(on);
+                if on {
+                    self.say(format!("Terms of office: the first election is in {} years.", opencity_core::mayor::TERM_YEARS));
+                }
+            }
+            Command::Promise(i) => {
+                let said = match self.city.promise_offers().into_iter().nth(i) {
+                    Some(goal) => {
+                        let name = goal.name.clone();
+                        self.city.promise(goal).map(|_| format!("Promised: {name}."))
+                    }
+                    None => Err("No such promise.".to_string()),
+                };
+                self.say(said.unwrap_or_else(|e| e));
+            }
             Command::StayInOffice(for_life) => {
                 self.city.stay_in_office(for_life);
                 self.say(if for_life { "Mayor for life. Nobody votes here any more." } else { "Back in office, at 50% approval. The council is watching." });
@@ -1561,6 +1581,10 @@ async fn main() -> Result<()> {
     #[cfg(not(target_os = "android"))]
     if let (true, Some(ui)) = (s.args.show_news, game.egui.as_mut()) {
         ui.open_news();
+    }
+    #[cfg(not(target_os = "android"))]
+    if let (true, Some(ui)) = (s.args.show_election, game.egui.as_mut()) {
+        ui.open_election();
     }
     if let Some(m) = s.args.month {
         game.city.date.month = m.clamp(1, 12);

@@ -77,11 +77,54 @@ pub struct Mayor {
     pub past: VecDeque<u32>,
     /// Voted out on this day: time stands still and nothing can be built.
     pub ousted: Option<Date>,
+    /// Terms of office (opt-in): an election every [`TERM_YEARS`] years,
+    /// with campaign promises.
+    pub terms: bool,
+    /// The year of the next election (on its first day).
+    pub election_year: Option<u32>,
+    /// What the mayor promised for this term.
+    pub promises: Vec<Promise>,
+    /// Elections won in a row.
+    pub terms_won: u32,
+    /// The last election: the mayor's share of the vote, in percent.
+    pub last_vote: Option<f32>,
+    /// Out by losing an election (not by a vote of no confidence).
+    pub by_election: bool,
 }
+
+/// A campaign promise: a goal to have reached on election day.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct Promise {
+    pub goal: crate::goals::GoalDef,
+}
+
+/// Years between elections, with terms of office.
+pub const TERM_YEARS: u32 = 4;
+/// Promises a mayor can make for a term.
+pub const MAX_PROMISES: usize = 2;
+/// Votes (in percent) a promise kept wins, and one broken loses.
+pub const PROMISE_KEPT: f32 = 6.0;
+pub const PROMISE_BROKEN: f32 = 10.0;
+/// Votes lost for each term already served (people tire of a face), up
+/// to three terms' worth.
+pub const FATIGUE: f32 = 3.0;
 
 impl Default for Mayor {
     fn default() -> Self {
-        Self { approval: 0.6, low_months: 0, elections: true, shock: 0.0, past: VecDeque::new(), ousted: None }
+        Self {
+            approval: 0.6,
+            low_months: 0,
+            elections: true,
+            shock: 0.0,
+            past: VecDeque::new(),
+            ousted: None,
+            terms: false,
+            election_year: None,
+            promises: Vec::new(),
+            terms_won: 0,
+            last_vote: None,
+            by_election: false,
+        }
     }
 }
 
@@ -225,6 +268,21 @@ impl City {
                 None,
             );
         }
+        if let Some(years) = self.years_to_election().filter(|y| *y <= 1 && !self.ousted()) {
+            let share = self.vote_forecast();
+            if share < 55.0 {
+                say(
+                    format!(
+                        "The election is {}: you would get {share:.0}% of the vote today, and need 50%.",
+                        if years == 0 { "at the new year".to_string() } else { "next year".to_string() }
+                    ),
+                    None,
+                );
+            }
+        }
+        if self.can_promise() {
+            say("A new term: you can make campaign promises this year (Election).".into(), None);
+        }
         if self.fund < 0 {
             say("The city is in debt: nothing can be built. Raise taxes, cut funding or take a loan (Budget).".into(), None);
         }
@@ -362,14 +420,140 @@ impl City {
     /// rating starts over and the city can vote again), or as mayor for
     /// life, with no more votes.
     pub fn stay_in_office(&mut self, for_life: bool) {
+        let year = self.date.year;
         let m = &mut self.mayor;
         m.ousted = None;
         m.low_months = 0;
+        m.by_election = false;
         if for_life {
             m.elections = false;
+            m.terms = false;
         } else {
             m.approval = m.approval.max(0.5);
             m.shock = 0.0;
+            // A new face, a new term.
+            m.terms_won = 0;
+            m.promises.clear();
+            if m.terms {
+                m.election_year = Some(year + TERM_YEARS);
+            }
+        }
+    }
+
+    /// Switches terms of office on or off: with them, an election every
+    /// [`TERM_YEARS`] years decides whether the mayor stays, by approval
+    /// and by the promises kept. The first is that many years from now.
+    pub fn set_terms(&mut self, on: bool) {
+        let m = &mut self.mayor;
+        if on == m.terms {
+            return;
+        }
+        m.terms = on;
+        m.promises.clear();
+        m.terms_won = 0;
+        m.election_year = on.then_some(self.date.year + TERM_YEARS);
+        if on {
+            m.elections = true;
+        }
+    }
+
+    /// Years until the next election (terms of office).
+    pub fn years_to_election(&self) -> Option<u32> {
+        self.mayor.election_year.filter(|_| self.mayor.terms).map(|y| y.saturating_sub(self.date.year))
+    }
+
+    /// Promises can be made in the first year of a term.
+    pub fn can_promise(&self) -> bool {
+        self.mayor.promises.len() < MAX_PROMISES && self.years_to_election().is_some_and(|y| y >= TERM_YEARS)
+    }
+
+    /// What the mayor could promise for this term, from how the city
+    /// stands: each is a goal to have reached on election day.
+    pub fn promise_offers(&self) -> Vec<crate::goals::GoalDef> {
+        use crate::goals::GoalDef;
+        let goal = |name: String, metric: String, at_least: Option<f64>, at_most: Option<f64>| GoalDef {
+            name,
+            metric,
+            at_least,
+            at_most,
+            within_years: None,
+            always: false,
+        };
+        let mut v = Vec::new();
+        let grown = ((self.population.max(200) as f64 * 1.3 / 50.0).ceil() * 50.0).max(300.0);
+        v.push(goal(format!("A city of {grown:.0} people"), "population".into(), Some(grown), None));
+        let mut complaints = self.complaints();
+        complaints.sort_by(|a, b| b.points.total_cmp(&a.points));
+        for c in complaints.iter().filter(|c| c.share >= 0.3).take(2) {
+            let half = (c.share as f64 * 50.0).floor();
+            v.push(goal(format!("{}: for fewer than {half:.0}% of residents", c.name), format!("complaint:{}", c.name), None, Some(half)));
+        }
+        if self.glassbox.as_ref().is_some_and(|g| g.jobless > 0.08) {
+            v.push(goal("Fewer than 5% out of work".into(), "jobless".into(), None, Some(5.0)));
+        }
+        if self.fund < 0 || !self.loans.is_empty() {
+            v.push(goal("Out of debt, with every loan repaid".into(), "debt".into(), None, Some(0.0)));
+        } else {
+            let saved = ((self.fund as f64 * 1.5 / 1000.0).ceil() * 1000.0).max(20_000.0);
+            v.push(goal(format!("${saved:.0} in the treasury"), "fund".into(), Some(saved), None));
+        }
+        v.retain(|g| !self.mayor.promises.iter().any(|p| p.goal.metric == g.metric));
+        v
+    }
+
+    /// Makes a campaign promise (one of [`Self::promise_offers`]).
+    pub fn promise(&mut self, goal: crate::goals::GoalDef) -> Result<(), String> {
+        if !self.mayor.terms {
+            return Err("There are no terms of office in this city.".into());
+        }
+        if self.mayor.promises.len() >= MAX_PROMISES {
+            return Err(format!("A campaign carries {MAX_PROMISES} promises at most."));
+        }
+        if !self.can_promise() {
+            return Err("Promises are made in the first year of a term.".into());
+        }
+        self.report(format!("The mayor promises: {}.", goal.name));
+        self.mayor.promises.push(Promise { goal });
+        Ok(())
+    }
+
+    /// Whether a promise holds as the city stands.
+    pub fn promise_kept(&self, p: &Promise) -> bool {
+        p.goal.holds(self.goal_value(&p.goal.metric))
+    }
+
+    /// The mayor's share of the vote were the election held today, in
+    /// percent: approval, plus promises kept, less promises broken and the
+    /// wear of terms served. Half the vote wins.
+    pub fn vote_forecast(&self) -> f32 {
+        let m = &self.mayor;
+        let promises: f32 = m.promises.iter().map(|p| if self.promise_kept(p) { PROMISE_KEPT } else { -PROMISE_BROKEN }).sum();
+        (m.approval * 100.0 + promises - FATIGUE * m.terms_won.min(3) as f32).clamp(0.0, 100.0)
+    }
+
+    /// New year's day: the election, when one is due.
+    pub(crate) fn election(&mut self) {
+        if !self.mayor.terms || self.ousted() || self.mayor.election_year.is_none_or(|y| self.date.year < y) {
+            return;
+        }
+        let share = self.vote_forecast();
+        let kept = self.mayor.promises.iter().filter(|p| self.promise_kept(p)).count();
+        let made = self.mayor.promises.len();
+        let promises = match made {
+            0 => String::new(),
+            _ => format!(" ({kept} of {made} promises kept)"),
+        };
+        self.mayor.last_vote = Some(share);
+        self.mayor.promises.clear();
+        if share >= 50.0 {
+            self.mayor.terms_won += 1;
+            self.mayor.election_year = Some(self.date.year + TERM_YEARS);
+            self.mayor.low_months = 0;
+            self.messages.push(format!("Election won with {share:.0}% of the vote{promises}. Four more years: you can make new promises this year."));
+        } else {
+            self.mayor.ousted = Some(self.date);
+            self.mayor.by_election = true;
+            self.messages.push(format!("Election lost: {share:.0}% of the vote{promises}. The city has a new mayor."));
         }
     }
 }

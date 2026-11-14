@@ -82,6 +82,10 @@ pub enum Command {
     SaveSensorCsv(String),
     /// Whether the city can vote its mayor out.
     SetElections(bool),
+    /// Terms of office with elections and promises (opt-in).
+    SetTerms(bool),
+    /// Make the campaign promise at this place in the offers.
+    Promise(usize),
     /// Voted out: back in office after a campaign, or (true) for life.
     StayInOffice(bool),
     /// Switch disasters by chance on or off.
@@ -163,6 +167,7 @@ pub struct EguiUi {
     show_region: bool,
     show_budget: bool,
     show_news: bool,
+    show_election: bool,
     show_goals: bool,
     day_night: bool,
     /// Scenarios offered in File > New scenario… (loaded when it opens).
@@ -384,6 +389,7 @@ impl EguiUi {
             show_region: false,
             show_budget: false,
             show_news: false,
+            show_election: false,
             show_goals: false,
             day_night: true,
             scenarios: Vec::new(),
@@ -487,6 +493,10 @@ impl EguiUi {
         self.show_region = true;
     }
 
+    pub fn open_election(&mut self) {
+        self.show_election = true;
+    }
+
     pub fn open_news(&mut self) {
         self.show_news = true;
     }
@@ -537,6 +547,9 @@ impl EguiUi {
         }
         if self.show_goals {
             crate::goalsui::window(ctx, &mut self.show_goals, view.city);
+        }
+        if self.show_election {
+            crate::election::window(ctx, &mut self.show_election, view.city, &mut out);
         }
         if self.show_news {
             crate::news::window(ctx, &mut self.show_news, view.city, &mut out);
@@ -698,6 +711,20 @@ impl EguiUi {
                         .changed()
                     {
                         out.push(Command::SetElections(elections));
+                    }
+                    let mut terms = view.city.mayor.terms;
+                    if ui
+                        .checkbox(&mut terms, "Terms of office and promises")
+                        .on_hover_text(format!(
+                            "An election every {} years: you stay with half the vote, which is your approval, plus {:.0} for each campaign promise kept, less {:.0} for each broken",
+                            opencity_core::mayor::TERM_YEARS,
+                            opencity_core::mayor::PROMISE_KEPT,
+                            opencity_core::mayor::PROMISE_BROKEN
+                        ))
+                        .changed()
+                    {
+                        out.push(Command::SetTerms(terms));
+                        self.show_election = terms;
                     }
                     if let Some(gb) = view.city.glassbox.as_ref().filter(|gb| !gb.sensors.is_empty()) {
                         ui.menu_button(format!("Sensors ({})", gb.sensors.len()), |ui| {
@@ -1034,6 +1061,12 @@ impl EguiUi {
                     if ui.button(news).on_hover_text("What needs you now, and the news so far").clicked() {
                         self.show_news = !self.show_news;
                     }
+                    if let Some(years) = view.city.years_to_election() {
+                        if ui.button(format!("✔ Election ({years}y)")).on_hover_text("The next election, how it would go today, and your promises").clicked()
+                        {
+                            self.show_election = !self.show_election;
+                        }
+                    }
                     if view.region.is_some() && ui.button("🗺 Region").on_hover_text("The region's cities and this month's trade").clicked() {
                         self.show_region = !self.show_region;
                     }
@@ -1236,14 +1269,19 @@ impl EguiUi {
         let city = view.city;
         egui::Window::new("Voted out of office").collapsible(false).resizable(false).anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0]).show(ctx, |ui| {
             ui.set_max_width(420.0);
-            ui.label(
-                RichText::new(format!("{:.0}% of the city is behind you.", city.mayor.approval * 100.0)).heading().color(Color32::from_rgb(230, 120, 100)),
-            );
-            ui.label(format!(
-                "After {} months under {:.0}%, the council held a vote of no confidence, and you lost it. The city stands still until you decide what next.",
-                opencity_core::mayor::OUST_MONTHS,
-                opencity_core::mayor::OUST_BELOW * 100.0
-            ));
+            let red = Color32::from_rgb(230, 120, 100);
+            if city.mayor.by_election {
+                let share = city.mayor.last_vote.unwrap_or(0.0);
+                ui.label(RichText::new(format!("You lost the election with {share:.0}% of the vote.")).heading().color(red));
+                ui.label("Half was needed: approval, plus promises kept, less promises broken. The city stands still until you decide what next.");
+            } else {
+                ui.label(RichText::new(format!("{:.0}% of the city is behind you.", city.mayor.approval * 100.0)).heading().color(red));
+                ui.label(format!(
+                    "After {} months under {:.0}%, the council held a vote of no confidence, and you lost it. The city stands still until you decide what next.",
+                    opencity_core::mayor::OUST_MONTHS,
+                    opencity_core::mayor::OUST_BELOW * 100.0
+                ));
+            }
             ui.add_space(4.0);
             ui.label(RichText::new("What people hold against you:").strong());
             approval_lines(ui, city);

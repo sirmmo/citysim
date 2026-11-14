@@ -2,6 +2,14 @@
 
 Release notes in full are on the [releases page](https://github.com/sirmmo/citysim/releases).
 
+## 0.2.68: Terms of office and promises
+- **Terms of office**, an opt-in mode (View > Terms of office and promises): an election every four years. Half the vote keeps you in office; with less you are out, as after a vote of no confidence.
+- **Your share of the vote** is your approval in percent, plus 6 for each campaign promise kept, less 10 for each broken, less 3 for each term already served (up to three).
+- **Campaign promises:** in the first year of a term, pick up to two from what the city offers: more people, a complaint halved, fewer than 5% out of work, money in the treasury, or getting out of debt. They are judged on election day.
+- **An Election window** (in the City panel) shows the date, how the vote would go today and how each promise stands. The news window warns when an election looks lost.
+- Scenario goals gain the metrics `debt`, `jobless`, `homeless` and `complaint:<name>`.
+- The MCP server's `mayor` tool takes `terms` and `promise`.
+
 ## 0.2.67: Complaints, news and advice
 - **Complaints reach the mayor.** Approval now loses points for what residents live with at home: crime and radiation (up to 20 each), smoke from works and plants (12), dirty air from traffic (10), dirty ground water (10), noise (8), and no fire station, police or hospital (6 each) or school (5) within reach. Each counts by the share of residents living with it. A town that meets every need but has no services now sits near 75%, not 98%.
 - **News and advice**, a new window behind the 📰 News button in the City panel. The top lists what needs you now: a coming vote, debt, shortages, people out of work or without a home, complaints shared by many (with a Show button to the home that has it worst and a line on what helps), a nuclear plant on a cut budget, a zone in high demand.

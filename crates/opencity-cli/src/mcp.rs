@@ -358,6 +358,13 @@ impl Server {
                         city.stay_in_office(true);
                     }
                 }
+                if let Some(on) = a.get("terms").and_then(Value::as_bool) {
+                    city.set_terms(on);
+                }
+                if let Some(i) = a.get("promise").and_then(Value::as_u64) {
+                    let goal = city.promise_offers().into_iter().nth(i as usize).context("no such promise: see `promise_offers`")?;
+                    city.promise(goal).map_err(|e| anyhow::anyhow!(e))?;
+                }
                 match a.get("stay").and_then(Value::as_str) {
                     Some("again") => city.stay_in_office(false),
                     Some("for_life") => city.stay_in_office(true),
@@ -375,6 +382,12 @@ impl Server {
                     "months_until_vote": m.months_left(),
                     "voters_needed": opencity_core::mayor::VOTERS,
                     "voted_out": m.ousted.map(|d| d.to_string()),
+                    "terms": m.terms,
+                    "election_year": m.election_year.filter(|_| m.terms),
+                    "vote_forecast": m.terms.then(|| city.vote_forecast()),
+                    "last_vote": m.last_vote,
+                    "promises": m.promises.iter().map(|p| json!({ "name": p.goal.name, "metric": p.goal.metric, "now": city.goal_value(&p.goal.metric), "target": p.goal.target(), "kept": city.promise_kept(p) })).collect::<Vec<_>>(),
+                    "promise_offers": if city.can_promise() { city.promise_offers().iter().map(|g| json!({ "name": g.name, "metric": g.metric, "now": city.goal_value(&g.metric), "target": g.target() })).collect::<Vec<_>>() } else { Vec::new() },
                 }))
             }
             "cheat" => {
@@ -574,8 +587,8 @@ fn tools() -> Value {
         }), &[]),
         tool("goals", "The scenario's goals: how far each has come, deadlines, and whether the game is won or lost.", json!({}), &[]),
         tool("news", "What needs the mayor now (`advice`: shortages, joblessness, the homeless, complaints, debt, a coming vote; some with the tile where it is worst), what residents complain about where they live (`complaints`: share of residents and the approval points each costs), and the city's news so far, oldest first.", json!({}), &[]),
-        tool("mayor", "The mayor's approval rating (0..1): the points out of 100 that make it (needs met, debt, people leaving, disasters, the family), where it is heading, and the vote. Under `voted_out_below` for 12 months in a row, a city of `voters_needed` people or more votes the mayor out: time then stands still and tools are refused until `stay` is `again` (a new term from 50%) or `for_life` (no more votes). `elections` switches the votes on or off.", json!({
-            "elections": { "type": "boolean" }, "stay": { "type": "string", "enum": ["again", "for_life"] }
+        tool("mayor", "The mayor's approval rating (0..1): the points out of 100 that make it (needs met, debt, people leaving, disasters, the family), where it is heading, and the vote. Under `voted_out_below` for 12 months in a row, a city of `voters_needed` people or more votes the mayor out: time then stands still and tools are refused until `stay` is `again` (a new term from 50%) or `for_life` (no more votes). `elections` switches the votes on or off. `terms` switches terms of office on or off (opt-in): an election every four years, won with half the vote, which is approval in percent plus 6 for each promise kept and less 10 for each broken; `promise` makes the campaign promise at that index of `promise_offers` (first year of a term, two at most).", json!({
+            "elections": { "type": "boolean" }, "terms": { "type": "boolean" }, "promise": { "type": "integer" }, "stay": { "type": "string", "enum": ["again", "for_life"] }
         }), &[]),
         tool("cheat", "Type a cheat code, as in SimCity 3000's cheat box. Some of them have consequences.", json!({ "code": { "type": "string" } }), &["code"]),
         tool("render_map", "Write a top-down PNG of the city.", json!({ "path": path, "scale": { "type": "integer", "minimum": 1, "maximum": 32, "default": 8 } }), &["path"]),
