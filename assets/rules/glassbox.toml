@@ -182,6 +182,20 @@ id = "research"
 name = "Research points"
 transport = "pool"
 
+# New resources go at the end: saves number resources by their place here.
+# Tourists arrive at airports, railway stations and harbours and go by road
+# to what there is to see (the units that need them, at the end of the
+# file). Those nobody takes go on to the neighbouring towns of a region.
+[[resource]]
+id = "tourists"
+name = "Tourists"
+transport = "agents"
+network = "road"
+max_trip = 40
+tide = { out = [10, 15], back = [13, 21], spread = 2 }   # out for the day, back for dinner
+colour = [0.95, 0.55, 0.95]
+price = 0.01
+
 # ---------------------------------------------------------------- networks
 [[network]]
 id = "road"
@@ -203,9 +217,17 @@ meshes = ["kenney/car-kit/sedan", "kenney/car-kit/suv", "kenney/car-kit/hatchbac
 id = "taxi"
 name = "Taxi"
 model = "car"
-carries = ["shoppers"]
+carries = ["shoppers", "tourists"]
 share = 0.5
 meshes = ["kenney/car-kit/taxi"]
+
+# Coaches take tourists from where they arrive to what they came to see.
+[[network.vehicle]]
+id = "coach"
+name = "Coach"
+model = "bus"
+carries = ["tourists"]
+share = 2
 
 [[network.vehicle]]
 id = "sports_car"
@@ -529,6 +551,9 @@ museum = "museum"
 modern_art_museum = "modern_art_museum"
 opera_house = "opera_house"
 archaeology_museum = "archaeology_museum"
+resort_hotel = "resort_hotel"
+observation_tower = "observation_tower"
+amusement_park = "amusement_park"
 
 # ---------------------------------------------------------------- units
 # Residential: residents produce workers and shoppers; they need power and
@@ -871,6 +896,8 @@ id = "station"
 name = "Railway station"
 description = "Trains stop here: places near stations on one line trade as if next door."
 graphic = 395
+produce = { tourists = 20 }
+sends = ["tourists"]
 needs = { workers = 4, power = 2, upkeep = 0.6 }
 
 [[unit]]
@@ -878,6 +905,8 @@ id = "harbour"
 name = "Harbour"
 description = "Ships call here: places near harbours on one body of water trade as if next door."
 graphic = 396
+produce = { tourists = 12 }
+sends = ["tourists"]
 needs = { workers = 4, power = 1, upkeep = 0.4 }
 
 [[unit]]
@@ -915,8 +944,10 @@ trade = { goods = 30, fuel = 20 }
 [[unit]]
 id = "airport"
 name = "Airport"
-description = "Flights to the rest of the world: tourists for the shops, and air freight for what the city lacks or cannot sell."
+description = "Flights to the rest of the world: tourists by the planeload, customers for the shops, and air freight for what the city lacks or cannot sell."
 graphic = 397
+produce = { tourists = 80 }
+sends = ["tourists"]
 needs = { workers = 20, power = 6, upkeep = 3 }
 trade = { shoppers = 40, goods = 8 }
 
@@ -1128,3 +1159,35 @@ description = "A pond planted with reeds that takes dirt out of the ground water
 graphic = 378
 needs = { upkeep = 0.05 }
 emits = { water_pollution = { amount = -2.5, radius = 5 }, land_value = { amount = 1.0, radius = 3 } }
+
+# Tourism. Visitors arrive at the airport (80 a tick), the railway station
+# (20) and the harbour (12), and go by coach and taxi, 40 tiles at most, to
+# the places below. These live on visitors: with fewer than half of those
+# they need they all but close. A town with something to see and no way in
+# gets the visitors its neighbours in the region cannot keep.
+[[unit]]
+id = "resort_hotel"
+name = "Resort hotel"
+description = "Two hundred rooms around a pool. It lives on visitors, and pays well when they come."
+graphic = 346
+produce = { taxes = 2.0 }
+needs = { tourists = 40, workers = 18, goods = 6, power = 8, water = 8, sewage = 4, waste = 4 }
+emits = { land_value = { amount = 2.0, radius = 5 } }
+
+[[unit]]
+id = "observation_tower"
+name = "Observation tower"
+description = "A view over the whole town from a hundred metres up: the picture on every postcard, and the best address below it."
+graphic = 347
+produce = { taxes = 0.5 }
+needs = { tourists = 15, workers = 3, power = 2, upkeep = 0.3 }
+emits = { land_value = { amount = 6.0, radius = 8 } }
+
+[[unit]]
+id = "amusement_park"
+name = "Amusement park"
+description = "A big wheel, a roller coaster and candyfloss: visitors by the coachload, families from town, and screams until closing time."
+graphic = 348
+produce = { taxes = 3.2 }
+needs = { tourists = 80, shoppers = 40, workers = 35, power = 25, water = 8, waste = 6, car = 30 }
+emits = { land_value = { amount = 2.0, radius = 8 }, "Noise.level" = { amount = 6.0, radius = 5 } }

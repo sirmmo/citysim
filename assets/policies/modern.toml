@@ -190,3 +190,31 @@ kinds = { "car.electric" = 1.0, "car.gasoline" = 0.0 }
 traffic = { "AirQuality.pm10" = -0.8, "Noise.level" = -0.4 }
 satisfaction = -0.02
 cost = 0.4
+
+# How hard the town sells itself. Visitors arrive at airports, stations and
+# harbours; a bonus on tourists brings more of them through each.
+[[policy]]
+id = "tourism"
+name = "Tourism"
+
+[[policy.stance]]
+id = "balanced"
+name = "Word of mouth"
+description = "Visitors come as they hear of the town."
+
+[[policy.stance]]
+id = "advertising"
+name = "Advertising campaign"
+description = "Posters in every station of the country: a third more visitors, paid by the city."
+requires = "tourism"
+bonus = { tourists = 0.3 }
+cost = 0.6
+
+[[policy.stance]]
+id = "festival"
+name = "Festival season"
+description = "Fireworks, concerts and a parade a month: half as many visitors again and busier shops, and crowds the residents tire of."
+requires = "mass_entertainment"
+bonus = { tourists = 0.5, shoppers = 0.1 }
+satisfaction = -0.01
+cost = 1.4

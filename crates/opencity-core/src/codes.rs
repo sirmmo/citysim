@@ -83,6 +83,12 @@ pub enum StructureCode {
     SewageOutfall = 66,
     /// Reed bed: a planted pond that cleans the ground water around it.
     Wetland = 67,
+    /// Resort hotel: rooms around a pool; it lives on tourists.
+    ResortHotel = 68,
+    /// Observation tower: a view over the town that visitors come for.
+    ObservationTower = 69,
+    /// Amusement park: a big wheel and a roller coaster; tourists, families and noise.
+    AmusementPark = 70,
 }
 
 impl StructureCode {
@@ -136,6 +142,9 @@ impl StructureCode {
             65 => Waterworks,
             66 => SewageOutfall,
             67 => Wetland,
+            68 => ResortHotel,
+            69 => ObservationTower,
+            70 => AmusementPark,
             _ => return None,
         })
     }
@@ -154,7 +163,18 @@ impl StructureCode {
 
     /// Places people go to: stadium, mall, museums, opera house.
     pub const fn is_amenity(self) -> bool {
-        matches!(self, Self::Stadium | Self::Mall | Self::Museum | Self::ModernArtMuseum | Self::OperaHouse | Self::ArchaeologyMuseum)
+        matches!(
+            self,
+            Self::Stadium
+                | Self::Mall
+                | Self::Museum
+                | Self::ModernArtMuseum
+                | Self::OperaHouse
+                | Self::ArchaeologyMuseum
+                | Self::ResortHotel
+                | Self::ObservationTower
+                | Self::AmusementPark
+        )
     }
 
     pub const fn is_public_service(self) -> bool {
@@ -240,6 +260,9 @@ impl StructureCode {
             Waterworks => GraphicCode::WATERWORKS,
             SewageOutfall => GraphicCode::SEWAGE_OUTFALL,
             Wetland => GraphicCode::WETLAND,
+            ResortHotel => GraphicCode::RESORT_HOTEL,
+            ObservationTower => GraphicCode::OBSERVATION_TOWER,
+            AmusementPark => GraphicCode::AMUSEMENT_PARK,
         }
     }
 
@@ -254,7 +277,9 @@ impl StructureCode {
             PumpingStation | WaterTower | WaterTreatment | Waterworks | SewageOutfall | Wetland => StructureType::Water,
             Dump | Recycling | Incinerator | BusStop | TramStop | MetroStation | Airport | Seaport => StructureType::Government,
             FireDept | PoliceDept | Hospital | School | HighSchool | University | Station | Harbour => StructureType::Government,
-            Stadium | Mall | Museum | ModernArtMuseum | OperaHouse | ArchaeologyMuseum => StructureType::Government,
+            Stadium | Mall | Museum | ModernArtMuseum | OperaHouse | ArchaeologyMuseum | ResortHotel | ObservationTower | AmusementPark => {
+                StructureType::Government
+            }
             Flora => StructureType::Tree,
             Part | Test => StructureType::Undefined,
         }
@@ -299,6 +324,9 @@ impl StructureCode {
             Waterworks => 2600,
             SewageOutfall => 300,
             Wetland => 400,
+            ResortHotel => 6000,
+            ObservationTower => 3500,
+            AmusementPark => 12000,
             Test | Part => 0,
         }
     }
@@ -340,6 +368,9 @@ impl StructureCode {
             Waterworks => 20,
             SewageOutfall => 2,
             Wetland => 2,
+            ResortHotel => 40,
+            ObservationTower => 25,
+            AmusementPark => 80,
         }
     }
 
@@ -372,6 +403,9 @@ impl StructureCode {
             Waterworks => 200,
             SewageOutfall => 50,
             Wetland => 50,
+            ResortHotel => 300,
+            ObservationTower => 200,
+            AmusementPark => 500,
             Test => 0,
         }
     }
@@ -413,6 +447,9 @@ impl GraphicCode {
     pub const EPLANT_NUCLEAR: Self = Self(303);
     pub const EPLANT_SOLAR: Self = Self(304);
     pub const EPLANT_FUSION: Self = Self(305);
+    pub const AMUSEMENT_PARK: Self = Self(348);
+    pub const OBSERVATION_TOWER: Self = Self(347);
+    pub const RESORT_HOTEL: Self = Self(346);
     pub const WETLAND: Self = Self(378);
     pub const SEWAGE_OUTFALL: Self = Self(377);
     pub const WATERWORKS: Self = Self(376);
@@ -732,10 +769,13 @@ pub enum Tool {
     Waterworks,
     SewageOutfall,
     Wetland,
+    ResortHotel,
+    ObservationTower,
+    AmusementPark,
 }
 
 impl Tool {
-    pub const ALL: [Tool; 52] = [
+    pub const ALL: [Tool; 55] = [
         Tool::Destroy,
         Tool::ZoneResidential,
         Tool::ZoneCommercial,
@@ -788,6 +828,9 @@ impl Tool {
         Tool::Waterworks,
         Tool::SewageOutfall,
         Tool::Wetland,
+        Tool::ResortHotel,
+        Tool::ObservationTower,
+        Tool::AmusementPark,
     ];
 
     /// Stable identifier, used by skins and GeoJSON rules.
@@ -845,6 +888,9 @@ impl Tool {
             Tool::Waterworks => "waterworks",
             Tool::SewageOutfall => "sewage_outfall",
             Tool::Wetland => "wetland",
+            Tool::ResortHotel => "resort_hotel",
+            Tool::ObservationTower => "observation_tower",
+            Tool::AmusementPark => "amusement_park",
         }
     }
 
@@ -894,6 +940,9 @@ impl Tool {
             Tool::Waterworks => S::Waterworks,
             Tool::SewageOutfall => S::SewageOutfall,
             Tool::Wetland => S::Wetland,
+            Tool::ResortHotel => S::ResortHotel,
+            Tool::ObservationTower => S::ObservationTower,
+            Tool::AmusementPark => S::AmusementPark,
             // Metro tunnels run underground, under whatever stands there.
             Tool::Destroy | Tool::RaiseTerrain | Tool::LowerTerrain | Tool::Canal | Tool::MetroLine => return None,
         })

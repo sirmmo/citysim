@@ -22,6 +22,9 @@ pub enum Build {
     Waterworks,
     SewageOutfall,
     Wetland,
+    ResortHotel,
+    ObservationTower,
+    AmusementPark,
     Park,
     Trees,
     Water,
@@ -74,6 +77,9 @@ impl Build {
             "waterworks" => Waterworks,
             "sewage_outfall" => SewageOutfall,
             "wetland" => Wetland,
+            "resort_hotel" => ResortHotel,
+            "observation_tower" => ObservationTower,
+            "amusement_park" => AmusementPark,
             "park" => Park,
             "trees" => Trees,
             "water" => Water,
@@ -127,6 +133,9 @@ impl Build {
             Waterworks => "waterworks",
             SewageOutfall => "sewage_outfall",
             Wetland => "wetland",
+            ResortHotel => "resort_hotel",
+            ObservationTower => "observation_tower",
+            AmusementPark => "amusement_park",
             Park => "park",
             Trees => "trees",
             Water => "water",
@@ -275,6 +284,9 @@ mod tests {
         assert_eq!(r.classify(&props(&[("power", "generator"), ("generator:source", "solar")])), Some(Build::SolarPlant));
         assert_eq!(r.classify(&props(&[("power", "generator"), ("generator:source", "wind")])), Some(Build::WindTurbine));
         assert_eq!(r.classify(&props(&[("man_made", "water_works")])), Some(Build::Waterworks));
+        assert_eq!(r.classify(&props(&[("tourism", "hotel"), ("building", "hotel")])), Some(Build::ResortHotel));
+        assert_eq!(r.classify(&props(&[("man_made", "tower"), ("tower:type", "observation")])), Some(Build::ObservationTower));
+        assert_eq!(r.classify(&props(&[("tourism", "theme_park")])), Some(Build::AmusementPark));
         assert_eq!(r.classify(&props(&[("man_made", "pumping_station")])), Some(Build::PumpingStation));
         assert_eq!(r.classify(&props(&[("man_made", "outfall")])), Some(Build::SewageOutfall));
         assert_eq!(r.classify(&props(&[("natural", "wetland"), ("wetland", "reedbed")])), Some(Build::Wetland));

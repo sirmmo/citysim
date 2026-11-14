@@ -129,7 +129,7 @@ interface** makes it Large or Huge on top of that, and `--ui-scale 1.5`
 - **Plants and services** (power plants, fire stations, police, hospitals, schools, wells…):
   - **Placing:** a new one turns to face the street beside it, and the preview shows the footprint it will take.
   - **Turning:** inspect it and press **⟳ Turn**, or **O**. Long buildings swap their footprint when turned.
-- **Ports:** a **Seaport** (on the shore, like a harbour) and an **Airport** trade with the rest of the world under GlassBox rules: the seaport brings in the goods and fuel the city lacks and ships out what it cannot sell; the airport flies in tourists for the shops and some freight. Both need research (*Ports*, *Aviation*), workers and power, and pay for what they import at the resource's price. Inspect one to see what went through. Under classic rules they are landmarks.
+- **Ports:** a **Seaport** (on the shore, like a harbour) and an **Airport** trade with the rest of the world under GlassBox rules: the seaport brings in the goods and fuel the city lacks and ships out what it cannot sell; the airport flies in customers for the shops, some freight, and tourists (see Tourism below). Both need research (*Ports*, *Aviation*), workers and power, and pay for what they import at the resource's price. Inspect one to see what went through. Under classic rules they are landmarks.
 
   ![An airport with its runway and terminal, and a seaport with cranes over containers](ports.png)
 - **Harbours and canals:** a **Harbour** goes on dry land with water within
@@ -239,6 +239,27 @@ interface** makes it Large or Huge on top of that, and `--ui-scale 1.5`
 
   Ideas feed the schools (see Research). Before 1800 there are an **Arena**
   and a **Theatre** (after *Spectacles*) and no museums or mall.
+- **Tourism** (GlassBox rules, after the research project *Tourism*).
+  Tourists are a resource of their own, apart from the town's shoppers.
+  They arrive at the **airport** (80 a tick), the **railway station** (20)
+  and the **harbour** (12), and go by coach and taxi, 40 tiles of road at
+  most, to the places that want them:
+
+  | Place | Size | Cost | Wants | Gives |
+  |---|---|---|---|---|
+  | Resort hotel | 4 × 3 | $6,000 | 40 tourists, 18 staff, goods, power, water, sewage, rubbish collection | 2.0 taxes a tick, no upkeep; some land value |
+  | Observation tower | 2 × 2 | $3,500 | 15 tourists, 3 staff, power, upkeep 0.3 | 0.5 taxes, and land value over a wide area |
+  | Amusement park | 6 × 5 | $12,000 | 80 tourists, 40 shoppers, 35 staff, power, water, parking | 3.2 taxes, no upkeep; noise next door |
+
+  These places live on visitors: with fewer than half of the tourists it
+  wants, one all but closes and pays little. So count the arrivals before
+  building: a station fills a tower, an airport a hotel and half a park.
+  The *Tourism* policy brings more through each gateway: an **advertising
+  campaign** a third more for $0.6 a tick, a **festival season** half as
+  many again (and busier shops, and residents a point less happy) for
+  $1.4. In a region, tourists nobody takes in one town go on by road to
+  the neighbours that have something to show, so a town without an
+  airport can live on its neighbour's.
 - **Services cover what they can reach by road.** Fire, police and health
   coverage spreads along the streets from the building, so a station on a
   street cut off from a neighbourhood does not protect it. Fire trucks,
@@ -482,7 +503,7 @@ The **📜 Policies** window sets:
 
 | Rules | Taxes | Policies |
 |---|---|---|
-| Modern | Property, sales, business (9 %) | Transport, Energy, Education, Growth, Vehicles |
+| Modern | Property, sales, business (9 %) | Transport, Energy, Education, Growth, Vehicles, Tourism |
 | Pre-industrial | Hearth tax, market tolls, guild dues | Labour, Provision, Gates |
 
 ## Seeing the city

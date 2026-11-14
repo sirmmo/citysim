@@ -2,6 +2,14 @@
 
 Release notes in full are on the [releases page](https://github.com/sirmmo/citysim/releases).
 
+## 0.2.64: Tourism
+- **Tourists**, a new resource apart from the town's shoppers. They arrive at the airport (80 a tick), the railway station (20) and the harbour (12), and travel by coach and taxi to the places that want them.
+- **Resort hotel** (4 × 3, $6,000), **Observation tower** (2 × 2, $3,500) and **Amusement park** (6 × 5, $12,000), in the Amenities row after the research project **Tourism** (2,200 points). They live on visitors: the hotel and the park pay well and cost no upkeep when the tourists come, and all but close when fewer than half of those they want arrive. The tower raises land value over a wide area; the park is noisy.
+- **A Tourism policy:** an advertising campaign brings a third more visitors through each gateway, a festival season half as many again, with busier shops and residents a little less happy.
+- **In a region**, tourists nobody takes in one town go on by road to the neighbours, so a town with something to show can live on its neighbour's airport.
+- Stations, harbours and airports in cities saved earlier bring tourists too; nothing wants them until you build for them.
+- Map imports build a resort hotel from `tourism=hotel`, an observation tower from `man_made=tower` with `tower:type=observation` and an amusement park from `tourism=theme_park`; exports write them back.
+
 ## 0.2.63: Clean water
 - **Water pollution**, a new data layer: dirty water in the ground. It comes from sewage nobody treats (it runs into the ground under the building that made it), from landfills, and from the slaughterhouse, the tank farm, the refinery and the steelworks. It seeps to the tiles around and clears within a few months once its source is gone.
 - **What it does:** a pumping station on dirty ground (above 8) gives half its water, land above 5 loses value, and family houses, apartment blocks, high-rises and slab towers above 10 are half as content.

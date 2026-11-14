@@ -1272,6 +1272,47 @@ fn untreated_sewage_dirties_the_ground_water() {
 }
 
 #[test]
+fn tourists_come_through_the_gateways_to_what_there_is_to_see() {
+    let r = rules();
+    let mut c = City::new(Terrain::flat(64, 48), None, Footprints::builtin(), 9);
+    c.use_rules(r.clone());
+    c.fund = 1_000_000;
+    assert_eq!(c.tool_locked_by(Tool::ResortHotel).as_deref(), Some("Tourism"));
+    assert_eq!(c.tool_locked_by(Tool::AmusementPark).as_deref(), Some("Tourism"));
+    c.research_all();
+    c.glassbox.as_mut().unwrap().disasters_off = true;
+    c.apply_tool(Tool::CoalPlant, (40, 2), (40, 2)).unwrap();
+    for l in [8, 12, 16, 20] {
+        c.apply_tool(Tool::Road, (2, l), (60, l)).unwrap();
+    }
+    c.apply_tool(Tool::Road, (45, 2), (45, 20)).unwrap();
+    c.apply_tool(Tool::ZoneResidential, (2, 9), (60, 11)).unwrap();
+    c.apply_tool(Tool::ZoneIndustrial, (2, 13), (60, 15)).unwrap();
+    c.apply_tool(Tool::ZoneCommercial, (2, 17), (60, 19)).unwrap();
+    // A tower with a view, and nobody to come and see it.
+    c.apply_tool(Tool::ObservationTower, (4, 21), (4, 21)).unwrap();
+    let run = |c: &mut City, n: u32| (0..n).for_each(|_| c.simulate_round());
+    run(&mut c, 250);
+    let tourists = r.resource("tourists").unwrap();
+    let mood = |c: &City| c.glassbox.as_ref().unwrap().unit_state(4, 21, 64).unwrap().satisfaction;
+    let lonely = mood(&c);
+    assert_eq!(c.glassbox.as_ref().unwrap().balances.delivered[tourists], 0.0);
+    assert!(lonely < 0.5, "an attraction without visitors all but closes: {lonely}");
+    // A railway station brings them.
+    c.apply_tool(Tool::Station, (12, 21), (12, 21)).unwrap();
+    run(&mut c, 120);
+    let gb = c.glassbox.as_ref().unwrap();
+    assert!(gb.balances.delivered[tourists] > 8.0, "visitors arrive by train: {}", gb.balances.delivered[tourists]);
+    assert!(mood(&c) > lonely + 0.3, "and the tower lives: {} from {lonely}", mood(&c));
+    // Advertising brings a third more through the same station.
+    let before = gb.balances.produced[tourists];
+    assert!(c.glassbox.as_mut().unwrap().set_stance("tourism", "advertising"));
+    run(&mut c, 3);
+    let after = c.glassbox.as_ref().unwrap().balances.produced[tourists];
+    assert!(after > before * 1.2, "{before} -> {after}");
+}
+
+#[test]
 fn a_region_researches_fusion_together() {
     use opencity_core::region::Region;
     let r = rules();
@@ -2013,7 +2054,7 @@ fn saves_survive_rules_that_gain_units() {
     let ids: Vec<&str> = r.units.iter().map(|u| u.id.as_str()).collect();
     let park = ids.iter().position(|i| *i == "park").unwrap();
     assert_eq!(&ids[park..park + 4], ["park", "high_school", "university", "museum"], "new units follow the old ones");
-    assert_eq!(ids.len(), park + 15, "a unit added to the shipped rules goes at the end, and this test learns its name");
+    assert_eq!(ids.len(), park + 18, "a unit added to the shipped rules goes at the end, and this test learns its name");
     let old = rules_named("pre-industrial");
     let old_ids: Vec<&str> = old.units.iter().map(|u| u.id.as_str()).collect();
     assert_eq!(&old_ids[old_ids.len() - 3..], ["studium", "arena", "theatre"]);

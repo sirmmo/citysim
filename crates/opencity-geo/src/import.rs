@@ -317,7 +317,7 @@ fn priority(b: Build) -> u8 {
         CoalPlant | NuclearPlant | SolarPlant | FusionPlant | WindTurbine => 3,
         FireStation | Police | Hospital | School | HighSchool | University | Station | Harbour | PumpingStation | WaterTower | WaterTreatment | Waterworks
         | SewageOutfall | Wetland | Dump | Recycling | Incinerator | BusStop | TramStop | MetroStation | Airport | Seaport => 4,
-        Stadium | Mall | Museum | ModernArtMuseum | OperaHouse | ArchaeologyMuseum => 4,
+        Stadium | Mall | Museum | ModernArtMuseum | OperaHouse | ArchaeologyMuseum | ResortHotel | ObservationTower | AmusementPark => 4,
         Residential | Commercial | Industrial => 5,
         Park => 6,
         Trees => 7,
@@ -341,6 +341,9 @@ fn code_of(b: Build) -> Option<StructureCode> {
         Waterworks => StructureCode::Waterworks,
         SewageOutfall => StructureCode::SewageOutfall,
         Wetland => StructureCode::Wetland,
+        ResortHotel => StructureCode::ResortHotel,
+        ObservationTower => StructureCode::ObservationTower,
+        AmusementPark => StructureCode::AmusementPark,
         Park => StructureCode::Park,
         Trees => StructureCode::Flora,
         FireStation => StructureCode::FireDept,

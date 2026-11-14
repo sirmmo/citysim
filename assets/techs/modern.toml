@@ -216,6 +216,15 @@ cost = { research = 1200 }
 unlocks = ["archaeology_museum", "modern_art_museum", "opera_house"]
 
 [[tech]]
+id = "tourism"
+name = "Tourism"
+description = "Guidebooks, package tours and a tourist office: the resort hotel, the observation tower and the amusement park, for the visitors who arrive by plane, train and boat."
+category = "Culture"
+tier = 1
+cost = { research = 2200 }
+unlocks = ["resort_hotel", "observation_tower", "amusement_park"]
+
+[[tech]]
 id = "mass_entertainment"
 name = "Mass entertainment"
 description = "Turnstiles, floodlights and car parks: the stadium and the shopping mall."

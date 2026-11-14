@@ -836,6 +836,123 @@ def wetland():
     return m
 
 
+def palm(m, x, z, h=0.5):
+    m.cylinder((0.55, 0.42, 0.28), x, z, 0.025, 0.02, h, n=6)
+    for k in range(5):
+        a = 2 * math.pi * k / 5
+        tip = (x + 0.2 * math.cos(a), h - 0.08, z + 0.2 * math.sin(a))
+        side = (0.05 * -math.sin(a), 0.05 * math.cos(a))
+        m.poly((0.25, 0.55, 0.28), [(x + side[0], h, z + side[1]), (x - side[0], h, z - side[1]), tip], [[0, 1, 2], [2, 1, 0]])
+
+
+def resort_hotel():
+    """A 4 x 3 resort hotel: a white slab of rooms with balconies at the
+    back, a low lobby wing, a pool with palms and the entrance on the
+    street (+z)."""
+    m = Model()
+    m.box((0.86, 0.80, 0.66), 0.0, 0.0, 0.0, 4.0, 0.02, 3.0)
+    # The slab: six floors, a glass band and a balcony rail on each.
+    m.box(WHITE, 0.3, 0.02, 0.2, 3.7, 1.5, 1.0, top=(0.80, 0.80, 0.78))
+    for k in range(6):
+        y = 0.22 + k * 0.22
+        m.box(GLASS, 0.36, y, 1.0, 3.64, y + 0.1, 1.012)
+        m.box((0.80, 0.80, 0.78), 0.3, y - 0.03, 1.0, 3.7, y - 0.01, 1.08)
+    m.box((0.85, 0.45, 0.30), 1.6, 1.5, 0.3, 2.4, 1.62, 0.9)
+    # The lobby wing and its canopy.
+    m.box(WHITE, 2.5, 0.02, 1.0, 3.7, 0.4, 2.3, top=(0.85, 0.45, 0.30))
+    m.box(GLASS, 2.7, 0.08, 2.3, 3.5, 0.32, 2.312)
+    m.box((0.85, 0.45, 0.30), 2.8, 0.36, 2.3, 3.4, 0.4, 2.75)
+    for x in (2.84, 3.36):
+        m.cylinder(STEEL, x, 2.7, 0.02, 0.02, 0.36, n=6)
+    # The pool, its deck and the palms.
+    m.box((0.93, 0.90, 0.82), 0.3, 0.02, 1.25, 2.3, 0.04, 2.6)
+    m.box(WATER, 0.55, 0.04, 1.5, 1.95, 0.05, 2.3)
+    for (x, z) in ((0.42, 1.38), (2.15, 1.4), (0.42, 2.45), (2.15, 2.45)):
+        palm(m, x, z)
+    for x in (0.7, 1.0, 1.3):
+        m.box((0.95, 0.55, 0.30), x, 0.04, 2.38, x + 0.2, 0.07, 2.5)
+    return m
+
+
+def observation_tower():
+    """A 2 x 2 observation tower: a tapering concrete shaft on a paved
+    square, a glazed pod near the top and a mast above it."""
+    m = Model()
+    m.box((0.80, 0.78, 0.74), 0.0, 0.0, 0.0, 2.0, 0.03, 2.0)
+    m.cylinder(CONCRETE, 1.0, 1.0, 0.5, 0.03, 0.3, n=16, top=DARK)
+    m.box(GLASS, 0.8, 0.05, 1.49, 1.2, 0.26, 1.51)
+    m.cylinder(CONCRETE, 1.0, 1.0, 0.24, 0.3, 2.9, n=14, r1=0.14)
+    m.cylinder(WHITE, 1.0, 1.0, 0.14, 2.9, 3.06, n=18, r1=0.55)
+    m.cylinder(GLASS, 1.0, 1.0, 0.55, 3.06, 3.24, n=18)
+    m.cylinder(WHITE, 1.0, 1.0, 0.58, 3.24, 3.3, n=18)
+    m.cylinder(WHITE, 1.0, 1.0, 0.58, 3.3, 3.48, n=18, r1=0.2)
+    m.cylinder(RED, 1.0, 1.0, 0.03, 3.48, 4.1, n=6)
+    for (x, z) in ((0.3, 0.3), (1.7, 0.3), (0.3, 1.7), (1.7, 1.7)):
+        m.cylinder(DARK, x, z, 0.02, 0.03, 0.3, n=6)
+        m.cylinder(YELLOW, x, z, 0.05, 0.3, 0.34, n=6)
+    return m
+
+
+def amusement_park():
+    """A 6 x 5 amusement park: a big wheel, a roller coaster on posts, a
+    carousel, striped tents and an entrance arch on the street (+z)."""
+    m = Model()
+    m.box((0.50, 0.66, 0.38), 0.0, 0.0, 0.0, 6.0, 0.02, 5.0)
+    m.box((0.82, 0.76, 0.66), 0.4, 0.02, 2.2, 5.6, 0.03, 4.6)
+    # The big wheel, in the plane z = 1.2.
+    cx, cy, z, r = 1.5, 1.35, 1.2, 1.1
+    for dz in (-0.14, 0.14):
+        for dx in (-0.5, 0.5):
+            m.poly(STEEL, [(cx + dx - 0.04, 0.02, z + dz), (cx + dx + 0.04, 0.02, z + dz), (cx + 0.03, cy, z + dz), (cx - 0.03, cy, z + dz)], [[0, 1, 2, 3], [3, 2, 1, 0]])
+    n = 12
+    for k in range(n):
+        a0, a1 = 2 * math.pi * k / n, 2 * math.pi * (k + 1) / n
+        p0 = (cx + r * math.cos(a0), cy + r * math.sin(a0))
+        p1 = (cx + r * math.cos(a1), cy + r * math.sin(a1))
+        q0 = (cx + (r - 0.06) * math.cos(a0), cy + (r - 0.06) * math.sin(a0))
+        q1 = (cx + (r - 0.06) * math.cos(a1), cy + (r - 0.06) * math.sin(a1))
+        for dz in (-0.08, 0.08):
+            m.poly(WHITE, [(p0[0], p0[1], z + dz), (p1[0], p1[1], z + dz), (q1[0], q1[1], z + dz), (q0[0], q0[1], z + dz)], [[0, 1, 2, 3], [3, 2, 1, 0]])
+        # A spoke and a cabin.
+        w = (0.02 * -math.sin(a0), 0.02 * math.cos(a0))
+        m.poly(STEEL, [(cx + w[0], cy + w[1], z), (cx - w[0], cy - w[1], z), (q0[0] - w[0], q0[1] - w[1], z), (q0[0] + w[0], q0[1] + w[1], z)], [[0, 1, 2, 3], [3, 2, 1, 0]])
+        colour = (RED, YELLOW, (0.25, 0.50, 0.85))[k % 3]
+        m.box(colour, p0[0] - 0.09, p0[1] - 0.2, z - 0.08, p0[0] + 0.09, p0[1] - 0.04, z + 0.08)
+    m.box(DARK, cx - 0.06, cy - 0.06, z - 0.16, cx + 0.06, cy + 0.06, z + 0.16)
+    # The roller coaster: a loop of track on posts along the back and the right.
+    pts = []
+    for k in range(24):
+        t = 2 * math.pi * k / 24
+        pts.append((4.3 + 1.3 * math.cos(t), 0.55 + 0.4 * math.sin(2 * t) + 0.35 * math.sin(t), 1.5 + 1.1 * math.sin(t)))
+    for k in range(24):
+        (x0, y0, z0), (x1, y1, z1) = pts[k], pts[(k + 1) % 24]
+        m.poly(RED, [(x0, y0, z0), (x1, y1, z1), (x1, y1 + 0.05, z1), (x0, y0 + 0.05, z0)], [[0, 1, 2, 3], [3, 2, 1, 0]])
+        m.poly(DARK, [(x0, y0, z0), (x1, y1, z1), (x1 * 0.97 + 4.3 * 0.03, y1, z1 * 0.97 + 1.5 * 0.03), (x0 * 0.97 + 4.3 * 0.03, y0, z0 * 0.97 + 1.5 * 0.03)], [[0, 1, 2, 3], [3, 2, 1, 0]])
+        if k % 2 == 0:
+            m.box(WHITE, x0 - 0.02, 0.02, z0 - 0.02, x0 + 0.02, y0, z0 + 0.02)
+    # The carousel.
+    m.cylinder((0.85, 0.80, 0.70), 2.0, 3.3, 0.5, 0.03, 0.08, n=14)
+    m.cylinder(YELLOW, 2.0, 3.3, 0.06, 0.08, 0.5, n=8)
+    for k in range(14):
+        a0, a1 = 2 * math.pi * k / 14, 2 * math.pi * (k + 1) / 14
+        v = [(2.0 + 0.58 * math.cos(a0), 0.45, 3.3 + 0.58 * math.sin(a0)), (2.0 + 0.58 * math.cos(a1), 0.45, 3.3 + 0.58 * math.sin(a1)), (2.0, 0.75, 3.3)]
+        m.poly(RED if k % 2 else WHITE, v, [[0, 1, 2], [2, 1, 0]])
+    for k in range(6):
+        a = 2 * math.pi * k / 6
+        m.cylinder(WHITE, 2.0 + 0.4 * math.cos(a), 3.3 + 0.4 * math.sin(a), 0.015, 0.08, 0.46, n=5)
+    # Striped tents and stalls.
+    for (x, z0, colour) in ((3.4, 3.2, RED), (4.3, 3.6, (0.25, 0.50, 0.85)), (0.9, 3.9, YELLOW)):
+        m.cylinder(WHITE, x, z0, 0.3, 0.03, 0.25, n=10)
+        m.cone(colour, x, z0, 0.36, 0.25, 0.6, n=10)
+    for x in (4.9, 5.2):
+        m.box((0.85, 0.55, 0.30), x, 0.03, 4.0, x + 0.25, 0.25, 4.3, top=RED)
+    # The entrance arch.
+    for x in (2.6, 3.4):
+        m.box(YELLOW, x - 0.06, 0.02, 4.7, x + 0.06, 0.6, 4.82)
+    m.box(RED, 2.5, 0.6, 4.68, 3.5, 0.8, 4.84)
+    return m
+
+
 def icons():
     try:
         from PIL import Image, ImageDraw
@@ -1076,6 +1193,30 @@ def icons():
     d.polygon([(26, 30), (29, 26), (33, 30)], fill=white, outline=ink)
     d.ellipse((46, 38, 56, 46), fill=white, outline=ink)
     save_icon("archaeology_museum", im)
+    im, d = tile(warm)
+    d.rectangle((12, 14, 44, 54), fill=(245, 245, 240), outline=ink)
+    for y in (20, 28, 36, 44):
+        d.rectangle((16, y, 40, y + 4), fill=(120, 170, 215))
+    d.line((52, 54, 52, 34), fill=(120, 85, 50), width=2)
+    for (x, y) in ((44, 32), (60, 32), (48, 26), (56, 26)):
+        d.line((52, 34, x, y), fill=(40, 120, 60), width=2)
+    save_icon("resort_hotel", im)
+    im, d = tile(warm)
+    d.polygon([(29, 56), (35, 56), (33, 22), (31, 22)], fill=(200, 200, 205), outline=ink)
+    d.ellipse((18, 12, 46, 26), fill=(245, 245, 240), outline=ink)
+    d.rectangle((20, 17, 44, 20), fill=(120, 170, 215))
+    d.line((32, 12, 32, 4), fill=(200, 50, 40), width=2)
+    save_icon("observation_tower", im)
+    im, d = tile(warm)
+    d.ellipse((12, 8, 52, 48), outline=ink, width=3)
+    for k in range(8):
+        a = 2 * math.pi * k / 8
+        x, y = 32 + 20 * math.cos(a), 28 + 20 * math.sin(a)
+        d.line((32, 28, x, y), fill=ink, width=1)
+        d.rectangle((x - 3, y - 3, x + 3, y + 3), fill=((210, 60, 50), (240, 200, 70), (70, 130, 215))[k % 3], outline=ink)
+    d.polygon([(32, 28), (22, 58), (26, 58)], fill=ink)
+    d.polygon([(32, 28), (42, 58), (38, 58)], fill=ink)
+    save_icon("amusement_park", im)
     alerts(Image, ImageDraw)
 
 
@@ -1138,6 +1279,9 @@ def main():
     save("amenity/modern_art_museum/modern_art_museum", modern_art_museum(), "Modern art museum", 3, 3, 1.55, "A landmark, and what hangs in it.")
     save("amenity/opera_house/opera_house", opera_house(), "Opera house", 4, 3, 1.9, "The best address in town.")
     save("amenity/archaeology_museum/archaeology_museum", archaeology_museum(), "Archaeology museum", 3, 3, 1.3, "What was found under the town.")
+    save("amenity/resort_hotel/resort_hotel", resort_hotel(), "Resort hotel", 4, 3, 1.62, "Rooms around a pool, for visitors.")
+    save("amenity/observation_tower/observation_tower", observation_tower(), "Observation tower", 2, 2, 4.1, "The view on every postcard.")
+    save("amenity/amusement_park/amusement_park", amusement_park(), "Amusement park", 6, 5, 2.5, "A big wheel and a roller coaster.")
     save("water/quay/quay", quay(), "Quay", 4, 3, 0.85, "The seaport's quay, dressed by models/composed/seaport.compose.")
     icons()
 

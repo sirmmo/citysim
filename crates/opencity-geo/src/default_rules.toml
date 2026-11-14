@@ -89,6 +89,16 @@ build = "university"
 [[rule]]
 when = { amenity = ["school", "kindergarten"] }
 build = "school"
+# Tourism.
+[[rule]]
+when = { tourism = ["hotel", "resort"] }
+build = "resort_hotel"
+[[rule]]
+when = { man_made = "tower", "tower:type" = "observation" }
+build = "observation_tower"
+[[rule]]
+when = { tourism = "theme_park" }
+build = "amusement_park"
 # Amenities: the special museums before the plain one.
 [[rule]]
 when = { tourism = "museum", museum = ["archaeological", "archaeology"] }

@@ -283,6 +283,9 @@ const GROUPS: &[Group] = &[
             ("opera_house", Action::Tool(Some(Tool::OperaHouse)), "Opera house", ""),
             ("stadium", Action::Tool(Some(Tool::Stadium)), "Stadium", ""),
             ("mall", Action::Tool(Some(Tool::Mall)), "Shopping mall", ""),
+            ("resort_hotel", Action::Tool(Some(Tool::ResortHotel)), "Resort hotel", ""),
+            ("observation_tower", Action::Tool(Some(Tool::ObservationTower)), "Observation tower", ""),
+            ("amusement_park", Action::Tool(Some(Tool::AmusementPark)), "Amusement park", ""),
         ],
         true,
     ),
@@ -321,6 +324,9 @@ fn needs_rules(t: Tool) -> bool {
             | Tool::HighSchool
             | Tool::University
             | Tool::Stadium
+            | Tool::ResortHotel
+            | Tool::ObservationTower
+            | Tool::AmusementPark
             | Tool::Mall
             | Tool::Museum
             | Tool::ModernArtMuseum
