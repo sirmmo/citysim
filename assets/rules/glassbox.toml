@@ -41,6 +41,15 @@ unpaid = 0.15
 # game's clock turns once a month); over a day the traffic adds up to the
 # same. Units that work round the clock (`round_the_clock = true`, and a
 # share of a zone's buildings) change shifts at these hours instead.
+# People without a job or a home. The jobless are the workers nobody took
+# on; where they live, crime rises (see `idle` on workers). The homeless
+# are the people of homes that are gone: they move into new homes as room
+# appears, and one in three hundred gives up and leaves each tick (half are gone in about
+# three months).
+[people]
+workers = "workers"
+homeless_leave = 0.003
+
 [shifts]
 hours = [6, 14, 22]
 spread = 1.0
@@ -55,6 +64,7 @@ max_trip = 30
 tide = { out = [8], back = [18], spread = 1.5, shifts = true }   # the commute; staff of round-the-clock units follow [shifts]
 colour = [0.35, 0.65, 1.0]       # links on the network view
 price = 0.02                     # per unit traded with neighbouring cities
+idle = { crime = 0.4 }           # per worker with no job to go to, at home
 
 [[resource]]
 id = "shoppers"
@@ -464,6 +474,18 @@ decay = 0.03
 colour = [0.45, 0.35, 0.15]
 max = 25.0
 
+# Crime: it rises where people have no work (`idle` on workers) and while
+# the family is in town; police stations bring it down along the streets
+# they can drive. Shops and the better homes want it under 6, and land
+# loses value above 4 (see the script).
+[[layer]]
+id = "crime"
+name = "Crime"
+diffusion = 0.1
+decay = 0.15
+colour = [0.85, 0.2, 0.35]
+max = 30.0
+
 # ---------------------------------------------------------------- zones
 [[zone]]
 id = "residential"
@@ -591,7 +613,7 @@ produce = { residents = 8, workers = 4, shoppers = 4, taxes = 0.09, car = 2 }
 needs = { power = 2, water = 2, waste = 1 }
 sends = ["workers", "shoppers", "car"]
 outlets = { workers = 1, shoppers = 0.5 }
-requires = { pollution = { max = 20 }, land_value = { min = 2 } }
+requires = { pollution = { max = 20 }, land_value = { min = 2 }, crime = { max = 6 } }
 
 [[unit]]
 id = "townhouse_1"
@@ -613,7 +635,7 @@ produce = { residents = 18, workers = 9, shoppers = 7, taxes = 0.18, car = 4.5 }
 needs = { power = 3, water = 3, sewage = 1.5 }
 sends = ["workers", "shoppers", "car"]
 outlets = { workers = 1, shoppers = 0.5 }
-requires = { pollution = { max = 20 }, fire_safety = { min = 1 } }
+requires = { pollution = { max = 20 }, fire_safety = { min = 1 }, crime = { max = 6 } }
 
 [[unit]]
 id = "townhouse_3"
@@ -624,7 +646,7 @@ produce = { residents = 26, workers = 13, shoppers = 10, taxes = 0.26, car = 6.5
 needs = { power = 4, water = 4, waste = 2, sewage = 2 }
 sends = ["workers", "shoppers", "car"]
 outlets = { workers = 1, shoppers = 0.5 }
-requires = { pollution = { max = 15 }, fire_safety = { min = 1 }, police_safety = { min = 1 } }
+requires = { pollution = { max = 15 }, fire_safety = { min = 1 }, police_safety = { min = 1 }, crime = { max = 6 } }
 
 [[unit]]
 id = "tower_1"
@@ -646,7 +668,7 @@ produce = { residents = 90, workers = 45, shoppers = 32, taxes = 0.9, car = 22.5
 needs = { power = 12, water = 12, sewage = 6 }
 sends = ["workers", "shoppers", "car"]
 outlets = { workers = 1, shoppers = 0.5 }
-requires = { pollution = { max = 15 }, fire_safety = { min = 1 }, police_safety = { min = 1 }, health = { min = 1 } }
+requires = { pollution = { max = 15 }, fire_safety = { min = 1 }, police_safety = { min = 1 }, health = { min = 1 }, crime = { max = 6 } }
 
 [[unit]]
 id = "tower_3"
@@ -657,7 +679,7 @@ produce = { residents = 160, workers = 80, shoppers = 55, taxes = 1.6, car = 40 
 needs = { power = 20, water = 20, waste = 10, sewage = 10 }
 sends = ["workers", "shoppers", "car"]
 outlets = { workers = 1, shoppers = 0.5 }
-requires = { pollution = { max = 10 }, fire_safety = { min = 1 }, police_safety = { min = 1 }, health = { min = 1 }, education = { min = 1 }, land_value = { min = 5 } }
+requires = { pollution = { max = 10 }, fire_safety = { min = 1 }, police_safety = { min = 1 }, health = { min = 1 }, education = { min = 1 }, land_value = { min = 5 }, crime = { max = 6 } }
 
 # Commercial: shops need workers, customers and goods.
 [[unit]]
@@ -669,6 +691,7 @@ produce = { taxes = 0.05, ideas = 0.3 }
 needs = { workers = 1, shoppers = 3, goods = 1, power = 1, car = 0.5 }
 emits = { land_value = { amount = 0.4, radius = 2 } }
 
+requires = { crime = { max = 6 } }
 [[unit]]
 id = "shop_2"
 name = "Petrol station"
@@ -678,6 +701,7 @@ produce = { taxes = 0.08 }
 needs = { workers = 2, shoppers = 5, goods = 2, power = 1, car = 1, water = 1 }
 emits = { land_value = { amount = 0.6, radius = 2 } }
 
+requires = { crime = { max = 6 } }
 [[unit]]
 id = "shop_3"
 name = "Hardware store"
@@ -687,6 +711,7 @@ produce = { taxes = 0.12 }
 needs = { workers = 3, shoppers = 8, goods = 3, power = 2, car = 1.5, water = 2, waste = 1 }
 emits = { land_value = { amount = 0.8, radius = 3 } }
 
+requires = { crime = { max = 6 } }
 [[unit]]
 id = "store_1"
 name = "Market hall"
@@ -696,6 +721,7 @@ produce = { taxes = 0.2 }
 needs = { workers = 5, shoppers = 12, goods = 5, power = 3, car = 2.5 }
 emits = { land_value = { amount = 1.0, radius = 3 } }
 
+requires = { crime = { max = 6 } }
 [[unit]]
 id = "store_2"
 name = "Restaurant"
@@ -704,7 +730,7 @@ graphic = 26
 produce = { taxes = 0.35, ideas = 1 }
 needs = { workers = 8, shoppers = 20, goods = 8, power = 4, car = 4, water = 4, sewage = 2 }
 emits = { land_value = { amount = 1.2, radius = 3 } }
-requires = { fire_safety = { min = 1 } }
+requires = { fire_safety = { min = 1 }, crime = { max = 6 } }
 
 [[unit]]
 id = "store_3"
@@ -714,7 +740,7 @@ graphic = 27
 produce = { taxes = 0.5 }
 needs = { workers = 12, shoppers = 25, goods = 10, power = 6, car = 6, water = 6, waste = 3, sewage = 3 }
 emits = { land_value = { amount = 1.5, radius = 4 } }
-requires = { fire_safety = { min = 1 }, police_safety = { min = 1 } }
+requires = { fire_safety = { min = 1 }, police_safety = { min = 1 }, crime = { max = 6 } }
 
 [[unit]]
 id = "mall_1"
@@ -724,7 +750,7 @@ graphic = 28
 produce = { taxes = 0.7 }
 needs = { workers = 15, shoppers = 30, goods = 12, power = 8, car = 7.5 }
 emits = { land_value = { amount = 2.0, radius = 4 } }
-requires = { fire_safety = { min = 1 } }
+requires = { fire_safety = { min = 1 }, crime = { max = 6 } }
 
 [[unit]]
 id = "mall_2"
@@ -734,7 +760,7 @@ graphic = 25
 produce = { taxes = 1.4, ideas = 3 }
 needs = { workers = 30, shoppers = 60, goods = 25, power = 15, car = 15, water = 15, sewage = 7.5 }
 emits = { land_value = { amount = 3.0, radius = 5 } }
-requires = { fire_safety = { min = 1 }, police_safety = { min = 1 } }
+requires = { fire_safety = { min = 1 }, police_safety = { min = 1 }, crime = { max = 6 } }
 
 [[unit]]
 id = "mall_3"
@@ -744,7 +770,7 @@ graphic = 29
 produce = { taxes = 2.0 }
 needs = { workers = 45, shoppers = 50, goods = 20, power = 20, car = 22.5, water = 20, waste = 10, sewage = 10 }
 emits = { land_value = { amount = 4.0, radius = 6 } }
-requires = { fire_safety = { min = 1 }, police_safety = { min = 1 }, education = { min = 1 } }
+requires = { fire_safety = { min = 1 }, police_safety = { min = 1 }, education = { min = 1 }, crime = { max = 6 } }
 
 # Industrial: workers make goods, and pollution.
 [[unit]]
@@ -871,7 +897,7 @@ name = "Police station"
 graphic = 360
 needs = { workers = 4, power = 2, upkeep = 0.3 }
 round_the_clock = true
-emits = { police_safety = { amount = 10.0, radius = 12, by_road = true } }
+emits = { police_safety = { amount = 10.0, radius = 12, by_road = true }, crime = { amount = -3.0, radius = 12, by_road = true } }
 dispatch = { meshes = ["kenney/car-kit/police"], every = 6 }
 
 [[unit]]

@@ -272,6 +272,7 @@ interface** makes it Large or Huge on top of that, and `--ui-scale 1.5`
 The right-hand panel shows:
 - zone sizes and power;
 - demand for each zone (GlassBox), which comes from what the city lacks: jobs left open, shoppers and goods with nowhere to go;
+- people out of work and people without a home (see Jobs, homes and crime below);
 - what each resource delivered against what was wanted (orange when short), with taxes, upkeep and pools such as ideas;
 - metrics from the rule scripts and the last 20 years of population and funds.
 
@@ -280,6 +281,24 @@ Click any building with the inspect tool (/) to see:
 - its satisfaction;
 - what it needs and makes, where its supplies come from and what it lacks;
 - the map layers on its tile.
+
+## Jobs, homes and crime
+
+- **Out of work:** the share of workers with no job to go to, in the City
+  panel. Homes whose people find no work empty in time, as before.
+- **Crime** (modern rules), a data layer: it rises where the jobless live,
+  the more the more of them there are, and everywhere while the family is
+  in town.
+  - Shops and the better homes do badly where it is above 6: they lose half
+    their satisfaction.
+  - Land loses value where it is above 4.
+  - A police station brings it down along the streets its cars can reach,
+    most of all close by. Jobs bring it down for good.
+- **Without a home:** people whose home is gone, because it was abandoned,
+  burnt, evacuated or pulled down, or shrank to a smaller one.
+  - They move into new homes as room appears.
+  - About half of those still waiting leave town within three months.
+  - They cost approval: up to 20 points.
 
 ## Scenarios
 
@@ -508,7 +527,7 @@ The **📜 Policies** window sets:
 
 ## Seeing the city
 
-- **View > Data layer:** pollution, land value, air quality, noise, water, and fire, police, health and education coverage, drawn over the map.
+- **View > Data layer:** pollution, land value, air quality, noise, water, crime, and fire, police, health and education coverage, drawn over the map.
 - **🔀 Network (V):** arcs from each sender to each receiver, coloured by resource. You can:
   - filter by resource and hide small flows;
   - list the busiest links and the biggest shortages;
@@ -571,6 +590,7 @@ mayor. Hover it to see what makes it up, in points out of 100.
   a nuclear accident. It fades over about a year.
 - **The family:** up to 30 points off while Cousin Vinnie's family is in
   town.
+- **People without a home:** up to 20 points off.
 
 Each month the rating moves a fifth of the way to that sum, so trouble takes
 a few months to show and a few months to be forgiven.
@@ -601,7 +621,8 @@ The command line's `simulate` runs without votes unless given `--elections`.
   has family, and they move in:
   - **Protection money:** every month they collect up to $20,000, scaled by
     their hold on the city.
-  - **Crime:** police coverage falls everywhere while they are in town.
+  - **Crime:** crime rises and police coverage falls everywhere while they
+    are in town.
   - **Arson:** now and then a block burns ("Somebody didn't pay").
   - **Driving them out:** each police station loosens their hold month by
     month, and with enough stations the family packs up and leaves. Calling

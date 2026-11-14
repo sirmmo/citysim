@@ -89,6 +89,13 @@ mapRule dirtyWaterValue
     map land_value in 0.5
 end
 
+# --- Crime: land where it is high loses value -----------------------------
+mapRule crimeValue
+    rate 10
+    map crime atLeast 4
+    map land_value in 0.5
+end
+
 # --- Zones: clean neighbourhoods attract family houses directly, while ----
 # people still want to move in (`demand.<zone>` reads a zone's demand).
 zoneRule familyNeighbourhood

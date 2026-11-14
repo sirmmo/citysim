@@ -197,6 +197,20 @@ landfill, recycling, incinerator ──rubbish collection──▶ level 3 build
   what a need for a resource leaves on map layers at the building when it
   is not met, per unit missing and tick (`spill = { water_pollution =
   0.06 }`). Any resource can have one.
+- `workers` has an `idle`: what a unit made of a resource and found no
+  taker for leaves on map layers at the building, per unit left over and
+  tick (`idle = { crime = 0.4 }`: people with no job to go to). Any
+  resource a unit lists in its `outlets` can have one.
+- `crime` is an ordinary map layer too. The police station emits a negative
+  amount of it along the streets it can drive (`by_road`), shops and the
+  better homes `require` it under 6, and the script takes land value away
+  above 4. The family adds to it everywhere while it is in town.
+- `[people]` counts those without a job or a home. `workers` names the
+  resource whose leftover share is the jobless rate. The homeless are the
+  people of homes that are gone, counted from the room in the city's homes
+  from one tick to the next: `homeless_leave` is the share that leaves town
+  each tick. Both
+  rule sets have it.
 - `water_pollution` is an ordinary map layer: units emit into it (a
   negative amount cleans, as the reed bed does), pumping stations
   `require` it under 8, and the script (`glassbox.gbx`) takes land value

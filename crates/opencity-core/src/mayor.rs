@@ -104,6 +104,10 @@ impl City {
             let gone = (before - self.population) as f32 / before as f32;
             v.push(("People have left these last years".to_string(), -(gone * 100.0).min(40.0)));
         }
+        if let Some(gb) = self.glassbox.as_ref().filter(|gb| gb.homeless >= 1.0 && self.population > 0) {
+            let share = gb.homeless / (self.population as f32 + gb.homeless);
+            v.push(("People without a home".to_string(), -(share * 200.0).min(20.0)));
+        }
         if self.mayor.shock >= 0.5 {
             v.push(("Recent disasters".to_string(), -self.mayor.shock));
         }

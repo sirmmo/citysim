@@ -2,6 +2,15 @@
 
 Release notes in full are on the [releases page](https://github.com/sirmmo/citysim/releases).
 
+## 0.2.66: Jobs, homes and crime
+- **Crime**, a new data layer (modern rules). It rises where people with no job live, and everywhere while the family is in town. Shops and the better homes lose half their satisfaction where it is above 6, and land loses value above 4.
+- **Police stations bring crime down** along the streets their cars can reach, most of all close by.
+- **Out of work**, in the City panel: the share of workers with no job to go to.
+- **Without a home**, in the City panel: people whose home was abandoned, burnt, evacuated, pulled down or made smaller. They move into new homes as room appears, and about half of those still waiting leave town within three months. They cost up to 20 points of approval.
+- Graphs have `City/Jobless %` and `City/Homeless`; the MCP server's `city_summary` has `jobless` and `homeless`.
+- For rules authors: resources take `idle` (what a unit made and found no taker for leaves on map layers), and `[people]` sets the jobless and homeless counts. Emissions along roads can now be negative.
+- Cities saved earlier get the crime layer empty and count the homeless from now on.
+
 ## 0.2.65: Approval and elections
 - **Approval rating**, in the menu bar: the share of the city behind its mayor. Hover it for what makes it up: how well homes, shops and works get what they need, less 10 points for debt, up to 40 for people leaving, up to 25 for recent disasters and up to 30 while the family is in town. It moves a fifth of the way there each month.
 - **Vote of no confidence:** in a city that has had 500 people or more, approval under 30% for 12 months in a row gets you voted out. The council warns you when it starts and as the vote comes near; a month back above 30% takes two months off the count.

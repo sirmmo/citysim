@@ -870,6 +870,10 @@ impl City {
         let Some(heat) = self.mafia.as_ref().map(|m| m.heat) else { return };
         let rules = self.rules().cloned();
         if let (Some(gb), Some(rules)) = (self.glassbox.as_mut(), rules) {
+            // The family's business is crime.
+            if let Some(li) = rules.layer("crime") {
+                gb.layers[li].iter_mut().for_each(|v| *v += heat * 0.3);
+            }
             if let Some(li) = rules.layer("police_safety") {
                 gb.layers[li].iter_mut().for_each(|v| *v = (*v - heat * 3.0).max(0.0));
             }

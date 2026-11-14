@@ -408,6 +408,10 @@ impl Server {
             "rules": c.glassbox.as_ref().map_or("classic".to_string(), |g| g.rules_id.clone()),
         });
         if let (Some(gb), Some(rules)) = (&c.glassbox, c.rules()) {
+            if rules.people.is_some() {
+                s["jobless"] = json!(gb.jobless);
+                s["homeless"] = json!(gb.homeless);
+            }
             let b = &gb.balances;
             s["demand"] = rules.zones.iter().zip(&gb.demand).map(|(z, d)| (z.id.clone(), json!(d))).collect();
             s["resources"] = rules

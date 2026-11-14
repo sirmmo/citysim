@@ -384,6 +384,7 @@ fn declare_resource(rules: &mut Ruleset, id: &str, transport: Transport, network
         weight: 1.0,
         tide: None,
         spill: Default::default(),
+        idle: Default::default(),
     });
 }
 

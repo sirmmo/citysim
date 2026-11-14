@@ -41,6 +41,11 @@ unpaid = 0.15
 
 # The day: trips gather around the hours of each resource's `tide`. The
 # watch and the guard keep two shifts, day and night.
+# People without a job or a home (see the modern rules).
+[people]
+workers = "workers"
+homeless_leave = 0.003
+
 [shifts]
 hours = [6, 18]
 spread = 1.0

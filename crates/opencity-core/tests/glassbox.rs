@@ -2148,3 +2148,72 @@ fn a_badly_run_city_votes_its_mayor_out() {
     years(&mut c, 1);
     assert!(c.date.year > out.year && !c.ousted() && !c.mayor.elections);
 }
+
+#[test]
+fn the_jobless_turn_to_crime_and_the_homeless_wait_for_room() {
+    let r = rules();
+    // Two towns of homes with hardly a job; one has a police station.
+    let town = |police: bool| {
+        let mut c = City::new(Terrain::flat(64, 48), None, Footprints::builtin(), 11);
+        c.use_rules(r.clone());
+        c.fund = 1_000_000;
+        c.research_all();
+        c.glassbox.as_mut().unwrap().disasters_off = true;
+        c.apply_tool(Tool::CoalPlant, (40, 2), (40, 2)).unwrap();
+        for l in [8, 12, 16, 20] {
+            c.apply_tool(Tool::Road, (2, l), (60, l)).unwrap();
+        }
+        c.apply_tool(Tool::Road, (45, 2), (45, 20)).unwrap();
+        c.apply_tool(Tool::ZoneResidential, (2, 9), (60, 11)).unwrap();
+        c.apply_tool(Tool::ZoneIndustrial, (2, 13), (60, 15)).unwrap();
+        c.apply_tool(Tool::ZoneCommercial, (2, 17), (60, 19)).unwrap();
+        if police {
+            c.apply_tool(Tool::PoliceDept, (20, 5), (20, 5)).unwrap();
+        }
+        for _ in 0..300 {
+            c.simulate_round();
+        }
+        c
+    };
+    let crime = r.layer("crime").unwrap();
+    let worst = |c: &City| c.glassbox.as_ref().unwrap().layers[crime].iter().cloned().fold(0.0, f32::max);
+    let mut c = town(false);
+    let gb = c.glassbox.as_ref().unwrap();
+    eprintln!("working town: jobless {:.3} crime {:.2} homeless {:.1} pop {}", gb.jobless, worst(&c), gb.homeless, c.population);
+    assert!(gb.jobless < 0.1 && worst(&c) < 3.0, "a town with work is quiet: {} {}", gb.jobless, worst(&c));
+    // The works and the shops close: nobody has a job.
+    let mut p = town(true);
+    for c in [&mut c, &mut p] {
+        c.apply_tool(Tool::Destroy, (2, 13), (60, 15)).unwrap();
+        c.apply_tool(Tool::Destroy, (2, 17), (60, 19)).unwrap();
+    }
+    // Crime among the homes near where the station stands (or would).
+    let near = |c: &City| (9..12).flat_map(|l| (12..30).map(move |w| l * 64 + w)).map(|i| c.glassbox.as_ref().unwrap().layers[crime][i]).sum::<f32>() / 54.0;
+    let (mut peak, mut free, mut policed) = (0.0f32, 0.0f32, 0.0f32);
+    for _ in 0..40 {
+        c.simulate_round();
+        p.simulate_round();
+        peak = peak.max(worst(&c));
+        free = free.max(near(&c));
+        policed = policed.max(near(&p));
+    }
+    let gb = c.glassbox.as_ref().unwrap();
+    eprintln!("no jobs: jobless {:.3} crime peak {peak:.2}, near {free:.2}, with police {policed:.2}", gb.jobless);
+    assert!(gb.jobless > 0.3, "most are out of work: {}", gb.jobless);
+    assert!(peak > 6.0, "crime where the jobless live: {peak}");
+    assert!(policed < free * 0.8, "less of it with the police around: {policed} against {free}");
+    // Homes pulled down leave their people on the street.
+    let mut c = town(false);
+    let before = c.population as f32;
+    c.apply_tool(Tool::Destroy, (2, 9), (30, 11)).unwrap();
+    c.simulate_round();
+    let out = c.glassbox.as_ref().unwrap().homeless;
+    eprintln!("homeless {out:.1} of {before}");
+    assert!(out > before * 0.2 && out < before, "the people of the homes that went: {out} of {before}");
+    for _ in 0..250 {
+        c.simulate_round();
+    }
+    let later = c.glassbox.as_ref().unwrap().homeless;
+    eprintln!("later {later:.1}");
+    assert!(later < out * 0.6, "they find room or leave: {later} of {out}");
+}

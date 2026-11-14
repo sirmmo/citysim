@@ -1033,6 +1033,23 @@ impl EguiUi {
                     });
                     ui.add(egui::ProgressBar::new((d / max).clamp(0.0, 1.0)).desired_height(6.0));
                 }
+                if rules.people.is_some() {
+                    ui.separator();
+                    ui.label(RichText::new("People").small().color(Color32::GRAY));
+                    egui::Grid::new("people").num_columns(2).show(ui, |ui| {
+                        let warn = |bad: bool| if bad { Color32::from_rgb(240, 150, 90) } else { Color32::LIGHT_GRAY };
+                        ui.label("Out of work").on_hover_text(
+                            "Workers with no job to go to, over the last days. Where they live, crime rises: zone works and shops, or let the homes thin out",
+                        );
+                        ui.label(RichText::new(format!("{:.0}%", gb.jobless * 100.0)).monospace().color(warn(gb.jobless > 0.1)));
+                        ui.end_row();
+                        ui.label("Without a home").on_hover_text(
+                            "People whose home is gone (abandoned, burnt, evacuated or pulled down). They wait for room in new homes, and in time leave town",
+                        );
+                        ui.label(RichText::new(format!("{:.0}", gb.homeless)).monospace().color(warn(gb.homeless >= 1.0)));
+                        ui.end_row();
+                    });
+                }
                 ui.separator();
                 ui.label(RichText::new("Resources per tick: delivered / wanted").small().color(Color32::GRAY));
                 egui::Grid::new("balances").num_columns(2).show(ui, |ui| {

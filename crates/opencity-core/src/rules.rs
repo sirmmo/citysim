@@ -96,6 +96,11 @@ pub struct ResourceDef {
     /// 0.06 }` on sewage: what is not treated runs into the ground).
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub spill: BTreeMap<String, f32>,
+    /// What a unit made of it and found no taker for leaves on map layers
+    /// at the building, per unit left over and tick (`idle = { crime =
+    /// 0.15 }` on workers: people with no job to go to).
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub idle: BTreeMap<String, f32>,
 }
 
 /// The hours of a resource's trips. Over a day the traffic is the same as
@@ -236,6 +241,7 @@ fn flatten_resources<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Vec<Resou
                 weight: r.weight,
                 tide: None,
                 spill: BTreeMap::new(),
+                idle: BTreeMap::new(),
             })
             .collect();
         out.push(r);
@@ -678,9 +684,27 @@ pub struct Ruleset {
     /// with the population.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub administration: Option<AdministrationDef>,
+    /// People without a job or a home (`[people]`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub people: Option<PeopleDef>,
     /// Shift changes of the units that work round the clock (`[shifts]`).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub shifts: Option<ShiftsDef>,
+}
+
+/// People without a job or a home (`[people]`). The jobless are those of
+/// the `workers` resource nobody took on. The homeless are the people of
+/// homes that are gone (abandoned, burnt, evacuated, bulldozed, or grown
+/// smaller): they wait for room in new homes and, little by little, leave.
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PeopleDef {
+    /// The resource that is people going to work.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub workers: Option<String>,
+    /// Share of the homeless who leave town each tick.
+    #[serde(default)]
+    pub homeless_leave: f32,
 }
 
 /// Running the city (`[administration]`): paid from the treasury every tick
@@ -1222,9 +1246,20 @@ impl Ruleset {
                 return err(format!("zone {}: round_the_clock is a share, 0 to 1", z.id));
             }
         }
+        if let Some(p) = &self.people {
+            if let Some(w) = p.workers.as_ref().filter(|w| self.resource(w).is_none()) {
+                return err(format!("people: unknown workers resource {w}"));
+            }
+            if !(0.0..=1.0).contains(&p.homeless_leave) {
+                return err("people: homeless_leave is a share, 0 to 1".into());
+            }
+        }
         for r in &self.resources {
             if let Some(l) = r.spill.keys().find(|l| self.layer(l).is_none()) {
                 return err(format!("resource {}: spill on unknown layer {l}", r.id));
+            }
+            if let Some(l) = r.idle.keys().find(|l| self.layer(l).is_none()) {
+                return err(format!("resource {}: idle on unknown layer {l}", r.id));
             }
             if let Some(t) = &r.tide {
                 if r.transport != Transport::Agents {

@@ -239,6 +239,16 @@ pub struct GlassBox {
     /// Everything above, sampled every tick, for graphs and analysis.
     #[serde(default)]
     pub series: crate::series::Series,
+    /// People whose home is gone and who have not found another or left
+    /// (rules with `[people]`).
+    #[serde(default)]
+    pub homeless: f32,
+    /// Room in the city's homes at the last tick (`None`: not counted yet).
+    #[serde(default)]
+    pub housing: Option<f32>,
+    /// Share of the workers with no job to go to, averaged over some days.
+    #[serde(default)]
+    pub jobless: f32,
     /// The mayor's approval rating (0..1), set by the city for the graphs.
     #[serde(skip)]
     pub approval: Option<f32>,
@@ -472,6 +482,9 @@ impl GlassBox {
             hour: None,
             sky: None,
             approval: None,
+            homeless: 0.0,
+            housing: None,
+            jobless: 0.0,
             sensors: Vec::new(),
             readings: Vec::new(),
             sensor_routes: SensorRoutes::default(),
@@ -1166,6 +1179,16 @@ impl GlassBox {
                 n
             })
             .collect();
+        // Homes that are gone leave their people on the street; new room
+        // takes them in, and some give up and leave town.
+        if let (Some(people), Some(pop)) = (&rules.people, rules.population.as_deref()) {
+            let room: f32 = units.iter().map(|(_, u, _)| rules.units[*u].produce.get(pop).copied().unwrap_or(0.0)).sum();
+            if let Some(before) = self.housing {
+                self.homeless = (self.homeless + before - room).max(0.0);
+            }
+            self.housing = Some(room);
+            self.homeless *= 1.0 - people.homeless_leave;
+        }
         self.tick += 1;
         let mut metrics: BTreeMap<String, f32> = BTreeMap::new();
         let mut bal =
@@ -2040,6 +2063,21 @@ impl GlassBox {
                 }
             }
         }
+        // Idle hands: what was made and found no taker leaves its mark at
+        // the building too (workers with no job).
+        for (p, _, r) in &units {
+            for &(ri, made, sent) in &self.units[&idx(p.0, p.1)].outlets {
+                let left = made - sent;
+                if left <= 1e-3 || rules.resources[ri].idle.is_empty() {
+                    continue;
+                }
+                let (cx, cz) = ((r.w1 + r.w2) as f32 / 2.0, (r.l1 + r.l2) as f32 / 2.0);
+                let rad = 1 + (r.w2 - r.w1).max(r.l2 - r.l1).div_ceil(2);
+                for (l, a) in &rules.resources[ri].idle {
+                    emit(&mut self.layers[rules.layer(l).unwrap()], width, length, cx, cz, a * left, rad);
+                }
+            }
+        }
         // Agent rules: emissions along the routes of this tick's trips, less
         // (or more) of them under some policy stances.
         let traffic = self.traffic_factors(&rules);
@@ -2184,6 +2222,12 @@ impl GlassBox {
                 d += t.demand * (self.tax_rate(&rules, &t.id) - t.rate);
             }
             self.demand[zi] = self.demand[zi] * 0.8 + d * 0.2;
+        }
+        if let Some(w) = rules.people.as_ref().and_then(|p| p.workers.as_deref()).and_then(|w| rules.resource(w)) {
+            if bal.produced[w] > 0.0 {
+                let share = (bal.undelivered[w] / bal.produced[w]).clamp(0.0, 1.0);
+                self.jobless = self.jobless * 0.98 + share * 0.02;
+            }
         }
         self.balances = bal;
         self.metric_history.push_back((self.tick, metrics.clone()));
@@ -2414,6 +2458,10 @@ impl GlassBox {
         v.push(("City/Funds".into(), fund as f32));
         if let Some(a) = self.approval {
             v.push(("City/Approval %".into(), a * 100.0));
+        }
+        if rules.people.is_some() {
+            v.push(("City/Jobless %".into(), self.jobless * 100.0));
+            v.push(("City/Homeless".into(), self.homeless));
         }
         if let Some(h) = self.hour {
             v.push(("City/Hour".into(), h));
@@ -2737,6 +2785,11 @@ pub fn road_reach(layer: &BuildingLayer, terrain: &Terrain, r: &Rect, max: f32) 
 fn emit_by_road(values: &mut [f32], layer: &BuildingLayer, terrain: &Terrain, r: &Rect, amount: f32, radius: u32) {
     let (width, length) = (layer.width(), layer.length());
     let rad = radius as f32 + 1.0;
+    // What takes away (police against crime) reaches as far as what adds.
+    let (amount, sign) = (amount.abs(), amount.signum());
+    if amount <= 0.0 {
+        return;
+    }
     let mut got: HashMap<usize, f32> = HashMap::new();
     for ((w, l), c) in road_reach(layer, terrain, r, radius as f32) {
         for y in l.saturating_sub(2)..=(l + 2).min(length - 1) {
@@ -2771,7 +2824,7 @@ fn emit_by_road(values: &mut [f32], layer: &BuildingLayer, terrain: &Terrain, r:
         }
     }
     for (i, v) in got {
-        values[i] += v;
+        values[i] += v * sign;
     }
 }
 
