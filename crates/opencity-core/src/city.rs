@@ -89,6 +89,8 @@ pub enum ToolError {
     TerrainLimit,
     #[error("needs research: {0}")]
     Locked(String),
+    #[error("the city voted you out of office")]
+    VotedOut,
     #[error("something else is built on the border tile")]
     BorderTaken,
 }
@@ -276,6 +278,9 @@ pub struct City {
     /// Cousin Vinnie's family, once called (see [`City::cheat`]).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub mafia: Option<Mafia>,
+    /// The mayor's approval rating and the vote that can end the term.
+    #[serde(default)]
+    pub mayor: crate::mayor::Mayor,
     pub(crate) rng: Pcg32,
     day_clock_ms: f64,
     sim_clock_ms: f64,
@@ -322,6 +327,7 @@ impl City {
             messages: Vec::new(),
             border_links: Vec::new(),
             mafia: None,
+            mayor: Default::default(),
             ledger: BTreeMap::new(),
             last_ledger: BTreeMap::new(),
             loans: Vec::new(),
@@ -482,6 +488,9 @@ impl City {
 
     /// Applies a tool between two corner tiles (identical for single-tile tools).
     pub fn apply_tool(&mut self, tool: Tool, a: (u32, u32), b: (u32, u32)) -> Result<ToolOutcome, ToolError> {
+        if self.ousted() {
+            return Err(ToolError::VotedOut);
+        }
         if self.fund < 0 {
             return Err(ToolError::Bankrupt);
         }
@@ -512,6 +521,9 @@ impl City {
     /// The bulldozer in the underground view: digs up the water pipes and
     /// metro tunnels under the rectangle, leaving what stands on them.
     pub fn dig_up(&mut self, a: (u32, u32), b: (u32, u32)) -> Result<ToolOutcome, ToolError> {
+        if self.ousted() {
+            return Err(ToolError::VotedOut);
+        }
         if self.fund < 0 {
             return Err(ToolError::Bankrupt);
         }
@@ -570,7 +582,8 @@ impl City {
     /// Advances the city by `dt_ms` real milliseconds at the current speed.
     pub fn update(&mut self, dt_ms: f64) {
         let dt = dt_ms * self.speed.factor();
-        if dt <= 0.0 {
+        // A mayor voted out runs nothing: the city waits.
+        if dt <= 0.0 || self.ousted() {
             return;
         }
         self.vehicles.retain_mut(|v| v.advance(dt as f32));
@@ -609,6 +622,7 @@ impl City {
         let mut gb = self.glassbox.take().unwrap();
         gb.hour = (self.tides && self.clocked).then(|| self.hour());
         gb.sky = Some(self.sky_at(gb.tick));
+        gb.approval = Some(self.mayor.approval);
         let trips = gb.tick(&mut self.layer, &self.terrain, &self.footprints, &mut self.fund, &mut self.rng);
         // Road traffic comes from the trips (`GlassBox::congestion`).
         // A sample of the trips becomes visible vehicles.
@@ -688,6 +702,9 @@ impl City {
                 });
             }
         }
+        for e in self.glassbox.as_ref().map(|g| g.events.clone()).unwrap_or_default() {
+            self.shaken(&e);
+        }
         if let Some(gb) = &self.glassbox {
             self.notices.extend(gb.events.iter().cloned());
             // Research done: news for the player.
@@ -762,6 +779,13 @@ impl City {
     pub fn cheat(&mut self, code: &str) -> Option<String> {
         let code: String = code.trim().trim_end_matches(';').chars().filter(|c| !c.is_whitespace()).collect::<String>().to_lowercase();
         match code.as_str() {
+            // The count is in before the polls close.
+            "landslide" => {
+                self.mayor.approval = 1.0;
+                self.mayor.shock = 0.0;
+                self.stay_in_office(false);
+                Some("A landslide! Nobody remembers voting, but the count is clear: 100% behind the mayor.".into())
+            }
             "callcousinvinnie" => {
                 self.fund += 1_000_000;
                 let m = self.mafia.get_or_insert(Mafia { heat: 0.0, collected: 0 });
@@ -876,6 +900,7 @@ impl City {
         let e = gb.strike(id, None, &mut self.layer, &self.terrain, &self.footprints, &mut self.rng);
         self.glassbox = Some(gb);
         if let Some(e) = &e {
+            self.shaken(e);
             self.respond_to_disasters();
             self.notices.push(e.clone());
         }
@@ -1167,6 +1192,7 @@ impl City {
         self.mafia_month();
         self.close_month();
         self.check_goals();
+        self.mayor_month();
         if self.date.month > 12 {
             self.date.month = 1;
             self.date.year += 1;

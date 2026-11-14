@@ -1024,6 +1024,16 @@ impl Game {
                 };
                 self.say(said);
             }
+            Command::SetElections(on) => {
+                self.city.mayor.elections = on;
+                if !on && self.city.ousted() {
+                    self.city.stay_in_office(true);
+                }
+            }
+            Command::StayInOffice(for_life) => {
+                self.city.stay_in_office(for_life);
+                self.say(if for_life { "Mayor for life. Nobody votes here any more." } else { "Back in office, at 50% approval. The council is watching." });
+            }
             Command::SetDisasters(on) => {
                 if let Some(gb) = self.city.glassbox.as_mut() {
                     gb.disasters_off = !on;
@@ -1257,6 +1267,10 @@ impl Game {
         let auto = true;
         if let Some(gb) = self.city.glassbox.as_mut() {
             gb.auto_research = auto;
+        }
+        // The classic interface has no way to answer a lost vote.
+        if auto {
+            self.city.mayor.elections = false;
         }
         let t = get_time();
         self.city.update(get_frame_time().min(0.25) as f64 * 1000.0);

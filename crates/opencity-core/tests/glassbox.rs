@@ -2090,3 +2090,61 @@ fn saves_survive_rules_that_gain_units() {
     same.use_rules(r.clone());
     assert_eq!(unit_at(&same, &r, 26, 4), "school");
 }
+
+#[test]
+fn a_badly_run_city_votes_its_mayor_out() {
+    use opencity_core::city::MS_PER_DAY;
+    let r = rules();
+    let mut c = City::new(Terrain::flat(64, 48), None, Footprints::builtin(), 11);
+    c.use_rules(r.clone());
+    c.fund = 5_000_000;
+    c.research_all();
+    c.glassbox.as_mut().unwrap().disasters_off = true;
+    assert_eq!(c.mayor.approval, 0.6, "a new mayor's welcome");
+    c.apply_tool(Tool::CoalPlant, (40, 2), (40, 2)).unwrap();
+    for l in [8, 12, 16, 20, 24, 28, 32] {
+        c.apply_tool(Tool::Road, (2, l), (60, l)).unwrap();
+    }
+    c.apply_tool(Tool::Road, (45, 2), (45, 32)).unwrap();
+    c.apply_tool(Tool::ZoneResidential, (2, 9), (60, 11)).unwrap();
+    c.apply_tool(Tool::ZoneIndustrial, (2, 13), (60, 15)).unwrap();
+    c.apply_tool(Tool::ZoneCommercial, (2, 17), (60, 19)).unwrap();
+    c.apply_tool(Tool::ZoneResidential, (2, 21), (60, 23)).unwrap();
+    c.apply_tool(Tool::ZoneIndustrial, (2, 25), (60, 27)).unwrap();
+    c.apply_tool(Tool::ZoneCommercial, (2, 29), (60, 31)).unwrap();
+    let years = |c: &mut City, n: u32| {
+        for _ in 0..n * 360 {
+            c.update(MS_PER_DAY);
+        }
+    };
+    years(&mut c, 2);
+    eprintln!("well run: pop {} approval {:.2} {:?}", c.population, c.mayor.approval, c.approval_factors());
+    assert!(c.population >= 500, "a city big enough to vote: {}", c.population);
+    assert!(c.mayor.approval > 0.5 && !c.ousted(), "a city that works likes its mayor: {}", c.mayor.approval);
+    assert_eq!(c.goal_value("approval") as f32, c.mayor.approval * 100.0);
+    // The power plant goes, and taxes go up as far as they can.
+    let plant = c.layer.structures().find(|(_, s)| s.code == StructureCode::CoalPlant).map(|(p, _)| p).unwrap();
+    c.apply_tool(Tool::Destroy, plant, plant).unwrap();
+    for t in &r.taxes {
+        c.glassbox.as_mut().unwrap().set_tax_rate(&t.id, 100.0);
+    }
+    let before = c.date;
+    for _ in 0..8 {
+        if !c.ousted() {
+            for _ in 0..180 {
+                c.update(MS_PER_DAY);
+            }
+            eprintln!("{} pop {} approval {:.2} low {} {:?}", c.date, c.population, c.mayor.approval, c.mayor.low_months, c.approval_factors());
+        }
+    }
+    eprintln!("badly run: pop {} approval {:.2} {:?} out {:?}", c.population, c.mayor.approval, c.approval_factors(), c.mayor.ousted);
+    let out = c.mayor.ousted.expect("voted out");
+    assert!(c.mayor.approval < 0.3);
+    assert!(out.year > before.year, "after a year of warnings at least: {out:?}");
+    assert_eq!(c.date, out, "the city stands still");
+    assert_eq!(c.apply_tool(Tool::Road, (2, 40), (9, 40)), Err(opencity_core::ToolError::VotedOut));
+    // Mayor for life: the days pass again, and nobody votes.
+    c.stay_in_office(true);
+    years(&mut c, 1);
+    assert!(c.date.year > out.year && !c.ousted() && !c.mayor.elections);
+}

@@ -239,6 +239,9 @@ pub struct GlassBox {
     /// Everything above, sampled every tick, for graphs and analysis.
     #[serde(default)]
     pub series: crate::series::Series,
+    /// The mayor's approval rating (0..1), set by the city for the graphs.
+    #[serde(skip)]
+    pub approval: Option<f32>,
     /// Stocks of pooled resources (ideas, research points), by resource.
     #[serde(default)]
     pub pools: Vec<f32>,
@@ -468,6 +471,7 @@ impl GlassBox {
             administration_unpaid: false,
             hour: None,
             sky: None,
+            approval: None,
             sensors: Vec::new(),
             readings: Vec::new(),
             sensor_routes: SensorRoutes::default(),
@@ -2408,6 +2412,9 @@ impl GlassBox {
             v.push((format!("Metric/{name}"), *m));
         }
         v.push(("City/Funds".into(), fund as f32));
+        if let Some(a) = self.approval {
+            v.push(("City/Approval %".into(), a * 100.0));
+        }
         if let Some(h) = self.hour {
             v.push(("City/Hour".into(), h));
         }

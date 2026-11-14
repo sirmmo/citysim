@@ -2,6 +2,15 @@
 
 Release notes in full are on the [releases page](https://github.com/sirmmo/citysim/releases).
 
+## 0.2.65: Approval and elections
+- **Approval rating**, in the menu bar: the share of the city behind its mayor. Hover it for what makes it up: how well homes, shops and works get what they need, less 10 points for debt, up to 40 for people leaving, up to 25 for recent disasters and up to 30 while the family is in town. It moves a fifth of the way there each month.
+- **Vote of no confidence:** in a city that has had 500 people or more, approval under 30% for 12 months in a row gets you voted out. The council warns you when it starts and as the vote comes near; a month back above 30% takes two months off the count.
+- **Voted out:** the city stands still and nothing can be built until you choose to run again (a new term from 50%), to stay on as mayor for life, or to start a new city.
+- **View > Elections** switches the votes off for a city; the rating is still shown.
+- Scenario goals can use the `approval` metric, the graphs have `City/Approval %`, and the MCP server has a `mayor` tool. The command line's `simulate` runs without votes unless given `--elections`.
+- A new cheat, `Landslide`.
+- Cities saved earlier start at 60% approval.
+
 ## 0.2.64: Tourism
 - **Tourists**, a new resource apart from the town's shoppers. They arrive at the airport (80 a tick), the railway station (20) and the harbour (12), and travel by coach and taxi to the places that want them.
 - **Resort hotel** (4 × 3, $6,000), **Observation tower** (2 × 2, $3,500) and **Amusement park** (6 × 5, $12,000), in the Amenities row after the research project **Tourism** (2,200 points). They live on visitors: the hotel and the park pay well and cost no upkeep when the tourists come, and all but close when fewer than half of those they want arrive. The tower raises land value over a wide area; the park is noisy.

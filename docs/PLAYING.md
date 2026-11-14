@@ -323,7 +323,7 @@ research_all = false         # demo = true lays out the demo town
 
 [[goal]]
 name = "5,000 people"
-metric = "population"        # population, fund, buildings, research:<id>,
+metric = "population"        # population, fund, approval (percent), buildings, research:<id>,
 at_least = 5000              # unit:<id>, structure:<kind>, produced:<res>, unmet:<res>
 within_years = 10            # or always = true; at_most for upper bounds
 ```
@@ -554,6 +554,45 @@ The **💰 Budget** window, in the City panel, shows where the money goes.
 
 The MCP server has a `budget` tool with the same lines, funding and loans.
 
+## Approval and elections
+
+The menu bar shows your **approval**: the share of the city behind its
+mayor. Hover it to see what makes it up, in points out of 100.
+
+- **Needs met:** how well homes, shops and works get what they need (power,
+  water, jobs, customers, services…). Homes count double, bigger buildings
+  more. High taxes, unpopular policies and unpaid clerks lower it, as does
+  land unfit to live on. Under classic rules it is the share of zones with
+  power instead.
+- **Debt:** 10 points off while the city's money is below zero.
+- **People leaving:** up to 40 points off when the city has lost more than
+  one in twenty of the people it had at its best in the last three years.
+- **Disasters:** up to 8 points off per disaster, by what it hit, and 25 for
+  a nuclear accident. It fades over about a year.
+- **The family:** up to 30 points off while Cousin Vinnie's family is in
+  town.
+
+Each month the rating moves a fifth of the way to that sum, so trouble takes
+a few months to show and a few months to be forgiven.
+
+- **The vote:** in a city that has had 500 people or more, approval under
+  **30%** counts against you. The council warns you the first month, and
+  again as the vote comes near. After **12 months in a row** it holds a vote
+  of no confidence and you are out. A month back above 30% takes two months
+  off the count.
+- **Voted out:** the city stands still and nothing can be built. You choose:
+  - **Run for office again:** a new term from 50% approval, with the same
+    problems still to fix;
+  - **Stay on as mayor for life:** no more votes in this city;
+  - **Start a new city.**
+- **Without elections:** untick **View > Elections** to play with no votes
+  at all. The rating is still shown.
+- **Scenarios** can set goals on it with the `approval` metric (in percent).
+- **Graphs:** `City/Approval %` under GlassBox rules.
+
+The MCP server has a `mayor` tool with the rating, its parts and the vote.
+The command line's `simulate` runs without votes unless given `--elections`.
+
 ## Cheats
 
 **Ctrl+Shift+C** opens the cheat box, as in SimCity 3000.
@@ -567,6 +606,9 @@ The MCP server has a `budget` tool with the same lines, funding and loans.
   - **Driving them out:** each police station loosens their hold month by
     month, and with enough stations the family packs up and leaves. Calling
     Vinnie again tightens their grip.
+
+- **`Landslide`** puts approval at 100% and, if you were voted out, puts
+  you back in office. Nobody remembers voting.
 
 The MCP server has a `cheat` tool too.
 

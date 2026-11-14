@@ -80,6 +80,10 @@ pub enum Command {
     RemoveSensor(String),
     /// Save what a sensor recorded as a CSV file.
     SaveSensorCsv(String),
+    /// Whether the city can vote its mayor out.
+    SetElections(bool),
+    /// Voted out: back in office after a campaign, or (true) for life.
+    StayInOffice(bool),
     /// Switch disasters by chance on or off.
     SetDisasters(bool),
     /// Set off a disaster by hand.
@@ -545,6 +549,9 @@ impl EguiUi {
         if let Some(stretch) = view.flow_hover {
             crate::network::hover_tooltip(ctx, view.city, stretch);
         }
+        if view.city.ousted() && matches!(self.dialog, Dialog::None) {
+            self.voted_out(ctx, view, &mut out);
+        }
         self.dialogs(ctx, view, &mut out);
         out
     }
@@ -670,6 +677,19 @@ impl EguiUi {
                     {
                         out.push(Command::SetDayNight(self.day_night));
                     }
+                    let mut elections = view.city.mayor.elections;
+                    if ui
+                        .checkbox(&mut elections, "Elections")
+                        .on_hover_text(format!(
+                            "With them, a city of {} people or more votes you out after {} months in a row with approval under {:.0}%. Without, you are mayor for life",
+                            opencity_core::mayor::VOTERS,
+                            opencity_core::mayor::OUST_MONTHS,
+                            opencity_core::mayor::OUST_BELOW * 100.0
+                        ))
+                        .changed()
+                    {
+                        out.push(Command::SetElections(elections));
+                    }
                     if let Some(gb) = view.city.glassbox.as_ref().filter(|gb| !gb.sensors.is_empty()) {
                         ui.menu_button(format!("Sensors ({})", gb.sensors.len()), |ui| {
                             for s in &gb.sensors {
@@ -768,6 +788,7 @@ impl EguiUi {
                 let fund = RichText::new(format!("$ {}", city.fund)).monospace().strong();
                 ui.label(if city.fund < 0 { fund.color(Color32::from_rgb(240, 90, 80)) } else { fund });
                 ui.label(RichText::new(format!("Pop {}", city.population)).monospace());
+                approval_label(ui, city);
                 if let Some(name) = &city.meta.name {
                     ui.separator();
                     ui.label(RichText::new(name).italics());
@@ -1177,6 +1198,48 @@ impl EguiUi {
         if !open {
             out.push(Command::CloseQuery);
         }
+    }
+
+    /// The city voted the mayor out: what now.
+    fn voted_out(&mut self, ctx: &egui::Context, view: &View, out: &mut Vec<Command>) {
+        let city = view.city;
+        egui::Window::new("Voted out of office").collapsible(false).resizable(false).anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0]).show(ctx, |ui| {
+            ui.set_max_width(420.0);
+            ui.label(
+                RichText::new(format!("{:.0}% of the city is behind you.", city.mayor.approval * 100.0)).heading().color(Color32::from_rgb(230, 120, 100)),
+            );
+            ui.label(format!(
+                "After {} months under {:.0}%, the council held a vote of no confidence, and you lost it. The city stands still until you decide what next.",
+                opencity_core::mayor::OUST_MONTHS,
+                opencity_core::mayor::OUST_BELOW * 100.0
+            ));
+            ui.add_space(4.0);
+            ui.label(RichText::new("What people hold against you:").strong());
+            approval_lines(ui, city);
+            ui.separator();
+            if ui
+                .button("Run for office again")
+                .on_hover_text("You win the campaign and start over at 50% approval: put things right before the next vote")
+                .clicked()
+            {
+                out.push(Command::StayInOffice(false));
+            }
+            if ui.button("Stay on as mayor for life").on_hover_text("No more votes in this city (View > Elections brings them back)").clicked() {
+                out.push(Command::StayInOffice(true));
+            }
+            match view.pack {
+                Some(pack) => {
+                    if ui.button(format!("Restart {}", pack.name)).clicked() {
+                        out.push(Command::StartScenario(pack.scenario.clone()));
+                    }
+                }
+                None => {
+                    if ui.button("Start a new city").clicked() {
+                        self.dialog = Dialog::NewCity;
+                    }
+                }
+            }
+        });
     }
 
     fn dialogs(&mut self, ctx: &egui::Context, view: &View, out: &mut Vec<Command>) {
@@ -1881,4 +1944,43 @@ fn chart(ui: &mut egui::Ui, city: &City) {
         Color32::from_rgb(110, 210, 120),
     );
     painter.text(rect.left_top() + EVec2::new(6.0, 16.0), egui::Align2::LEFT_TOP, "fund", egui::FontId::proportional(10.0), Color32::from_rgb(240, 200, 80));
+}
+
+/// The mayor's approval rating in the menu bar; hovering lists what makes it.
+fn approval_label(ui: &mut egui::Ui, city: &City) {
+    use opencity_core::mayor::{OUST_BELOW, OUST_MONTHS, VOTERS};
+    let m = &city.mayor;
+    let text = RichText::new(format!("Approval {:.0}%", m.approval * 100.0)).monospace();
+    let text = if m.approval < OUST_BELOW {
+        text.color(Color32::from_rgb(240, 90, 80)).strong()
+    } else if m.approval < OUST_BELOW + 0.12 {
+        text.color(Color32::from_rgb(235, 190, 90))
+    } else {
+        text
+    };
+    ui.label(text).on_hover_ui(|ui| {
+        ui.set_max_width(340.0);
+        ui.label(RichText::new("What the city makes of its mayor").strong());
+        approval_lines(ui, city);
+        ui.separator();
+        let rule = if !m.elections {
+            "No elections: you are mayor for life (View > Elections).".to_string()
+        } else if let Some(left) = m.months_left() {
+            format!("The council votes you out in {left} months unless approval is back above {:.0}%.", OUST_BELOW * 100.0)
+        } else {
+            format!("Under {:.0}% for {OUST_MONTHS} months in a row, a city of {VOTERS} people or more votes its mayor out.", OUST_BELOW * 100.0)
+        };
+        ui.label(RichText::new(rule).small());
+    });
+}
+
+/// What adds to and takes from the approval rating, and where it is heading.
+fn approval_lines(ui: &mut egui::Ui, city: &City) {
+    for (i, (what, points)) in city.approval_factors().iter().enumerate() {
+        let n = if i == 0 { format!("{points:.0}") } else { format!("{points:+.0}") };
+        ui.label(format!("{n:>4}  {what}"));
+    }
+    let (now, to) = (city.mayor.approval * 100.0, city.approval_target() * 100.0);
+    let trend = if (to - now).abs() < 1.0 { "holding".to_string() } else { format!("heading for {to:.0}%") };
+    ui.label(RichText::new(format!("Now {now:.0}%, {trend} (it moves a fifth of the way each month).")).small().color(Color32::GRAY));
 }

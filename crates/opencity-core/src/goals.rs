@@ -88,7 +88,8 @@ impl Default for Start {
 #[serde(deny_unknown_fields)]
 pub struct GoalDef {
     pub name: String,
-    /// What is measured: `population`, `fund`, `buildings` (developed),
+    /// What is measured: `population`, `fund`, `approval` (the mayor's
+    /// rating, in percent), `buildings` (developed),
     /// `research:<project>` (1 when done), `unit:<unit id>` (how many),
     /// `structure:<kind>` (station, harbour, school…: how many),
     /// `produced:<resource>` or `unmet:<resource>` (per tick).
@@ -169,6 +170,7 @@ impl City {
         match kind {
             "population" => self.population as f64,
             "fund" => self.fund as f64,
+            "approval" => (self.mayor.approval * 100.0) as f64,
             "buildings" => self.layer.structures().filter(|(_, s)| s.unit.is_some() || (s.code.is_zone() && s.level > 0)).count() as f64,
             "research" => self.glassbox.as_ref().is_some_and(|g| g.researched.contains(arg)) as u8 as f64,
             "unit" => {

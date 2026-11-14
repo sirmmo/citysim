@@ -68,6 +68,9 @@ enum Command {
         /// Keep traffic the same at any hour (no rush hours).
         #[arg(long)]
         no_tides: bool,
+        /// Let the city vote its mayor out: the run then ends there.
+        #[arg(long)]
+        elections: bool,
     },
     /// Print a summary of a saved city.
     Info { file: PathBuf },
@@ -317,6 +320,7 @@ fn print_summary(city: &City) {
     println!("date      {}", city.date);
     println!("fund      {}", city.fund);
     println!("population {}", city.population);
+    println!("approval  {:.0}%{}", city.mayor.approval * 100.0, if city.ousted() { " (voted out)" } else { "" });
     println!("R/C/I     {}/{}/{}", v.residential, v.commercial, v.industrial);
     println!("power     {} / {}", v.power, v.power_capacity);
     println!("tiles     {} occupied, {} vehicles", city.layer.occupied(), city.vehicles.len());
@@ -337,7 +341,7 @@ fn main() -> Result<()> {
             print_summary(&city);
             save_city(&city, out)?;
         }
-        Command::Simulate { load, map, demo, game_rules, years, save, metrics, sensors, sensor_csv, no_tides } => {
+        Command::Simulate { load, map, demo, game_rules, years, save, metrics, sensors, sensor_csv, no_tides, elections } => {
             let mut city = match load {
                 Some(p) => load_city(p, fp())?,
                 None => new_city(map, false, fp())?,
@@ -364,7 +368,13 @@ fn main() -> Result<()> {
             }
             println!("{:>5} {:>9} {:>7} {:>6} {:>6} {:>6} {:>13}", "year", "fund", "people", "R", "C", "I", "power");
             let target = city.date.year + years;
+            let votes = city.mayor.elections;
+            city.mayor.elections = votes && *elections;
             while city.date.year < target {
+                if city.ousted() {
+                    println!("{}: voted out of office at {:.0}% approval", city.date, city.mayor.approval * 100.0);
+                    break;
+                }
                 let year = city.date.year;
                 // One simulated day at a time.
                 city.update(opencity_core::city::MS_PER_DAY);
@@ -376,6 +386,8 @@ fn main() -> Result<()> {
                     );
                 }
             }
+            city.mayor.elections = votes;
+            println!("approval {:.0}%", city.mayor.approval * 100.0);
             if let Some(p) = save {
                 save_city(&city, p)?;
             }
@@ -403,9 +415,11 @@ fn main() -> Result<()> {
         Command::ImportGeojson { input, geo, years, out } => {
             let mut city = import_geojson(input, geo, fp())?;
             let target = city.date.year + years;
+            let votes = std::mem::replace(&mut city.mayor.elections, false);
             while city.date.year < target {
                 city.update(opencity_core::city::MS_PER_DAY);
             }
+            city.mayor.elections = votes;
             print_summary(&city);
             save_city(&city, out)?;
         }

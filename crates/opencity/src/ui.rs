@@ -193,7 +193,7 @@ impl Ui {
         let bar = Rect::new((sw - 512.0) / 2.0, 4.0, 512.0, 64.0);
         draw_texture_ex(&self.status_bar, bar.x, bar.y, WHITE, DrawTextureParams { dest_size: Some(vec2(bar.w, bar.h)), ..Default::default() });
         let v = city.values;
-        let text = format!("$ {}   pop {}   {}", city.fund, city.population, city.date);
+        let text = format!("$ {}   pop {}   {:.0}%   {}", city.fund, city.population, city.mayor.approval * 100.0, city.date);
         draw_text(&text, bar.x + 20.0, bar.y + 26.0, 24.0, if city.fund < 0 { RED } else { WHITE });
         let total = (v.residential + v.commercial + v.industrial).max(1) as f32;
         let bars = [

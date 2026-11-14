@@ -342,6 +342,33 @@ impl Server {
                     })).collect::<Vec<_>>(),
                 }))
             }
+            "mayor" => {
+                let city = self.city()?;
+                if let Some(on) = a.get("elections").and_then(Value::as_bool) {
+                    city.mayor.elections = on;
+                    if !on && city.ousted() {
+                        city.stay_in_office(true);
+                    }
+                }
+                match a.get("stay").and_then(Value::as_str) {
+                    Some("again") => city.stay_in_office(false),
+                    Some("for_life") => city.stay_in_office(true),
+                    Some(other) => anyhow::bail!("stay: `again` or `for_life`, not {other}"),
+                    None => {}
+                }
+                let m = &city.mayor;
+                Ok(json!({
+                    "approval": m.approval,
+                    "heading_for": city.approval_target(),
+                    "points": city.approval_factors().into_iter().map(|(what, points)| json!({ "what": what, "points": points })).collect::<Vec<_>>(),
+                    "elections": m.elections,
+                    "voted_out_below": opencity_core::mayor::OUST_BELOW,
+                    "months_below": m.low_months,
+                    "months_until_vote": m.months_left(),
+                    "voters_needed": opencity_core::mayor::VOTERS,
+                    "voted_out": m.ousted.map(|d| d.to_string()),
+                }))
+            }
             "cheat" => {
                 let code = str_arg(a, "code")?.to_string();
                 let city = self.city()?;
@@ -373,6 +400,8 @@ impl Server {
             "date": c.date.to_string(),
             "fund": c.fund,
             "population": c.population,
+            "approval": c.mayor.approval,
+            "voted_out": c.ousted(),
             "zones": { "residential": v.residential, "commercial": v.commercial, "industrial": v.industrial },
             "power": { "used": v.power_capacity - v.power, "capacity": v.power_capacity },
             "vehicles": c.vehicles.len(),
@@ -532,6 +561,9 @@ fn tools() -> Value {
             "funding": { "type": "object", "additionalProperties": { "type": "number" } }, "borrow": { "type": "integer", "minimum": 1 }
         }), &[]),
         tool("goals", "The scenario's goals: how far each has come, deadlines, and whether the game is won or lost.", json!({}), &[]),
+        tool("mayor", "The mayor's approval rating (0..1): the points out of 100 that make it (needs met, debt, people leaving, disasters, the family), where it is heading, and the vote. Under `voted_out_below` for 12 months in a row, a city of `voters_needed` people or more votes the mayor out: time then stands still and tools are refused until `stay` is `again` (a new term from 50%) or `for_life` (no more votes). `elections` switches the votes on or off.", json!({
+            "elections": { "type": "boolean" }, "stay": { "type": "string", "enum": ["again", "for_life"] }
+        }), &[]),
         tool("cheat", "Type a cheat code, as in SimCity 3000's cheat box. Some of them have consequences.", json!({ "code": { "type": "string" } }), &["code"]),
         tool("render_map", "Write a top-down PNG of the city.", json!({ "path": path, "scale": { "type": "integer", "minimum": 1, "maximum": 32, "default": 8 } }), &["path"]),
         tool("export_geojson", "Write the city as GeoJSON.", json!({ "path": path }), &["path"])
