@@ -1266,9 +1266,17 @@ impl Game {
         if let Some(e) = self.city.notices.pop() {
             self.city.notices.clear();
             self.audio.play_ui(audio::Ui::Alarm);
-            let what = if e.burning { "on fire" } else { "hit" };
+            let fallout = self.city.rules().and_then(|r| r.disaster(&e.id)).is_some_and(|d| d.fallout.is_some());
+            let what = if e.burning {
+                "on fire"
+            } else if fallout {
+                "evacuated"
+            } else {
+                "hit"
+            };
             let lost = if e.hit == 1 { format!("1 building {what}") } else { format!("{} buildings {what}", e.hit) };
-            self.message = Some((format!("{} at {}, {}: {lost}", e.name, e.at.0, e.at.1), get_time() + 6.0));
+            let after = if fallout { ". The land around stays unfit to live on for years (View > Data layer)." } else { "" };
+            self.message = Some((format!("{} at {}, {}: {lost}{after}", e.name, e.at.0, e.at.1), get_time() + if fallout { 12.0 } else { 6.0 }));
         }
         self.city.speed = speed;
         let t = phase(0, t);

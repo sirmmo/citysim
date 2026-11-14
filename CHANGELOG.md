@@ -2,6 +2,12 @@
 
 Release notes in full are on the [releases page](https://github.com/sirmmo/citysim/releases).
 
+## 0.2.62: Nuclear accidents
+- **A nuclear plant can have an accident**, and how it is run decides how likely that is. With its staff, its upkeep and its full budget a plant is safe for about a hundred years; at half its funding, or short of workers, it is one accident in ten years. The **Atomic age** energy policy doubles the risk. Until now a plant on half its budget made the same power for half the money; that saving has a price.
+- **What an accident does:** the plant is lost, most homes, shops and factories within seven tiles are evacuated at once, and the land is contaminated. A new **Radiation** data layer shows it; where it is above 4 nothing is built and nobody stays. It fades by half every seven months: the edge of the zone comes back within months, the middle after more than two years.
+- Fusion plants have no such risk. The Disasters menu can set an accident off by hand, and switching chance disasters off stops this one too.
+- **In the rules:** `source` and `fallout` on a `[[disaster]]`, `uninhabitable` on a `[[layer]]`, `disasters` on a policy stance (see RULES.md).
+
 ## 0.2.61: Electric cars
 - **A Vehicles policy** in the Policies window, after the new research project **Electric vehicles** (3,500 points). One car in four is electric to begin with; **Electric car grants** make it six in ten and **Combustion ban** all of them. Electric cars leave no fumes along their routes and charge from the grid at home, so the air and the noise maps clear along the busy roads, the fuel industry sells less, and the town needs more power. The ban costs two points of everyone's satisfaction.
 - **In the rules:** a policy stance can set the shares of a resource's kinds (`kinds = { "car.electric" = 0.6, "car.gasoline" = 0.4 }`) and scale what traffic leaves on a map layer (`traffic = { "Noise.level" = -0.3 }`). See RULES.md.

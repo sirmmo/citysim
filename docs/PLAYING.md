@@ -179,6 +179,17 @@ interface** makes it Large or Huge on top of that, and `--ui-scale 1.5`
   health coverage against sickness; floods hit low ground by the water. A
   notice says where it struck and how many buildings it hit, and fire trucks
   head there. The **Disasters** menu switches them off or sets one off by hand.
+  - **A nuclear accident** can only happen at a nuclear plant, and how you
+    run the plant decides how likely it is. With its staff, its upkeep and
+    its full budget a plant is safe for about a hundred years. Cut its
+    funding in the Budget window to half, or leave it short of workers,
+    and it is one accident in ten years; the *Atomic age* energy policy
+    doubles the risk. The plant is lost, most homes, shops and factories
+    within seven tiles are evacuated at once, and radiation stays on the
+    land (**View > Data layer > Radiation**): nothing is built and nobody
+    stays where it is above 4. It fades by half every seven months, so the
+    edge of the zone is back within months and the middle after more than
+    two years. Fusion plants, coal plants and the others have no such risk.
   - **A fire burns for a while.** Buildings on fire show flames, smoke and a
     flame mark over the roof. Each stands for some twenty ticks; until then
     fire coverage may put it out and save it, and the fire may pass to the

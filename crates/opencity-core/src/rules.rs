@@ -259,6 +259,10 @@ pub struct LayerDef {
     /// Value shown as full intensity in the overlay.
     #[serde(default = "default_layer_max")]
     pub max: f32,
+    /// Above this value nothing develops on zoned land, and the zone
+    /// buildings standing there empty (fallout).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub uninhabitable: Option<f32>,
 }
 
 fn default_layer_colour() -> [f32; 3] {
@@ -742,6 +746,25 @@ pub struct DisasterDef {
     /// it is dealt with (a fire put out, the building saved).
     #[serde(default, skip_serializing_if = "is_zero_f32")]
     pub relief: f32,
+    /// It starts at a unit of this kind (an accident at a nuclear plant),
+    /// which is lost, and nowhere else. `every` then counts for each such
+    /// unit, by how well it is run: a tenth as often at full satisfaction
+    /// and funding, four times as often with neither.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source: Option<String>,
+    /// What it leaves on a map layer around the spot.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fallout: Option<Fallout>,
+}
+
+/// What a disaster leaves on a map layer (`fallout`): `amount` at the spot,
+/// fading to nothing past `radius`.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Fallout {
+    pub layer: String,
+    pub amount: f32,
+    pub radius: u32,
 }
 
 fn is_zero_u32(v: &u32) -> bool {
@@ -851,6 +874,10 @@ pub struct StanceDef {
     /// follows the kind's share instead.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub traffic: BTreeMap<String, f32>,
+    /// Change in the odds of a disaster, as a share per disaster id
+    /// (`{ meltdown = 1.0 }`: twice as likely).
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub disasters: BTreeMap<String, f32>,
     /// Satisfaction added to every unit (0.05 is five points).
     #[serde(default)]
     pub satisfaction: f32,
@@ -1382,6 +1409,12 @@ impl Ruleset {
             if let Some(l) = d.protection.as_ref().filter(|l| self.layer(l).is_none()) {
                 return err(format!("disaster {}: unknown protection layer {l}", d.id));
             }
+            if let Some(u) = d.source.as_ref().filter(|u| self.unit(u).is_none()) {
+                return err(format!("disaster {}: unknown source unit {u}", d.id));
+            }
+            if let Some(f) = d.fallout.as_ref().filter(|f| self.layer(&f.layer).is_none()) {
+                return err(format!("disaster {}: fallout on unknown layer {}", d.id, f.layer));
+            }
             if !(d.full.is_finite() && d.full > 0.0) {
                 return err(format!("disaster {}: full must be above 0", d.id));
             }
@@ -1432,6 +1465,9 @@ impl Ruleset {
                 }
                 if st.kinds.values().any(|s| !s.is_finite() || *s < 0.0) {
                     return at(format!("stance {}: shares of kinds cannot be negative", st.id));
+                }
+                if let Some(d) = st.disasters.keys().find(|d| self.disaster(d).is_none()) {
+                    return at(format!("stance {}: unknown disaster {d}", st.id));
                 }
                 if let Some(l) = st.traffic.keys().find(|l| self.layer(l).is_none()) {
                     return at(format!("stance {}: traffic on unknown layer {l}", st.id));

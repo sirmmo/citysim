@@ -1506,6 +1506,14 @@ fn unit_details(ui: &mut egui::Ui, city: &City, gb: &opencity_core::glassbox::Gl
         };
         ui.label(RichText::new(text).color(Color32::from_rgb(240, 130, 60))).on_hover_text(help);
     }
+    if let Some(li) = gb.uninhabitable(rules, origin.0, origin.1, city.width()) {
+        let l = &rules.layers[li];
+        let v = gb.layer_value(li, origin.0, origin.1, city.width());
+        ui.label(RichText::new(format!("☢ {} {v:.0}: nobody can stay here", l.name)).color(Color32::from_rgb(240, 130, 60))).on_hover_text(format!(
+            "Homes, shops and industry empty, and nothing is built, until it falls under {:.0}. It fades by itself, slowly.",
+            l.uninhabitable.unwrap_or(0.0)
+        ));
+    }
     if rules.round_the_clock(unit, origin.1 * city.width() + origin.0) {
         let hours: Vec<String> =
             rules.shifts.clone().unwrap_or_default().hours.iter().map(|h| format!("{:02}:{:02}", *h as u32, (h.fract() * 60.0) as u32)).collect();

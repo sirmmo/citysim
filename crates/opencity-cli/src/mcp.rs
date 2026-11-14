@@ -307,7 +307,7 @@ impl Server {
                 Ok(json!({
                     "chance": city.glassbox.as_ref().is_some_and(|g| !g.disasters_off),
                     "struck": event.map(|e| json!({ "id": e.id, "name": e.name, "at": e.at, "hit": e.hit, "burning": e.burning })),
-                    "disasters": rules.map(|r| r.disasters.iter().map(|d| json!({ "id": d.id, "name": d.name, "every": d.every, "radius": d.radius, "protection": d.protection })).collect::<Vec<_>>()),
+                    "disasters": rules.map(|r| r.disasters.iter().map(|d| json!({ "id": d.id, "name": d.name, "every": d.every, "radius": d.radius, "protection": d.protection, "source": d.source })).collect::<Vec<_>>()),
                 }))
             }
             "budget" => {

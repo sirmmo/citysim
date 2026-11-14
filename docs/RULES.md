@@ -417,6 +417,8 @@ near_water = false                   # only on low ground near water (floods)
 lasts = 20                           # ticks a struck building stays in trouble (0: over at once)
 spread = 0.015                       # while it lasts: chance a tick of passing to each building next door
 relief = 0.25                        # while it lasts: chance a tick, at full protection, that it is dealt with
+source = "nuclear_plant"             # it starts at a unit of this kind, which is lost (optional)
+fallout = { layer = "radiation", amount = 60, radius = 9 }   # left on a map layer around the spot (optional)
 ```
 
 - **Where it strikes:** a developed zone building, picked at random (low and
@@ -440,13 +442,25 @@ relief = 0.25                        # while it lasts: chance a tick, at full pr
   When the last fire is out a message says how many buildings were lost and
   saved. The shipped fire burns 20 ticks (24 before 1800, where it spreads
   faster and is put out less often).
+- **A disaster with a `source`** (the shipped nuclear accident) starts at a
+  unit of that kind and nowhere else, and that unit is lost. `every` counts
+  for each such unit older than `grace` ticks, and scales with how it is
+  run: the chance each tick is `(0.1 + 3.9 × (1 − run)²) / every`, where
+  `run` is the unit's satisfaction times its funding. A well-run unit has a
+  tenth of the risk `every` says; one with neither staff nor budget four
+  times. A policy stance can scale the odds of any disaster
+  (`disasters = { meltdown = 1.0 }`: twice as likely).
+- **`fallout`** adds `amount` to a map layer at the spot, fading to nothing
+  past `radius`. With `uninhabitable = 4.0` on that `[[layer]]`, zone
+  buildings on tiles above 4 lose all satisfaction and empty, and nothing
+  develops there until the layer has decayed below it.
 - **`damage`** drops the building a level, or empties a first-level plot.
 - **`sicken`** drops its satisfaction to 0.1, so it may decline.
 - **Responders:** the nearest service whose emissions include the protection
   layer sends its `dispatch` vehicle to the scene. Fire trucks go to fires.
 - **Player controls:** the **Disasters** menu switches chance disasters off
   and sets any of them off by hand. The MCP server has a `disaster` tool.
-- **Shipped:** the modern rules have fire, flood and epidemic. Before 1800
+- **Shipped:** the modern rules have fire, flood, epidemic and the nuclear accident. Before 1800
   there are great fires (wider and more frequent), floods and plague.
 
 ### Shared pools (culture)

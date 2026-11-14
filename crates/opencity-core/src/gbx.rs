@@ -390,7 +390,15 @@ fn declare_layer(rules: &mut Ruleset, id: &str) {
     if rules.layer(id).is_some() {
         return;
     }
-    rules.layers.push(LayerDef { id: id.to_string(), name: id.to_string(), diffusion: 0.1, decay: 0.1, colour: [0.8, 0.5, 0.9], max: 50.0 });
+    rules.layers.push(LayerDef {
+        id: id.to_string(),
+        name: id.to_string(),
+        diffusion: 0.1,
+        decay: 0.1,
+        colour: [0.8, 0.5, 0.9],
+        max: 50.0,
+        uninhabitable: None,
+    });
 }
 
 #[cfg(test)]

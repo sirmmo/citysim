@@ -550,6 +550,13 @@ impl GlassBox {
         b
     }
 
+    /// The map layer that makes a tile unfit to live or work on, if any
+    /// (`uninhabitable` on a layer: fallout).
+    pub fn uninhabitable(&self, rules: &Ruleset, w: u32, l: u32, width: u32) -> Option<usize> {
+        let i = (l * width + w) as usize;
+        rules.layers.iter().enumerate().find(|(li, d)| d.uninhabitable.is_some_and(|m| self.layers[*li].get(i).is_some_and(|v| *v > m))).map(|(li, _)| li)
+    }
+
     /// The share of each kind of a resource (0 for resources that are not
     /// kinds): what the rules write, unless a policy stance says otherwise.
     pub fn kind_shares(&self, rules: &Ruleset) -> Vec<f32> {
@@ -871,10 +878,27 @@ impl GlassBox {
         };
         let candidates: Vec<(u32, u32)> =
             layer.structures().filter(|(p, s)| s.unit.is_some() && s.code.is_zone() && (!d.near_water || low_by_water(p.0, p.1))).map(|(p, _)| p).collect();
-        let at = match at {
-            Some(p) => p,
-            None if candidates.is_empty() => return None,
-            None => candidates[rng.gen_range(0..candidates.len())],
+        // One that starts at a unit (a plant): that one, or one at random.
+        // The plant is lost, and the spot is its middle.
+        let mut lost = None;
+        let at = if let Some(source) = &d.source {
+            let unit = rules.unit(source)? as u16;
+            let plants: Vec<(u32, u32)> = layer.structures().filter(|(_, s)| s.unit == Some(unit)).map(|(p, _)| p).collect();
+            let p = match at {
+                Some(p) => layer.origin_of(p.0, p.1).filter(|o| plants.contains(o))?,
+                None if plants.is_empty() => return None,
+                None => plants[rng.gen_range(0..plants.len())],
+            };
+            let (sw, sl) = layer.structure_at(p.0, p.1)?.size(footprints);
+            let r = Rect::sized(p.0, p.1, sw, sl);
+            lost = Some(r);
+            ((r.w1 + r.w2) / 2, (r.l1 + r.l2) / 2)
+        } else {
+            match at {
+                Some(p) => p,
+                None if candidates.is_empty() => return None,
+                None => candidates[rng.gen_range(0..candidates.len())],
+            }
         };
         let protection = d.protection.as_deref().and_then(|l| rules.layer(l));
         let mut hit = 0;
@@ -933,6 +957,14 @@ impl GlassBox {
                     }
                 }
             }
+        }
+        if let Some(r) = lost {
+            if layer.destroy(r).is_ok() {
+                self.units.remove(&(r.l1 * width + r.w1));
+            }
+        }
+        if let Some((li, f)) = d.fallout.as_ref().and_then(|f| Some((rules.layer(&f.layer)?, f))) {
+            emit(&mut self.layers[li], width, layer.length(), at.0 as f32, at.1 as f32, f.amount, f.radius);
         }
         let event = DisasterEvent { id: d.id.clone(), name: d.name.clone(), at, hit, burning: d.effect == DisasterEffect::Destroy && d.lasts > 0 };
         self.events.push(event.clone());
@@ -1042,7 +1074,26 @@ impl GlassBox {
             return;
         }
         let climate = self.climate.unwrap_or([1.0; 3]);
+        let width = layer.width();
         for d in rules.disasters.iter().filter(|d| d.every > 0) {
+            // Policy stances make some likelier (the atomic age).
+            let stance = (1.0 + self.active_stances(rules).filter_map(|s| s.disasters.get(&d.id)).sum::<f32>()).max(0.0);
+            if let Some(unit) = d.source.as_deref().and_then(|u| rules.unit(u)) {
+                // Each such unit runs its own risk, by how well it is run:
+                // its satisfaction (staff, upkeep) and its funding. A new
+                // one is given the time to find its staff.
+                let funding = self.funding_of(&rules.units[unit].id).min(1.0);
+                let plants: Vec<(u32, u32)> = layer.structures().filter(|(_, s)| s.unit == Some(unit as u16)).map(|(p, _)| p).collect();
+                for p in plants {
+                    let Some(st) = self.units.get(&(p.1 * width + p.0)).filter(|st| st.age >= rules.growth.grace) else { continue };
+                    let run = (st.satisfaction * funding).clamp(0.0, 1.0);
+                    let risk = 0.1 + 3.9 * (1.0 - run).powi(2);
+                    if rng.r#gen::<f32>() * (d.every as f32) < risk * stance {
+                        self.strike(&d.id, Some(p), layer, terrain, footprints, rng);
+                    }
+                }
+                continue;
+            }
             let factor = if d.near_water {
                 climate[1]
             } else {
@@ -1052,7 +1103,7 @@ impl GlassBox {
                     DisasterEffect::Damage => 1.0,
                 }
             };
-            if rng.r#gen::<f32>() * (d.every as f32) < factor {
+            if rng.r#gen::<f32>() * (d.every as f32) < factor * stance {
                 self.strike(&d.id, None, layer, terrain, footprints, rng);
             }
         }
@@ -2085,7 +2136,8 @@ impl GlassBox {
             if self.administration_unpaid && unit_zone[*u].is_some() {
                 s -= rules.administration.as_ref().map_or(0.0, |a| a.unpaid);
             }
-            let s = s.clamp(0.0, 1.0);
+            // Nobody stays on land unfit to live on.
+            let s = if unit_zone[*u].is_some() && self.uninhabitable(&rules, p.0, p.1, width).is_some() { 0.0 } else { s.clamp(0.0, 1.0) };
             let g = &rules.growth;
             let st = self.units.get_mut(&i).unwrap();
             st.satisfaction = st.satisfaction * 0.7 + s * 0.3;
@@ -2422,6 +2474,9 @@ impl GlassBox {
                 if self.vacated.get(&(l * width + w)).is_some_and(|v| self.tick < v.until(rules.growth.grace)) {
                     continue;
                 }
+                if self.uninhabitable(rules, w, l, width).is_some() {
+                    continue;
+                }
                 let ok = zr.tests.iter().all(|t| {
                     let v = match t.scope {
                         crate::rules::Scope::Map => rules.layer(&t.id).map_or(0.0, |li| self.layers[li][(l * width + w) as usize]),
@@ -2500,7 +2555,7 @@ impl GlassBox {
                     }
                     let still_plot = layer.tile(w, l).and_then(|t| t.structure()).is_some_and(|s| s.code == code && s.unit.is_none() && s.level == 0);
                     let resting = self.vacated.get(&(l * width + w)).is_some_and(|v| self.tick < v.until(g.grace));
-                    if !still_plot || resting || !road_near(layer, w, l) || !pulled(self, w, l) {
+                    if !still_plot || resting || !road_near(layer, w, l) || !pulled(self, w, l) || self.uninhabitable(rules, w, l, width).is_some() {
                         continue;
                     }
                     let density = layer.structure_at(w, l).map_or(0, |s| s.density as usize).min(z.densities.len() - 1);

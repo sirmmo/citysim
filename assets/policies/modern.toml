@@ -15,7 +15,8 @@
 # changes what units need (`needs`, a share per resource), adds zone `demand`,
 # `satisfaction` for every unit and a running `cost` per tick (negative:
 # income). `kinds` sets the shares of a resource's kinds (electric and
-# petrol cars), `traffic` what every trip leaves on a map layer. A city makes some 25-30 in taxes a tick at 1,000 people.
+# petrol cars), `traffic` what every trip leaves on a map layer, `disasters`
+# the odds of a disaster (a share per disaster id). A city makes some 25-30 in taxes a tick at 1,000 people.
 
 name = "Modern"
 description = "Property, sales and business taxes; transport, energy, education and growth policies."
@@ -104,9 +105,10 @@ cost = 0.8
 [[policy.stance]]
 id = "atomic_age"
 name = "Atomic age"
-description = "The nuclear programme runs flat out: far more power, uneasy neighbours."
+description = "The nuclear programme runs flat out: far more power, uneasy neighbours, and twice the risk of an accident at each plant."
 requires = "fission"
 bonus = { power = 0.3 }
+disasters = { meltdown = 1.0 }
 satisfaction = -0.02
 
 [[policy]]

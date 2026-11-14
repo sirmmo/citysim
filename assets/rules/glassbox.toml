@@ -337,6 +337,22 @@ effect = "sicken"
 protection = "health"
 lasts = 30                       # how long the sick stay home (the mark on the map)
 
+# A nuclear accident starts at a nuclear plant (`source`) and nowhere else.
+# `every` counts for each plant, and for one that is badly run: a plant with
+# its staff, its upkeep and its full budget runs a tenth of the risk (once
+# in a hundred years), one with half of them about once in ten years. The
+# plant is lost, the blocks around it are evacuated, and the `fallout`
+# stays on the radiation map (see that layer, at the end of the layers).
+[[disaster]]
+id = "meltdown"
+name = "Nuclear accident"
+description = "A reactor out of control: the plant is lost, the blocks around it are evacuated, and the land stays contaminated for years."
+every = 12000
+radius = 7
+effect = "destroy"
+source = "nuclear_plant"
+fallout = { layer = "radiation", amount = 60, radius = 9 }
+
 # ---------------------------------------------------------------- map layers
 [[layer]]
 id = "pollution"
@@ -398,6 +414,18 @@ diffusion = 0.1
 decay = 0.3
 colour = [0.9, 0.5, 0.9]
 max = 30.0
+
+# New layers go at the end: saves number layers by their place in this list.
+# What a nuclear accident leaves. It does not spread and fades slowly: it
+# halves in some seven months, so the middle of the fallout (60) is fit to
+# live on again (under 4) after more than two years, its edge within months.
+[[layer]]
+id = "radiation"
+name = "Radiation"
+decay = 0.001
+colour = [0.75, 0.95, 0.2]
+max = 40.0
+uninhabitable = 4.0
 
 # ---------------------------------------------------------------- zones
 [[zone]]

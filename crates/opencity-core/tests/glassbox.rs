@@ -1187,6 +1187,48 @@ fn electric_car_policies_clear_the_air() {
 }
 
 #[test]
+fn a_nuclear_accident_empties_the_land_around_the_plant() {
+    let r = rules();
+    let mut c = City::new(Terrain::flat(64, 48), None, Footprints::builtin(), 11);
+    c.use_rules(r.clone());
+    c.fund = 1_000_000;
+    c.research_all();
+    c.glassbox.as_mut().unwrap().disasters_off = true;
+    // No plant, no accident.
+    assert!(c.strike("meltdown").is_none());
+    c.apply_tool(Tool::CoalPlant, (40, 2), (40, 2)).unwrap();
+    for l in [8, 12, 16, 20] {
+        c.apply_tool(Tool::Road, (2, l), (60, l)).unwrap();
+    }
+    c.apply_tool(Tool::Road, (45, 2), (45, 20)).unwrap();
+    c.apply_tool(Tool::ZoneResidential, (2, 9), (60, 11)).unwrap();
+    c.apply_tool(Tool::ZoneIndustrial, (2, 13), (60, 15)).unwrap();
+    c.apply_tool(Tool::ZoneCommercial, (2, 17), (60, 19)).unwrap();
+    c.apply_tool(Tool::NuclearPlant, (6, 21), (6, 21)).unwrap();
+    for _ in 0..300 {
+        c.simulate_round();
+    }
+    let built = |c: &City, near: bool| c.layer.structures().filter(|(p, s)| s.code.is_zone() && s.unit.is_some() && (p.0 < 22) == near).count();
+    let (near, far) = (built(&c, true), built(&c, false));
+    assert!(near > 10 && far > 20, "a town on both sides: {near} {far}");
+    let e = c.strike("meltdown").expect("the plant has an accident");
+    assert!(e.hit > 0 && !e.burning);
+    assert_eq!(units(&c, StructureCode::NuclearPlant), 0, "the plant is lost");
+    assert!(built(&c, true) < near, "the blocks around it are evacuated");
+    let radiation = r.layer("radiation").unwrap();
+    let at = |c: &City, w: u32, l: u32| c.glassbox.as_ref().unwrap().layers[radiation][(l * 64 + w) as usize];
+    let centre = at(&c, e.at.0, e.at.1);
+    assert!(centre > 50.0 && at(&c, 50, 18) == 0.0, "fallout around the plant only: {centre}");
+    for _ in 0..400 {
+        c.simulate_round();
+    }
+    let hot = c.layer.structures().filter(|(p, s)| s.code.is_zone() && s.unit.is_some() && at(&c, p.0, p.1) > 4.5).count();
+    assert_eq!(hot, 0, "nobody stays on contaminated land");
+    assert!(built(&c, false) >= far / 2, "the far side of town lives on: {} of {far}", built(&c, false));
+    assert!(at(&c, e.at.0, e.at.1) < centre * 0.75, "it fades");
+}
+
+#[test]
 fn a_region_researches_fusion_together() {
     use opencity_core::region::Region;
     let r = rules();
