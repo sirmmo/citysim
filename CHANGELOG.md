@@ -2,6 +2,15 @@
 
 Release notes in full are on the [releases page](https://github.com/sirmmo/citysim/releases).
 
+## 0.2.69: Ordinances
+Five new policies in the modern rules, each with two alternatives to the default:
+- **Policing:** community policing (each station brings crime down 40% more) or a night curfew (twice as hard, with fewer shoppers and unhappier people).
+- **Industry and air:** a clean air act (35% less smoke from works and plants, 20% less dirty water, 5% fewer goods) or a free enterprise zone (more industry, more goods, 35% more smoke).
+- **Road pricing:** a congestion charge (earns money, a fifth less fumes and noise from traffic, fewer shoppers) or free parking (more shoppers, more fumes and noise).
+- **Rubbish:** recycling (30% less to collect) or pay per bag (half, and it earns, but people like it less).
+- **Public health:** vaccination campaigns (epidemics half as likely) or a smoking ban (fewer fires, a few less epidemics).
+- For rules authors: a stance takes `emits`, a share on what buildings leave on a map layer.
+
 ## 0.2.68: Terms of office and promises
 - **Terms of office**, an opt-in mode (View > Terms of office and promises): an election every four years. Half the vote keeps you in office; with less you are out, as after a vote of no confidence.
 - **Your share of the vote** is your approval in percent, plus 6 for each campaign promise kept, less 10 for each broken, less 3 for each term already served (up to three).

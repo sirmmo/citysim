@@ -82,6 +82,9 @@ pub fn window(ctx: &egui::Context, open: &mut bool, city: &City, out: &mut Vec<C
                             .sum();
                         format!("{:.0}% {}", s / total.max(1e-6) * 100.0, name_of(k))
                     }));
+                    parts.extend(st.emits.iter().map(|(l, b)| {
+                        format!("{:+.0}% {} from buildings", b * 100.0, rules.layer(l).map_or(l.to_string(), |i| rules.layers[i].name.to_lowercase()))
+                    }));
                     parts.extend(st.traffic.iter().map(|(l, b)| {
                         format!("{:+.0}% {} from traffic", b * 100.0, rules.layer(l).map_or(l.to_string(), |i| rules.layers[i].name.to_lowercase()))
                     }));

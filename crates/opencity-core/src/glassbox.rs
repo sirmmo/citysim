@@ -590,6 +590,21 @@ impl GlassBox {
 
     /// What traffic leaves on each map layer under the policy stances, as
     /// a factor on the areas of agent rules (1 unless a stance changes it).
+    /// What units leave on each map layer under the policy stances, as a
+    /// factor on the written amount (1 unless a stance changes it).
+    pub fn emission_factors(&self, rules: &Ruleset) -> Vec<f32> {
+        let mut f = vec![1.0f32; rules.layers.len()];
+        for st in self.active_stances(rules) {
+            for (l, v) in &st.emits {
+                if let Some(i) = rules.layer(l) {
+                    f[i] += v;
+                }
+            }
+        }
+        f.iter_mut().for_each(|x| *x = x.max(0.0));
+        f
+    }
+
     pub fn traffic_factors(&self, rules: &Ruleset) -> Vec<f32> {
         let mut f = vec![1.0f32; rules.layers.len()];
         for st in self.active_stances(rules) {
@@ -2035,10 +2050,12 @@ impl GlassBox {
                 v.iter_mut().for_each(|x| *x *= 1.0 - def.decay);
             }
         }
+        let emission = self.emission_factors(&rules);
         for (p, u, r) in &units {
             let eff = self.units[&idx(p.0, p.1)].satisfaction.max(0.25) * self.funding_of(&rules.units[*u].id);
             for (lname, e) in &rules.units[*u].emits {
                 let li = rules.layer(lname).unwrap();
+                let eff = eff * emission[li];
                 if e.by_road {
                     emit_by_road(&mut self.layers[li], layer, terrain, r, e.amount * eff, e.radius);
                     continue;

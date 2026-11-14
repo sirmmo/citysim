@@ -929,6 +929,12 @@ pub struct StanceDef {
     /// follows the kind's share instead.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub traffic: BTreeMap<String, f32>,
+    /// Change in what units leave on map layers (their `emits`), as a
+    /// share per layer (`{ pollution = -0.3 }`: works and plants smoke a
+    /// third less; `{ crime = 0.4 }`: police stations, which emit against
+    /// crime, do so 40% more).
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub emits: BTreeMap<String, f32>,
     /// Change in the odds of a disaster, as a share per disaster id
     /// (`{ meltdown = 1.0 }`: twice as likely).
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
@@ -1545,6 +1551,9 @@ impl Ruleset {
                 }
                 if let Some(d) = st.disasters.keys().find(|d| self.disaster(d).is_none()) {
                     return at(format!("stance {}: unknown disaster {d}", st.id));
+                }
+                if let Some(l) = st.emits.keys().find(|l| self.layer(l).is_none()) {
+                    return at(format!("stance {}: emits on unknown layer {l}", st.id));
                 }
                 if let Some(l) = st.traffic.keys().find(|l| self.layer(l).is_none()) {
                     return at(format!("stance {}: traffic on unknown layer {l}", st.id));

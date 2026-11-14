@@ -841,6 +841,8 @@ needs = { car = -0.5 }               # what every unit needs, as a share (half t
 demand = { residential = -1.0 }      # per zone id
 kinds = { "car.electric" = 0.6, "car.gasoline" = 0.4 }   # shares of a resource's kinds, in place of the rules'
 traffic = { "Noise.level" = -0.3 }   # what every trip leaves on a map layer (agent rules), as a share
+emits = { pollution = -0.35 }        # what buildings leave on a map layer (their `emits`), as a share
+disasters = { epidemic = -0.5 }      # odds of a disaster, as a share
 satisfaction = -0.02                 # for every unit
 cost = 0.5                           # treasury per tick; negative earns
 ```

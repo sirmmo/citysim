@@ -219,7 +219,9 @@ fn fields(section: &str) -> &'static [&'static str] {
         "disaster" => &["id", "name", "description", "every", "radius", "effect", "protection", "full", "near_water"],
         "tax" => &["id", "name", "description", "resource", "zones", "rate", "range", "demand", "satisfaction", "steep"],
         "policy" => &["id", "name", "description"],
-        "policy.stance" => &["id", "name", "description", "requires", "bonus", "needs", "demand", "satisfaction", "cost"],
+        "policy.stance" => {
+            &["id", "name", "description", "requires", "bonus", "needs", "demand", "kinds", "traffic", "emits", "disasters", "satisfaction", "cost"]
+        }
         "tech" => &["id", "name", "description", "cost", "requires", "unlocks", "category", "tier", "excludes", "bonus"],
         _ => &[],
     }

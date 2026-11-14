@@ -218,3 +218,135 @@ requires = "mass_entertainment"
 bonus = { tourists = 0.5, shoppers = 0.1 }
 satisfaction = -0.01
 cost = 1.4
+
+# How the police work. `emits` scales what buildings leave on a map layer:
+# police stations emit against crime, so a share on crime makes each station
+# bring it down more.
+[[policy]]
+id = "policing"
+name = "Policing"
+
+[[policy.stance]]
+id = "balanced"
+name = "Patrols as usual"
+description = "Each station covers the streets its cars can drive."
+
+[[policy.stance]]
+id = "community_policing"
+name = "Community policing"
+description = "Officers on foot who know the street: each station brings crime down by 40% more, for more pay."
+emits = { crime = 0.4 }
+cost = 0.6
+
+[[policy.stance]]
+id = "curfew"
+name = "Night curfew"
+description = "Nobody out after ten: stations bring crime down twice as hard, shops lose their evening trade, and people resent it."
+emits = { crime = 1.0 }
+bonus = { shoppers = -0.1 }
+satisfaction = -0.03
+cost = 0.3
+
+# What works and plants may put in the air.
+[[policy]]
+id = "industry"
+name = "Industry and air"
+
+[[policy.stance]]
+id = "balanced"
+name = "Ordinary permits"
+description = "Works and plants smoke as their kind does."
+
+[[policy.stance]]
+id = "clean_air_act"
+name = "Clean air act"
+description = "Filters on every chimney, inspected: a third less smoke from works and plants and less dirty ground water, fewer goods made, and inspectors to pay."
+emits = { pollution = -0.35, water_pollution = -0.2 }
+bonus = { goods = -0.05 }
+cost = 0.7
+
+[[policy.stance]]
+id = "free_enterprise"
+name = "Free enterprise zone"
+description = "No questions asked: industry wants to come and makes more, and smokes a third more."
+emits = { pollution = 0.35, water_pollution = 0.2 }
+bonus = { goods = 0.1 }
+demand = { industrial = 3.0 }
+
+# Who pays for the road.
+[[policy]]
+id = "road_pricing"
+name = "Road pricing"
+
+[[policy.stance]]
+id = "balanced"
+name = "Free roads"
+description = "Anyone drives anywhere."
+
+[[policy.stance]]
+id = "congestion_charge"
+name = "Congestion charge"
+description = "A toll to drive in town: it pays the city, a fifth less fumes and noise from traffic, fewer shoppers, and drivers who grumble."
+requires = "public_transport"
+traffic = { "AirQuality.pm10" = -0.2, "Noise.level" = -0.2 }
+bonus = { shoppers = -0.05 }
+satisfaction = -0.02
+cost = -0.8
+
+[[policy.stance]]
+id = "free_parking"
+name = "Free parking"
+description = "The city pays for parking everywhere: shops are busier, and so are the streets."
+bonus = { shoppers = 0.08 }
+traffic = { "AirQuality.pm10" = 0.15, "Noise.level" = 0.15 }
+cost = 0.5
+
+# What goes in the bin.
+[[policy]]
+id = "rubbish"
+name = "Rubbish"
+
+[[policy.stance]]
+id = "balanced"
+name = "One bin"
+description = "Everything goes to the landfill or the incinerator."
+
+[[policy.stance]]
+id = "recycling"
+name = "Recycling"
+description = "Paper, glass and tins collected apart: a third less rubbish to take away, for the cost of the extra rounds."
+needs = { waste = -0.3 }
+cost = 0.5
+
+[[policy.stance]]
+id = "pay_per_bag"
+name = "Pay per bag"
+description = "Every bag is paid for: half the rubbish, money for the city, and people who liked it better before."
+needs = { waste = -0.5 }
+satisfaction = -0.02
+cost = -0.3
+
+# Keeping people well.
+[[policy]]
+id = "public_health"
+name = "Public health"
+
+[[policy.stance]]
+id = "balanced"
+name = "Hospitals only"
+description = "The sick go to hospital."
+
+[[policy.stance]]
+id = "vaccination"
+name = "Vaccination campaigns"
+description = "Nurses in every school each autumn: epidemics are half as likely."
+disasters = { epidemic = -0.5 }
+cost = 0.6
+
+[[policy.stance]]
+id = "smoking_ban"
+name = "Smoking ban"
+description = "No smoking indoors: fires are a fifth less likely and epidemics a little, and the bars complain."
+disasters = { fire = -0.2, epidemic = -0.1 }
+bonus = { shoppers = -0.03 }
+satisfaction = -0.01

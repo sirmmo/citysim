@@ -520,10 +520,15 @@ The **📜 Policies** window sets:
 - **A stance for each policy.** Every policy has a default stance and alternatives with trade-offs: production bonuses, more or less demand, happier or unhappier people, and a running cost or income.
   - Some stances wait for research. Atomic age needs fission, Festivals the free market, Long hours the guild charter.
   - **Vehicles** (after the research project *Electric vehicles*) sets what the town's cars run on. One car in four is electric to begin with. *Electric car grants* makes it six in ten, with 30% less fine dust and 15% less noise from all traffic, for $0.8 a tick. *Combustion ban* makes every car electric: 80% less dust and 40% less noise from traffic, no fuel burnt, more power drawn at home (0.3 per car trip), and people two points less happy. Watch the *Air quality* and *Noise* data layers, and the grid: a town that bans engines needs the power plants for it.
+  - **Policing:** *Community policing* makes each police station bring crime down 40% more ($0.6 a tick). *Night curfew* doubles it for $0.3, with 10% fewer shoppers and people three points less happy.
+  - **Industry and air:** the *Clean air act* cuts smoke from works and plants by 35% and their dirty water by 20%, for 5% fewer goods and $0.7 a tick. A *Free enterprise zone* does the opposite: more industry wanted, 10% more goods, 35% more smoke.
+  - **Road pricing** (*Congestion charge* after *Public transport*): the charge earns $0.8 a tick and cuts fumes and noise from traffic by a fifth, with 5% fewer shoppers and people two points less happy. *Free parking* costs $0.5, brings 8% more shoppers and 15% more fumes and noise.
+  - **Rubbish:** *Recycling* leaves 30% less to collect for $0.5 a tick. *Pay per bag* halves it and earns $0.3, and people are two points less happy.
+  - **Public health:** *Vaccination campaigns* halve the odds of an epidemic for $0.6 a tick. A *Smoking ban* makes fires a fifth less likely and epidemics a little, with 3% fewer shoppers and people one point less happy.
 
 | Rules | Taxes | Policies |
 |---|---|---|
-| Modern | Property, sales, business (9 %) | Transport, Energy, Education, Growth, Vehicles, Tourism |
+| Modern | Property, sales, business (9 %) | Transport, Energy, Education, Growth, Vehicles, Tourism, Policing, Industry and air, Road pricing, Rubbish, Public health |
 | Pre-industrial | Hearth tax, market tolls, guild dues | Labour, Provision, Gates |
 
 ## Seeing the city

@@ -2305,3 +2305,43 @@ fn terms_of_office_end_in_an_election_decided_by_approval_and_promises() {
     c.set_terms(false);
     assert!(c.years_to_election().is_none());
 }
+
+#[test]
+fn ordinances_change_what_buildings_leave_on_the_map() {
+    let r = rules();
+    for (policy, stance) in [
+        ("policing", "curfew"),
+        ("industry", "clean_air_act"),
+        ("road_pricing", "congestion_charge"),
+        ("rubbish", "recycling"),
+        ("public_health", "vaccination"),
+    ] {
+        assert!(r.policy(policy).is_some_and(|p| p.stances.iter().any(|s| s.id == stance)), "{policy}/{stance}");
+    }
+    let town = |stance: Option<&str>| {
+        let mut c = City::new(Terrain::flat(64, 48), None, Footprints::builtin(), 11);
+        c.use_rules(r.clone());
+        c.fund = 1_000_000;
+        c.research_all();
+        c.glassbox.as_mut().unwrap().disasters_off = true;
+        if let Some(s) = stance {
+            assert!(c.glassbox.as_mut().unwrap().set_stance("industry", s));
+        }
+        c.apply_tool(Tool::CoalPlant, (40, 2), (40, 2)).unwrap();
+        for l in [8, 12, 16, 20] {
+            c.apply_tool(Tool::Road, (2, l), (60, l)).unwrap();
+        }
+        c.apply_tool(Tool::Road, (45, 2), (45, 20)).unwrap();
+        c.apply_tool(Tool::ZoneResidential, (2, 9), (60, 11)).unwrap();
+        c.apply_tool(Tool::ZoneIndustrial, (2, 13), (60, 15)).unwrap();
+        c.apply_tool(Tool::ZoneCommercial, (2, 17), (60, 19)).unwrap();
+        for _ in 0..200 {
+            c.simulate_round();
+        }
+        // Smoke at the power plant, which stands whatever grows around it.
+        c.glassbox.as_ref().unwrap().layer_value(r.layer("pollution").unwrap(), 41, 3, 64)
+    };
+    let (usual, clean, free) = (town(None), town(Some("clean_air_act")), town(Some("free_enterprise")));
+    assert!(usual > 5.0, "the plant smokes: {usual}");
+    assert!(clean < usual * 0.8 && free > usual * 1.2, "less under the clean air act, more in a free enterprise zone: {clean} {usual} {free}");
+}
