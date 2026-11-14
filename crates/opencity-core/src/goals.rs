@@ -21,6 +21,10 @@ pub struct Scenario {
     pub description: String,
     #[serde(default)]
     pub start: Start,
+    /// The goals are steps, taken one after the other (tutorials): only
+    /// the first not yet reached is measured, every day.
+    #[serde(default)]
+    pub ordered: bool,
     #[serde(default, rename = "goal")]
     pub goals: Vec<GoalDef>,
 }
@@ -106,6 +110,9 @@ pub struct GoalDef {
     /// Must hold every month of the game (never in debt…).
     #[serde(default)]
     pub always: bool,
+    /// How to go about it, shown with the goal (tutorial steps).
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub hint: String,
 }
 
 /// Where the game stands.
@@ -132,6 +139,9 @@ pub struct Goals {
     pub reached: Vec<bool>,
     #[serde(default)]
     pub status: GoalStatus,
+    /// The goals are steps taken in order (see [`Scenario::ordered`]).
+    #[serde(default)]
+    pub ordered: bool,
 }
 
 impl GoalDef {
@@ -161,6 +171,7 @@ impl City {
             start_year: self.date.year,
             reached: vec![false; s.goals.len()],
             status: GoalStatus::Playing,
+            ordered: s.ordered,
         });
     }
 
@@ -177,7 +188,12 @@ impl City {
             "homeless" => self.glassbox.as_ref().map_or(0.0, |g| g.homeless as f64),
             "debt" => (-self.fund).max(0) as f64 + self.loans.iter().map(|l| (l.payment * l.months_left as i64) as f64).sum::<f64>(),
             "complaint" => self.complaints().iter().find(|c| c.name == arg).map_or(0.0, |c| c.share as f64 * 100.0),
-            "buildings" => self.layer.structures().filter(|(_, s)| s.unit.is_some() || (s.code.is_zone() && s.level > 0)).count() as f64,
+            // Under GlassBox rules a zoned plot has a level before anything
+            // stands on it: only a unit is a building.
+            "buildings" => {
+                let rules = self.glassbox.is_some();
+                self.layer.structures().filter(|(_, s)| s.unit.is_some() || (!rules && s.code.is_zone() && s.level > 0)).count() as f64
+            }
             "research" => self.glassbox.as_ref().is_some_and(|g| g.researched.contains(arg)) as u8 as f64,
             "unit" => {
                 let Some(u) = rules.and_then(|r| r.unit(arg)) else { return 0.0 };
@@ -200,6 +216,10 @@ impl City {
         let mut reached = g.reached.clone();
         let mut lost = None;
         for (i, goal) in g.goals.iter().enumerate() {
+            // Steps wait for the ones before them.
+            if g.ordered && !goal.always && reached[..i].iter().zip(&g.goals).any(|(r, before)| !r && !before.always) {
+                continue;
+            }
             let ok = goal.holds(self.goal_value(&goal.metric));
             if goal.always {
                 if !ok {
@@ -210,7 +230,15 @@ impl City {
             }
             if ok && !reached[i] {
                 reached[i] = true;
-                self.messages.push(format!("Goal reached: {}", goal.name));
+                let next = g.goals.iter().skip(i + 1).find(|n| !n.always).filter(|_| g.ordered);
+                self.messages.push(match next {
+                    Some(n) => format!("Done: {}. Next: {}.", goal.name, n.name),
+                    None => format!("Goal reached: {}", goal.name),
+                });
+                // One step a day, so each is seen.
+                if g.ordered {
+                    break;
+                }
             }
             if !reached[i] && goal.within_years.is_some_and(|y| years >= y) {
                 lost = Some(format!("{}: out of time", goal.name));

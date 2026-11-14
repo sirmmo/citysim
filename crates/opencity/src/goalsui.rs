@@ -21,7 +21,34 @@ pub fn window(ctx: &egui::Context, open: &mut bool, city: &City) {
         }
         ui.separator();
         let years = city.date.year.saturating_sub(g.start_year);
+        // Steps: the one to do now is spelt out, the rest are a list.
+        let current = g.ordered.then(|| g.goals.iter().enumerate().position(|(i, goal)| !goal.always && !g.reached.get(i).copied().unwrap_or(false))).flatten();
+        if g.ordered {
+            let steps = g.goals.iter().filter(|goal| !goal.always).count();
+            let done = g.goals.iter().enumerate().filter(|(i, goal)| !goal.always && g.reached.get(*i).copied().unwrap_or(false)).count();
+            ui.label(RichText::new(format!("Step {} of {steps}", (done + 1).min(steps))).small().color(Color32::GRAY));
+        }
         for (i, goal) in g.goals.iter().enumerate() {
+            if g.ordered && !goal.always && current != Some(i) {
+                let reached = g.reached.get(i).copied().unwrap_or(false);
+                let (mark, colour) = if reached { ("✔", Color32::from_rgb(120, 210, 130)) } else { ("○", Color32::GRAY) };
+                ui.label(RichText::new(format!("{mark} {}", goal.name)).small().color(colour));
+                continue;
+            }
+            if current == Some(i) {
+                ui.add_space(4.0);
+                ui.label(RichText::new(format!("▶ {}", goal.name)).heading());
+                if !goal.hint.is_empty() {
+                    ui.label(&goal.hint);
+                }
+                let v = city.goal_value(&goal.metric);
+                ui.label(RichText::new(format!("now {} · target {}", fmt(v), goal.target())).small().color(Color32::GRAY));
+                if let Some(t) = goal.at_least.filter(|t| *t > 0.0) {
+                    ui.add(egui::ProgressBar::new((v / t).clamp(0.0, 1.0) as f32).desired_height(6.0));
+                }
+                ui.add_space(4.0);
+                continue;
+            }
             let v = city.goal_value(&goal.metric);
             let reached = g.reached.get(i).copied().unwrap_or(false);
             let holds = goal.holds(v);

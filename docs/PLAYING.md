@@ -310,6 +310,7 @@ it seals a scenario with its skin and rules, as a game of its own
 
 | Scenario | Start | Goals |
 |---|---|---|
+| Tutorial: your first streets | A lakeside valley, modern rules, $60,000 | Eleven steps in order, each with a hint: a power plant, a street, the three zones, 120 people, water, a fire station, 65% approval, 800 people. No deadlines |
 | First town | A lakeside valley, modern rules, $30,000 | 2,000 people within 6 years, research motorways within 8, never in debt |
 | Rail baron | A long hilly map, $60,000 | Research railways within 4 years, 3 stations within 8, 4,000 people within 12, never in debt |
 | Bologna, 1600 | The centre of Bologna from OpenHistoricalMap in 1600, pre-industrial rules, Renaissance dress | Printing within 15 years, 200 food a day within 5, never in debt |
@@ -318,6 +319,9 @@ it seals a scenario with its skin and rules, as a game of its own
 - A goal with a deadline must be reached within its years. Once reached, it
   stays reached.
 - An "all game long" goal must hold every month.
+- A scenario with `ordered = true` is a list of steps (the tutorial): only
+  the next step is measured, every day, and the Goals window spells it out
+  with its `hint`.
 - You win when every goal is reached and every all-game goal holds. You lose
   when a deadline passes or an all-game goal breaks.
 

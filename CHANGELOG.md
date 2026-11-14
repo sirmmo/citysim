@@ -2,6 +2,11 @@
 
 Release notes in full are on the [releases page](https://github.com/sirmmo/citysim/releases).
 
+## 0.2.70: A tutorial
+- **Tutorial: your first streets**, first in File > New scenario…: eleven steps from an empty valley to a town of 800 people, each with a hint in the Goals window saying what to click and why. Steps are checked as you do them, with no deadlines.
+- For scenario authors: `ordered = true` makes the goals steps taken in order, and each goal takes a `hint`.
+- The `buildings` goal metric counts only plots with a building on them under GlassBox rules (zoned empty plots counted before).
+
 ## 0.2.69: Ordinances
 Five new policies in the modern rules, each with two alternatives to the default:
 - **Policing:** community policing (each station brings crime down 40% more) or a night curfew (twice as hard, with fewer shoppers and unhappier people).

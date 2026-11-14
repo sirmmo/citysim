@@ -117,7 +117,30 @@ mod tests {
             for goal in &g.goals {
                 // Every metric is one the city knows how to measure.
                 let (kind, _) = goal.metric.split_once(':').unwrap_or((&goal.metric, ""));
-                assert!(["population", "fund", "buildings", "research", "unit", "structure", "produced", "unmet"].contains(&kind), "{}: {}", s.id, goal.metric);
+                let known = [
+                    "population",
+                    "fund",
+                    "debt",
+                    "approval",
+                    "jobless",
+                    "homeless",
+                    "complaint",
+                    "buildings",
+                    "research",
+                    "unit",
+                    "structure",
+                    "produced",
+                    "unmet",
+                ];
+                assert!(known.contains(&kind), "{}: {}", s.id, goal.metric);
+            }
+            // The tutorial asks for nothing that waits for research.
+            if s.id == "tutorial" {
+                use opencity_core::Tool;
+                for t in [Tool::CoalPlant, Tool::Road, Tool::PumpingStation, Tool::WaterPipe, Tool::FireDept, Tool::PoliceDept, Tool::Hospital, Tool::School] {
+                    assert_eq!(c.tool_locked_by(t), None, "{t:?}");
+                }
+                assert!(c.rules().unwrap().complaints.iter().any(|x| x.name == "No fire station near"));
             }
         }
     }

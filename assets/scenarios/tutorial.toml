@@ -1,0 +1,82 @@
+# The tutorial: steps taken one after the other (`ordered`), each with a
+# hint shown in the Goals window. See docs/PLAYING.md#scenarios.
+id = "tutorial"
+name = "Tutorial: your first streets"
+description = "Eleven steps from an empty valley to a town of 800 people that likes its mayor. The Goals window says what to do next."
+ordered = true
+
+[start]
+width = 64
+length = 64
+seed = 11
+relief = "plain"
+water = "lake"
+trees = "sparse"
+rules = "glassbox"
+fund = 60000
+
+[[goal]]
+name = "Build a power plant"
+metric = "structure:coalplant"
+at_least = 1
+hint = "In the sidebar, open Power and pick the coal plant, then click a free, flat spot. It smokes: leave room between it and where people will live."
+
+[[goal]]
+name = "Lay a street"
+metric = "structure:road"
+at_least = 15
+hint = "Open Roads and pick the street (or press P), then drag from right beside the plant. Power runs along streets, so everything built on this street will have it. Fifteen tiles will do."
+
+[[goal]]
+name = "Zone homes"
+metric = "structure:residential"
+at_least = 12
+hint = "Pick Residential at the top of the sidebar (or press R) and drag along the street, away from the plant. Zones must be within a few tiles of a street. You zone the land; people build the houses."
+
+[[goal]]
+name = "Zone works"
+metric = "structure:industrial"
+at_least = 8
+hint = "People need jobs. Pick Industrial (I) and drag along the street on the plant's side: works smoke too."
+
+[[goal]]
+name = "Zone shops"
+metric = "structure:commercial"
+at_least = 6
+hint = "People need somewhere to shop, and shops need goods from the works. Pick Commercial (C) and drag between the homes and the works."
+
+[[goal]]
+name = "Let it grow: 15 buildings"
+metric = "buildings"
+at_least = 15
+hint = "Now wait: press F to run fast. Buildings appear where there is demand, shown in the City panel on the right. If nothing grows, click a plot with Inspect (/) to see what it lacks."
+
+[[goal]]
+name = "A town of 120 people"
+metric = "population"
+at_least = 120
+hint = "Zone more of whatever the Demand bars ask for, and lay more streets to reach new land. Watch the money at the top: zones are cheap, the plant was not."
+
+[[goal]]
+name = "Pump water"
+metric = "unit:pumping_station"
+at_least = 1
+hint = "Bigger houses want water. Open Water and build a pumping station beside a street, away from the plant's smoke, then drag water pipes from it under the streets (B shows the pipes underground)."
+
+[[goal]]
+name = "A fire station within reach of half the town"
+metric = "complaint:No fire station near"
+at_most = 50
+hint = "Open Services and build a fire station beside a street near the homes. It covers the streets its trucks can drive. The News button in the City panel lists what else people complain about."
+
+[[goal]]
+name = "Approval of 65%"
+metric = "approval"
+at_least = 65
+hint = "Hover Approval at the top to see what people hold against you. A police station, a hospital and a school each answer a complaint; they cost upkeep every month, so check the Budget."
+
+[[goal]]
+name = "A town of 800 people"
+metric = "population"
+at_least = 800
+hint = "Keep going: zone what is in demand, try Medium density, and open Research and Policies in the City panel. From here on it is your town."

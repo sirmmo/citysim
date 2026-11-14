@@ -478,6 +478,7 @@ impl City {
             at_most,
             within_years: None,
             always: false,
+            hint: String::new(),
         };
         let mut v = Vec::new();
         let grown = ((self.population.max(200) as f64 * 1.3 / 50.0).ceil() * 50.0).max(300.0);

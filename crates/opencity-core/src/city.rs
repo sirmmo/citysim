@@ -1187,6 +1187,10 @@ impl City {
         if let Some(gb) = self.glassbox.as_mut() {
             gb.climate = Some(odds);
         }
+        // Tutorial steps are checked as they are done, not at month end.
+        if self.goals.as_ref().is_some_and(|g| g.ordered) && self.date.day <= 30 {
+            self.check_goals();
+        }
         self.end_of_day();
     }
 

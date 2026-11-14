@@ -1454,6 +1454,7 @@ fn goals_are_won_and_lost() {
         at_most: None,
         within_years: within,
         always,
+        hint: String::new(),
     };
     let scenario = |goals| Scenario { id: "t".into(), name: "Test".into(), goals, ..Default::default() };
     let month = |c: &mut City| {
@@ -2344,4 +2345,48 @@ fn ordinances_change_what_buildings_leave_on_the_map() {
     let (usual, clean, free) = (town(None), town(Some("clean_air_act")), town(Some("free_enterprise")));
     assert!(usual > 5.0, "the plant smokes: {usual}");
     assert!(clean < usual * 0.8 && free > usual * 1.2, "less under the clean air act, more in a free enterprise zone: {clean} {usual} {free}");
+}
+
+#[test]
+fn the_tutorial_goes_step_by_step() {
+    use opencity_core::goals::{GoalStatus, Scenario};
+    let text = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../../assets/scenarios/tutorial.toml")).unwrap();
+    let s: Scenario = toml::from_str(&text).unwrap();
+    assert!(s.ordered && s.goals.len() == 11 && s.goals.iter().all(|g| !g.hint.is_empty()));
+    let mut c = City::new(Terrain::flat(64, 64), None, Footprints::builtin(), 11);
+    c.use_rules(rules());
+    c.fund = 60_000;
+    c.glassbox.as_mut().unwrap().disasters_off = true;
+    c.set_goals(&s);
+    let day = |c: &mut City| c.update(opencity_core::city::MS_PER_DAY);
+    let done = |c: &City| c.goals.as_ref().unwrap().reached.iter().filter(|r| **r).count();
+    // Steps done out of order wait for their turn.
+    c.apply_tool(Tool::Road, (8, 10), (40, 10)).unwrap();
+    day(&mut c);
+    assert_eq!(done(&c), 0, "the street is the second step");
+    c.apply_tool(Tool::CoalPlant, (2, 7), (2, 7)).unwrap();
+    day(&mut c);
+    assert_eq!(done(&c), 1);
+    assert!(c.news.back().is_some_and(|n| n.text == "Done: Build a power plant. Next: Lay a street."), "{:?}", c.news);
+    day(&mut c);
+    assert_eq!(done(&c), 2, "a step a day");
+    c.apply_tool(Tool::Road, (2, 10), (8, 10)).unwrap();
+    c.apply_tool(Tool::ZoneResidential, (20, 11), (40, 12)).unwrap();
+    c.apply_tool(Tool::ZoneIndustrial, (9, 8), (22, 9)).unwrap();
+    c.apply_tool(Tool::ZoneCommercial, (8, 11), (18, 12)).unwrap();
+    for _ in 0..4 {
+        day(&mut c);
+    }
+    assert!(done(&c) >= 5, "the three zones: {}", done(&c));
+    // More of what is in demand, and the town grows through the next two.
+    c.apply_tool(Tool::Road, (40, 10), (60, 10)).unwrap();
+    c.apply_tool(Tool::ZoneResidential, (41, 11), (60, 12)).unwrap();
+    c.apply_tool(Tool::ZoneResidential, (30, 8), (60, 9)).unwrap();
+    c.apply_tool(Tool::ZoneIndustrial, (23, 8), (29, 9)).unwrap();
+    for _ in 0..720 {
+        day(&mut c);
+    }
+    eprintln!("after two years: {} steps, {} people, {} buildings", done(&c), c.population, c.goal_value("buildings"));
+    assert!(done(&c) >= 7, "it grows past 120 people: {} steps, {} people", done(&c), c.population);
+    assert_eq!(c.goals.as_ref().unwrap().status, GoalStatus::Playing);
 }
