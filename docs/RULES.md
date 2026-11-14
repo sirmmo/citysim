@@ -251,6 +251,21 @@ No power and no cars. The zones' densities are the town's grades:
 | Commercial | Market stall, Bakery, Shop & store | Covered market, Tavern, Coaching inn | Caravanserai, Market square, Merchants' exchange |
 | Fields & crafts | Grain field, Farm, Farmstead | Quarry, Mine, Stone works | Foundry, Stables, Craft hall |
 
+**The land matters.** Two layers are read off the terrain (`ground =
+"fertile"` and `ground = "ore"`), each 0 to 10:
+- *Fertile ground*: flat dry land is 3, rising to 10 on the shore of water
+  and back to 3 seven tiles from it; slopes are 1.
+- *Stone and ore*: 2.5 for each level above the first over the lowest dry
+  land, and 2 more on slopes; none in the plain.
+
+A unit with `yields = { layer = "fertility", full = 9 }` makes by the layer
+where it stands: three quarters of what the rules write on empty ground,
+rising in a straight line to one and a half times at `full`. Grain fields,
+farms and farmsteads read fertility (as written on plain land, half as much
+again by the water); quarries, mines and stone works read ore (three
+quarters in the plain, as written a third of the way up, half as much again
+in the hills). Any rule set can use both.
+
 Services: Fortified granary (the coal-plant tool), Watchtower, Guard house,
 Bathhouse, Academy, and the Public well (the park tool); later the Studium
 (the university tool), the Arena (the stadium tool) and the Theatre (the

@@ -282,6 +282,23 @@ Click any building with the inspect tool (/) to see:
 - what it needs and makes, where its supplies come from and what it lacks;
 - the map layers on its tile.
 
+## Fields and mines (before 1800)
+
+Under the pre-industrial rules the land decides what fields and mines give.
+
+- **Fertile ground** and **Stone and ore** are data layers (View > Data
+  layer). Fertile ground is flat land, best along rivers, lakes and the
+  sea. Stone and ore lie in high and steep ground.
+- **Grain fields, farms and farmsteads** make half as much again on the
+  best ground by the water, what the rules write on ordinary plain land,
+  and three quarters of it on slopes.
+- **Quarries, mines and stone works** make half as much again in the
+  hills and three quarters in the plain.
+- Zone Fields (low density) by the water and Quarries & mines (medium
+  density) on the high ground. Inspect one to see what its land gives it:
+  "makes Food 5.2 of 4.0".
+- Raising or lowering land changes both layers within a few days.
+
 ## Jobs, homes and crime
 
 - **Out of work:** the share of workers with no job to go to, in the City

@@ -2390,3 +2390,53 @@ fn the_tutorial_goes_step_by_step() {
     assert!(done(&c) >= 7, "it grows past 120 people: {} steps, {} people", done(&c), c.population);
     assert_eq!(c.goals.as_ref().unwrap().status, GoalStatus::Playing);
 }
+
+#[test]
+fn fields_and_mines_make_more_on_the_right_land() {
+    use opencity_core::glassbox::ground_layer;
+    use opencity_core::rules::Ground;
+    // A plain with a lake in one corner and a hill in the other.
+    let (w, l) = (32u32, 32u32);
+    let mut heights = vec![1i32; ((w + 1) * (l + 1)) as usize];
+    for y in 0..=l {
+        for x in 0..=w {
+            let i = (y * (w + 1) + x) as usize;
+            if x < 6 && y < 6 {
+                heights[i] = -2;
+            }
+            if x > 24 && y > 24 {
+                heights[i] = 1 + (x - 24).min(y - 24) as i32;
+            }
+        }
+    }
+    let t = Terrain::from_corner_heights(w, l, &heights);
+    let at = |v: &[f32], x: u32, y: u32| v[(y * w + x) as usize];
+    let fertile = ground_layer(Ground::Fertile, &t);
+    assert_eq!(at(&fertile, 2, 2), 0.0, "water");
+    assert!(
+        at(&fertile, 7, 3) > at(&fertile, 11, 3) && at(&fertile, 11, 3) > at(&fertile, 16, 16),
+        "best by the shore: {} {} {}",
+        at(&fertile, 7, 3),
+        at(&fertile, 11, 3),
+        at(&fertile, 16, 16)
+    );
+    assert_eq!(at(&fertile, 16, 16), 3.0, "plain land far from water");
+    let ore = ground_layer(Ground::Ore, &t);
+    assert_eq!(at(&ore, 16, 16), 0.0, "none in the plain");
+    assert!(at(&ore, 30, 30) > at(&ore, 27, 27) && at(&ore, 27, 27) > 0.0, "more the higher: {} {}", at(&ore, 27, 27), at(&ore, 30, 30));
+    // The shipped fields and mines read them.
+    let r = rules_named("pre-industrial");
+    let (field, mine) = (&r.units[r.unit("grain_field").unwrap()], &r.units[r.unit("mine").unwrap()]);
+    let (f, m) = (field.yields.as_ref().unwrap(), mine.yields.as_ref().unwrap());
+    assert_eq!((f.layer.as_str(), m.layer.as_str()), ("fertility", "ore"));
+    assert!((f.factor(3.0) - 1.0).abs() < 0.01, "plain land gives what the rules write: {}", f.factor(3.0));
+    assert_eq!((f.factor(0.0), f.factor(9.0), f.factor(10.0)), (0.75, 1.5, 1.5));
+    // In a city the layers are filled from its land, and the field makes by it.
+    let mut c = City::new(t, None, Footprints::builtin(), 3);
+    c.use_rules(r.clone());
+    c.simulate_round();
+    let gb = c.glassbox.as_ref().unwrap();
+    let (near, far) = (gb.yield_at(&r, field, 7, 3, w).unwrap().0, gb.yield_at(&r, field, 16, 16, w).unwrap().0);
+    assert!(near > 1.3 && (far - 1.0).abs() < 0.01, "{near} {far}");
+    assert_eq!(gb.yield_at(&r, mine, 16, 16, w).unwrap().0, 0.75);
+}

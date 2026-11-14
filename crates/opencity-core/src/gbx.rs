@@ -400,6 +400,7 @@ fn declare_layer(rules: &mut Ruleset, id: &str) {
         colour: [0.8, 0.5, 0.9],
         max: 50.0,
         uninhabitable: None,
+        ground: None,
     });
 }
 

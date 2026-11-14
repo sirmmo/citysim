@@ -249,6 +249,9 @@ pub struct GlassBox {
     /// Share of the workers with no job to go to, averaged over some days.
     #[serde(default)]
     pub jobless: f32,
+    /// The layers read off the land have been filled since loading.
+    #[serde(skip)]
+    ground_read: bool,
     /// The mayor's approval rating (0..1), set by the city for the graphs.
     #[serde(skip)]
     pub approval: Option<f32>,
@@ -481,6 +484,7 @@ impl GlassBox {
             administration_unpaid: false,
             hour: None,
             sky: None,
+            ground_read: false,
             approval: None,
             homeless: 0.0,
             housing: None,
@@ -603,6 +607,27 @@ impl GlassBox {
         }
         f.iter_mut().for_each(|x| *x = x.max(0.0));
         f
+    }
+
+    /// Fills the layers read off the land (fertile ground, ore) from it.
+    pub fn read_ground(&mut self, terrain: &Terrain) {
+        let Some(rules) = self.rules.clone() else { return };
+        for (li, def) in rules.layers.iter().enumerate() {
+            if let (Some(g), Some(v)) = (def.ground, self.layers.get_mut(li)) {
+                *v = ground_layer(g, terrain);
+            }
+        }
+        self.ground_read = true;
+    }
+
+    /// What the land gives a unit standing at `(w, l)`, as a factor on
+    /// what it makes, with the layer read and its value there; `None` for
+    /// units that make the same anywhere.
+    pub fn yield_at(&self, rules: &Ruleset, unit: &crate::rules::UnitDef, w: u32, l: u32, width: u32) -> Option<(f32, usize, f32)> {
+        let y = unit.yields.as_ref()?;
+        let li = rules.layer(&y.layer)?;
+        let v = self.layer_value(li, w, l, width);
+        Some((y.factor(v), li, v))
     }
 
     pub fn traffic_factors(&self, rules: &Ruleset) -> Vec<f32> {
@@ -1231,11 +1256,18 @@ impl GlassBox {
             .map(|(u, def)| def.produce.keys().map(|r| (r.clone(), self.tax_factor(&rules, unit_zone[u], r))).collect())
             .collect();
         let sky: Vec<f32> = rules.units.iter().map(|u| self.sky_factor(u)).collect();
+        // The land: read again now and then, as it can be reshaped.
+        if !self.ground_read || self.tick % 64 == 0 {
+            self.read_ground(terrain);
+        }
+        let land: Vec<Option<(usize, &crate::rules::YieldDef)>> =
+            rules.units.iter().map(|u| u.yields.as_ref().and_then(|y| Some((rules.layer(&y.layer)?, y)))).collect();
         let kind_share = self.kind_shares(&rules);
         for (p, u, _) in &units {
             let def = &rules.units[*u];
             let st = self.units.get_mut(&idx(p.0, p.1)).unwrap();
-            let eff = st.satisfaction.max(0.25) * sky[*u];
+            let ground = land[*u].map_or(1.0, |(li, y)| y.factor(self.layers[li][idx(p.0, p.1) as usize]));
+            let eff = st.satisfaction.max(0.25) * sky[*u] * ground;
             for (m, n) in &def.logs {
                 *metrics.entry(m.clone()).or_default() += n * eff;
             }
@@ -2028,6 +2060,10 @@ impl GlassBox {
 
         // 5. Layers.
         for (li, def) in rules.layers.iter().enumerate() {
+            // Layers read off the land stay as the land is.
+            if def.ground.is_some() {
+                continue;
+            }
             let v = &mut self.layers[li];
             if def.diffusion > 0.0 {
                 let old = v.clone();
@@ -2794,6 +2830,74 @@ pub fn road_reach(layer: &BuildingLayer, terrain: &Terrain, r: &Rect, max: f32) 
         }
     }
     best
+}
+
+/// A layer read off the land (see [`crate::rules::Ground`]), 0 to 10.
+/// Fertile: flat dry ground is 3, up to 10 on the shore, falling to 3
+/// seven tiles from water; slopes are 1. Ore: 2.5 for each level above
+/// the first over the lowest dry land, and 2 more on slopes.
+pub fn ground_layer(kind: crate::rules::Ground, terrain: &Terrain) -> Vec<f32> {
+    use crate::rules::Ground;
+    let (width, length) = (terrain.width(), terrain.length());
+    let at = |w: u32, l: u32| (l * width + w) as usize;
+    let mut v = vec![0.0f32; (width * length) as usize];
+    match kind {
+        Ground::Fertile => {
+            // Steps to the nearest water, up to 7.
+            let mut far = vec![u32::MAX; v.len()];
+            let mut queue: std::collections::VecDeque<(u32, u32)> = std::collections::VecDeque::new();
+            for l in 0..length {
+                for w in 0..width {
+                    if terrain.is_water(w, l) {
+                        far[at(w, l)] = 0;
+                        queue.push_back((w, l));
+                    }
+                }
+            }
+            while let Some((w, l)) = queue.pop_front() {
+                let d = far[at(w, l)];
+                if d >= 7 {
+                    continue;
+                }
+                for dir in Direction::ALL {
+                    let Some((nw, nl)) = terrain.neighbour(w, l, dir) else { continue };
+                    if far[at(nw, nl)] == u32::MAX {
+                        far[at(nw, nl)] = d + 1;
+                        queue.push_back((nw, nl));
+                    }
+                }
+            }
+            for l in 0..length {
+                for w in 0..width {
+                    let i = at(w, l);
+                    v[i] = if terrain.is_water(w, l) {
+                        0.0
+                    } else if !terrain.is_tile_flat(w, l) {
+                        1.0
+                    } else if far[i] <= 7 {
+                        3.0 + 7.0 * (8 - far[i]) as f32 / 7.0
+                    } else {
+                        3.0
+                    };
+                }
+            }
+        }
+        Ground::Ore => {
+            let dry = |w: u32, l: u32| !terrain.is_water(w, l);
+            let low =
+                (0..length).flat_map(|l| (0..width).map(move |w| (w, l))).filter(|&(w, l)| dry(w, l)).map(|(w, l)| terrain.tile_max(w, l)).min().unwrap_or(0);
+            for l in 0..length {
+                for w in 0..width {
+                    if dry(w, l) {
+                        let up = (terrain.tile_max(w, l) as i32 - low as i32 - 1).max(0) as f32;
+                        let steep = if terrain.is_tile_flat(w, l) { 0.0 } else { 2.0 };
+                        v[at(w, l)] = (up * 2.5 + steep).min(10.0);
+                    }
+                }
+            }
+        }
+    }
+    v
 }
 
 /// Coverage along the streets (see `Emission::by_road`): each place takes

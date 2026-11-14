@@ -389,6 +389,10 @@ impl City {
                 self.glassbox = Some(GlassBox::new(rules, w, l));
             }
         }
+        // The land is there to read before the first day.
+        if let Some(g) = self.glassbox.as_mut() {
+            g.read_ground(&self.terrain);
+        }
     }
 
     /// Existing buildings under new rules: services become their units, and

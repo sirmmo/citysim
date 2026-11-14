@@ -275,6 +275,37 @@ pub struct LayerDef {
     /// buildings standing there empty (fallout).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub uninhabitable: Option<f32>,
+    /// The layer is read off the land (0 to 10) and nothing else changes
+    /// it: `"fertile"` (flat ground, best near water) or `"ore"` (high and
+    /// steep ground).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ground: Option<Ground>,
+}
+
+/// What a layer reads off the land (`ground`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Ground {
+    Fertile,
+    Ore,
+}
+
+/// A unit that makes more or less by the land it stands on (`yields`): by
+/// the value of a layer at its place, from three quarters of what the
+/// rules write where the layer is empty, through as written at a third of
+/// `full`, to one and a half times at `full` and above.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct YieldDef {
+    pub layer: String,
+    pub full: f32,
+}
+
+impl YieldDef {
+    /// The factor on production where the layer is `v`.
+    pub fn factor(&self, v: f32) -> f32 {
+        0.75 + 0.75 * (v / self.full.max(1e-3)).clamp(0.0, 1.0)
+    }
 }
 
 fn default_layer_colour() -> [f32; 3] {
@@ -478,6 +509,10 @@ pub struct UnitDef {
     /// the clouds) or `"wind"` (the weather, and gusts).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub follows: Option<Follows>,
+    /// What it makes depends on the land it stands on (fields on fertile
+    /// ground, mines on ore).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub yields: Option<YieldDef>,
 }
 
 /// What a unit's production follows (`follows`).
@@ -1275,6 +1310,11 @@ impl Ruleset {
         for z in &self.zones {
             if !(0.0..=1.0).contains(&z.round_the_clock) {
                 return err(format!("zone {}: round_the_clock is a share, 0 to 1", z.id));
+            }
+        }
+        for u in &self.units {
+            if let Some(y) = u.yields.as_ref().filter(|y| self.layer(&y.layer).is_none() || y.full <= 0.0) {
+                return err(format!("unit {}: yields by unknown layer {} (or full is not above 0)", u.id, y.layer));
             }
         }
         for c in &self.complaints {

@@ -190,7 +190,7 @@ fn fields(section: &str) -> &'static [&'static str] {
             "idle",
         ],
         "resource.subtype" => &["id", "name", "share", "max_trip", "colour", "uses", "trail"],
-        "layer" => &["id", "name", "diffusion", "decay", "colour", "max"],
+        "layer" => &["id", "name", "diffusion", "decay", "colour", "max", "uninhabitable", "ground"],
         "network" => &["id", "name", "structures", "through_buildings"],
         "network.vehicle" => &["id", "name", "model", "ways", "speed", "carries", "share", "direct", "meshes", "line"],
         "unit" => &[
@@ -209,6 +209,8 @@ fn fields(section: &str) -> &'static [&'static str] {
             "trade",
             "dispatch",
             "round_the_clock",
+            "follows",
+            "yields",
         ],
         "zone" => &["id", "name", "structure", "densities", "demand", "base_demand", "round_the_clock"],
         "growth" => &["level_up", "level_down", "chance", "max_new", "road_access", "grace", "patience", "saturation", "neglect"],

@@ -1734,9 +1734,19 @@ fn unit_details(ui: &mut egui::Ui, city: &City, gb: &opencity_core::glassbox::Gl
                     ui.label(RichText::new(format!("{:.1} of {amount:.1}", amount * sky)).monospace())
                         .on_hover_text(format!("It makes what the {what} gives: {:.0}% of an average day right now.", sky * 100.0));
                 }
-                None => {
-                    ui.label(RichText::new(format!("{amount:.1}")).monospace());
-                }
+                None => match gb.yield_at(rules, def, origin.0, origin.1, city.width()) {
+                    // What the land gives it here.
+                    Some((f, li, v)) => {
+                        ui.label(RichText::new(format!("{:.1} of {amount:.1}", amount * f)).monospace()).on_hover_text(format!(
+                            "The land here gives {:.0}% of that: {} is {v:.1} (View > Data layer shows where it is better).",
+                            f * 100.0,
+                            rules.layers[li].name
+                        ));
+                    }
+                    None => {
+                        ui.label(RichText::new(format!("{amount:.1}")).monospace());
+                    }
+                },
             }
             ui.end_row();
         }

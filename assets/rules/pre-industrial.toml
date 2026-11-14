@@ -337,6 +337,26 @@ decay = 0.3
 colour = [0.9, 0.5, 0.9]
 max = 20.0
 
+# The land itself (new layers go at the end: saves number them by place).
+# Both are read off the terrain, 0 to 10, and change only when the land
+# does. Fields make more on fertile ground: flat land, best by the water.
+# Quarries and mines make more on ore: high and steep ground. A unit's
+# `yields` names the layer and the value that gives one and a half times
+# what the rules write; empty ground gives three quarters.
+[[layer]]
+id = "fertility"
+name = "Fertile ground"
+ground = "fertile"
+colour = [0.35, 0.75, 0.25]
+max = 10.0
+
+[[layer]]
+id = "ore"
+name = "Stone and ore"
+ground = "ore"
+colour = [0.7, 0.55, 0.4]
+max = 10.0
+
 # ---------------------------------------------------------------- zones
 [[zone]]
 id = "residential"
@@ -595,6 +615,7 @@ name = "Grain field"
 description = "Barley and wheat, harvested by hand."
 graphic = 31
 produce = { food = 4, fodder = 1, taxes = 0.02 }
+yields = { layer = "fertility", full = 9 }
 needs = { workers = 2 }
 sends = ["food", "fodder"]
 
@@ -604,6 +625,7 @@ name = "Farm"
 description = "Fields, a barn, a few animals, and wool spun in winter."
 graphic = 32
 produce = { food = 5, fodder = 2, goods = 1, cart = 1, taxes = 0.03 }
+yields = { layer = "fertility", full = 9 }
 needs = { workers = 3 }
 sends = ["food", "fodder", "goods", "cart"]
 
@@ -613,6 +635,7 @@ name = "Quarry"
 description = "Stone cut for the town's walls and houses."
 graphic = 33
 produce = { goods = 3, cart = 1, taxes = 0.04 }
+yields = { layer = "ore", full = 7.5 }
 needs = { workers = 4 }
 sends = ["goods", "cart"]
 emits = { pollution = { amount = 1.0, radius = 2 }, "Noise.level" = { amount = 1.0, radius = 2 } }
@@ -623,6 +646,7 @@ name = "Mine"
 description = "Ore dug from the hillside."
 graphic = 34
 produce = { goods = 5, cart = 1.5, taxes = 0.08 }
+yields = { layer = "ore", full = 7.5 }
 needs = { workers = 6, food = 1 }
 sends = ["goods", "cart"]
 emits = { pollution = { amount = 1.5, radius = 2 } }
@@ -633,6 +657,7 @@ name = "Farmstead"
 description = "A farm with granaries, a weaving shed and its own carts."
 graphic = 35
 produce = { food = 10, fodder = 4, goods = 3, cart = 3, taxes = 0.08 }
+yields = { layer = "fertility", full = 9 }
 needs = { workers = 6, waste = 1 }
 sends = ["food", "fodder", "goods", "cart"]
 
@@ -642,6 +667,7 @@ name = "Stone works"
 description = "Masons dress the quarried stone."
 graphic = 36
 produce = { goods = 8, cart = 2, taxes = 0.12 }
+yields = { layer = "ore", full = 7.5 }
 needs = { workers = 8, food = 2, waste = 1 }
 sends = ["goods", "cart"]
 emits = { pollution = { amount = 2.0, radius = 3 }, "Noise.level" = { amount = 1.5, radius = 2 } }

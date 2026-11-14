@@ -2,6 +2,13 @@
 
 Release notes in full are on the [releases page](https://github.com/sirmmo/citysim/releases).
 
+## 0.2.71: Fields and mines follow the land
+- **Before 1800 the land decides what fields and mines give.** Two new data layers are read off the terrain: *Fertile ground* (flat land, best by rivers, lakes and the sea) and *Stone and ore* (high and steep ground).
+- **Grain fields, farms and farmsteads** make half as much again on the best ground by the water, as before on ordinary plain land, and three quarters on slopes.
+- **Quarries, mines and stone works** make half as much again in the hills, and three quarters in the plain (they made the same anywhere before).
+- The inspector shows what the land gives a building: "makes Food 5.2 of 4.0".
+- For rules authors: a layer takes `ground = "fertile"` or `"ore"`, and a unit `yields = { layer, full }`. The modern rules do not use them yet.
+
 ## 0.2.70: A tutorial
 - **Tutorial: your first streets**, first in File > New scenario…: eleven steps from an empty valley to a town of 800 people, each with a hint in the Goals window saying what to click and why. Steps are checked as you do them, with no deadlines.
 - For scenario authors: `ordered = true` makes the goals steps taken in order, and each goal takes a `hint`.
