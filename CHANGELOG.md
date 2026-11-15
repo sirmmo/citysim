@@ -2,6 +2,12 @@
 
 Release notes in full are on the [releases page](https://github.com/sirmmo/citysim/releases).
 
+## Unreleased: Cities for OpenTactics
+- **Run a city for an OpenTactics game:** a link from OpenTactics (`play/#holding=…`) founds a city named after the one there, on land shaped by its neighbours: sea, mountains and forest along the edges they lie on.
+- **No racing ahead of the war:** each OpenTactics day allows 3 months of city time; then the city waits, saying *Waiting for day N+1 in OpenTactics*, and you can still build. A newer link carries on from the city's own save.
+- **Report to OpenTactics**, in the new OpenTactics window: a link back with the population and the taxes, copied to the clipboard. The city then pays 50% of its income there, plus 100% for every $400 of taxes a month.
+- On the command line: `--holding LINK`. See [PLAYING.md](docs/PLAYING.md#a-city-for-opentactics).
+
 ## 0.2.75: A city panel for small screens
 - **The parts of the city panel fold away:** click a title (Zones and power, Demand, People, Resources, Metrics, Last 20 years, About the city) to fold or open it.
 - **The panel scrolls** when it is taller than the window.

@@ -21,7 +21,7 @@ pub struct HoldingView<'a> {
 
 pub fn window(ctx: &egui::Context, open: &mut bool, v: &HoldingView, out: &mut Vec<Command>) {
     let h = v.holding;
-    egui::Window::new("OpenTactics").open(open).default_width(340.0).anchor(egui::Align2::RIGHT_TOP, [-8.0, 40.0]).resizable(false).show(ctx, |ui| {
+    egui::Window::new("OpenTactics").open(open).default_width(340.0).default_pos([640.0, 60.0]).resizable(false).show(ctx, |ui| {
         ui.set_max_width(360.0);
         let army = if h.army.is_empty() { String::new() } else { format!(" for {}", h.army) };
         ui.label(RichText::new(format!("{}{army}", h.map)).strong());

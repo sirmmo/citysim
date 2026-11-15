@@ -36,6 +36,8 @@ differences:
   the same way.
 - The ancient cultures have no buildings (their art is installed by the
   desktop game); the other skins are all there.
+- **OpenTactics links** (`play/#holding=…`) open a city run for an
+  OpenTactics game (see [A city for OpenTactics](#a-city-for-opentactics)).
 
 ### Installing it as an app
 
@@ -496,6 +498,44 @@ Research window. **Nuclear fusion** is the one in the modern tree.
 - Towns learn of each other's payments when a town is saved (a region
   played alone) or once a month (online).
 - A town on its own pays the lot.
+
+## A city for OpenTactics
+
+In [OpenTactics](https://ingmmo.com/opentactics/), with the *Linked
+holdings* option, a commander can hand a city they own to a friend to run
+here. How well the friend does sets what the city pays in the war.
+
+- **The link** (`https://ingmmo.com/citysim/play/#holding=…`) founds a new
+  city named after the OpenTactics one, on land shaped by the tiles around
+  it: sea next to it floods that edge of the map, mountains raise it,
+  forest plants trees there. The middle of the map is as generated. The
+  city runs on the modern GlassBox rules (`?game-rules=…` before the `#`
+  picks others).
+- **Its own save:** the city is kept under the game and the tile
+  (`holding-<game>-<x>-<y>.ocsave.json`, next to the usual save or in the
+  browser's storage) and saved when time runs out, at each report and on
+  quitting. Opening a newer link for the same tile carries on from it.
+  Other cities, regions and scenarios are not open meanwhile: open citysim
+  without the link for those.
+- **The pace:** each OpenTactics day allows 3 months of city time (the link
+  can say otherwise), counted from the founding. Day 7 allows 21 months. Then
+  time stands still and the game says *Waiting for day 8 in OpenTactics*;
+  you can still build, plan and report, and the next day's link lets time
+  run again.
+- **The OpenTactics window** (the *OpenTactics* button in the menu bar)
+  shows the months left, the population, the taxes and what the city would
+  pay. **Report to OpenTactics** makes a link back to OpenTactics
+  (`…/opentactics/#report=…`), copies it and shows it with a button that
+  opens it. Open it where the OpenTactics game is loaded, or send it to the
+  commander.
+- **What it pays:** 50% of the city's usual income, plus 100% for every $400
+  of taxes a month (last month's tax lines; under the classic rules, the
+  month's share of the yearly taxes), rounded down: an empty town reports
+  50%, one making $400 a month 150%. OpenTactics keeps it within its own
+  limits. The report also carries the name, the population and the taxes.
+- **From the command line:** `--holding LINK` takes the whole link, the part
+  from `#holding=`, or a file holding either (or the link's JSON).
+- It is an honour system, like fog of war online: nothing checks the links.
 
 ## Power plants
 
