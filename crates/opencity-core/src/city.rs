@@ -132,6 +132,21 @@ pub struct CityMeta {
     /// World the city belongs to (fantasy maps); drives world skins.
     #[serde(default)]
     pub world: Option<String>,
+    /// The holding of another game (OpenTactics) this city is run for.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub holding: Option<HoldingMeta>,
+}
+
+/// A city run as a holding of another game: an OpenTactics city whose
+/// income follows how well the city does (see the game's `holding` module).
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct HoldingMeta {
+    /// The other game and the tile there, `<game>@<x>,<y>`.
+    pub key: String,
+    /// The month the city started, as [`City::month_index`] counts.
+    pub start: u32,
+    /// The latest day of the other game a link arrived with.
+    pub day: u32,
 }
 
 /// The family that came with Cousin Vinnie's money.
@@ -838,6 +853,23 @@ impl City {
             }
         }
         all
+    }
+
+    /// Months since the city's first: January of year 0 is 0.
+    pub fn month_index(&self) -> u32 {
+        self.date.year * 12 + self.date.month.saturating_sub(1)
+    }
+
+    /// Tax revenue per month: last month's tax lines under GlassBox rules;
+    /// under the classic rules, what a month adds to the taxes paid at new
+    /// year (government help included).
+    pub fn taxes_per_month(&self) -> f64 {
+        if self.glassbox.is_some() {
+            return self.last_ledger.iter().filter(|(k, _)| k.starts_with("Taxes:")).map(|(_, v)| *v).sum::<f64>().max(0.0);
+        }
+        let v = self.values;
+        let month = (v.residential * RESIDENTIAL_TAX + v.commercial * COMMERCIAL_TAX + v.industrial * INDUSTRIAL_TAX) / 100;
+        (month + month * INCOME_HELP / 100) as f64
     }
 
     /// Month end: loan repayments, then this month becomes last month.

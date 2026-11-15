@@ -2,6 +2,11 @@
 
 Release notes in full are on the [releases page](https://github.com/sirmmo/citysim/releases).
 
+## 0.2.75: A city panel for small screens
+- **The parts of the city panel fold away:** click a title (Zones and power, Demand, People, Resources, Metrics, Last 20 years, About the city) to fold or open it.
+- **The panel scrolls** when it is taller than the window.
+- On a screen under 760 pixels tall, the parts from the resources down start folded.
+
 ## 0.2.74: Draw the routes yourself
 - **An opt-in mode for those who like to run the buses:** View > Draw bus, tram and metro routes yourself. People then ride only between stops that a route joins; without it everything works as before.
 - **The Routes window:** start a bus, tram or metro route, click its stops on the map in order, and give it vehicles. More vehicles are a shorter wait and a bigger bill ($15 a bus, $25 a tram, $50 a metro train each month).

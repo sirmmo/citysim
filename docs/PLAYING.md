@@ -299,6 +299,11 @@ interface** makes it Large or Huge on top of that, and `--ui-scale 1.5`
 
 ## The city panel
 
+Each part of the panel on the right (zones and power, demand, people,
+resources, metrics, the chart, about the city) folds away with a click on
+its title, and the panel scrolls. On a screen under 760 pixels tall the
+parts from the resources down start folded.
+
 The right-hand panel shows:
 - zone sizes and power;
 - demand for each zone (GlassBox), which comes from what the city lacks: jobs left open, shoppers and goods with nowhere to go;

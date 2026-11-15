@@ -13,6 +13,9 @@ mod goalsui;
 mod gpu;
 #[cfg(not(target_os = "android"))]
 mod graphs;
+mod holding;
+#[cfg(not(target_os = "android"))]
+mod holdingui;
 #[cfg(not(target_os = "android"))]
 mod network;
 mod news;
@@ -154,6 +157,12 @@ struct Args {
     player: String,
     #[arg(long, default_value = "0,0")]
     slot: String,
+    /// Run a city for OpenTactics: its holding link
+    /// (`https://…/citysim/play/#holding=…`), the part from `#holding=`, or
+    /// a file holding either (or the link's JSON). The city is kept in its
+    /// own save and carries on when a newer link comes.
+    #[arg(long, value_name = "LINK")]
+    holding: Option<String>,
     /// Start a scenario by id (see assets/scenarios).
     #[arg(long)]
     scenario: Option<String>,
@@ -426,6 +435,35 @@ fn write_text_file(path: &Path, text: &str) -> std::io::Result<String> {
     }
 }
 
+/// Puts text on the clipboard (in the browser through the page, which may
+/// ask first).
+fn copy_text(text: &str) {
+    #[cfg(target_arch = "wasm32")]
+    web::copy(text);
+    #[cfg(not(target_arch = "wasm32"))]
+    macroquad::miniquad::window::clipboard_set(text);
+}
+
+/// Opens an address in the browser.
+#[cfg(not(target_os = "android"))]
+fn open_url(url: &str) {
+    #[cfg(target_arch = "wasm32")]
+    web::open(url);
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        let opener = if cfg!(target_os = "windows") {
+            "explorer"
+        } else if cfg!(target_os = "macos") {
+            "open"
+        } else {
+            "xdg-open"
+        };
+        if let Err(e) = std::process::Command::new(opener).arg(url).spawn() {
+            log::warn!("cannot open {url}: {e}");
+        }
+    }
+}
+
 fn tool_key() -> Option<Action> {
     let keys = [
         (KeyCode::X, Action::Tool(Some(Tool::Destroy))),
@@ -493,16 +531,156 @@ struct Game {
     /// Background 0 A.D. art installation, if running.
     #[cfg(not(target_os = "android"))]
     bake: Option<std::sync::mpsc::Receiver<bake::Outcome>>,
+    /// The OpenTactics holding this city is run for (`--holding`).
+    holding: Option<HoldingSession>,
+}
+
+/// A city run for OpenTactics: the link it came from, and the last report.
+struct HoldingSession {
+    link: holding::Holding,
+    /// The latest OpenTactics day seen for this holding (this link's, or a
+    /// newer one's that came before).
+    day: u32,
+    report: Option<String>,
+    /// Time has run out until the next OpenTactics day (said once).
+    waiting: bool,
 }
 
 impl Game {
     /// Where File > Save writes: the pack's own file while playing a pack.
     fn save_file(&self) -> PathBuf {
+        if let Some(h) = &self.holding {
+            return save_path().with_file_name(h.link.save_name());
+        }
         match &self.pack {
             Some(p) => p.save_path(&save_path()),
             None => save_path(),
         }
     }
+
+    /// Opens the city of an OpenTactics holding: its save if there is one
+    /// (the same game and tile), else a new city named after it, its land
+    /// shaped by the tiles around it.
+    fn holding_open(&mut self, text: &str) {
+        let link = match holding::Holding::from_link(text) {
+            Ok(h) => h,
+            Err(e) => return self.say(format!("Cannot read the OpenTactics link: {e:#}")),
+        };
+        let path = save_path().with_file_name(link.save_name());
+        let saved = load_city(&path, &self.base_catalog).ok().filter(|c| c.meta.holding.as_ref().is_some_and(|m| m.key == link.key()));
+        let welcome = saved.is_some();
+        let city = match saved {
+            Some(c) => c,
+            None => match self.holding_city(&link) {
+                Ok(c) => c,
+                Err(e) => return self.say(format!("Cannot found the city: {e:#}")),
+            },
+        };
+        self.region = None;
+        self.overlay = None;
+        self.pack = None;
+        self.set_city(city);
+        let meta = self.city.meta.holding.get_or_insert_with(Default::default);
+        meta.day = meta.day.max(link.day);
+        let day = meta.day;
+        let name = self.city.meta.name.clone().unwrap_or_else(|| link.name.clone());
+        let army = if link.army.is_empty() { String::new() } else { format!(" for {}", link.army) };
+        self.holding = Some(HoldingSession { link, day, report: None, waiting: false });
+        if let Err(e) = save_city(&self.city, &self.save_file()) {
+            log::warn!("holding save: {e:#}");
+        }
+        let left = self.holding_months().map_or(0, |(run, allowed)| allowed.saturating_sub(run));
+        self.message = Some((
+            format!("{} {name}{army} (OpenTactics day {day}): {left} months to run. Report to OpenTactics when you like.", if welcome { "Welcome back to" } else { "Founded" }),
+            get_time() + 10.0,
+        ));
+    }
+
+    /// A new city for a holding: the map of the holding's seed, shaped by
+    /// the land around the tile, under the rules of `--game-rules` (the
+    /// modern GlassBox rules by default).
+    fn holding_city(&self, link: &holding::Holding) -> Result<City> {
+        let mut params = startup().settings.map.clone();
+        params.seed = link.seed();
+        params.heightmap = None;
+        let mut m = opencity_mapgen::generate(&params)?;
+        let around: Vec<&str> = link.around.iter().map(String::as_str).collect();
+        opencity_mapgen::shape_around(&mut m, &around);
+        let terrain = Terrain::from_corner_heights(m.width, m.length, &m.corner_heights);
+        let mut city = City::new(terrain, Some(&m.tree_density), self.base_catalog.footprints(), params.seed);
+        let rules = startup().args.game_rules.clone().unwrap_or_else(|| "glassbox".into());
+        if let Some(r) = self.rulesets.iter().find(|r| r.id == rules) {
+            city.use_rules(r.clone());
+        }
+        city.meta.name = Some(link.name.clone());
+        city.meta.holding = Some(opencity_core::city::HoldingMeta { key: link.key(), start: city.month_index(), day: link.day });
+        Ok(city)
+    }
+
+    /// Months the holding's city has run, and the months it may run.
+    fn holding_months(&self) -> Option<(u32, u32)> {
+        let h = self.holding.as_ref()?;
+        let start = self.city.meta.holding.as_ref().map_or(0, |m| m.start);
+        Some((self.city.month_index().saturating_sub(start), holding::months_allowed(h.day, h.link.pace)))
+    }
+
+    /// Whether the holding's city has used its time until the next day.
+    fn holding_waits(&self) -> bool {
+        self.holding.as_ref().zip(self.holding_months()).is_some_and(|(h, (run, _))| holding::at_limit(run, h.day, h.link.pace))
+    }
+
+    /// Notices when the holding's time runs out: saves, and says so.
+    fn holding_check(&mut self) {
+        let waits = self.holding_waits();
+        let Some(h) = self.holding.as_mut() else { return };
+        if waits && !h.waiting {
+            let next = h.day + 1;
+            h.waiting = true;
+            if let Err(e) = save_city(&self.city, &self.save_file()) {
+                log::warn!("holding save: {e:#}");
+            }
+            self.message = Some((format!("Waiting for day {next} in OpenTactics. You can still build, plan and report."), get_time() + 10.0));
+        }
+    }
+
+    /// Makes the report link, saves the city and copies the link.
+    fn holding_report(&mut self) {
+        let Some(h) = self.holding.as_ref() else { return };
+        let name = self.city.meta.name.clone().unwrap_or_else(|| h.link.name.clone());
+        let mut link = h.link.clone();
+        link.day = h.day;
+        let report = holding::report(&link, &name, self.city.population, self.city.taxes_per_month());
+        let url = holding::report_link(&link, &report);
+        log::info!("report to OpenTactics: {url}");
+        if let Err(e) = save_city(&self.city, &self.save_file()) {
+            log::warn!("holding save: {e:#}");
+        }
+        if let Some(h) = self.holding.as_mut() {
+            h.report = Some(url.clone());
+        }
+        copy_text(&url);
+        self.say(format!("Report copied: {} ({}% income)", report["summary"].as_str().unwrap_or_default(), report["income_pct"]));
+    }
+
+    /// Commands that would leave the holding's city (its save would be
+    /// overwritten by another city).
+    #[cfg(not(target_os = "android"))]
+    fn holding_forbids(&self, cmd: &ui_egui::Command) -> bool {
+        use ui_egui::Command;
+        self.holding.is_some()
+            && match cmd {
+                Command::NewCity(..)
+                | Command::ImportGeojson { .. }
+                | Command::NewRegion { .. }
+                | Command::OpenRegion(_)
+                | Command::JoinRegion { .. }
+                | Command::RegionCity(_)
+                | Command::StartScenario(_) => true,
+                Command::Load(path) => *path != self.save_file(),
+                _ => false,
+            }
+    }
+
 
     /// Whether a pack forbids this command (other cities, skins, cheats…).
     #[cfg(not(target_os = "android"))]
@@ -843,6 +1021,7 @@ impl Game {
                 self.ui.menu_open = false;
                 let s = startup();
                 match item {
+                    MenuItem::New if self.holding.is_some() => self.say("Not while running a city for OpenTactics"),
                     MenuItem::New if self.pack.is_some() => {
                         let id = self.pack.as_ref().map(|p| p.scenario.clone()).unwrap_or_default();
                         self.start_scenario(&id);
@@ -878,6 +1057,10 @@ impl Game {
         use ui_egui::Command;
         if self.pack_forbids(&cmd) {
             self.say("Not in this game");
+            return true;
+        }
+        if self.holding_forbids(&cmd) {
+            self.say("Not while running a city for OpenTactics: open citysim without the link to play another city.");
             return true;
         }
         match cmd {
@@ -983,8 +1166,25 @@ impl Game {
                     self.camera.target = flows::unit_centre(&self.city, o);
                 }
             }
+            Command::HoldingReport => self.holding_report(),
+            Command::HoldingCopy => {
+                if let Some(url) = self.holding.as_ref().and_then(|h| h.report.clone()) {
+                    copy_text(&url);
+                    self.say("Report copied");
+                }
+            }
+            Command::HoldingOpen => {
+                if let Some(url) = self.holding.as_ref().and_then(|h| h.report.clone()) {
+                    open_url(&url);
+                }
+            }
             Command::Quit => {
                 self.region_store();
+                if self.holding.is_some() {
+                    if let Err(e) = save_city(&self.city, &self.save_file()) {
+                        log::warn!("holding save: {e:#}");
+                    }
+                }
                 // A pack carries on where it was left.
                 if self.pack.is_some() {
                     if let Err(e) = save_city(&self.city, &self.save_file()) {
@@ -1230,6 +1430,15 @@ impl Game {
         if let Some(mut ui) = self.egui.take() {
             egui_on = true;
             let message = self.message.as_ref().filter(|(_, until)| get_time() < *until).map(|(m, _)| m.clone());
+            let holding = self.holding.as_ref().zip(self.holding_months()).map(|(h, (months_run, months_allowed))| holdingui::HoldingView {
+                holding: &h.link,
+                day: h.day,
+                months_run,
+                months_allowed,
+                population: self.city.population,
+                taxes: self.city.taxes_per_month(),
+                report: h.report.as_deref(),
+            });
             let view = ui_egui::View {
                 city: &self.city,
                 catalog: &self.catalog,
@@ -1248,6 +1457,7 @@ impl Game {
                 flow_hover: self.flow_hover.and_then(|i| self.flow_arcs.get(i)).map(|a| a.stretch),
                 underground: self.underground,
                 region: self.region.as_ref(),
+                holding,
             };
             let mut commands = Vec::new();
             egui_macroquad::ui(|ctx| {
@@ -1330,7 +1540,9 @@ impl Game {
             }
         }
         let speed = self.city.speed;
-        if self.ui.menu_open {
+        // A holding stands still once it has had its months for the day.
+        self.holding_check();
+        if self.ui.menu_open || self.holding_waits() {
             self.city.speed = Speed::Paused;
         }
         // Without the research window (classic interface, Android) the
@@ -1639,6 +1851,7 @@ async fn main() -> Result<()> {
         // Never in automated runs (screenshots, benchmarks, CI).
         #[cfg(not(target_os = "android"))]
         bake: if s.args.no_auto_bake || s.args.screenshot.is_some() || s.args.bench_frames.is_some() { None } else { bake::start(&data_dir, s.args.bake_0ad) },
+        holding: None,
     };
     game.apply_skin();
     game.crossings = game.city.crossings();
@@ -1724,6 +1937,11 @@ async fn main() -> Result<()> {
         if let Some(ui) = game.egui.as_mut() {
             ui.open_goals();
         }
+    }
+    if let Some(link) = &s.args.holding {
+        // A file with the link (or its JSON), else the link itself.
+        let text = std::fs::read_to_string(link).unwrap_or_else(|_| link.clone());
+        game.holding_open(&text);
     }
     if let Some(dir) = &s.args.region {
         if dir.join("region.json").is_file() || dir.is_file() {

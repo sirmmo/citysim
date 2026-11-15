@@ -124,6 +124,57 @@ pub fn generate(p: &MapParams) -> Result<GeneratedMap, MapGenError> {
     Ok(GeneratedMap { width: p.width, length: p.length, corner_heights: terrain.to_ints(), tree_density: trees.to_ints() })
 }
 
+/// Shapes a generated map after the land around it, as a 5×5 grid of
+/// letters centred on the map (one string per row, north first): `~` sea,
+/// `^` mountains, `f` forest; anything else leaves the land as it is. The
+/// map's edges take after the neighbours on that side, fading out a
+/// quarter of the way in, so the middle stays as generated: sea to the east
+/// floods the eastern strip, mountains to the south raise the southern
+/// edge, forest there plants trees.
+pub fn shape_around(map: &mut GeneratedMap, around: &[&str]) {
+    let cell = |gx: usize, gy: usize| -> char { around.get(gy).and_then(|r| r.chars().nth(gx)).unwrap_or('.') };
+    // How much of one kind of land is at a point of the map, (0, 0) the
+    // north-west corner and (1, 1) the south-east: the neighbours' share,
+    // read off the 3×3 cells around the middle (cell centres at the edges).
+    let share = |u: f32, v: f32, kind: char| -> f32 {
+        let (gx, gy) = (1.0 + 2.0 * u.clamp(0.0, 1.0), 1.0 + 2.0 * v.clamp(0.0, 1.0));
+        let (x0, y0) = ((gx.floor() as usize).min(2), (gy.floor() as usize).min(2));
+        let (fx, fy) = (gx - x0 as f32, gy - y0 as f32);
+        let at = |x: usize, y: usize| if cell(x, y) == kind { 1.0 } else { 0.0 };
+        let top = at(x0, y0) * (1.0 - fx) + at(x0 + 1, y0) * fx;
+        let bottom = at(x0, y0 + 1) * (1.0 - fx) + at(x0 + 1, y0 + 1) * fx;
+        top * (1.0 - fy) + bottom * fy
+    };
+    // Only the outer part: no effect at half a share (a quarter of the way
+    // in), the full effect at the edge.
+    let edge = |s: f32| ((s - 0.5) * 2.0).clamp(0.0, 1.0);
+    let (w, l) = (map.width, map.length);
+    for cy in 0..=l {
+        for cx in 0..=w {
+            let (u, v) = (cx as f32 / w as f32, cy as f32 / l as f32);
+            let i = (cy * (w + 1) + cx) as usize;
+            let mut h = map.corner_heights[i] as f32;
+            h += 8.0 * edge(share(u, v, '^'));
+            let sea = edge(share(u, v, '~'));
+            if sea > 0.0 {
+                h = h.min(h * (1.0 - sea) - 3.0 * sea);
+            }
+            map.corner_heights[i] = h.round() as i32;
+        }
+    }
+    for ty in 0..l {
+        for tx in 0..w {
+            let (u, v) = ((tx as f32 + 0.5) / w as f32, (ty as f32 + 0.5) / l as f32);
+            let i = (ty * w + tx) as usize;
+            let c = |x: u32, y: u32| map.corner_heights[(y * (w + 1) + x) as usize];
+            // As in `generate_trees`: no trees under water.
+            let dry = c(tx, ty) + c(tx + 1, ty) + c(tx, ty + 1) + c(tx + 1, ty + 1) > -4;
+            let forest = edge(share(u, v, 'f'));
+            map.tree_density[i] = if dry { map.tree_density[i].max((6.0 * forest) as i32) } else { 0 };
+        }
+    }
+}
+
 fn generate_terrain(p: &MapParams, seed: u64) -> Grid {
     let (cw, cl) = (p.width + 1, p.length + 1);
     let mut map = diamond_square(seed, cw.max(cl)).crop(cw, cl);
@@ -522,5 +573,23 @@ mod tests {
                 assert!(m.corner_heights.iter().all(|h| (-127..=127).contains(h)), "{relief:?} {shape:?}");
             }
         }
+    }
+
+    #[test]
+    fn the_land_around_shapes_the_edges() {
+        let p = MapParams { width: 40, length: 40, water: Water::Dry, rivers: 0, seed: 3, ..Default::default() };
+        let plain = generate(&p).unwrap();
+        let mut m = plain.clone();
+        // Sea to the east, mountains to the south, forest to the west.
+        shape_around(&mut m, &["..~~~", ".f.~~", ".fc~~", ".^^~~", "....."]);
+        let h = |m: &GeneratedMap, x: u32, y: u32| m.corner_heights[(y * 41 + x) as usize];
+        assert!((10..30).all(|y| h(&m, 40, y) < 0), "the east edge is sea");
+        assert!((5..25).all(|x| h(&m, x, 40) > h(&plain, x, 40)), "the south edge is higher");
+        assert_eq!(h(&m, 20, 20), h(&plain, 20, 20), "the middle is untouched");
+        assert!((8..24).all(|y| m.tree_density[y * 40] > 0), "the west edge is wooded");
+        // Nothing around: nothing changes.
+        let mut same = plain.clone();
+        shape_around(&mut same, &[".....", ".....", "..c..", ".....", "#####"]);
+        assert_eq!(same, plain);
     }
 }

@@ -291,6 +291,7 @@ pub fn import(text: &str, rules: &Rules, footprints: Footprints, opts: &ImportOp
         georef: Some(proj.georef()),
         year: opts.date.map(|d| d.year),
         world: opts.world.clone().or_else(|| src.world.clone()),
+        holding: None,
     };
     let mut order: Vec<usize> = (0..kept.len()).collect();
     let area = |i: usize| rasterized[i].len();

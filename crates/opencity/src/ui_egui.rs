@@ -103,6 +103,12 @@ pub enum Command {
     TryRules(Arc<Ruleset>),
     /// Write a rules set's files from the rules editor.
     SaveRules(opencity_assets::rules::Sources),
+    /// Make the report link of the holding and copy it.
+    HoldingReport,
+    /// Copy the report link again.
+    HoldingCopy,
+    /// Open the report link (OpenTactics).
+    HoldingOpen,
     Quit,
 }
 
@@ -129,6 +135,8 @@ pub struct View<'a> {
     pub region: Option<&'a crate::region::RegionSession>,
     /// The underground view is on (by hand).
     pub underground: bool,
+    /// The OpenTactics holding this city is run for, if any.
+    pub holding: Option<crate::holdingui::HoldingView<'a>>,
 }
 
 #[derive(Default)]
@@ -172,6 +180,8 @@ pub struct EguiUi {
     pub routes: crate::routesui::RoutesUi,
     show_election: bool,
     show_goals: bool,
+    /// The OpenTactics window (holdings only).
+    show_holding: bool,
     day_night: bool,
     /// Scenarios offered in File > New scenario… (loaded when it opens).
     scenarios: Vec<opencity_core::goals::Scenario>,
@@ -395,6 +405,7 @@ impl EguiUi {
             routes: Default::default(),
             show_election: false,
             show_goals: false,
+            show_holding: true,
             day_night: true,
             scenarios: Vec::new(),
             scenario_pick: 0,
@@ -556,6 +567,9 @@ impl EguiUi {
         if self.show_goals {
             crate::goalsui::window(ctx, &mut self.show_goals, view.city);
         }
+        if let (true, Some(h)) = (self.show_holding, view.holding.as_ref()) {
+            crate::holdingui::window(ctx, &mut self.show_holding, h, &mut out);
+        }
         if self.show_election {
             crate::election::window(ctx, &mut self.show_election, view.city, &mut out);
         }
@@ -698,6 +712,9 @@ impl EguiUi {
                             }
                         });
                     }
+                }
+                if view.holding.is_some() && ui.button("OpenTactics").on_hover_text("The holding: time left and the report").clicked() {
+                    self.show_holding = !self.show_holding;
                 }
                 ui.menu_button("View", |ui| {
                     ui.checkbox(&mut self.show_city, "City panel");
@@ -1041,157 +1058,173 @@ impl EguiUi {
     fn city_panel(&mut self, ctx: &egui::Context, view: &View, out: &mut Vec<Command>) {
         let city = view.city;
         let v = city.values;
+        // Every part folds away under its title, and the whole panel scrolls:
+        // on a screen that is not tall, the parts further down start folded.
+        let tall = ctx.screen_rect().height() >= 760.0;
+        let part = |ui: &mut egui::Ui, title: &str, open: bool, body: &mut dyn FnMut(&mut egui::Ui)| {
+            egui::CollapsingHeader::new(RichText::new(title).small().color(Color32::GRAY))
+                .id_salt(("city_part", title.split(':').next().unwrap_or(title)))
+                .default_open(open)
+                .show(ui, |ui| body(ui));
+        };
         egui::SidePanel::right("city").resizable(false).exact_width(230.0).show(ctx, |ui| {
             ui.heading("City");
-            let total = (v.residential + v.commercial + v.industrial).max(1) as f32;
-            let power_used = v.power_capacity - v.power;
-            let power = if v.power_capacity > 0 { power_used.max(0) as f32 / v.power_capacity as f32 } else { 0.0 };
-            for (label, value, fraction, color) in [
-                ("Residential", v.residential.to_string(), v.residential as f32 / total, Color32::from_rgb(70, 190, 90)),
-                ("Commercial", v.commercial.to_string(), v.commercial as f32 / total, Color32::from_rgb(80, 150, 230)),
-                ("Industrial", v.industrial.to_string(), v.industrial as f32 / total, Color32::from_rgb(230, 190, 60)),
-                ("Power used", format!("{power_used} / {}", v.power_capacity), power, Color32::from_rgb(240, 220, 80)),
-            ] {
-                ui.horizontal(|ui| {
-                    ui.label(label);
-                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| ui.label(RichText::new(value).monospace()));
-                });
-                ui.add(egui::ProgressBar::new(fraction).fill(color).desired_height(6.0));
-            }
-            if let (Some(gb), Some(rules)) = (&city.glassbox, city.rules()) {
-                ui.separator();
-                ui.horizontal_wrapped(|ui| {
-                    if ui.button("📈 Graphs (G)").on_hover_text("Plot and analyse every GlassBox series").clicked() {
-                        self.graphs.open = !self.graphs.open;
-                    }
-                    if ui.button("🔀 Network").on_hover_text("Show who sends what to whom on the map, and analyse it").clicked() {
-                        self.show_network = !self.show_network;
-                        if self.show_network && !view.flows.on {
-                            out.push(Command::SetFlows(crate::flows::FlowView { on: true, ..view.flows.clone() }));
-                        }
-                    }
-                    if !rules.techs.is_empty()
-                        && ui.button("🔬 Research").on_hover_text("Spend ideas and research points to unlock buildings and tools").clicked()
-                    {
-                        self.show_research = !self.show_research;
-                    }
-                    if !(rules.taxes.is_empty() && rules.policies.is_empty())
-                        && ui.button("📜 Policies").on_hover_text("Set tax rates and the city's policies").clicked()
-                    {
-                        self.show_policies = !self.show_policies;
-                    }
-                    if view.city.goals.is_some() && ui.button("🎯 Goals").on_hover_text("The scenario's goals and how they are going").clicked() {
-                        self.show_goals = !self.show_goals;
-                    }
-                    if ui.button("💰 Budget").on_hover_text("Money by line, service funding and loans").clicked() {
-                        self.show_budget = !self.show_budget;
-                    }
-                    let n = view.city.advice().len();
-                    let news = if n > 0 { format!("📰 News ({n})") } else { "📰 News".to_string() };
-                    if ui.button(news).on_hover_text("What needs you now, and the news so far").clicked() {
-                        self.show_news = !self.show_news;
-                    }
-                    if view.city.manual_routes() && ui.button("Routes").on_hover_text("The bus, tram and metro routes you draw").clicked() {
-                        self.routes.open = !self.routes.open;
-                    }
-                    if let Some(years) = view.city.years_to_election() {
-                        if ui.button(format!("✔ Election ({years}y)")).on_hover_text("The next election, how it would go today, and your promises").clicked()
-                        {
-                            self.show_election = !self.show_election;
-                        }
-                    }
-                    if view.region.is_some() && ui.button("🗺 Region").on_hover_text("The region's cities and this month's trade").clicked() {
-                        self.show_region = !self.show_region;
+            egui::ScrollArea::vertical().auto_shrink([false, false]).show(ui, |ui| {
+                part(ui, "Zones and power", true, &mut |ui| {
+                    let total = (v.residential + v.commercial + v.industrial).max(1) as f32;
+                    let power_used = v.power_capacity - v.power;
+                    let power = if v.power_capacity > 0 { power_used.max(0) as f32 / v.power_capacity as f32 } else { 0.0 };
+                    for (label, value, fraction, color) in [
+                        ("Residential", v.residential.to_string(), v.residential as f32 / total, Color32::from_rgb(70, 190, 90)),
+                        ("Commercial", v.commercial.to_string(), v.commercial as f32 / total, Color32::from_rgb(80, 150, 230)),
+                        ("Industrial", v.industrial.to_string(), v.industrial as f32 / total, Color32::from_rgb(230, 190, 60)),
+                        ("Power used", format!("{power_used} / {}", v.power_capacity), power, Color32::from_rgb(240, 220, 80)),
+                    ] {
+                        ui.horizontal(|ui| {
+                            ui.label(label);
+                            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| ui.label(RichText::new(value).monospace()));
+                        });
+                        ui.add(egui::ProgressBar::new(fraction).fill(color).desired_height(6.0));
                     }
                 });
-                ui.label(RichText::new("Demand").small().color(Color32::GRAY));
-                let max = gb.demand.iter().cloned().fold(1.0f32, f32::max);
-                for (z, d) in rules.zones.iter().zip(&gb.demand) {
-                    ui.horizontal(|ui| {
-                        ui.label(&z.name);
-                        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| ui.label(RichText::new(format!("{d:.0}")).monospace()));
-                    });
-                    ui.add(egui::ProgressBar::new((d / max).clamp(0.0, 1.0)).desired_height(6.0));
-                }
-                if rules.people.is_some() {
+                if let (Some(gb), Some(rules)) = (&city.glassbox, city.rules()) {
                     ui.separator();
-                    ui.label(RichText::new("People").small().color(Color32::GRAY));
-                    egui::Grid::new("people").num_columns(2).show(ui, |ui| {
-                        let warn = |bad: bool| if bad { Color32::from_rgb(240, 150, 90) } else { Color32::LIGHT_GRAY };
-                        ui.label("Out of work").on_hover_text(
+                    ui.horizontal_wrapped(|ui| {
+                        if ui.button("📈 Graphs (G)").on_hover_text("Plot and analyse every GlassBox series").clicked() {
+                            self.graphs.open = !self.graphs.open;
+                        }
+                        if ui.button("🔀 Network").on_hover_text("Show who sends what to whom on the map, and analyse it").clicked() {
+                            self.show_network = !self.show_network;
+                            if self.show_network && !view.flows.on {
+                                out.push(Command::SetFlows(crate::flows::FlowView { on: true, ..view.flows.clone() }));
+                            }
+                        }
+                        if !rules.techs.is_empty()
+                            && ui.button("🔬 Research").on_hover_text("Spend ideas and research points to unlock buildings and tools").clicked()
+                        {
+                            self.show_research = !self.show_research;
+                        }
+                        if !(rules.taxes.is_empty() && rules.policies.is_empty())
+                            && ui.button("📜 Policies").on_hover_text("Set tax rates and the city's policies").clicked()
+                        {
+                            self.show_policies = !self.show_policies;
+                        }
+                        if view.city.goals.is_some() && ui.button("🎯 Goals").on_hover_text("The scenario's goals and how they are going").clicked() {
+                            self.show_goals = !self.show_goals;
+                        }
+                        if ui.button("💰 Budget").on_hover_text("Money by line, service funding and loans").clicked() {
+                            self.show_budget = !self.show_budget;
+                        }
+                        let n = view.city.advice().len();
+                        let news = if n > 0 { format!("📰 News ({n})") } else { "📰 News".to_string() };
+                        if ui.button(news).on_hover_text("What needs you now, and the news so far").clicked() {
+                            self.show_news = !self.show_news;
+                        }
+                        if view.city.manual_routes() && ui.button("Routes").on_hover_text("The bus, tram and metro routes you draw").clicked() {
+                            self.routes.open = !self.routes.open;
+                        }
+                        if let Some(years) = view.city.years_to_election() {
+                            if ui
+                                .button(format!("✔ Election ({years}y)"))
+                                .on_hover_text("The next election, how it would go today, and your promises")
+                                .clicked()
+                            {
+                                self.show_election = !self.show_election;
+                            }
+                        }
+                        if view.region.is_some() && ui.button("🗺 Region").on_hover_text("The region's cities and this month's trade").clicked() {
+                            self.show_region = !self.show_region;
+                        }
+                    });
+                    part(ui, "Demand", true, &mut |ui| {
+                        let max = gb.demand.iter().cloned().fold(1.0f32, f32::max);
+                        for (z, d) in rules.zones.iter().zip(&gb.demand) {
+                            ui.horizontal(|ui| {
+                                ui.label(&z.name);
+                                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| ui.label(RichText::new(format!("{d:.0}")).monospace()));
+                            });
+                            ui.add(egui::ProgressBar::new((d / max).clamp(0.0, 1.0)).desired_height(6.0));
+                        }
+                    });
+                    if rules.people.is_some() {
+                        part(ui, "People", true, &mut |ui| {
+                            egui::Grid::new("people").num_columns(2).show(ui, |ui| {
+                                let warn = |bad: bool| if bad { Color32::from_rgb(240, 150, 90) } else { Color32::LIGHT_GRAY };
+                                ui.label("Out of work").on_hover_text(
                             "Workers with no job to go to, over the last days. Where they live, crime rises: zone works and shops, or let the homes thin out",
                         );
-                        ui.label(RichText::new(format!("{:.0}%", gb.jobless * 100.0)).monospace().color(warn(gb.jobless > 0.1)));
-                        ui.end_row();
-                        ui.label("Without a home").on_hover_text(
+                                ui.label(RichText::new(format!("{:.0}%", gb.jobless * 100.0)).monospace().color(warn(gb.jobless > 0.1)));
+                                ui.end_row();
+                                ui.label("Without a home").on_hover_text(
                             "People whose home is gone (abandoned, burnt, evacuated or pulled down). They wait for room in new homes, and in time leave town",
                         );
-                        ui.label(RichText::new(format!("{:.0}", gb.homeless)).monospace().color(warn(gb.homeless >= 1.0)));
-                        ui.end_row();
+                                ui.label(RichText::new(format!("{:.0}", gb.homeless)).monospace().color(warn(gb.homeless >= 1.0)));
+                                ui.end_row();
+                            });
+                        });
+                    }
+                    part(ui, "Resources per tick: delivered / wanted", tall, &mut |ui| {
+                        egui::Grid::new("balances").num_columns(2).show(ui, |ui| {
+                            let b = &gb.balances;
+                            for (i, r) in rules.resources.iter().enumerate() {
+                                let (got, missing) = (b.delivered.get(i).copied().unwrap_or(0.0), b.unmet.get(i).copied().unwrap_or(0.0));
+                                let made = b.produced.get(i).copied().unwrap_or(0.0);
+                                if got + missing + made <= 0.0 {
+                                    continue;
+                                }
+                                ui.label(&r.name);
+                                let text = match r.transport {
+                                    opencity_core::rules::Transport::Local => format!("{made:.0}"),
+                                    opencity_core::rules::Transport::City if made > 0.0 => format!("+{made:.1}"),
+                                    opencity_core::rules::Transport::City => format!("-{got:.1}"),
+                                    opencity_core::rules::Transport::Pool => format!("+{made:.1}  ({:.0})", gb.pools.get(i).copied().unwrap_or(0.0)),
+                                    _ => format!("{got:.0} / {:.0}", got + missing),
+                                };
+                                let short = missing > (got + missing) * 0.1;
+                                ui.label(RichText::new(text).monospace().color(if short { Color32::from_rgb(240, 150, 90) } else { Color32::LIGHT_GRAY }));
+                                ui.end_row();
+                            }
+                        });
                     });
                 }
-                ui.separator();
-                ui.label(RichText::new("Resources per tick: delivered / wanted").small().color(Color32::GRAY));
-                egui::Grid::new("balances").num_columns(2).show(ui, |ui| {
-                    let b = &gb.balances;
-                    for (i, r) in rules.resources.iter().enumerate() {
-                        let (got, missing) = (b.delivered.get(i).copied().unwrap_or(0.0), b.unmet.get(i).copied().unwrap_or(0.0));
-                        let made = b.produced.get(i).copied().unwrap_or(0.0);
-                        if got + missing + made <= 0.0 {
-                            continue;
+                if let Some(gb) = city.glassbox.as_ref().filter(|g| !g.metrics.is_empty()) {
+                    part(ui, &format!("Metrics: at tick {}", gb.tick), tall, &mut |ui| {
+                        egui::Grid::new("metrics").num_columns(2).show(ui, |ui| {
+                            for (name, v) in &gb.metrics {
+                                ui.label(name);
+                                ui.label(RichText::new(format!("{v:.1}")).monospace());
+                                ui.end_row();
+                            }
+                        });
+                    });
+                }
+                part(ui, "Last 20 years", tall, &mut |ui| chart(ui, city));
+                part(ui, "About the city", tall, &mut |ui| {
+                    egui::Grid::new("facts").num_columns(2).show(ui, |ui| {
+                        ui.label("Size");
+                        ui.label(format!("{} × {}", city.width(), city.length()));
+                        ui.end_row();
+                        ui.label("Buildings");
+                        ui.label(city.layer.occupied().to_string());
+                        ui.end_row();
+                        ui.label("Vehicles");
+                        ui.label(city.vehicles.len().to_string());
+                        ui.end_row();
+                        ui.label("Income");
+                        ui.label(format!("{} this year", city.income));
+                        ui.end_row();
+                        if let Some(src) = &city.meta.source {
+                            ui.label("Source");
+                            ui.label(RichText::new(src).small());
+                            ui.end_row();
                         }
-                        ui.label(&r.name);
-                        let text = match r.transport {
-                            opencity_core::rules::Transport::Local => format!("{made:.0}"),
-                            opencity_core::rules::Transport::City if made > 0.0 => format!("+{made:.1}"),
-                            opencity_core::rules::Transport::City => format!("-{got:.1}"),
-                            opencity_core::rules::Transport::Pool => format!("+{made:.1}  ({:.0})", gb.pools.get(i).copied().unwrap_or(0.0)),
-                            _ => format!("{got:.0} / {:.0}", got + missing),
-                        };
-                        let short = missing > (got + missing) * 0.1;
-                        ui.label(RichText::new(text).monospace().color(if short { Color32::from_rgb(240, 150, 90) } else { Color32::LIGHT_GRAY }));
-                        ui.end_row();
-                    }
+                        if let Some(g) = &city.meta.georef {
+                            ui.label("Scale");
+                            ui.label(format!("{:.0} {} / tile", g.units_per_tile, if g.wgs84 { "m" } else { "units" }));
+                            ui.end_row();
+                        }
+                    });
                 });
-            }
-            if let Some(gb) = city.glassbox.as_ref().filter(|g| !g.metrics.is_empty()) {
-                ui.separator();
-                ui.label(RichText::new(format!("Metrics at tick {}", gb.tick)).small().color(Color32::GRAY));
-                egui::Grid::new("metrics").num_columns(2).show(ui, |ui| {
-                    for (name, v) in &gb.metrics {
-                        ui.label(name);
-                        ui.label(RichText::new(format!("{v:.1}")).monospace());
-                        ui.end_row();
-                    }
-                });
-            }
-            ui.separator();
-            ui.label(RichText::new("Last 20 years").small().color(Color32::GRAY));
-            chart(ui, city);
-            ui.separator();
-            egui::Grid::new("facts").num_columns(2).show(ui, |ui| {
-                ui.label("Size");
-                ui.label(format!("{} × {}", city.width(), city.length()));
-                ui.end_row();
-                ui.label("Buildings");
-                ui.label(city.layer.occupied().to_string());
-                ui.end_row();
-                ui.label("Vehicles");
-                ui.label(city.vehicles.len().to_string());
-                ui.end_row();
-                ui.label("Income");
-                ui.label(format!("{} this year", city.income));
-                ui.end_row();
-                if let Some(src) = &city.meta.source {
-                    ui.label("Source");
-                    ui.label(RichText::new(src).small());
-                    ui.end_row();
-                }
-                if let Some(g) = &city.meta.georef {
-                    ui.label("Scale");
-                    ui.label(format!("{:.0} {} / tile", g.units_per_tile, if g.wgs84 { "m" } else { "units" }));
-                    ui.end_row();
-                }
             });
         });
     }

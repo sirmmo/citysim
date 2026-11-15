@@ -2,7 +2,8 @@
 //! download (`assets.pack`, written by `cargo run -p xtask -- web-dist`),
 //! saves live in the browser's local storage, exports become downloads,
 //! region servers are reached with `fetch` and the page's query string
-//! stands in for the command line (`?demo&game-rules=glassbox`). The
+//! stands in for the command line (`?demo&game-rules=glassbox`; an
+//! OpenTactics `#holding=…` after it is `--holding`). The
 //! JavaScript side is `web/citysim.js`. The page installs as an app and
 //! then starts offline: `web/manifest.webmanifest` and `web/sw.js`.
 
@@ -22,6 +23,9 @@ extern "C" {
     fn citysim_http_start(method: JsObject, url: JsObject, body: JsObject) -> u32;
     fn citysim_http_poll(id: u32) -> JsObject;
     fn citysim_query() -> JsObject;
+    fn citysim_hash() -> JsObject;
+    fn citysim_copy(text: JsObject);
+    fn citysim_open(url: JsObject);
     fn citysim_download(name: JsObject, text: JsObject);
     fn citysim_can_install() -> i32;
     fn citysim_install();
@@ -30,7 +34,7 @@ extern "C" {
 /// Checked by the JS bundle against the plugin's `version`.
 #[no_mangle]
 pub extern "C" fn citysim_crate_version() -> u32 {
-    3
+    4
 }
 
 /// The unpacked data files, by path relative to the data directory.
@@ -166,6 +170,16 @@ pub fn install() {
     unsafe { citysim_install() }
 }
 
+/// Puts text on the clipboard (the browser may ask first, or refuse).
+pub fn copy(text: &str) {
+    unsafe { citysim_copy(JsObject::string(text)) }
+}
+
+/// Opens an address in a new tab.
+pub fn open(url: &str) {
+    unsafe { citysim_open(JsObject::string(url)) }
+}
+
 /// Offers a text file for download.
 pub fn download(name: &str, text: &str) {
     unsafe { citysim_download(JsObject::string(name), JsObject::string(text)) }
@@ -228,6 +242,12 @@ pub fn args() -> Vec<String> {
         if let Some(v) = v {
             out.push(percent_decode(v));
         }
+    }
+    // An OpenTactics holding: `#holding=…` (base64url needs no decoding).
+    let hash = js_string(unsafe { citysim_hash() }).unwrap_or_default();
+    if hash.starts_with("#holding") {
+        out.push("--holding".to_string());
+        out.push(hash);
     }
     out
 }

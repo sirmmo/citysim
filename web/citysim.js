@@ -1,6 +1,6 @@
 // citysim's own JavaScript: local storage for saves, the page's query string
-// as the command line, exports as downloads and HTTP requests to region
-// servers. The Rust side is crates/opencity/src/web.rs; the version must
+// (and an OpenTactics #holding= link) as the command line, exports as
+// downloads, HTTP requests to region servers and the clipboard. The Rust side is crates/opencity/src/web.rs; the version must
 // match citysim_crate_version().
 // The browser's offer to install the page as an app, kept until the player
 // picks File > Install as an app (Chrome and Edge make the offer; Firefox
@@ -11,6 +11,10 @@ window.addEventListener("beforeinstallprompt", function (e) {
   citysim_install_offer = e;
 });
 window.addEventListener("appinstalled", function () { citysim_install_offer = null; });
+// A newer OpenTactics link opened in this tab: start again with it.
+window.addEventListener("hashchange", function () {
+  if (window.location.hash.indexOf("#holding") === 0) { window.location.reload(); }
+});
 
 function citysim_status(text) {
   var el = document.getElementById("status-text");
@@ -21,7 +25,7 @@ function citysim_status(text) {
 
 miniquad_add_plugin({
   name: "citysim",
-  version: 3,
+  version: 4,
   register_plugin: function (importObject) {
     importObject.env.citysim_storage_get = function (key) {
       key = consume_js_object(key);
@@ -110,6 +114,28 @@ miniquad_add_plugin({
     };
     importObject.env.citysim_query = function () {
       return js_object(window.location.search || "");
+    };
+    importObject.env.citysim_hash = function () {
+      return js_object(window.location.hash || "");
+    };
+    importObject.env.citysim_copy = function (text) {
+      text = consume_js_object(text);
+      var fallback = function () {
+        var area = document.createElement("textarea");
+        area.value = text;
+        document.body.appendChild(area);
+        area.select();
+        try { document.execCommand("copy"); } catch (e) { console.warn("copy:", e); }
+        area.remove();
+      };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).catch(fallback);
+      } else {
+        fallback();
+      }
+    };
+    importObject.env.citysim_open = function (url) {
+      window.open(consume_js_object(url), "_blank");
     };
     importObject.env.citysim_download = function (name, text) {
       name = consume_js_object(name);
