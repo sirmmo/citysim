@@ -2,6 +2,16 @@
 // as the command line, exports as downloads and HTTP requests to region
 // servers. The Rust side is crates/opencity/src/web.rs; the version must
 // match citysim_crate_version().
+// The browser's offer to install the page as an app, kept until the player
+// picks File > Install as an app (Chrome and Edge make the offer; Firefox
+// and Safari install from their own menus and never fire this).
+var citysim_install_offer = null;
+window.addEventListener("beforeinstallprompt", function (e) {
+  e.preventDefault();
+  citysim_install_offer = e;
+});
+window.addEventListener("appinstalled", function () { citysim_install_offer = null; });
+
 function citysim_status(text) {
   var el = document.getElementById("status-text");
   if (el) { el.textContent = text; }
@@ -11,7 +21,7 @@ function citysim_status(text) {
 
 miniquad_add_plugin({
   name: "citysim",
-  version: 2,
+  version: 3,
   register_plugin: function (importObject) {
     importObject.env.citysim_storage_get = function (key) {
       key = consume_js_object(key);
@@ -86,6 +96,17 @@ miniquad_add_plugin({
       if (r === undefined) { return js_object(undefined); }
       delete requests.done[id];
       return js_object(r);
+    };
+    importObject.env.citysim_can_install = function () {
+      return citysim_install_offer ? 1 : 0;
+    };
+    importObject.env.citysim_install = function () {
+      var offer = citysim_install_offer;
+      if (!offer) { return; }
+      // An offer can be shown once; the browser makes a new one if the
+      // player says no.
+      citysim_install_offer = null;
+      try { offer.prompt(); } catch (e) { console.warn("install:", e); }
     };
     importObject.env.citysim_query = function () {
       return js_object(window.location.search || "");

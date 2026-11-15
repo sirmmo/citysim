@@ -1,0 +1,18 @@
+{
+  "name": "citysim",
+  "short_name": "citysim",
+  "description": "A free 3D city simulation: zone land, lay streets and services, and keep the town's approval.",
+  "id": "./",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone"],
+  "background_color": "#10141c",
+  "theme_color": "#10141c",
+  "categories": ["games", "simulation"],
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

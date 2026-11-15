@@ -3,7 +3,8 @@
 //! saves live in the browser's local storage, exports become downloads,
 //! region servers are reached with `fetch` and the page's query string
 //! stands in for the command line (`?demo&game-rules=glassbox`). The
-//! JavaScript side is `web/citysim.js`.
+//! JavaScript side is `web/citysim.js`. The page installs as an app and
+//! then starts offline: `web/manifest.webmanifest` and `web/sw.js`.
 
 use std::collections::HashMap;
 use std::io::{self, Read};
@@ -22,12 +23,14 @@ extern "C" {
     fn citysim_http_poll(id: u32) -> JsObject;
     fn citysim_query() -> JsObject;
     fn citysim_download(name: JsObject, text: JsObject);
+    fn citysim_can_install() -> i32;
+    fn citysim_install();
 }
 
 /// Checked by the JS bundle against the plugin's `version`.
 #[no_mangle]
 pub extern "C" fn citysim_crate_version() -> u32 {
-    2
+    3
 }
 
 /// The unpacked data files, by path relative to the data directory.
@@ -150,6 +153,17 @@ pub fn storage_write(key: &str, value: &str) -> io::Result<()> {
 /// Every key in local storage.
 pub fn storage_keys() -> Vec<String> {
     js_string(unsafe { citysim_storage_keys() }).and_then(|s| serde_json::from_str(&s).ok()).unwrap_or_default()
+}
+
+/// Whether the browser offers to install the page as an app right now
+/// (a secure page, a browser that installs sites, not installed yet).
+pub fn can_install() -> bool {
+    unsafe { citysim_can_install() != 0 }
+}
+
+/// Shows the browser's install dialog.
+pub fn install() {
+    unsafe { citysim_install() }
 }
 
 /// Offers a text file for download.

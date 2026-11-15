@@ -657,6 +657,14 @@ impl EguiUi {
                             self.dialog = Dialog::Export;
                             ui.close_menu();
                         }
+                        #[cfg(target_arch = "wasm32")]
+                        if crate::web::can_install() {
+                            ui.separator();
+                            if ui.button("Install as an app…").on_hover_text("Adds citysim to this device. It then starts from its own icon, in its own window, with or without a network.").clicked() {
+                                crate::web::install();
+                                ui.close_menu();
+                            }
+                        }
                         ui.separator();
                         if ui.button("Quit").clicked() {
                             out.push(Command::Quit);

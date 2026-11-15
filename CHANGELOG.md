@@ -2,6 +2,14 @@
 
 Release notes in full are on the [releases page](https://github.com/sirmmo/citysim/releases).
 
+## 0.2.73: The browser game installs as an app
+- **Install it:** at <https://ingmmo.com/citysim/play/> the game installs as an app, with its own icon and window. In Chrome and Edge use File > Install as an app… or the button in the address bar; on an iPhone or iPad, Share > Add to Home Screen.
+- **It plays offline.** The first visit over https keeps the whole game in the browser (about 21 MB); after that it starts without a network, installed or in a tab.
+- **Updates:** a new version downloads while you play and a notice in the corner offers to restart with it. Closing the game does the same.
+- The browser is asked not to clear the saves when the disk runs short.
+- Over plain `http://` nothing changes: no install, no offline play. Saves made there stay there (the two addresses have separate storage), and only the http page can join an `http://` region server on another machine.
+- For those who host the web build: it has five new files (`manifest.webmanifest`, `sw.js`, three icons) and must be served over https to install.
+
 ## 0.2.72: Turning turbines and rules for the vote
 - **Wind turbine blades turn**, faster in rough weather and not at all in a calm. With the weather off the map (View > Day and night, weather) they turn at an even pace.
 - **Rules decide when a town turns on its mayor:** a `[mayor]` table sets the approval line, the months under it, the smallest town that votes and the length of a term. The modern rules keep 30%, 12 months, 500 people and 4 years.

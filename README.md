@@ -38,7 +38,9 @@ install. Saves and regions stay in the browser's storage, exports download
 and region servers are joined over HTTP. `?demo&game-rules=glassbox&skin=modern`
 after the address stands for the command line (`--demo --game-rules glassbox
 --skin modern`; `?join=http://host:8077&player=ada&slot=0,0` joins a region
-server straight away). The `citysim-vX.Y.Z-web.zip` release file holds the
+server straight away). At <https://ingmmo.com/citysim/play/> it installs as an
+app and plays offline (see [PLAYING.md](docs/PLAYING.md#installing-it-as-an-app)).
+The `citysim-vX.Y.Z-web.zip` release file holds the
 same static files, to host yourself; `scripts/web.sh` builds them.
 
 Every push builds Linux (x86_64), macOS (Apple Silicon and Intel),

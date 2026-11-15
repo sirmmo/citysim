@@ -37,6 +37,34 @@ differences:
 - The ancient cultures have no buildings (their art is installed by the
   desktop game); the other skins are all there.
 
+### Installing it as an app
+
+Opened at <https://ingmmo.com/citysim/play/> (with the **s**), the game
+installs like an app: it gets its own icon and window, and it starts with or
+without a network.
+
+- **Chrome and Edge**, on a computer or on Android: File > Install as an
+  app…, or the install button in the address bar. The menu item is there only
+  while the browser offers it (a secure page, not installed yet).
+- **Safari on an iPhone or iPad:** Share > Add to Home Screen. **On a Mac:**
+  File > Add to Dock.
+- **Firefox** on Android: menu > Install. Firefox on a computer does not
+  install sites, but still keeps the game for playing offline.
+
+Things to know:
+
+- The first visit keeps the whole game (about 21 MB) in the browser. After
+  that it starts from there, also in an ordinary tab.
+- When a new version is out, the game downloads it while you play the old
+  one and then shows *A new version of citysim is ready* in the corner. Save,
+  then click it; or just close the game, and the next start uses the new one.
+- **Saves belong to the address.** The `http://` and the `https://` address
+  are two places to the browser, each with its own saves. Cities saved at one
+  do not show at the other.
+- **Region servers:** a page served over https may only reach `https://`
+  servers (and `http://localhost`). To join a plain `http://` server on
+  another machine, play at the `http://` address, which cannot be installed.
+
 ## Controls
 
 The interface is drawn at the screen's pixel density, so it keeps its

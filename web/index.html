@@ -4,7 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>citysim</title>
-<link rel="icon" href="data:,">
+<link rel="icon" href="icon-192.png">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-maskable-512.png">
+<meta name="theme-color" content="#10141c">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="citysim">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="description" content="citysim, a free 3D city simulation, playing in the browser.">
 <style>
   html, body { margin: 0; padding: 0; height: 100%; background: #10141c; overflow: hidden; }
@@ -15,11 +22,17 @@
   #status b { display: block; font-size: 32px; color: #fff; margin-bottom: 10px; }
   #status.hidden { display: none; }
   #status a { color: #8fb4ff; pointer-events: auto; }
+  #update { position: absolute; right: 12px; bottom: 12px; z-index: 2; display: none; padding: 10px 14px;
+    border: 1px solid #3b4a66; border-radius: 6px; background: #1b2333; color: #e6ebf5;
+    font: 14px/1.4 system-ui, sans-serif; cursor: pointer; text-align: left; }
+  #update.shown { display: block; }
+  #update small { display: block; color: #9fb0cc; }
 </style>
 </head>
 <body>
 <canvas id="glcanvas" tabindex="1"></canvas>
 <div id="status"><b>citysim</b><span id="status-text">Loading the game…</span></div>
+<button id="update" type="button">A new version of citysim is ready.<small>Save your city, then click here to restart with it.</small></button>
 <script src="mq_js_bundle.js"></script>
 <script src="citysim.js"></script>
 <script>
@@ -57,6 +70,37 @@
       for (var b in held) if (held[b] && !(e.buttons & bit[b])) release(Number(b), e);
     }, true);
   })();
+  // The installed app. A service worker keeps the game for playing offline;
+  // it needs a secure page (https, or localhost), so over plain http the
+  // game plays as before and cannot be installed.
+  if ("serviceWorker" in navigator && window.isSecureContext) {
+    window.addEventListener("load", function () {
+      navigator.serviceWorker.register("sw.js").then(function (registration) {
+        var offer = function (worker) {
+          // Only a build that replaces a running one is news.
+          if (!worker || !navigator.serviceWorker.controller) return;
+          var button = document.getElementById("update");
+          button.onclick = function () {
+            button.classList.remove("shown");
+            navigator.serviceWorker.addEventListener("controllerchange", function () { window.location.reload(); });
+            worker.postMessage("update");
+          };
+          button.classList.add("shown");
+        };
+        if (registration.waiting) offer(registration.waiting);
+        registration.addEventListener("updatefound", function () {
+          var worker = registration.installing;
+          if (!worker) return;
+          worker.addEventListener("statechange", function () {
+            if (worker.state === "installed") offer(worker);
+          });
+        });
+      }).catch(function (e) { console.warn("service worker:", e); });
+      // Saves live in local storage: ask the browser not to clear it when
+      // the disk runs short.
+      if (navigator.storage && navigator.storage.persist) { navigator.storage.persist().catch(function () {}); }
+    });
+  }
   if (!window.WebAssembly) {
     citysim_status("This browser has no WebAssembly. The desktop version is at https://github.com/sirmmo/citysim/releases.");
   } else {

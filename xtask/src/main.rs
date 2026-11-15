@@ -198,7 +198,7 @@ fn web_dist(out: &Path) -> Result<()> {
     let wasm = std::env::var_os("CITYSIM_WASM").map_or_else(|| target.join("wasm32-unknown-unknown/release/opencity.wasm"), PathBuf::from);
     fs::copy(&wasm, out.join("opencity.wasm"))
         .with_context(|| format!("copying {} (build it: cargo build --release --target wasm32-unknown-unknown -p opencity)", wasm.display()))?;
-    for f in ["index.html", "citysim.js", "mq_js_bundle.js"] {
+    for f in ["index.html", "citysim.js", "mq_js_bundle.js", "manifest.webmanifest", "sw.js", "icon-192.png", "icon-512.png", "icon-maskable-512.png"] {
         fs::copy(root.join("web").join(f), out.join(f)).with_context(|| format!("copying web/{f}"))?;
     }
     // Each build loads its own game code, whatever the browser kept (the
@@ -210,6 +210,21 @@ fn web_dist(out: &Path) -> Result<()> {
         bail!("web/index.html no longer loads opencity.wasm the way web-dist stamps it");
     }
     fs::write(out.join("index.html"), page.replace("load(\"opencity.wasm\")", &format!("load(\"opencity.wasm?v={build}\")")))?;
+    // The service worker keeps exactly this build: a new stamp makes the
+    // browser fetch the new one. It asks for the two big files by the
+    // addresses the page and the game use (`web.rs` stamps the pack with
+    // the commit when there is one).
+    let worker = fs::read_to_string(out.join("sw.js"))?;
+    let stamps = ["var BUILD = \"dev\";", "var WASM = \"opencity.wasm\";", "var PACK = \"assets.pack\";"];
+    if let Some(missing) = stamps.iter().find(|s| !worker.contains(**s)) {
+        bail!("web/sw.js no longer has the line web-dist stamps: {missing}");
+    }
+    let pack = std::env::var("GITHUB_SHA").map_or_else(|_| "assets.pack".to_string(), |sha| format!("assets.pack?v={sha}"));
+    let worker = worker
+        .replace(stamps[0], &format!("var BUILD = \"{build}\";"))
+        .replace(stamps[1], &format!("var WASM = \"opencity.wasm?v={build}\";"))
+        .replace(stamps[2], &format!("var PACK = \"{pack}\";"));
+    fs::write(out.join("sw.js"), worker)?;
     let assets = root.join("assets");
     let mut files = Vec::new();
     walk(&assets, &assets, &mut files)?;
