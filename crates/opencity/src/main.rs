@@ -591,7 +591,10 @@ impl Game {
         }
         let left = self.holding_months().map_or(0, |(run, allowed)| allowed.saturating_sub(run));
         self.message = Some((
-            format!("{} {name}{army} (OpenTactics day {day}): {left} months to run. Report to OpenTactics when you like.", if welcome { "Welcome back to" } else { "Founded" }),
+            format!(
+                "{} {name}{army} (OpenTactics day {day}): {left} months to run. Report to OpenTactics when you like.",
+                if welcome { "Welcome back to" } else { "Founded" }
+            ),
             get_time() + 10.0,
         ));
     }
@@ -680,7 +683,6 @@ impl Game {
                 _ => false,
             }
     }
-
 
     /// Whether a pack forbids this command (other cities, skins, cheats…).
     #[cfg(not(target_os = "android"))]
