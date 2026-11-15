@@ -23,6 +23,7 @@ pub mod series;
 pub mod sim;
 pub mod terrain;
 pub mod traffic;
+pub mod transit;
 
 pub use city::{City, CityMeta, Date, GeoRef, Record, Speed, TileInfo, ToolError, ToolOutcome};
 pub use codes::{Direction, GraphicCode, RoadKind, Sound, StructureCode, StructureType, Tool};

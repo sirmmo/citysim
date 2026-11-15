@@ -823,7 +823,7 @@ impl City {
         Ok(loan)
     }
 
-    fn book(&mut self, line: &str, amount: f64) {
+    pub(crate) fn book(&mut self, line: &str, amount: f64) {
         if amount != 0.0 {
             *self.ledger.entry(line.to_string()).or_default() += amount;
         }
@@ -1009,12 +1009,16 @@ impl City {
         } else {
             crate::rail::Railways::buses(&self.layer, &self.terrain, &self.footprints)
         };
-        let pairs = lines.connections();
-        if pairs.is_empty() || running >= lines.stations.len() {
+        // Routes the player drew: their vehicles, from stop to next stop.
+        let mode = if id == "tram" { crate::transit::Mode::Tram } else { crate::transit::Mode::Bus };
+        let (pairs, most) = match self.transit().filter(|t| t.manual) {
+            Some(t) => t.legs(mode, &lines),
+            None => (lines.connections().into_iter().map(|(a, b)| (lines.stations[a].platform, lines.stations[b].platform)).collect(), lines.stations.len()),
+        };
+        if pairs.is_empty() || running >= most {
             return;
         }
-        let (a, b) = pairs[self.rng.gen_range(0..pairs.len())];
-        let (from, to) = (lines.stations[a].platform, lines.stations[b].platform);
+        let (from, to) = pairs[self.rng.gen_range(0..pairs.len())];
         let ways = if id == "tram" { Ways::of([crate::RoadKind::Tram]) } else { def.ways() };
         if let Some(path) = find_route(&self.layer, &self.terrain, from, to, crate::traffic::PathCost::Distance, &ways, def.top_speed()) {
             if path.len() > 1 {
@@ -1211,6 +1215,7 @@ impl City {
         self.mafia_month();
         self.close_month();
         self.check_goals();
+        self.transit_month();
         self.mayor_month();
         if self.date.month > 12 {
             self.date.month = 1;

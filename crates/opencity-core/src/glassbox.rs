@@ -249,6 +249,9 @@ pub struct GlassBox {
     /// Share of the workers with no job to go to, averaged over some days.
     #[serde(default)]
     pub jobless: f32,
+    /// Bus, tram and metro routes the player draws (opt-in).
+    #[serde(default, skip_serializing_if = "crate::transit::Transit::is_default")]
+    pub transit: crate::transit::Transit,
     /// The layers read off the land have been filled since loading.
     #[serde(skip)]
     ground_read: bool,
@@ -485,6 +488,7 @@ impl GlassBox {
             hour: None,
             sky: None,
             ground_read: false,
+            transit: Default::default(),
             approval: None,
             homeless: 0.0,
             housing: None,
@@ -1452,6 +1456,11 @@ impl GlassBox {
             }
         }
         let lines = [(&rail, RoadKind::Rail.speed()), (&water, WATER_SPEED), (&tram, TRAM_SPEED), (&bus, BUS_SPEED), (&metro, METRO_SPEED)];
+        // Routes the player draws: stops are joined by them alone, and the
+        // wait and the ride are the routes' (see `transit`).
+        use crate::transit::Mode;
+        let tables = [None, None, self.transit.table(Mode::Tram, &tram), self.transit.table(Mode::Bus, &bus), self.transit.table(Mode::Metro, &metro)];
+        let mut boarded: BTreeMap<(u32, u32), f32> = BTreeMap::new();
         let fastest = fastest.max(0.1);
         // Congestion: road capacity per cell, last ticks' traffic, and this
         // tick's load from the trips made by road.
@@ -1517,9 +1526,16 @@ impl GlassBox {
             });
             for (k, (net_lines, _)) in lines.iter().enumerate() {
                 let mut root_of_line: HashMap<u32, u32> = HashMap::new();
-                for (st, c) in net_lines.stations.iter().zip(&station_comp[k]) {
+                for (si, (st, c)) in net_lines.stations.iter().zip(&station_comp[k]).enumerate() {
                     let Some(c) = *c else { continue };
-                    let r = *root_of_line.entry(st.line).or_insert(c);
+                    let line = match &tables[k] {
+                        Some(t) => match t.group[si] {
+                            Some(g) => g,
+                            None => continue,
+                        },
+                        None => st.line,
+                    };
+                    let r = *root_of_line.entry(line).or_insert(c);
                     let (ra, rb) = (find_root(&merged, r), find_root(&merged, c));
                     if ra != rb {
                         merged.insert(rb, ra);
@@ -1578,12 +1594,15 @@ impl GlassBox {
                 for (k, (net_lines, speed)) in lines.iter().enumerate() {
                     if let (true, Some((sa, wa)), Some((sb, wb))) = (carried[k], a.4[k], b.4[k]) {
                         let (x, y) = (&net_lines.stations[sa], &net_lines.stations[sb]);
-                        if sa != sb && x.line == y.line {
+                        if sa != sb && tables[k].as_ref().map_or(x.line == y.line, |t| t.time(sa, sb).is_finite()) {
                             let ride = x.platform.0.abs_diff(y.platform.0) + x.platform.1.abs_diff(y.platform.1);
                             let walk = (wa + wb) as f32 / a.2.min(b.2).min(top).min(1.0);
                             // Buses are held up by part of the traffic.
                             let slow = if k == 3 { 1.0 + (delay(x.platform, y.platform) - 1.0) * BUS_CONGESTION } else { 1.0 };
-                            let t = STATION_TIME + walk + ride as f32 / speed * slow;
+                            let t = match &tables[k] {
+                                Some(t) => walk + t.time(sa, sb) * slow,
+                                None => STATION_TIME + walk + ride as f32 / speed * slow,
+                            };
                             if t < best.0 {
                                 best = (t, LINE + k);
                             }
@@ -1695,6 +1714,14 @@ impl GlassBox {
                                                     load[c] += take * weight;
                                                     load_now[c] += take * weight * (out + back);
                                                 });
+                                            }
+                                            // Who rode a route the player drew, by stop.
+                                            if let Some(k) = how.checked_sub(LINE).filter(|k| tables[*k].is_some()) {
+                                                for u in [s, i] {
+                                                    if let Some((st, _)) = acc[u].and_then(|a| a.4[k]) {
+                                                        *boarded.entry(lines[k].0.stations[st].origin).or_default() += take;
+                                                    }
+                                                }
                                             }
                                             let road = if how == HIGHWAY { 1.0 } else { weight };
                                             trips.push(Trip { resource: a, from: sp, to: p, amount: take, out, back, road });
@@ -1992,6 +2019,9 @@ impl GlassBox {
         // The network view: links fade unless used again.
         for v in self.flows.values_mut() {
             *v *= 1.0 - FLOW_SMOOTHING;
+        }
+        if self.transit.manual {
+            self.transit.count_riders(boarded);
         }
         for (k, v) in tick_flows {
             *self.flows.entry(k).or_default() += v * FLOW_SMOOTHING;

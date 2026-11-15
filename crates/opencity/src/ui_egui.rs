@@ -86,6 +86,8 @@ pub enum Command {
     SetTerms(bool),
     /// Make the campaign promise at this place in the offers.
     Promise(usize),
+    /// A change to the transit routes the player draws.
+    Route(crate::routesui::RouteCmd),
     /// Voted out: back in office after a campaign, or (true) for life.
     StayInOffice(bool),
     /// Switch disasters by chance on or off.
@@ -167,6 +169,7 @@ pub struct EguiUi {
     show_region: bool,
     show_budget: bool,
     show_news: bool,
+    pub routes: crate::routesui::RoutesUi,
     show_election: bool,
     show_goals: bool,
     day_night: bool,
@@ -389,6 +392,7 @@ impl EguiUi {
             show_region: false,
             show_budget: false,
             show_news: false,
+            routes: Default::default(),
             show_election: false,
             show_goals: false,
             day_night: true,
@@ -497,6 +501,10 @@ impl EguiUi {
         self.show_election = true;
     }
 
+    pub fn open_routes(&mut self) {
+        self.routes.open = true;
+    }
+
     pub fn open_news(&mut self) {
         self.show_news = true;
     }
@@ -553,6 +561,9 @@ impl EguiUi {
         }
         if self.show_news {
             crate::news::window(ctx, &mut self.show_news, view.city, &mut out);
+        }
+        if self.routes.open {
+            self.routes.window(ctx, view.city, &mut out);
         }
         if self.show_budget {
             crate::budget::window(ctx, &mut self.show_budget, view.city, &mut out);
@@ -719,6 +730,17 @@ impl EguiUi {
                         .changed()
                     {
                         out.push(Command::SetElections(elections));
+                    }
+                    if let Some(transit) = view.city.transit() {
+                        let mut manual = transit.manual;
+                        if ui
+                            .checkbox(&mut manual, "Draw bus, tram and metro routes yourself")
+                            .on_hover_text("People then ride only where your routes go, and you pay for the vehicles. The Routes window opens; the city's own routes are written down as a start")
+                            .changed()
+                        {
+                            out.push(Command::Route(crate::routesui::RouteCmd::Manual(manual)));
+                            self.routes.open = manual;
+                        }
                     }
                     let mut terms = view.city.mayor.terms;
                     if ui
@@ -1068,6 +1090,9 @@ impl EguiUi {
                     let news = if n > 0 { format!("📰 News ({n})") } else { "📰 News".to_string() };
                     if ui.button(news).on_hover_text("What needs you now, and the news so far").clicked() {
                         self.show_news = !self.show_news;
+                    }
+                    if view.city.manual_routes() && ui.button("Routes").on_hover_text("The bus, tram and metro routes you draw").clicked() {
+                        self.routes.open = !self.routes.open;
                     }
                     if let Some(years) = view.city.years_to_election() {
                         if ui.button(format!("✔ Election ({years}y)")).on_hover_text("The next election, how it would go today, and your promises").clicked()

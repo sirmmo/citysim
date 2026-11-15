@@ -2,6 +2,15 @@
 
 Release notes in full are on the [releases page](https://github.com/sirmmo/citysim/releases).
 
+## 0.2.74: Draw the routes yourself
+- **An opt-in mode for those who like to run the buses:** View > Draw bus, tram and metro routes yourself. People then ride only between stops that a route joins; without it everything works as before.
+- **The Routes window:** start a bus, tram or metro route, click its stops on the map in order, and give it vehicles. More vehicles are a shorter wait and a bigger bill ($15 a bus, $25 a tram, $50 a metro train each month).
+- **People change** between routes at a stop they share, and wait again.
+- **Each route shows its wait and its riders**, so you can see which ones earn their vehicles. Routes can be circular.
+- **Nothing breaks when you switch it on:** the city's own routes are written down first, and *Fill the gaps* adds routes for stops that have none.
+- Routes are drawn on the map in their colours while the window is open; buses and trams on the map follow them.
+- For agents: the MCP tool `routes` does the same.
+
 ## 0.2.73: The browser game installs as an app
 - **Install it:** at <https://ingmmo.com/citysim/play/> the game installs as an app, with its own icon and window. In Chrome and Edge use File > Install as an app… or the button in the address bar; on an iPhone or iPad, Share > Add to Home Screen.
 - **It plays offline.** The first visit over https keeps the whole game in the browser (about 21 MB); after that it starts without a network, installed or in a tab.

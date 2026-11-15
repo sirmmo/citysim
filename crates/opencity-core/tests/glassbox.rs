@@ -630,6 +630,50 @@ fn trams_and_buses_carry_people_farther() {
 }
 
 #[test]
+fn routes_the_player_draws_carry_people() {
+    let r = rules();
+    let workers = r.resource("workers").unwrap();
+    // The two towns of the test above, with a bus stop each.
+    let build = |route: bool| {
+        let mut c = City::new(Terrain::flat(64, 24), None, Footprints::builtin(), 5);
+        c.fund = 10_000_000;
+        c.use_rules(r.clone());
+        c.research_all();
+        for (w1, w2, zone) in [(2, 12, Tool::ZoneResidential), (44, 58, Tool::ZoneIndustrial)] {
+            c.apply_tool(Tool::Road, (w1, 8), (w2, 8)).unwrap();
+            c.apply_tool(Tool::Road, (w1, 8), (w1, 12)).unwrap();
+            c.apply_tool(zone, (w1 + 1, 9), (w2, 11)).unwrap();
+            c.apply_tool(Tool::CoalPlant, (w1 + 2, 5), (w1 + 2, 5)).unwrap();
+        }
+        c.apply_tool(Tool::Road, (2, 12), (58, 12)).unwrap();
+        c.apply_tool(Tool::BusStop, (11, 13), (11, 13)).unwrap();
+        c.apply_tool(Tool::BusStop, (45, 13), (45, 13)).unwrap();
+        // The player takes over: the city's own route is written down.
+        c.set_manual_routes(true).unwrap();
+        assert_eq!(c.transit().unwrap().routes.len(), 1);
+        if !route {
+            let id = c.transit().unwrap().routes[0].id;
+            c.delete_route(id).unwrap();
+        }
+        let (mut busiest, mut riders) = (0f32, 0f32);
+        for _ in 0..400 {
+            c.simulate_round();
+            let gb = c.glassbox.as_ref().unwrap();
+            busiest = busiest.max(gb.flows.iter().filter(|(l, _)| l.resource == workers && (l.from.0 < 30) != (l.to.0 < 30)).map(|(_, v)| *v).sum());
+            riders = riders.max(c.routes().first().map_or(0.0, |(_, i)| i.riders));
+        }
+        (c, busiest, riders)
+    };
+    let (with, crossing, riders) = build(true);
+    assert!(crossing > 0.0, "the route carries people to work");
+    assert!(riders > 0.0, "and counts them");
+    assert!(with.vehicles.iter().any(|v| v.line.as_deref() == Some("bus")), "its buses run");
+    let (without, crossing, _) = build(false);
+    assert_eq!(crossing, 0.0, "two stops and no route: nobody rides");
+    assert!(without.vehicles.iter().all(|v| v.line.as_deref() != Some("bus")), "and no bus runs");
+}
+
+#[test]
 fn services_cover_what_they_can_drive_to_and_send_vehicles() {
     let r = rules();
     let mut c = City::new(Terrain::flat(48, 32), None, Footprints::builtin(), 3);

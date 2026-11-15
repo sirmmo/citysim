@@ -26,6 +26,8 @@ mod render;
 mod research;
 mod roads;
 #[cfg(not(target_os = "android"))]
+mod routesui;
+#[cfg(not(target_os = "android"))]
 mod rulesedit;
 mod ui;
 #[cfg(not(target_os = "android"))]
@@ -130,6 +132,9 @@ struct Args {
     /// Open the news window (screenshots, docs).
     #[arg(long, hide = true)]
     show_news: bool,
+    /// Open the routes window on the first route (screenshots, docs).
+    #[arg(long, hide = true)]
+    show_routes: bool,
     /// Open the election window (screenshots, docs).
     #[arg(long, hide = true)]
     show_election: bool,
@@ -461,6 +466,10 @@ struct Game {
     last_mouse: Vec2,
     resume_speed: Speed,
     hover: Option<(u32, u32)>,
+    /// The drawn routes' ways over the map, and what they were made from
+    /// (the routes' edit count and the second).
+    #[cfg(not(target_os = "android"))]
+    route_ways: ((u32, u64), Vec<render::RouteWay>),
     /// The GlassBox resource network on the map.
     flow_view: flows::FlowView,
     /// The underground view (pipes), switched on by hand (B); water tools
@@ -1054,6 +1063,47 @@ impl Game {
                 };
                 self.say(said.unwrap_or_else(|e| e));
             }
+            #[cfg(not(target_os = "android"))]
+            Command::Route(cmd) => {
+                use routesui::RouteCmd;
+                let done = match cmd {
+                    RouteCmd::Manual(on) => self.city.set_manual_routes(on).map(|_| {
+                        Some(if on {
+                            format!(
+                                "You draw the routes now ({} written down). People ride only where they go.",
+                                self.city.transit().map_or(0, |t| t.routes.len())
+                            )
+                        } else {
+                            "The city runs buses, trams and metro by itself again.".to_string()
+                        })
+                    }),
+                    RouteCmd::Add(mode) => self.city.add_route(mode).map(|id| {
+                        if let Some(ui) = self.egui.as_mut() {
+                            ui.routes.selected = Some(id);
+                            ui.routes.adding = true;
+                        }
+                        Some("New route: click its stops on the map, in order.".to_string())
+                    }),
+                    RouteCmd::Delete(id) => self.city.delete_route(id).map(|_| None),
+                    RouteCmd::AddStop(id, tile) => self.city.route_add_stop(id, tile).map(|_| {
+                        let n = self.city.transit().and_then(|t| t.route(id)).map_or(0, |r| r.stops.len());
+                        Some(format!("Stop {n} added."))
+                    }),
+                    RouteCmd::RemoveStop(id, i) => self.city.route_remove_stop(id, i).map(|_| None),
+                    RouteCmd::Vehicles(id, n) => self.city.set_route_vehicles(id, n).map(|_| None),
+                    RouteCmd::Circular(id, on) => self.city.set_route_circular(id, on).map(|_| None),
+                    RouteCmd::Rename(id, name) => self.city.rename_route(id, &name).map(|_| None),
+                    RouteCmd::Draw => Ok(Some(match self.city.draw_routes() {
+                        0 => "Every network with two stops or more has a route already.".to_string(),
+                        n => format!("{n} routes added."),
+                    })),
+                };
+                match done {
+                    Ok(Some(said)) => self.say(said),
+                    Ok(None) => {}
+                    Err(e) => self.say(format!("Routes: {e}.")),
+                }
+            }
             Command::StayInOffice(for_life) => {
                 self.city.stay_in_office(for_life);
                 self.say(if for_life { "Mayor for life. Nobody votes here any more." } else { "Back in office, at 50% approval. The council is watching." });
@@ -1333,7 +1383,17 @@ impl Game {
         let t = phase(1, t);
 
         // Map interaction.
-        if !ui_mouse && is_mouse_button_pressed(MouseButton::Left) {
+        // Adding stops to a route takes the click from the tool in hand.
+        #[cfg(not(target_os = "android"))]
+        let picking = self.egui.as_ref().and_then(|ui| ui.routes.picking());
+        #[cfg(target_os = "android")]
+        let picking: Option<u32> = None;
+        if let (Some(id), Some(tile), true) = (picking, hover, !ui_mouse && is_mouse_button_pressed(MouseButton::Left)) {
+            #[cfg(not(target_os = "android"))]
+            self.run_command(ui_egui::Command::Route(routesui::RouteCmd::AddStop(id, tile)));
+            #[cfg(target_os = "android")]
+            let _ = (id, tile);
+        } else if !ui_mouse && is_mouse_button_pressed(MouseButton::Left) {
             match self.active {
                 Some(Action::Query) => self.query = hover.map(|h| (mouse, h)),
                 Some(Action::Tool(Some(_))) => self.drag_start = hover,
@@ -1386,6 +1446,17 @@ impl Game {
             render::draw_afflictions(&self.city, &cam, get_time(), [&t[0], &t[1], &t[2], &smoke]);
         }
         render::draw_sensors(&self.city);
+        #[cfg(not(target_os = "android"))]
+        if let Some(ui) = self.egui.as_ref().filter(|ui| ui.routes.open && self.city.manual_routes()) {
+            // The ways are looked up again when the routes change, and
+            // every second for streets built or pulled down meanwhile.
+            let stamp = (self.city.transit().map_or(0, |t| t.rev), (get_time() as u64));
+            if self.route_ways.0 != stamp {
+                let ids: Vec<u32> = self.city.transit().map(|t| t.routes.iter().map(|r| r.id).collect()).unwrap_or_default();
+                self.route_ways = (stamp, ids.into_iter().map(|id| (id, self.city.route_path(id))).collect());
+            }
+            render::draw_routes(&self.city, &self.route_ways.1, ui.routes.selected, ui.routes.picking().is_some().then_some(hover).flatten());
+        }
         if let (true, Some((rain, amount))) = (self.day_night, self.renderer.atmosphere.precipitation) {
             render::draw_precipitation(self.camera.target, get_time(), rain, amount);
         }
@@ -1551,6 +1622,8 @@ async fn main() -> Result<()> {
         last_mouse: mouse_position().into(),
         resume_speed: Speed::Normal,
         hover: None,
+        #[cfg(not(target_os = "android"))]
+        route_ways: Default::default(),
         flow_view: Default::default(),
         underground: false,
         flow_arcs: Vec::new(),
@@ -1587,6 +1660,15 @@ async fn main() -> Result<()> {
     #[cfg(not(target_os = "android"))]
     if let (true, Some(ui)) = (s.args.show_news, game.egui.as_mut()) {
         ui.open_news();
+    }
+    #[cfg(not(target_os = "android"))]
+    if s.args.show_routes {
+        let _ = game.city.set_manual_routes(true);
+        let first = game.city.transit().and_then(|t| t.routes.first()).map(|r| r.id);
+        if let Some(ui) = game.egui.as_mut() {
+            ui.open_routes();
+            ui.routes.selected = first;
+        }
     }
     #[cfg(not(target_os = "android"))]
     if let (true, Some(ui)) = (s.args.show_election, game.egui.as_mut()) {

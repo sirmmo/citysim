@@ -154,6 +154,8 @@ interface** makes it Large or Huge on top of that, and `--ui-scale 1.5`
     the stops on the map.
 
   ![A tram stop beside a tram street](transit.png)
+  - To decide where they go yourself, see
+    [Drawing the routes yourself](#drawing-the-routes-yourself).
 - **Plants and services** (power plants, fire stations, police, hospitals, schools, wells…):
   - **Placing:** a new one turns to face the street beside it, and the preview shows the footprint it will take.
   - **Turning:** inspect it and press **⟳ Turn**, or **O**. Long buildings swap their footprint when turned.
@@ -699,6 +701,51 @@ nothing here applies.
 - The vote of no confidence still applies between elections.
 
 The MCP server's `mayor` tool takes `terms` and `promise`.
+
+## Drawing the routes yourself
+
+Left alone, the city runs buses, trams and metro trains between all the
+stops by itself, for free. **View > Draw bus, tram and metro routes
+yourself** hands them to you (GlassBox rules; off unless you tick it). From
+then on:
+
+- **People ride only where a route goes.** Two stops with no route between
+  them are not linked, however near. A stop can be on several routes of its
+  kind; people change there and wait a second time.
+- **Each route has its vehicles**, 0 to 20. More vehicles are a shorter
+  wait; a long route needs more of them for the same wait. Each costs money
+  every month ($15 a bus, $25 a tram, $50 a metro train; the *Transit
+  vehicles* line of the budget).
+- **Nothing stops on the day you tick the box:** the city's own routes are
+  written down first, one for each street network, tram line and tunnel with
+  two stops or more, with about the wait they had. Change them from there.
+
+The **Routes** window (the Routes button on the right) lists them:
+
+![The Routes window](routes.png)
+
+- **+ Bus route**, **+ Tram route**, **+ Metro route** start a route. Then
+  click its stops on the map in the order they are served; the stop under
+  the mouse lights up white. Click *Adding stops* again when done. A stop
+  must be joined to the one before it by a street (buses), a tram street or
+  a tunnel.
+- Pick a route in the list to change it: its name, its vehicles (− and +),
+  **Circular** (round and round instead of there and back, with three stops
+  or more), and its stops (**x** takes one off, **Show** goes there).
+- The list shows each route's **wait** (the time to board, in street tiles:
+  routes that run themselves take 3) and its **riders** (people getting on
+  or off at its stops each tick). A route with few riders and many vehicles
+  is money to save; a busy one with a long wait wants more.
+- **Fill the gaps** adds a route wherever stops have none.
+- While the window is open the routes are drawn on the map in their
+  colours, along the streets they take, with a post on each stop of the
+  picked route.
+- A stop that is pulled down leaves its routes at the end of the month.
+  Stops in orange in the list are gone or not joined to the next one.
+
+Unticking the box gives the routes back to the city; yours are kept for
+later. Region borders are not part of this: lines that cross a border carry
+commuters as before.
 
 ## News and advice
 

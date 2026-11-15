@@ -1056,6 +1056,56 @@ pub fn draw_crossings(city: &opencity_core::City, gates: &[(opencity_core::regio
     }
 }
 
+/// One route's way over the map: its id and the tiles of each leg.
+pub type RouteWay = (u32, Vec<Vec<(u32, u32)>>);
+
+/// The routes the player drew, each in its colour along its streets, tram
+/// line or tunnels (a band above the ground), with a post at every stop of
+/// the selected one. Routes sharing a street lie side by side. While stops
+/// are being added, the stop under the mouse lights up.
+pub fn draw_routes(city: &opencity_core::City, ways: &[RouteWay], selected: Option<u32>, hover: Option<(u32, u32)>) {
+    let Some(transit) = city.transit() else { return };
+    let centre = |(w, l): (u32, u32)| (w as f32 + 0.5, l as f32 + 0.5);
+    for (n, (id, legs)) in ways.iter().enumerate() {
+        let [r, g, b] = crate::routesui::colour(*id);
+        let on = selected.is_none() || selected == Some(*id);
+        let colour = Color::from_rgba(r, g, b, if on { 255 } else { 110 });
+        let (thick, lift) = (if selected == Some(*id) { 0.16 } else { 0.09 }, 0.30 + 0.05 * (n % 4) as f32);
+        // Side by side: each route a little off the middle of the street.
+        let off = ((n % 5) as f32 - 2.0) * 0.12;
+        for leg in legs {
+            for pair in leg.windows(2) {
+                let ((x1, z1), (x2, z2)) = (centre(pair[0]), centre(pair[1]));
+                let (mx, mz) = ((x1 + x2) / 2.0, (z1 + z2) / 2.0);
+                let along_x = (x1 - x2).abs() > 0.5;
+                let size = if along_x { vec3(1.0 + thick, 0.05, thick) } else { vec3(thick, 0.05, 1.0 + thick) };
+                let (ox, oz) = if along_x { (0.0, off) } else { (off, 0.0) };
+                let y = height_at(&city.terrain, x1, z1).max(height_at(&city.terrain, x2, z2)).max(0.0) + lift;
+                draw_cube(vec3(mx + ox, y, mz + oz), size, None, colour);
+            }
+        }
+    }
+    let post = |stop: (u32, u32), colour: Color, tall: f32| {
+        let size = city.layer.structure_at(stop.0, stop.1).map_or((1, 1), |s| s.size(city.footprints()));
+        let (x, z) = (stop.0 as f32 + size.0 as f32 / 2.0, stop.1 as f32 + size.1 as f32 / 2.0);
+        let ground = height_at(&city.terrain, x, z).max(0.0);
+        draw_cube(vec3(x, ground + tall / 2.0, z), vec3(0.08, tall, 0.08), None, colour);
+        draw_cube(vec3(x, ground + tall, z), vec3(0.34, 0.34, 0.34), None, colour);
+    };
+    if let Some(route) = selected.and_then(|id| transit.route(id)) {
+        let [r, g, b] = crate::routesui::colour(route.id);
+        for stop in &route.stops {
+            post(*stop, Color::from_rgba(r, g, b, 255), 1.6);
+        }
+        // What a click would add.
+        if let Some(origin) =
+            hover.and_then(|h| city.layer.origin_of(h.0, h.1)).filter(|o| city.layer.structure_at(o.0, o.1).is_some_and(|s| s.code == route.mode.stop()))
+        {
+            post(origin, WHITE, 2.0);
+        }
+    }
+}
+
 /// Sensors left on the map: a mast at a corner of the tile with a blue
 /// head, tall enough to show beside a house.
 pub fn draw_sensors(city: &opencity_core::City) {

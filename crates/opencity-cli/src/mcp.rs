@@ -350,6 +350,61 @@ impl Server {
                     "news": city.news.iter().map(|n| json!({ "date": n.date.to_string(), "text": n.text })).collect::<Vec<_>>(),
                 }))
             }
+            "routes" => {
+                use opencity_core::transit::Mode;
+                let city = self.city()?;
+                let err = |e: String| anyhow::anyhow!(e);
+                let id = a.get("route").and_then(Value::as_u64).map(|i| i as u32);
+                let need = || id.context("`route`: the id of the route");
+                if let Some(on) = a.get("manual").and_then(Value::as_bool) {
+                    city.set_manual_routes(on).map_err(err)?;
+                }
+                if a.get("fill").and_then(Value::as_bool) == Some(true) {
+                    city.draw_routes();
+                }
+                let mut added = None;
+                if let Some(mode) = a.get("add").and_then(Value::as_str) {
+                    let mode = Mode::parse(mode).context("add: `bus`, `tram` or `metro`")?;
+                    added = Some(city.add_route(mode).map_err(err)?);
+                }
+                let id = added.or(id);
+                let need = || added.map_or_else(need, Ok);
+                if let Some(stops) = a.get("stops").and_then(Value::as_array) {
+                    for s in stops {
+                        let at = s
+                            .as_array()
+                            .and_then(|p| Some((p.first()?.as_u64()? as u32, p.get(1)?.as_u64()? as u32)))
+                            .context("stops: a list of [w, l] tiles")?;
+                        city.route_add_stop(need()?, at).map_err(err)?;
+                    }
+                }
+                if let Some(i) = a.get("remove_stop").and_then(Value::as_u64) {
+                    city.route_remove_stop(need()?, i as usize).map_err(err)?;
+                }
+                if let Some(n) = a.get("vehicles").and_then(Value::as_u64) {
+                    city.set_route_vehicles(need()?, n as u32).map_err(err)?;
+                }
+                if let Some(on) = a.get("circular").and_then(Value::as_bool) {
+                    city.set_route_circular(need()?, on).map_err(err)?;
+                }
+                if let Some(name) = a.get("name").and_then(Value::as_str) {
+                    city.rename_route(need()?, name).map_err(err)?;
+                }
+                if a.get("delete").and_then(Value::as_bool) == Some(true) {
+                    city.delete_route(need()?).map_err(err)?;
+                }
+                let _ = id;
+                let t = city.transit().context("routes need GlassBox rules")?;
+                Ok(json!({
+                    "manual": t.manual,
+                    "monthly_cost": t.cost(),
+                    "routes": city.routes().into_iter().map(|(r, i)| json!({
+                        "id": r.id, "name": r.name, "mode": r.mode.id(), "stops": r.stops, "vehicles": r.vehicles, "circular": r.circular,
+                        "round_trip_tiles": i.round_trip, "wait": i.wait, "riders_per_tick": i.riders, "monthly_cost": i.cost,
+                        "stops_gone": i.missing, "legs_not_joined_after_stop": i.broken,
+                    })).collect::<Vec<_>>(),
+                }))
+            }
             "mayor" => {
                 let city = self.city()?;
                 if let Some(on) = a.get("elections").and_then(Value::as_bool) {
@@ -589,6 +644,11 @@ fn tools() -> Value {
         tool("news", "What needs the mayor now (`advice`: shortages, joblessness, the homeless, complaints, debt, a coming vote; some with the tile where it is worst), what residents complain about where they live (`complaints`: share of residents and the approval points each costs), and the city's news so far, oldest first.", json!({}), &[]),
         tool("mayor", "The mayor's approval rating (0..1): the points out of 100 that make it (needs met, debt, people leaving, disasters, the family), where it is heading, and the vote. Under `voted_out_below` for 12 months in a row, a city of `voters_needed` people or more votes the mayor out: time then stands still and tools are refused until `stay` is `again` (a new term from 50%) or `for_life` (no more votes). `elections` switches the votes on or off. `terms` switches terms of office on or off (opt-in): an election every four years, won with half the vote, which is approval in percent plus 6 for each promise kept and less 10 for each broken; `promise` makes the campaign promise at that index of `promise_offers` (first year of a term, two at most).", json!({
             "elections": { "type": "boolean" }, "terms": { "type": "boolean" }, "promise": { "type": "integer" }, "stay": { "type": "string", "enum": ["again", "for_life"] }
+        }), &[]),
+        tool("routes", "Bus, tram and metro routes drawn by hand (opt-in). Left alone, every stop reaches every other stop on its street network, tram line or tunnel, for free. `manual: true` hands the routes over: people then ride only between stops a route joins (changing at shared stops costs a second wait), and each vehicle costs money every month; the first time, the city's own routes are written down. `add` (`bus`, `tram`, `metro`) makes a route and the other fields apply to it; otherwise name one with `route`. `stops` appends stop buildings by any tile they stand on, in the order served; `remove_stop` takes the stop at that index off; `vehicles` (0 to 20) sets how many run: more are a shorter `wait` (in street tiles of time); `circular` runs it round instead of there and back; `fill` adds routes for networks that have none; `delete` removes the route. Without arguments it lists the routes with their wait, riders and cost.", json!({
+            "manual": { "type": "boolean" }, "fill": { "type": "boolean" }, "add": { "type": "string", "enum": ["bus", "tram", "metro"] }, "route": { "type": "integer" },
+            "stops": { "type": "array", "items": { "type": "array", "items": { "type": "integer" }, "minItems": 2, "maxItems": 2 } }, "remove_stop": { "type": "integer" },
+            "vehicles": { "type": "integer", "minimum": 0, "maximum": 20 }, "circular": { "type": "boolean" }, "name": { "type": "string" }, "delete": { "type": "boolean" }
         }), &[]),
         tool("cheat", "Type a cheat code, as in SimCity 3000's cheat box. Some of them have consequences.", json!({ "code": { "type": "string" } }), &["code"]),
         tool("render_map", "Write a top-down PNG of the city.", json!({ "path": path, "scale": { "type": "integer", "minimum": 1, "maximum": 32, "default": 8 } }), &["path"]),
