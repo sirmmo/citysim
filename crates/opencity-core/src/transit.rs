@@ -149,6 +149,60 @@ pub struct RouteInfo {
     pub cost: i64,
 }
 
+/// A route as its vehicles run it on today's map, for timetables and data
+/// exports (see [`City::services`]).
+#[derive(Clone, Debug, PartialEq)]
+pub struct Service {
+    pub id: u32,
+    pub name: String,
+    pub mode: Mode,
+    pub vehicles: u32,
+    /// Round and round: after the last stop comes the first.
+    pub ring: bool,
+    /// The stops served, in order: the stop building's origin tile and the
+    /// tile its vehicles halt on.
+    pub stops: Vec<((u32, u32), (u32, u32))>,
+    /// The tiles driven from each stop to the next (and from the last back
+    /// to the first on a ring).
+    pub legs: Vec<Vec<(u32, u32)>>,
+}
+
+/// The stops of each line of a network that no route in `served` reaches,
+/// in an order a route can take: from the stop furthest out, always on to
+/// the nearest.
+fn undrawn(net: &Railways, served: &[u32]) -> Vec<Vec<(u32, u32)>> {
+    let mut lines: Vec<u32> = net.stations.iter().map(|s| s.line).filter(|l| !served.contains(l)).collect();
+    lines.sort_unstable();
+    lines.dedup();
+    let mut out = Vec::new();
+    for line in lines {
+        let mut left: Vec<&crate::rail::Station> = net.stations.iter().filter(|s| s.line == line).collect();
+        if left.len() < 2 {
+            continue;
+        }
+        let (cx, cy) = left.iter().fold((0, 0), |(x, y), s| (x + s.platform.0, y + s.platform.1));
+        let (cx, cy) = (cx / left.len() as u32, cy / left.len() as u32);
+        let far = |s: &&crate::rail::Station| s.platform.0.abs_diff(cx) + s.platform.1.abs_diff(cy);
+        let first = (0..left.len()).max_by_key(|&i| (far(&left[i]), std::cmp::Reverse(left[i].origin))).unwrap();
+        let mut at = left.swap_remove(first);
+        let mut stops = vec![at.origin];
+        while !left.is_empty() && stops.len() < MAX_STOPS {
+            let d = |s: &&crate::rail::Station| s.platform.0.abs_diff(at.platform.0) + s.platform.1.abs_diff(at.platform.1);
+            let next = (0..left.len()).min_by_key(|&i| (d(&left[i]), left[i].origin)).unwrap();
+            at = left.swap_remove(next);
+            stops.push(at.origin);
+        }
+        out.push(stops);
+    }
+    out
+}
+
+/// The vehicles that keep a route's wait about what it is when routes run
+/// themselves.
+fn fair_vehicles(mode: Mode, round_trip: u32) -> u32 {
+    ((round_trip as f32 / (mode.speed() * HEADWAY * 2.0)).ceil() as u32).clamp(1, MAX_VEHICLES)
+}
+
 /// A route's stops as stations of its network, and the legs between them.
 struct Run {
     /// Station numbers of the stops that exist, with their place in `stops`.
@@ -342,29 +396,7 @@ impl City {
                 .transit()
                 .map(|t| t.routes.iter().filter(|r| r.mode == mode).flat_map(|r| r.run(&net).seq).map(|(i, _)| net.stations[i].line).collect())
                 .unwrap_or_default();
-            let mut lines: Vec<u32> = net.stations.iter().map(|s| s.line).filter(|l| !served.contains(l)).collect();
-            lines.sort_unstable();
-            lines.dedup();
-            for line in lines {
-                let mut left: Vec<&crate::rail::Station> = net.stations.iter().filter(|s| s.line == line).collect();
-                if left.len() < 2 {
-                    continue;
-                }
-                // From the stop furthest out, always on to the nearest.
-                let (cx, cy) = left.iter().fold((0, 0), |(x, y), s| (x + s.platform.0, y + s.platform.1));
-                let (cx, cy) = (cx / left.len() as u32, cy / left.len() as u32);
-                let far = |s: &&crate::rail::Station| s.platform.0.abs_diff(cx) + s.platform.1.abs_diff(cy);
-                let first = (0..left.len()).max_by_key(|&i| (far(&left[i]), std::cmp::Reverse(left[i].origin))).unwrap();
-                let mut at = left.swap_remove(first);
-                let mut stops = vec![at.origin];
-                while !left.is_empty() && stops.len() < MAX_STOPS {
-                    let d = |s: &&crate::rail::Station| s.platform.0.abs_diff(at.platform.0) + s.platform.1.abs_diff(at.platform.1);
-                    let next = (0..left.len()).min_by_key(|&i| (d(&left[i]), left[i].origin)).unwrap();
-                    at = left.swap_remove(next);
-                    stops.push(at.origin);
-                }
-                added.push((mode, stops));
-            }
+            added.extend(undrawn(&net, &served).into_iter().map(|stops| (mode, stops)));
         }
         let n = added.len();
         for (mode, stops) in added {
@@ -372,8 +404,7 @@ impl City {
             let net = mode.network(self);
             if let Ok(r) = self.route_mut(id) {
                 r.stops = stops;
-                let trip = r.run(&net).round_trip as f32;
-                r.vehicles = ((trip / (mode.speed() * HEADWAY * 2.0)).ceil() as u32).clamp(1, MAX_VEHICLES);
+                r.vehicles = fair_vehicles(mode, r.run(&net).round_trip);
             }
         }
         n
@@ -510,6 +541,46 @@ impl City {
         (0..run.legs.len())
             .filter_map(|i| net.route(self.width(), net.stations[run.seq[i].0].platform, net.stations[run.seq[(i + 1) % m].0].platform))
             .collect()
+    }
+
+    /// What runs today, route by route: the routes the player drew, or the
+    /// ones the city runs by itself (one along each street, track or tunnel
+    /// with two stops or more). Routes with no vehicle or fewer than two
+    /// joined stops are left out; a route broken in the middle runs up to
+    /// the break.
+    pub fn services(&self) -> Vec<Service> {
+        let Some(t) = self.transit() else { return Vec::new() };
+        let nets: Vec<(Mode, Railways)> = Mode::ALL.into_iter().map(|m| (m, m.network(self))).collect();
+        let net_of = |m: Mode| &nets.iter().find(|(k, _)| *k == m).unwrap().1;
+        let mut routes = Vec::new();
+        if t.manual {
+            routes.clone_from(&t.routes);
+        } else {
+            for (mode, net) in &nets {
+                for (n, stops) in undrawn(net, &[]).into_iter().enumerate() {
+                    let mut r =
+                        Route { id: routes.len() as u32 + 1, name: format!("{} {}", mode.name(), n + 1), mode: *mode, stops, vehicles: 1, circular: false };
+                    r.vehicles = fair_vehicles(*mode, r.run(net).round_trip);
+                    routes.push(r);
+                }
+            }
+        }
+        let mut out = Vec::new();
+        for r in routes.into_iter().filter(|r| r.vehicles > 0) {
+            let net = net_of(r.mode);
+            let run = r.run(net);
+            let joined = if run.ring { run.seq.len() } else { 1 + run.legs.iter().take_while(|l| l.is_some()).count() };
+            if run.seq.len() < 2 || joined < 2 {
+                continue;
+            }
+            let at = |i: usize| &net.stations[run.seq[i].0];
+            let stops: Vec<_> = (0..joined).map(|i| (at(i).origin, at(i).platform)).collect();
+            let hops = if run.ring { joined } else { joined - 1 };
+            let legs: Option<Vec<_>> = (0..hops).map(|i| net.route(self.width(), at(i).platform, at((i + 1) % joined).platform)).collect();
+            let Some(legs) = legs else { continue };
+            out.push(Service { id: r.id, name: r.name, mode: r.mode, vehicles: r.vehicles, ring: run.ring, stops, legs });
+        }
+        out
     }
 
     /// Each month: stops that were pulled down leave their routes, and the

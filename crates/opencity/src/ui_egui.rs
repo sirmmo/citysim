@@ -35,6 +35,8 @@ pub enum Command {
     /// `None`: automatic; `Some(None)`: no skin; `Some(Some(id))`: that skin.
     SetSkin(Option<Option<String>>),
     ExportGeojson(PathBuf),
+    /// Write the city as open data (a zip of GeoJSON, CSV and GTFS files).
+    ExportData(PathBuf),
     ResetCamera,
     CloseQuery,
     /// Research project to work on (`None`: stop).
@@ -148,6 +150,7 @@ enum Dialog {
     SaveAs,
     Import,
     Export,
+    ExportData,
     NewRegion,
     OpenRegion,
     NewScenario,
@@ -680,6 +683,11 @@ impl EguiUi {
                         if ui.button("Export GeoJSON…").clicked() {
                             self.path = "city.geojson".into();
                             self.dialog = Dialog::Export;
+                            ui.close_menu();
+                        }
+                        if ui.button("Export open data…").on_hover_text("Buildings, streets, zones, trips and transit timetables as a real city publishes them (GeoJSON, CSV, GTFS), ready for city2graph").clicked() {
+                            self.path = "city-data.zip".into();
+                            self.dialog = Dialog::ExportData;
                             ui.close_menu();
                         }
                         #[cfg(target_arch = "wasm32")]
@@ -1590,10 +1598,11 @@ impl EguiUi {
                     });
                 });
             }
-            Dialog::Open | Dialog::SaveAs | Dialog::Export => {
+            Dialog::Open | Dialog::SaveAs | Dialog::Export | Dialog::ExportData => {
                 let (title, verb) = match self.dialog {
                     Dialog::Open => ("Open city", "Open"),
                     Dialog::SaveAs => ("Save city as", "Save"),
+                    Dialog::ExportData => ("Export open data (.zip)", "Export"),
                     _ => ("Export GeoJSON", "Export"),
                 };
                 egui::Window::new(title).collapsible(false).resizable(false).anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0]).show(ctx, |ui| {
@@ -1605,6 +1614,7 @@ impl EguiUi {
                             out.push(match self.dialog {
                                 Dialog::Open => Command::Load(p),
                                 Dialog::SaveAs => Command::Save(p),
+                                Dialog::ExportData => Command::ExportData(p),
                                 _ => Command::ExportGeojson(p),
                             });
                             close = true;

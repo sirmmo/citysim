@@ -8,6 +8,7 @@
 | [PACKS.md](PACKS.md) | Packs: one scenario sealed with its skin and rules, shipped as a game of its own |
 | [SKINS.md](SKINS.md) | Era and world skins: colours, names, tools, icons, models; the 0 A.D. cultures |
 | [GEOJSON.md](GEOJSON.md) | Building cities from OpenHistoryMap, OpenHistoricalMap and OpenFantasyMap data, and exporting them |
+| [DATA.md](DATA.md) | The city as open data: footprints, street segments, zones, trips and GTFS, and loading them with city2graph |
 | [MCP.md](MCP.md) | `opencity-cli mcp`: a local MCP server so AI assistants can build, run and inspect cities |
 | [PORTING.md](PORTING.md) | How OpenCity's C++ maps onto the Rust crates, and what changed |
 | [settings.example.toml](settings.example.toml) | User settings |

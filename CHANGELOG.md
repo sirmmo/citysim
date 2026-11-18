@@ -8,6 +8,12 @@ Release notes in full are on the [releases page](https://github.com/sirmmo/citys
 - **Report to OpenTactics**, in the new OpenTactics window: a link back with the population and the taxes, copied to the clipboard. The city then pays 50% of its income there, plus 100% for every $400 of taxes a month.
 - On the command line: `--holding LINK`. See [PLAYING.md](docs/PLAYING.md#a-city-for-opentactics).
 
+## 0.2.76: Open data for city2graph
+- **A city as open data:** **File > Export open data…** writes the city the way a real one publishes itself, in one zip: building footprints with residents and jobs, street segments from junction to junction, land use, census-like zones, the trips between zones and between buildings, and the bus, tram and metro routes as a GTFS feed.
+- **Ready for [city2graph](https://city2graph.net):** the zip holds a script that loads it all and builds four graphs (morphology, transit, mobility, proximity). Checked with city2graph 1.1.0.
+- On the command line: `opencity-cli export-data city.ocsave.json -o folder`. For AI assistants: the MCP tool `export_data`.
+- Coordinates are longitude and latitude; a city that was not imported from a map lies on the equator with tiles of 16 metres. Timetable speeds and hours are set by the export. See [DATA.md](docs/DATA.md).
+
 ## 0.2.75: A city panel for small screens
 - **The parts of the city panel fold away:** click a title (Zones and power, Demand, People, Resources, Metrics, Last 20 years, About the city) to fold or open it.
 - **The panel scrolls** when it is taller than the window.

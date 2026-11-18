@@ -96,6 +96,16 @@ enum Command {
         #[arg(short, long)]
         out: PathBuf,
     },
+    /// Write a saved city as open data, like a real city's: building
+    /// footprints, street segments, land use, zones, the trips between them
+    /// and a GTFS feed of the transit routes, with a script that loads it
+    /// all with city2graph.
+    ExportData {
+        input: PathBuf,
+        /// A folder, or a file ending in `.zip`.
+        #[arg(short, long)]
+        out: PathBuf,
+    },
     /// Download 0 A.D. art from its official repository and convert it into
     /// the ancient culture skins (no Docker needed).
     #[command(name = "bake-0ad")]
@@ -302,6 +312,15 @@ fn attach_rules(city: &mut City, rules: Option<&str>, data_dir: Option<&Path>) -
     Ok(())
 }
 
+/// Writes a data export as a zip (a path ending in `.zip`) or a folder.
+pub(crate) fn write_dataset(data: &opencity_geo::Dataset, out: &Path) -> Result<()> {
+    if out.extension().is_some_and(|e| e.eq_ignore_ascii_case("zip")) {
+        std::fs::write(out, data.zip()).with_context(|| format!("writing {}", out.display()))
+    } else {
+        data.write_dir(out).with_context(|| format!("writing {}", out.display()))
+    }
+}
+
 fn load_city(path: &Path, fp: Footprints) -> Result<City> {
     let f = File::open(path).with_context(|| format!("opening {}", path.display()))?;
     Ok(save::load(BufReader::new(f), fp)?)
@@ -429,6 +448,18 @@ fn main() -> Result<()> {
             let json = opencity_geo::export(&city, &opts);
             std::fs::write(out, serde_json::to_string(&json)?).with_context(|| format!("writing {}", out.display()))?;
             println!("wrote {} ({} features)", out.display(), json["features"].as_array().map_or(0, Vec::len));
+        }
+        Command::ExportData { input, out } => {
+            let mut city = load_city(input, fp())?;
+            let rules = city.glassbox.as_ref().map(|g| g.rules_id.clone());
+            attach_rules(&mut city, rules.as_deref(), cli.data_dir.as_deref())?;
+            // A save holds no trips: one tick makes them.
+            if city.glassbox.is_some() {
+                city.simulate_round();
+            }
+            let data = opencity_geo::dataset(&city);
+            write_dataset(&data, out)?;
+            println!("wrote {}: {}", out.display(), data.summary());
         }
         Command::Bake0ad { from, cache } => {
             let dir = find_data_dir(cli.data_dir.as_deref())?;

@@ -185,6 +185,11 @@ pub fn download(name: &str, text: &str) {
     unsafe { citysim_download(JsObject::string(name), JsObject::string(text)) }
 }
 
+/// Offers bytes as a download (the page makes a file of whatever it is given).
+pub fn download_bytes(name: &str, bytes: &[u8]) {
+    unsafe { citysim_download(JsObject::string(name), JsObject::buffer(bytes)) }
+}
+
 /// An HTTP request in flight; the browser answers it between frames.
 #[derive(Debug)]
 pub struct Request(u32);

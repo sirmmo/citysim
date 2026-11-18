@@ -14,12 +14,17 @@
 //!   water polygons and rivers.
 //! * **Output**: [`export`] writes a city back to GeoJSON with OSM-style tags
 //!   plus `opencity:*` properties, in the source coordinate system.
+//! * **Open data**: [`dataset`] writes a city as the files a real city
+//!   publishes (footprints, street segments, zones, trips, a GTFS feed),
+//!   ready for city2graph.
 
+pub mod dataset;
 pub mod export;
 pub mod import;
 pub mod rules;
 pub mod source;
 
+pub use dataset::{dataset, Dataset};
 pub use export::{export, ExportOptions};
 pub use import::{import, CrsMode, HistDate, ImportOptions, ImportReport};
 pub use rules::{Build, Rules};

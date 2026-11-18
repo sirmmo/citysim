@@ -383,6 +383,9 @@ pub struct GlassBox {
     /// Probes left on the map.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub sensors: Vec<Sensor>,
+    /// The trips of the last tick (for data exports); empty until one runs.
+    #[serde(skip)]
+    pub last_trips: Vec<Trip>,
     /// What each sensor read last tick, in the order of `sensors`.
     #[serde(skip)]
     pub readings: Vec<Vec<(String, f32)>>,
@@ -494,6 +497,7 @@ impl GlassBox {
             housing: None,
             jobless: 0.0,
             sensors: Vec::new(),
+            last_trips: Vec::new(),
             readings: Vec::new(),
             sensor_routes: SensorRoutes::default(),
         }
@@ -2323,6 +2327,7 @@ impl GlassBox {
         self.zone_rules(&rules, layer, terrain, footprints, rng);
         self.read_sensors(&rules, layer, terrain, &trips);
         self.record(&rules, layer, *fund);
+        self.last_trips.clone_from(&trips);
         trips
     }
 

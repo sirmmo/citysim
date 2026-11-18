@@ -836,4 +836,5 @@ The MCP server has a `cheat` tool too.
 
 - **Saving:** **File > Save** writes a `.ocsave.json`. Saves keep the rules, research, tax rates, stances, building facings and vehicles.
 - **Exporting:** **File > Export GeoJSON…** writes the city back in the coordinates it was imported from.
+- **Open data:** **File > Export open data…** writes the city as a real one publishes itself: buildings, streets, zones, trips and transit timetables (GeoJSON, CSV, GTFS) in one zip, ready for [city2graph](https://city2graph.net). See [DATA.md](DATA.md).
 - **Headless:** `opencity-cli` creates, simulates, renders, imports and exports cities without a window. `opencity-cli simulate --metrics out.csv` exports every series.

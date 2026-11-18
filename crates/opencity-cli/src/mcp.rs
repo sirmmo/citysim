@@ -463,6 +463,12 @@ impl Server {
                 std::fs::write(&path, serde_json::to_string(&json)?)?;
                 Ok(json!({ "wrote": path, "features": json["features"].as_array().map_or(0, Vec::len) }))
             }
+            "export_data" => {
+                let path = PathBuf::from(str_arg(a, "path")?);
+                let data = opencity_geo::dataset(self.city()?);
+                crate::write_dataset(&data, &path)?;
+                Ok(json!({ "wrote": path, "files": data.files.iter().map(|(n, _)| n.as_str()).collect::<Vec<_>>(), "holds": data.summary() }))
+            }
             _ => bail!("unknown tool {name}"),
         }
     }
@@ -652,7 +658,8 @@ fn tools() -> Value {
         }), &[]),
         tool("cheat", "Type a cheat code, as in SimCity 3000's cheat box. Some of them have consequences.", json!({ "code": { "type": "string" } }), &["code"]),
         tool("render_map", "Write a top-down PNG of the city.", json!({ "path": path, "scale": { "type": "integer", "minimum": 1, "maximum": 32, "default": 8 } }), &["path"]),
-        tool("export_geojson", "Write the city as GeoJSON.", json!({ "path": path }), &["path"])
+        tool("export_geojson", "Write the city as GeoJSON.", json!({ "path": path }), &["path"]),
+        tool("export_data", "Write the city as open data, like a real city's, for city2graph and other urban data tools: building footprints, street segments, land use and zones (GeoJSON), the trips of the last tick between buildings and between zones (CSV, GlassBox rules, after at least one `advance`), a GTFS feed of the transit routes, and a Python script that loads it all with city2graph. `path` is a folder, or a file ending in .zip.", json!({ "path": path }), &["path"])
     ])
 }
 

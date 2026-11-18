@@ -435,6 +435,25 @@ fn write_text_file(path: &Path, text: &str) -> std::io::Result<String> {
     }
 }
 
+/// The same for a file that is not text.
+#[cfg(not(target_os = "android"))]
+fn write_bytes_file(path: &Path, bytes: &[u8]) -> std::io::Result<String> {
+    #[cfg(target_arch = "wasm32")]
+    {
+        let name = path.file_name().map_or_else(|| "export.zip".to_string(), |f| f.to_string_lossy().into_owned());
+        web::download_bytes(&name, bytes);
+        Ok(format!("Downloading {name}"))
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        if let Some(dir) = path.parent() {
+            std::fs::create_dir_all(dir)?;
+        }
+        std::fs::write(path, bytes)?;
+        Ok(format!("Saved {}", path.display()))
+    }
+}
+
 /// Puts text on the clipboard (in the browser through the page, which may
 /// ask first).
 fn copy_text(text: &str) {
@@ -1106,6 +1125,14 @@ impl Game {
                 let json = opencity_geo::export(&self.city, &opencity_geo::ExportOptions::default());
                 match write_text_file(&p, &json.to_string()) {
                     Ok(msg) => self.say(msg),
+                    Err(e) => self.say(format!("Export failed: {e}")),
+                }
+            }
+            Command::ExportData(p) => {
+                let data = opencity_geo::dataset(&self.city);
+                let p = if p.extension().is_some() { p } else { p.with_extension("zip") };
+                match write_bytes_file(&p, &data.zip()) {
+                    Ok(msg) => self.say(format!("{msg}: {}", data.summary())),
                     Err(e) => self.say(format!("Export failed: {e}")),
                 }
             }

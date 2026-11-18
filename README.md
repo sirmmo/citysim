@@ -239,6 +239,8 @@ scripts/dev.sh /target/debug/opencity-cli import-geojson data/ohm-bologna-center
 scripts/dev.sh /target/debug/opencity-cli import-geojson world.geojson --rules my-rules.toml -o world.ocsave.json
 # Back to GeoJSON
 scripts/dev.sh /target/debug/opencity-cli export-geojson bologna.ocsave.json -o bologna.geojson
+# As open data, like a real city's: footprints, streets, zones, trips, GTFS (docs/DATA.md)
+scripts/dev.sh /target/debug/opencity-cli export-data bologna.ocsave.json -o bologna-data
 ```
 
 The game opens the same inputs directly with `--geojson FILE [--date YEAR] [--rules FILE]`.

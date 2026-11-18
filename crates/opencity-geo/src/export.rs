@@ -41,7 +41,7 @@ impl Unproject {
     }
 }
 
-fn tags(code: StructureCode, level: u8) -> Map<String, Value> {
+pub(crate) fn tags(code: StructureCode, level: u8) -> Map<String, Value> {
     use StructureCode::*;
     let floors = (level / 10 + 1).to_string();
     let (build, extra): (&str, &[(&str, &str)]) = match code {

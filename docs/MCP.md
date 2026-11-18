@@ -60,6 +60,7 @@ the rules sets, tech trees, policy files and model sizes.
 | `policies` | Lists taxes and policies. `taxes` (`{"property": 12}`) and `stances` (`{"growth": "open_city"}`) change them. |
 | `render_map` | Writes a top-down PNG of the city. |
 | `export_geojson` | Writes the city as GeoJSON. |
+| `export_data` | Writes the city as open data for city2graph: buildings, streets, zones, trips, a GTFS feed ([DATA.md](DATA.md)). |
 
 Tool ids for `apply_tool` include `residential`, `commercial`, `industrial`, `road`, `highway`,
 `paved_street`, `dirt_road`, `power_line`, `coal_plant`, `nuclear_plant`, `solar_plant`, `fusion_plant`, `wind_turbine`, `waterworks`, `sewage_outfall`, `wetland`, `resort_hotel`, `observation_tower`, `amusement_park`, `park`, `trees`,
