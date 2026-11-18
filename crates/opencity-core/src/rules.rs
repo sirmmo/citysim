@@ -369,6 +369,11 @@ pub struct VehicleDef {
     /// stops on tram streets). People near two stops of one line ride it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub line: Option<String>,
+    /// For a vehicle of a line: the riders one of them takes at a stop in
+    /// a tick, on routes the player draws (bus 6, tram 15, metro 40 when
+    /// left out).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub seats: Option<f32>,
 }
 
 impl VehicleDef {
@@ -1394,6 +1399,12 @@ impl Ruleset {
 
     /// The vehicles that may carry a resource (or kind), with its network.
     /// Empty when the network names no vehicles.
+    /// The seats the rules give the vehicles of a line (`"bus"`, `"tram"`,
+    /// `"metro"`), when they say.
+    pub fn line_seats(&self, line: &str) -> Option<f32> {
+        self.networks.iter().flat_map(|n| &n.vehicles).find(|v| v.line.as_deref() == Some(line)).and_then(|v| v.seats)
+    }
+
     pub fn vehicles_for(&self, resource: usize) -> Vec<&VehicleDef> {
         let r = &self.resources[resource];
         let Some(net) = r.network.as_deref().and_then(|n| self.network(n)) else { return Vec::new() };

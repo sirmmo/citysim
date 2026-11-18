@@ -600,6 +600,7 @@ pub fn dataset(city: &City) -> Dataset {
             "od.csv": "trips of one tick between zones: origin, destination, flow (all purposes), then one column per purpose",
             "trips.csv": "the same trips between buildings (ids as in buildings.geojson; other ids are the map's gates)",
             "gtfs.zip": "the transit routes as a GTFS feed with frequencies and shapes",
+            "ridership.csv": "people getting on or off at each stop in a tick (stop ids of the feed), and how full the stop is on routes the player drew",
         },
     });
 
@@ -614,6 +615,23 @@ pub fn dataset(city: &City) -> Dataset {
     }
     if let Some(feed) = feed {
         files.push(("gtfs.zip".into(), zip(&feed)));
+    }
+    // Riders at the stops, by the feed's stop ids.
+    if let Some(t) = city.transit().filter(|t| !t.riders.is_empty()) {
+        let mut seen = BTreeSet::new();
+        let rows: Vec<Vec<String>> = services
+            .iter()
+            .flat_map(|s| s.stops.iter().map(move |(origin, _)| (s.mode, *origin)))
+            .filter(|k| seen.insert(*k))
+            .map(|(mode, origin)| {
+                let riders = t.riders.get(&origin).copied().unwrap_or(0.0);
+                let load = if t.manual { format!("{:.2}", t.load.get(&origin).copied().unwrap_or(0.0)) } else { String::new() };
+                vec![format!("{}_{}", mode.id(), tile_id(origin)), format!("{riders:.2}"), load]
+            })
+            .collect();
+        if !rows.is_empty() {
+            files.push(("ridership.csv".into(), csv("stop_id,riders,load", &rows)));
+        }
     }
     files.push(("city2graph_example.py".into(), include_bytes!("../data/city2graph_example.py").to_vec()));
     files.push(("README.md".into(), include_bytes!("../data/README.md").to_vec()));

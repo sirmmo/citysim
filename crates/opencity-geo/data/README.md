@@ -13,6 +13,7 @@ a real city publishes, so the tools made for real cities read them.
 | `od.csv` | Trips between zones in one tick of the simulation (a day's worth): `origin`, `destination`, `flow` (everything), then a column for each purpose (workers, shoppers, goods…). |
 | `trips.csv` | The same trips between buildings. Ids are those of `buildings.geojson`; an id that is not there is a gate on the edge of the map. `road_share` is the part that went by road vehicle. |
 | `gtfs.zip` | The bus, tram and metro routes as a GTFS feed, with frequencies and shapes. Only when something runs. |
+| `ridership.csv` | People getting on or off at each stop in a tick, averaged over some ticks: `stop_id` (as in the feed), `riders`, and `load` (0 to 1: how much of its vehicles' room the stop takes, on routes drawn by hand). |
 | `city2graph_example.py` | Loads all of it with [city2graph](https://city2graph.net) and builds four graphs. |
 
 Coordinates are longitude and latitude (WGS84). A city that was not

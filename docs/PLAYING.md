@@ -785,6 +785,11 @@ then on:
   wait; a long route needs more of them for the same wait. Each costs money
   every month ($15 a bus, $25 a tram, $50 a metro train; the *Transit
   vehicles* line of the budget).
+- **Vehicles hold so many riders.** At each stop a bus takes 6 riders a
+  tick, a tram 15, a metro train 40; a route's room at a stop is that times
+  its vehicles, and a stop on several routes has the room of them all. When
+  a stop is **full**, the people left over go by road if a road takes them
+  there, or do not go: jobs stay empty and shops lose customers.
 - **Nothing stops on the day you tick the box:** the city's own routes are
   written down first, one for each street network, tram line and tunnel with
   two stops or more, with about the wait they had. Change them from there.
@@ -803,8 +808,11 @@ The **Routes** window (the Routes button on the right) lists them:
   or more), and its stops (**x** takes one off, **Show** goes there).
 - The list shows each route's **wait** (the time to board, in street tiles:
   routes that run themselves take 3) and its **riders** (people getting on
-  or off at its stops each tick). A route with few riders and many vehicles
-  is money to save; a busy one with a long wait wants more.
+  or off at its stops each tick), and how **full** its busiest stop is, in
+  orange when a stop is full. A route with few riders and many vehicles is
+  money to save; a full one, or a busy one with a long wait, wants more.
+- **Graphs > Transit riders** draws each route's riders over time (all
+  lines together while the city runs them).
 - **Fill the gaps** adds a route wherever stops have none.
 - While the window is open the routes are drawn on the map in their
   colours, along the streets they take, with a post on each stop of the

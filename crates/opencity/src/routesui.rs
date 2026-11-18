@@ -116,8 +116,8 @@ impl RoutesUi {
             self.adding = false;
         }
         egui::ScrollArea::vertical().max_height(180.0).id_salt("routes").show(ui, |ui| {
-            egui::Grid::new("route_list").num_columns(6).striped(true).show(ui, |ui| {
-                for h in ["", "Route", "Stops", "Vehicles", "Wait", "Riders"] {
+            egui::Grid::new("route_list").num_columns(7).striped(true).show(ui, |ui| {
+                for h in ["", "Route", "Stops", "Vehicles", "Wait", "Riders", "Full"] {
                     ui.label(RichText::new(h).small().color(Color32::GRAY));
                 }
                 ui.end_row();
@@ -133,6 +133,8 @@ impl RoutesUi {
                     ui.label(r.vehicles.to_string());
                     ui.label(info.wait.map_or("-".to_string(), |w| format!("{w:.1}")));
                     ui.label(format!("{:.0}", info.riders));
+                    let full = RichText::new(format!("{:.0}%", info.load * 100.0));
+                    ui.label(if info.full_stops > 0 { full.color(WARN).strong() } else { full });
                     ui.end_row();
                 }
             });
@@ -140,7 +142,7 @@ impl RoutesUi {
         let Some((r, info)) = self.selected.and_then(|id| routes.iter().find(|(r, _)| r.id == id)) else {
             if !routes.is_empty() {
                 ui.label(
-                    RichText::new("Pick a route to change it. Wait is the time to board, in street tiles; riders are people per tick at its stops.")
+                    RichText::new("Pick a route to change it. Wait is the time to board, in street tiles; riders are people per tick at its stops; full is how much of its vehicles' room its busiest stop takes.")
                         .small()
                         .color(Color32::GRAY),
                 );
@@ -178,7 +180,10 @@ impl RoutesUi {
         });
         ui.label(
             RichText::new(match info.wait {
-                Some(w) => format!("Round trip {} tiles · wait {w:.1} · {:.0} riders a tick · ${} a month", info.round_trip, info.riders, info.cost),
+                Some(w) => format!(
+                    "Round trip {} tiles · wait {w:.1} · {:.0} riders a tick · room for {:.0} at each stop · ${} a month",
+                    info.round_trip, info.riders, info.room, info.cost
+                ),
                 None if r.vehicles == 0 => "No vehicles: the route does not run.".to_string(),
                 None => "Two stops or more make a route.".to_string(),
             })
@@ -215,7 +220,12 @@ impl RoutesUi {
                         out.push(Command::Inspect(*stop));
                     }
                     let riders = city.transit().and_then(|t| t.riders.get(stop)).copied().unwrap_or(0.0);
+                    let load = city.transit().and_then(|t| t.load.get(stop)).copied().unwrap_or(0.0);
                     ui.label(format!("{}. at {},{} · {riders:.0} riders", i + 1, stop.0, stop.1));
+                    if load >= opencity_core::transit::FULL {
+                        ui.label(RichText::new("full").color(WARN).strong())
+                            .on_hover_text("The vehicles calling here take no more: people go by road, or not at all. Add vehicles, or another route.");
+                    }
                     if info.missing.contains(stop) {
                         ui.label(RichText::new("gone, or nothing to stop at beside it").color(WARN));
                     } else if info.broken.contains(&i) {

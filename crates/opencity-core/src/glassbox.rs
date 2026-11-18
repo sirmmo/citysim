@@ -1558,6 +1558,17 @@ impl GlassBox {
         use crate::transit::Mode;
         let tables = [None, None, self.transit.table(Mode::Tram, &tram), self.transit.table(Mode::Bus, &bus), self.transit.table(Mode::Metro, &metro)];
         let mut boarded: BTreeMap<(u32, u32), f32> = BTreeMap::new();
+        // What the vehicles of drawn routes can still take this tick at
+        // each stop, and what they could take to begin with.
+        let seats_of = |m: Mode| rules.line_seats(m.id()).unwrap_or(m.seats());
+        let mut room = [
+            None,
+            None,
+            self.transit.room(Mode::Tram, &tram, seats_of(Mode::Tram)),
+            self.transit.room(Mode::Bus, &bus, seats_of(Mode::Bus)),
+            self.transit.room(Mode::Metro, &metro, seats_of(Mode::Metro)),
+        ];
+        let seats = room.clone();
         let fastest = fastest.max(0.1);
         // Congestion: road capacity per cell, last ticks' traffic, and this
         // tick's load from the trips made by road.
@@ -1678,7 +1689,7 @@ impl GlassBox {
             const ROAD: usize = 0;
             const HIGHWAY: usize = 1;
             const LINE: usize = 2;
-            let trip_length = |s: usize, i: usize, dist: u32| -> (f32, usize) {
+            let trip_length = |s: usize, i: usize, dist: u32, ride: bool| -> (f32, usize) {
                 let (Some(a), Some(b)) = (acc[s], acc[i]) else { return (f32::INFINITY, ROAD) };
                 // By road, only within one street network, slowed by traffic.
                 let mut best = if a.1 == b.1 { (dist as f32 / a.2.min(b.2).min(top) * delay(a.5, b.5), ROAD) } else { (f32::INFINITY, ROAD) };
@@ -1688,7 +1699,7 @@ impl GlassBox {
                         best = (t, HIGHWAY);
                     }
                 }
-                for (k, (net_lines, speed)) in lines.iter().enumerate() {
+                for (k, (net_lines, speed)) in lines.iter().enumerate().filter(|_| ride) {
                     if let (true, Some((sa, wa)), Some((sb, wb))) = (carried[k], a.4[k], b.4[k]) {
                         let (x, y) = (&net_lines.stations[sa], &net_lines.stations[sb]);
                         if sa != sb && tables[k].as_ref().map_or(x.line == y.line, |t| t.time(sa, sb).is_finite()) {
@@ -1778,12 +1789,35 @@ impl GlassBox {
                                             continue;
                                         }
                                         let sp = units[s].0;
-                                        let (dist, how) = trip_length(s, i, sp.0.abs_diff(p.0) + sp.1.abs_diff(p.1));
+                                        let apart = sp.0.abs_diff(p.0) + sp.1.abs_diff(p.1);
+                                        let (mut dist, mut how) = trip_length(s, i, apart, true);
+                                        // A route the player drew takes what its vehicles hold at
+                                        // both ends; when it is full, people go by road if they can.
+                                        let stations = |how: usize| {
+                                            let k = how.checked_sub(LINE)?;
+                                            Some((k, acc[s]?.4[k]?.0, acc[i]?.4[k]?.0))
+                                        };
+                                        let space_on = |room: &[Option<Vec<f32>>; 5], how: usize| match stations(how) {
+                                            Some((k, sa, sb)) => room[k].as_ref().map_or(f32::INFINITY, |r| r[sa].min(r[sb])),
+                                            None => f32::INFINITY,
+                                        };
+                                        let mut space = space_on(&room, how);
+                                        if space <= 1e-3 {
+                                            (dist, how) = trip_length(s, i, apart, false);
+                                            space = f32::INFINITY;
+                                        }
                                         for &j in accept {
                                             let a = fam[j];
-                                            let take = stock[s][j].min(missing);
+                                            let take = stock[s][j].min(missing).min(space);
                                             if take <= 0.0 || dist > rules.resources[a].max_trip as f32 {
                                                 continue;
+                                            }
+                                            if let Some((k, sa, sb)) = stations(how) {
+                                                if let Some(r) = room[k].as_mut() {
+                                                    r[sa] -= take;
+                                                    r[sb] -= take;
+                                                    space -= take;
+                                                }
                                             }
                                             stock[s][j] -= take;
                                             left[j] -= take;
@@ -1813,7 +1847,7 @@ impl GlassBox {
                                                 });
                                             }
                                             // Who rode a route the player drew, by stop.
-                                            if let Some(k) = how.checked_sub(LINE).filter(|k| tables[*k].is_some()) {
+                                            if let Some(k) = how.checked_sub(LINE).filter(|k| *k >= 2) {
                                                 for u in [s, i] {
                                                     if let Some((st, _)) = acc[u].and_then(|a| a.4[k]) {
                                                         *boarded.entry(lines[k].0.stations[st].origin).or_default() += take;
@@ -1871,7 +1905,7 @@ impl GlassBox {
                                 let Some(bucket) = buckets.get(&(c, cx as u32, cz as u32)).filter(|b| b.left.iter().any(|&x| x > 0.0)) else { continue };
                                 for &s in bucket.senders.iter().filter(|&&s| s != i) {
                                     let sp = units[s].0;
-                                    let (dist, _) = trip_length(s, i, sp.0.abs_diff(p.0) + sp.1.abs_diff(p.1));
+                                    let (dist, _) = trip_length(s, i, sp.0.abs_diff(p.0) + sp.1.abs_diff(p.1), true);
                                     for (j, &k) in fam.iter().enumerate() {
                                         if dist <= rules.resources[k].max_trip as f32 {
                                             found += spare_of(&stock, s, j);
@@ -2117,9 +2151,17 @@ impl GlassBox {
         for v in self.flows.values_mut() {
             *v *= 1.0 - FLOW_SMOOTHING;
         }
-        if self.transit.manual {
-            self.transit.count_riders(boarded);
+        self.transit.count_riders(boarded);
+        // How full each stop of a drawn route was.
+        let mut load: BTreeMap<(u32, u32), f32> = BTreeMap::new();
+        for (k, net) in [(2, &tram), (3, &bus), (4, &metro)] {
+            if let (Some(had), Some(left)) = (&seats[k], &room[k]) {
+                for (i, st) in net.stations.iter().enumerate().filter(|(i, _)| had[*i] > 0.0) {
+                    load.insert(st.origin, ((had[i] - left[i]) / had[i]).clamp(0.0, 1.0));
+                }
+            }
         }
+        self.transit.count_load(load);
         for (k, v) in tick_flows {
             *self.flows.entry(k).or_default() += v * FLOW_SMOOTHING;
         }
@@ -2647,6 +2689,9 @@ impl GlassBox {
                 }
                 None => services += 1,
             }
+        }
+        for (name, riders) in self.transit.ridership() {
+            v.push((format!("Transit riders/{name}"), riders));
         }
         v.push(("Buildings/Services".into(), services as f32));
         for (z, (n, sat)) in rules.zones.iter().zip(&per_zone) {

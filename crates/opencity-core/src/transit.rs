@@ -26,6 +26,8 @@ pub const HEADWAY: f32 = 8.0;
 pub const MAX_VEHICLES: u32 = 20;
 /// Stops on one route at most.
 pub const MAX_STOPS: usize = 40;
+/// A stop this full (of what its vehicles take) counts as full.
+pub const FULL: f32 = 0.95;
 
 /// What runs on a route.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -77,6 +79,16 @@ impl Mode {
     }
 
     /// What one vehicle costs to run for a month.
+    /// Riders a vehicle takes in a tick at any one stop, unless the rules
+    /// say otherwise (`seats` on the line's vehicle).
+    pub fn seats(self) -> f32 {
+        match self {
+            Mode::Bus => 6.0,
+            Mode::Tram => 15.0,
+            Mode::Metro => 40.0,
+        }
+    }
+
     pub fn vehicle_cost(self) -> i64 {
         match self {
             Mode::Bus => 15,
@@ -123,6 +135,10 @@ pub struct Transit {
     /// some ticks.
     #[serde(skip)]
     pub riders: BTreeMap<(u32, u32), f32>,
+    /// How full each stop is, 0..1: the riders its vehicles took of what
+    /// they can take in a tick, averaged over some ticks (drawn routes only).
+    #[serde(skip)]
+    pub load: BTreeMap<(u32, u32), f32>,
     /// Counts the edits, for whoever draws the routes.
     #[serde(skip)]
     pub rev: u32,
@@ -145,6 +161,11 @@ pub struct RouteInfo {
     /// People boarding or leaving at its stops per tick; a stop shared by
     /// several routes counts its share.
     pub riders: f32,
+    /// Riders its vehicles take at a stop in a tick.
+    pub room: f32,
+    /// How full its fullest stop is, 0..1, and how many of its stops are full.
+    pub load: f32,
+    pub full_stops: usize,
     /// The bill for a month.
     pub cost: i64,
 }
@@ -341,6 +362,58 @@ impl Transit {
         (legs, vehicles)
     }
 
+    /// What the vehicles calling at each station of a network can take in
+    /// a tick: for each route through it, its vehicles times their seats.
+    /// `None` while routes run themselves (there is always room then).
+    pub(crate) fn room(&self, mode: Mode, net: &Railways, seats: f32) -> Option<Vec<f32>> {
+        if !self.manual {
+            return None;
+        }
+        let mut room = vec![0.0; net.stations.len()];
+        for r in self.routes.iter().filter(|r| r.mode == mode && r.vehicles > 0) {
+            let mut at: Vec<usize> = r.run(net).seq.iter().map(|(i, _)| *i).collect();
+            at.sort_unstable();
+            at.dedup();
+            for i in at {
+                room[i] += r.vehicles as f32 * seats;
+            }
+        }
+        Some(room)
+    }
+
+    /// Takes how full the stops were this tick into the averages.
+    pub(crate) fn count_load(&mut self, counted: BTreeMap<(u32, u32), f32>) {
+        for v in self.load.values_mut() {
+            *v *= 0.8;
+        }
+        for (stop, share) in counted {
+            *self.load.entry(stop).or_default() += 0.2 * share;
+        }
+        self.load.retain(|_, v| *v > 0.001);
+    }
+
+    /// Riders per tick on each route (a stop on several routes shares its
+    /// riders between them), or all riders together while routes run themselves.
+    pub fn ridership(&self) -> Vec<(String, f32)> {
+        if !self.manual {
+            // Every ride is counted where it starts and where it ends.
+            return vec![("All lines".to_string(), self.riders.values().sum::<f32>() / 2.0)];
+        }
+        let mut on: BTreeMap<(u32, u32), f32> = BTreeMap::new();
+        let stops_of = |r: &Route| {
+            let mut s = r.stops.clone();
+            s.sort_unstable();
+            s.dedup();
+            s
+        };
+        for r in &self.routes {
+            for s in stops_of(r) {
+                *on.entry(s).or_default() += 1.0;
+            }
+        }
+        self.routes.iter().map(|r| (r.name.clone(), stops_of(r).iter().map(|s| self.riders.get(s).copied().unwrap_or(0.0) / on[s]).sum())).collect()
+    }
+
     /// Takes the people counted at the stops this tick into the averages.
     pub(crate) fn count_riders(&mut self, counted: BTreeMap<(u32, u32), f32>) {
         for v in self.riders.values_mut() {
@@ -526,7 +599,10 @@ impl City {
                 stops.dedup();
                 let riders = stops.iter().map(|s| t.riders.get(s).copied().unwrap_or(0.0) / on[s]).sum();
                 let cost = if r.stops.len() > 1 { r.vehicles as i64 * r.mode.vehicle_cost() } else { 0 };
-                (r, RouteInfo { round_trip: run.round_trip, wait: r.wait(run.round_trip), missing, broken, riders, cost })
+                let loads: Vec<f32> = stops.iter().map(|s| t.load.get(s).copied().unwrap_or(0.0)).collect();
+                let (load, full_stops) = (loads.iter().copied().fold(0.0, f32::max), loads.iter().filter(|l| **l >= FULL).count());
+                let room = r.vehicles as f32 * self.rules().and_then(|x| x.line_seats(r.mode.id())).unwrap_or(r.mode.seats());
+                (r, RouteInfo { round_trip: run.round_trip, wait: r.wait(run.round_trip), missing, broken, riders, room, load, full_stops, cost })
             })
             .collect()
     }

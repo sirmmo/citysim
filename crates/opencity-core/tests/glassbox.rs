@@ -2861,3 +2861,51 @@ fn neighbourhoods_have_figures_and_policies() {
     }
     assert!(d.districts.is_empty());
 }
+
+/// A drawn route takes what its vehicles hold: one metro train between two
+/// towns with no road between them fills up, and more trains carry more.
+#[test]
+fn routes_take_what_their_vehicles_hold() {
+    // Small trains, so that this small town fills one: 4 riders each.
+    let mut small = (*rules()).clone();
+    for v in small.networks.iter_mut().flat_map(|n| &mut n.vehicles).filter(|v| v.line.as_deref() == Some("metro")) {
+        v.seats = Some(4.0);
+    }
+    let r = Arc::new(small);
+    assert_eq!((r.line_seats("metro"), rules().line_seats("metro")), (Some(4.0), None));
+    let build = |vehicles: u32| {
+        let mut c = City::new(Terrain::flat(64, 24), None, Footprints::builtin(), 5);
+        c.fund = 10_000_000;
+        c.use_rules(r.clone());
+        c.research_all();
+        for (w1, w2, zone) in [(2, 12, Tool::ZoneResidential), (44, 58, Tool::ZoneIndustrial)] {
+            c.apply_tool(Tool::Road, (w1, 8), (w2, 8)).unwrap();
+            c.apply_tool(Tool::Road, (w1, 8), (w1, 12)).unwrap();
+            c.apply_tool(zone, (w1 + 1, 9), (w2, 11)).unwrap();
+            c.apply_tool(Tool::CoalPlant, (w1 + 2, 5), (w1 + 2, 5)).unwrap();
+        }
+        c.apply_tool(Tool::MetroLine, (13, 8), (43, 8)).unwrap();
+        c.apply_tool(Tool::MetroStation, (13, 8), (13, 8)).unwrap();
+        c.apply_tool(Tool::MetroStation, (43, 8), (43, 8)).unwrap();
+        c.set_manual_routes(true).unwrap();
+        let id = c.transit().unwrap().routes[0].id;
+        c.set_route_vehicles(id, vehicles).unwrap();
+        let (mut riders, mut load) = (0f32, 0f32);
+        for _ in 0..600 {
+            c.simulate_round();
+            let (_, info) = &c.routes()[0];
+            riders = riders.max(info.riders);
+            load = load.max(info.load);
+        }
+        let info = c.routes()[0].1.clone();
+        (riders, load, info)
+    };
+    let (riders1, load1, one) = build(1);
+    let (riders6, load6, six) = build(6);
+    assert_eq!((one.room, six.room), (4.0, 24.0));
+    // Riders are counted at both ends of a ride: 4 seats are 8 at most.
+    assert!(riders1 > 2.0 && riders1 <= 8.1, "{riders1}");
+    assert!(load1 >= 0.95, "one train is full: {load1} {riders1} {one:?}");
+    assert!(riders6 > riders1 * 1.5, "more trains carry more: {riders6} vs {riders1}");
+    assert!(load6 < load1, "{load6} {six:?}");
+}

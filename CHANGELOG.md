@@ -8,6 +8,13 @@ Release notes in full are on the [releases page](https://github.com/sirmmo/citys
 - **Report to OpenTactics**, in the new OpenTactics window: a link back with the population and the taxes, copied to the clipboard. The city then pays 50% of its income there, plus 100% for every $400 of taxes a month.
 - On the command line: `--holding LINK`. See [PLAYING.md](docs/PLAYING.md#a-city-for-opentactics).
 
+## 0.2.81: Full buses
+- **Vehicles on routes you draw hold so many riders:** a bus 6 a tick at each stop, a tram 15, a metro train 40. A route's room is that times its vehicles. At a full stop the people left over go by road if they can, or do not go.
+- **The Routes window shows how full** each route's busiest stop is, the room at each stop, and marks full stops.
+- **Riders over time:** *Graphs > Transit riders* has a line for each route (all lines together while the city runs them). Riders are now counted in both modes.
+- **Open data:** `ridership.csv` with riders and load at each stop of the GTFS feed.
+- For rule writers: `seats` on a line's vehicle. MCP: `room_per_stop`, `fullest_stop` and `full_stops` on each route.
+
 ## 0.2.80: Neighbourhoods
 - **The land around each neighbourhood office is a neighbourhood** (GlassBox rules): every tile within 8 of it. The new **Neighbourhoods** window lists them with residents, jobs, how content they are and the averages of land value, crime, smoke, noise and service cover; the map shows each in its colour while the window is open.
 - **A name for each**, given by itself and changed by typing.

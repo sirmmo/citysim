@@ -24,6 +24,7 @@ network analysis and graph neural networks.
 | `od.csv` | Trips between zones in one tick of the simulation, which exchanges a day's worth: `origin`, `destination`, `flow` (everything), then a column for each purpose (workers, shoppers, goods, tourists…). |
 | `trips.csv` | The same trips between buildings: `origin`, `destination` (ids of `buildings.geojson`; an id that is not there is a gate on the edge of the map), their zones, `purpose`, `flow`, `road_share` (the part that went by road vehicle). |
 | `gtfs.zip` | The bus, tram and metro routes as a GTFS feed: stops, routes, a trip each way, stop times, frequencies through the day and shapes along the streets. |
+| `ridership.csv` | People getting on or off at each stop in a tick, averaged over some ticks: `stop_id` (as in the feed), `riders`, and `load` (0 to 1: how much of its vehicles' room the stop takes, on routes drawn by hand). |
 | `city2graph_example.py` | Loads all of it with city2graph. |
 | `README.md` | These notes. |
 

@@ -793,6 +793,10 @@ share = 0
 meshes = ["kenney/train-kit/train-tram-modern"]
 ```
 
+Vehicles of a line can say how many riders one takes at a stop in a tick,
+for routes the player draws (`seats = 6` on the `[[network.vehicle]]` with
+`line = "bus"`). Left out: bus 6, tram 15, metro 40.
+
 ### Ideas and research
 
 Pooled resources build networks that are not on the map. The shipped
