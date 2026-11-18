@@ -101,6 +101,12 @@ pub enum Command {
     SaveRegion,
     /// Turn the plant or service on this tile a quarter clockwise.
     Turn((u32, u32)),
+    /// Answer the open question with one of its choices.
+    Decide(usize),
+    /// Make an event of the rules happen now.
+    Event(String),
+    /// Events come up by themselves, or not.
+    SetEvents(bool),
     /// Pull down the building at a tile (a relic, from its window).
     Dismantle((u32, u32)),
     /// Run the city on rules from the rules editor (not saved).
@@ -184,6 +190,9 @@ pub struct EguiUi {
     show_news: bool,
     pub routes: crate::routesui::RoutesUi,
     show_election: bool,
+    show_decision: bool,
+    /// The question the decision window last opened for (its id and how many events came before).
+    asked: Option<(String, usize)>,
     show_goals: bool,
     /// The OpenTactics window (holdings only).
     show_holding: bool,
@@ -415,6 +424,8 @@ impl EguiUi {
             show_news: false,
             routes: Default::default(),
             show_election: false,
+            show_decision: false,
+            asked: None,
             show_goals: false,
             show_holding: true,
             day_night: true,
@@ -584,6 +595,15 @@ impl EguiUi {
         if self.show_election {
             crate::election::window(ctx, &mut self.show_election, view.city, &mut out);
         }
+        // A new question opens its window by itself, once.
+        let asking = view.city.affairs.pending.as_ref().map(|p| (p.id.clone(), view.city.affairs.past.len()));
+        if asking != self.asked {
+            self.show_decision = asking.is_some();
+            self.asked = asking;
+        }
+        if self.show_decision {
+            crate::affairsui::window(ctx, &mut self.show_decision, view.city, &mut out);
+        }
         if self.show_news {
             crate::news::window(ctx, &mut self.show_news, view.city, &mut out);
         }
@@ -725,6 +745,22 @@ impl EguiUi {
                                     out.push(Command::Strike(d.id.clone()));
                                     ui.close_menu();
                                 }
+                            }
+                            if !rules.events.is_empty() {
+                                ui.separator();
+                                let mut on = city.affairs.on;
+                                if ui.checkbox(&mut on, "Events come up by themselves").on_hover_text("Strikes, festivals, offers: now and then something asks for a decision").changed() {
+                                    out.push(Command::SetEvents(on));
+                                }
+                                ui.menu_button("Make happen", |ui| {
+                                    for e in &rules.events {
+                                        let label = if e.external { format!("{} (from outside)", e.name) } else { e.name.clone() };
+                                        if ui.button(label).on_hover_text(&e.text).clicked() {
+                                            out.push(Command::Event(e.id.clone()));
+                                            ui.close_menu();
+                                        }
+                                    }
+                                });
                             }
                         });
                     }
@@ -922,7 +958,7 @@ impl EguiUi {
             _ => "inspect",
         };
         // What the rules build names a service; skins name the rest.
-        let service = view.city.rules().and_then(|r| r.service_unit(id)).map(|u| u.name.as_str());
+        let service = view.city.service(id).map(|u| u.name.as_str());
         let label = service.unwrap_or_else(|| view.skin.map_or(label, |s| s.label(id, label)));
         let selected = view.active == Some(action);
         let tex = self.icon(ctx, view.catalog, view.skin, icon);
@@ -930,9 +966,7 @@ impl EguiUi {
             (Action::Tool(Some(t)), Some(rules)) if t.structure().is_some_and(|c| c.is_zone()) => {
                 rules.zone_for(t.structure().unwrap()).and_then(|z| rules.zones[z].densities.get(view.city.zone_density as usize)).map(|d| d.cost)
             }
-            (Action::Tool(Some(t)), Some(rules)) if rules.service_unit(t.id()).is_some_and(|u| u.build_cost > 0) => {
-                rules.service_unit(t.id()).map(|u| u.build_cost)
-            }
+            (Action::Tool(Some(t)), Some(_)) if view.city.service(t.id()).is_some_and(|u| u.build_cost > 0) => view.city.service(t.id()).map(|u| u.build_cost),
             _ => tool_cost(action),
         };
         let text = match cost {
@@ -1147,6 +1181,12 @@ impl EguiUi {
                         }
                         if view.city.manual_routes() && ui.button("Routes").on_hover_text("The bus, tram and metro routes you draw").clicked() {
                             self.routes.open = !self.routes.open;
+                        }
+                        if let Some(q) = view.city.question() {
+                            let label = RichText::new(format!("Decide ({}m)", q.months_left)).color(Color32::from_rgb(240, 190, 80)).strong();
+                            if ui.button(label).on_hover_text(format!("{}: waiting for your answer", q.name)).clicked() {
+                                self.show_decision = !self.show_decision;
+                            }
                         }
                         if let Some(years) = view.city.years_to_election() {
                             if ui

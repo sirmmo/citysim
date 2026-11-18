@@ -71,6 +71,13 @@ enum Command {
         /// Let the city vote its mayor out: the run then ends there.
         #[arg(long)]
         elections: bool,
+        /// Let events of the rules come up; nobody answers their
+        /// questions, so each takes its last choice after three months.
+        #[arg(long)]
+        events: bool,
+        /// Make an event happen before the run, by its id (repeatable).
+        #[arg(long = "event", value_name = "ID")]
+        trigger: Vec<String>,
     },
     /// Print a summary of a saved city.
     Info { file: PathBuf },
@@ -360,7 +367,7 @@ fn main() -> Result<()> {
             print_summary(&city);
             save_city(&city, out)?;
         }
-        Command::Simulate { load, map, demo, game_rules, years, save, metrics, sensors, sensor_csv, no_tides, elections } => {
+        Command::Simulate { load, map, demo, game_rules, years, save, metrics, sensors, sensor_csv, no_tides, elections, events, trigger } => {
             let mut city = match load {
                 Some(p) => load_city(p, fp())?,
                 None => new_city(map, false, fp())?,
@@ -389,6 +396,10 @@ fn main() -> Result<()> {
             let target = city.date.year + years;
             let votes = city.mayor.elections;
             city.mayor.elections = votes && *elections;
+            city.affairs.on = *events;
+            for id in trigger {
+                city.trigger_event(id).map_err(|e| anyhow::anyhow!(e))?;
+            }
             while city.date.year < target {
                 if city.ousted() {
                     println!("{}: voted out of office at {:.0}% approval", city.date, city.mayor.approval * 100.0);

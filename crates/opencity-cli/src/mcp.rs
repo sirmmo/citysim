@@ -342,6 +342,33 @@ impl Server {
                     })).collect::<Vec<_>>(),
                 }))
             }
+            "events" => {
+                let city = self.city()?;
+                if let Some(on) = a.get("on").and_then(Value::as_bool) {
+                    city.affairs.on = on;
+                }
+                let mut said = Vec::new();
+                if let Some(id) = a.get("trigger").and_then(Value::as_str) {
+                    city.trigger_event(id).map_err(|e| anyhow!(e))?;
+                    said.push(format!("{id} happened"));
+                }
+                if let Some(i) = num(a, "choose") {
+                    said.push(city.decide(i as usize).map_err(|e| anyhow!(e))?);
+                }
+                let rules = city.rules().cloned().context("events need GlassBox rules")?;
+                Ok(json!({
+                    "said": said,
+                    "come_up_by_themselves": city.affairs.on,
+                    "question": city.question().map(|q| json!({
+                        "id": q.id, "name": q.name, "text": q.text, "months_left": q.months_left,
+                        "choices": q.options.iter().enumerate().map(|(i, o)| json!({ "choose": i, "label": o.label, "does": o.does })).collect::<Vec<_>>(),
+                    })),
+                    "approval_from_decisions": city.affairs.mood,
+                    "monthly": city.affairs.flows.iter().map(|f| json!({ "for": f.label, "a_month": f.monthly, "months_left": f.months })).collect::<Vec<_>>(),
+                    "happened": city.affairs.past,
+                    "events": rules.events.iter().map(|e| json!({ "id": e.id, "name": e.name, "external": e.external, "choices": e.choices.len() })).collect::<Vec<_>>(),
+                }))
+            }
             "news" => {
                 let city = self.city()?;
                 Ok(json!({
@@ -647,6 +674,11 @@ fn tools() -> Value {
             "funding": { "type": "object", "additionalProperties": { "type": "number" } }, "borrow": { "type": "integer", "minimum": 1 }
         }), &[]),
         tool("goals", "The scenario's goals: how far each has come, deadlines, and whether the game is won or lost.", json!({}), &[]),
+        tool("events", "Events of the rules (GlassBox): things that happen to the city, some asking the mayor to choose. Without arguments: the open `question` with its choices and what each does, what happened so far, and every event of the rules. `choose` (a number) answers the open question; a question left open takes its last choice after three months. `trigger` (an event id) makes an event happen now, whatever its conditions: `external` events (a government falling, which closes the city's offices and makes the same tools build others) only ever happen this way. `on` (true/false) lets events come up by themselves or not.", json!({
+            "choose": { "type": "integer", "description": "Which choice of the open question to take, from 0" },
+            "trigger": { "type": "string", "description": "Id of the event to make happen now" },
+            "on": { "type": "boolean", "description": "Whether events come up by themselves" },
+        }), &[]),
         tool("news", "What needs the mayor now (`advice`: shortages, joblessness, the homeless, complaints, debt, a coming vote; some with the tile where it is worst), what residents complain about where they live (`complaints`: share of residents and the approval points each costs), and the city's news so far, oldest first.", json!({}), &[]),
         tool("mayor", "The mayor's approval rating (0..1): the points out of 100 that make it (needs met, debt, people leaving, disasters, the family), where it is heading, and the vote. Under `voted_out_below` for 12 months in a row, a city of `voters_needed` people or more votes the mayor out: time then stands still and tools are refused until `stay` is `again` (a new term from 50%) or `for_life` (no more votes). `elections` switches the votes on or off. `terms` switches terms of office on or off (opt-in): an election every four years, won with half the vote, which is approval in percent plus 6 for each promise kept and less 10 for each broken; `promise` makes the campaign promise at that index of `promise_offers` (first year of a term, two at most).", json!({
             "elections": { "type": "boolean" }, "terms": { "type": "boolean" }, "promise": { "type": "integer" }, "stay": { "type": "string", "enum": ["again", "for_life"] }

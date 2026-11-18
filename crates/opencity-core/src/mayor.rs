@@ -209,6 +209,9 @@ impl City {
         if self.mayor.shock >= 0.5 {
             v.push(("Recent disasters".to_string(), -self.mayor.shock));
         }
+        if self.affairs.mood.abs() >= 0.5 {
+            v.push(("Recent decisions".to_string(), self.affairs.mood));
+        }
         // Offices the city is glad to have, by how well they work.
         if let (Some(gb), Some(rules)) = (&self.glassbox, self.rules()) {
             let mut by_name: std::collections::BTreeMap<&str, f32> = std::collections::BTreeMap::new();

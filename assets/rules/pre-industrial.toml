@@ -849,3 +849,123 @@ approval = 0.5
 administration = -0.02
 needs = { workers = 2, food = 0.5, upkeep = 0.05 }
 emits = { land_value = { amount = 1.5, radius = 6 } }
+
+# ---------------------------------------------------------------- after the crown
+[[unit]]
+id = "old_magistrates_house"
+name = "Old magistrate's house"
+description = "The crown's arms are chiselled off the lintel. A good house, waiting for a use."
+graphic = 351
+relic = true
+salvage = 150
+needs = { upkeep = 0.02 }
+emits = { land_value = { amount = 1.5, radius = 4 } }
+
+[[unit]]
+id = "old_town_hall"
+name = "Old town hall"
+description = "The seal is broken and the scribes are gone. The hall is used for weddings."
+graphic = 352
+relic = true
+salvage = 400
+needs = { upkeep = 0.04 }
+emits = { land_value = { amount = 3.0, radius = 6 } }
+
+[[unit]]
+id = "old_ward_house"
+name = "Old ward house"
+description = "Nobody meets here now."
+graphic = 353
+relic = true
+salvage = 50
+needs = { upkeep = 0.01 }
+
+[[unit]]
+id = "consuls_house"
+name = "Consul's house"
+description = "The commune chooses a consul each year, and this is where to find him."
+graphic = 351
+limit = 1
+approval = 2
+needs = { workers = 2, food = 1, upkeep = 0.08 }
+emits = { land_value = { amount = 2.0, radius = 5 } }
+
+[[unit]]
+id = "commune_hall"
+name = "Commune hall"
+description = "The town answers to nobody now, and governs itself from here."
+graphic = 352
+limit = 1
+administration = -0.15
+approval = 1
+needs = { workers = 6, food = 1.5, upkeep = 0.2 }
+emits = { land_value = { amount = 4.0, radius = 8 } }
+
+[[unit]]
+id = "parish_council"
+name = "Parish council"
+description = "Each parish settles its own quarrels."
+graphic = 353
+approval = 1
+needs = { workers = 1, food = 0.5, upkeep = 0.03 }
+emits = { land_value = { amount = 1.5, radius = 6 } }
+
+# ---------------------------------------------------------------- events
+# Sums are for each thousand residents (see rules/glassbox.toml).
+[[event]]
+id = "fair"
+name = "A fair for the patron saint"
+text = "The guilds and the parishes want a fair on the saint's day, and ask what the town will give."
+min_population = 200
+[[event.choice]]
+label = "A great fair"
+text = "merchants come from three valleys away."
+effect = { money = -150, approval = 5 }
+[[event.choice]]
+label = "A procession and a market"
+text = "a good day, and cheap."
+effect = { money = -50, approval = 2 }
+[[event.choice]]
+label = "No fair"
+text = "the saint's day passes like any other."
+effect = { approval = -1 }
+
+[[event]]
+id = "guild_dispute"
+name = "The guilds and the merchants quarrel"
+text = "The guilds want outsiders kept from selling in town. The merchants want the gates open."
+min_population = 400
+[[event.choice]]
+label = "Side with the guilds"
+text = "the gates are watched, and the craftsmen are content."
+effect = { monthly = -15, months = 12, approval = 2 }
+[[event.choice]]
+label = "Side with the merchants"
+text = "trade comes in, and the craftsmen grumble."
+effect = { money = 100, approval = -3 }
+[[event.choice]]
+label = "Stay out of it"
+text = "the quarrel goes on without the town."
+effect = { approval = -1 }
+
+[[event]]
+id = "bad_harvest"
+name = "A bad harvest in the next valley"
+text = "Hungry people are on the road, and their town asks for grain."
+min_population = 300
+[[event.choice]]
+label = "Send grain"
+text = "carts leave with what can be spared."
+effect = { money = -120, approval = 3 }
+[[event.choice]]
+label = "Close the gates"
+text = "the gates are shut at dusk."
+effect = { approval = -2 }
+
+# Set off from outside: the realm is gone, the town is not.
+[[event]]
+id = "realm_falls"
+name = "The crown has fallen"
+text = "The realm the town answered to is no more. Its offices in town close; the town goes on as a commune."
+external = true
+effect = { approval = -6, obsoletes = { magistrate = "old_magistrates_house", town_hall = "old_town_hall", ward_house = "old_ward_house" }, services = { mayors_office = "consuls_house", city_hall = "commune_hall", neighbourhood_office = "parish_council" } }

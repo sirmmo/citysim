@@ -8,6 +8,14 @@ Release notes in full are on the [releases page](https://github.com/sirmmo/citys
 - **Report to OpenTactics**, in the new OpenTactics window: a link back with the population and the taxes, copied to the clipboard. The city then pays 50% of its income there, plus 100% for every $400 of taxes a month.
 - On the command line: `--holding LINK`. See [PLAYING.md](docs/PLAYING.md#a-city-for-opentactics).
 
+## 0.2.79: Events and decisions
+- **Things happen, and ask for a decision** (GlassBox rules): the city's staff want a raise, residents want a festival, a factory asks for a tax break, a developer wants a park, the paper has a scandal. Each choice says what it does: money, money month by month, points of approval. Some are gambles.
+- **A question waits three months**, then its last choice is taken. *Decide* in the city panel reopens it. Approval from decisions fades by a tenth a month.
+- **Events from outside:** an event marked `external` never comes up by itself. A game this city is part of sets it off with `--event ID`; so do the MCP tool `events` and `opencity-cli simulate --event ID`.
+- **The government has fallen** (`government_falls`; before 1800 `realm_falls`): the mayor's office, city hall and neighbourhood offices close at once and stand as relics, and the same tools now build a Council chair's office, a Provisional council and Citizens' committees.
+- **Events are rules:** `[[event]]` with `[[event.choice]]`, and effects that can retire units (`obsoletes`) and change what a service tool builds (`services`). See [RULES.md](docs/RULES.md#events).
+- Disasters menu: *Events come up by themselves* and *Make happen*. They are off under the classic interface, on Android and in `opencity-cli simulate` (unless `--events`).
+
 ## 0.2.78: Government buildings
 - **Three offices of the city's own**, in the Services row (GlassBox rules):
   - **Mayor's office** (one to a city, $2,500): 3 points of approval.

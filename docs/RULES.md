@@ -509,6 +509,54 @@ fallout = { layer = "radiation", amount = 60, radius = 9 }   # left on a map lay
 - **Shipped:** the modern rules have fire, flood, epidemic and the nuclear accident. Before 1800
   there are great fires (wider and more frequent), floods and plague.
 
+### Events
+
+```toml
+[[event]]
+id = "festival"
+name = "A summer festival"
+text = "A committee of residents wants a festival, and asks what the city will give."
+min_population = 300                 # optional
+requires = ["park", "stadium"]       # the city has at least one of these standing (optional)
+weight = 1                           # how often it is the one, against the others (optional)
+once = false                         # comes up by itself no more than once (optional)
+external = false                     # true: never by itself, only set off from outside
+effect = { approval = -1 }           # what happens at once, before any choice (optional)
+
+[[event.choice]]
+label = "A festival to remember"
+text = "three days of music, and fireworks on the last."     # said once it is taken
+effect = { money = -1800, approval = 5 }
+
+[[event.choice]]
+label = "Back the club"
+chance = 0.4                         # a gamble: 40% `effect`, otherwise `else_effect`
+effect = { money = -1500, approval = 7 }
+else_text = "they go out in the semi-final."
+else_effect = { money = -1500, approval = 1 }
+```
+
+- **When:** each month, after four quiet months, there is one chance in
+  four that an event comes up, picked by `weight` among those whose
+  conditions hold. The same event does not come twice in a row. The draw
+  follows the city's month, people and money, not the simulation's dice,
+  so events never change how a seed plays out.
+- **Choices:** an event with choices waits for an answer for three months;
+  then its **last choice** is taken, so put what happens when nobody
+  decides last. An event without choices just happens.
+- **An effect** (`effect`, `else_effect`) can hold:
+  - `money`: paid (negative) or received at once, for each thousand residents (a city under 500 counts as 500);
+  - `monthly` and `months`: the same each month, for so many months;
+  - `approval`: points, which fade by a tenth a month (20 at most either way);
+  - `obsoletes = { unit = "relic" }` and `grace` (months, 0 by default): the unit is built no more, and after the grace its buildings become the unit named, as for a tech;
+  - `services = { tool = "unit" }`: from now on the service tool builds this unit instead of what `[services]` says.
+- **From outside:** `external = true` keeps an event from coming up by
+  itself. It happens when something sets it off: the game with
+  `--event ID`, `opencity-cli simulate --event ID`, the MCP tool `events`
+  (`trigger`), or the Disasters menu. This is how a larger game tells a
+  city that the world changed: `government_falls` closes the city's
+  offices (`obsoletes`) and makes their tools build others (`services`).
+
 ### Shared pools (culture)
 
 ```toml

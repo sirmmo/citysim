@@ -303,6 +303,9 @@ pub struct City {
     /// The mayor's approval rating and the vote that can end the term.
     #[serde(default)]
     pub mayor: crate::mayor::Mayor,
+    /// Events and the decisions they ask for.
+    #[serde(default, skip_serializing_if = "crate::affairs::Affairs::is_default")]
+    pub affairs: crate::affairs::Affairs,
     pub(crate) rng: Pcg32,
     day_clock_ms: f64,
     sim_clock_ms: f64,
@@ -350,6 +353,7 @@ impl City {
             border_links: Vec::new(),
             mafia: None,
             mayor: Default::default(),
+            affairs: Default::default(),
             news: VecDeque::new(),
             ledger: BTreeMap::new(),
             last_ledger: BTreeMap::new(),
@@ -445,7 +449,7 @@ impl City {
     pub fn tool_locked_by(&self, tool: Tool) -> Option<String> {
         let gb = self.glassbox.as_ref()?;
         let rules = gb.rules()?;
-        let unit = rules.services.get(tool.id()).map(String::as_str);
+        let unit = self.service(tool.id()).map(|u| u.id.as_str());
         [Some(tool.id()), unit].into_iter().flatten().find_map(|id| gb.locked_by(rules, id)).map(|t| t.name.clone())
     }
 
@@ -453,15 +457,14 @@ impl City {
     pub fn tool_obsolete(&self, tool: Tool) -> Option<String> {
         let gb = self.glassbox.as_ref()?;
         let rules = gb.rules()?;
-        let unit = rules.services.get(tool.id())?;
-        gb.obsolete_by(rules, unit).map(|t| t.name.clone())
+        gb.obsolete_since(rules, &self.service(tool.id())?.id)
     }
 
     /// The name of a tool's building when the city has as many as its
     /// rules allow (`limit` on the unit).
     pub fn tool_at_limit(&self, tool: Tool) -> Option<String> {
         let rules = self.rules()?;
-        let unit = rules.service_unit(tool.id()).filter(|u| u.limit > 0)?;
+        let unit = self.service(tool.id()).filter(|u| u.limit > 0)?;
         let index = rules.unit(&unit.id)? as u16;
         let have = self.layer.structures().filter(|(_, s)| s.unit == Some(index)).count() as u32;
         (have >= unit.limit).then(|| unit.name.clone())
@@ -539,7 +542,7 @@ impl City {
             cost = cost / code.build_cost().max(1) * per_tile;
         }
         // Services priced by the rules (e.g. a well instead of a park).
-        if let Some(price) = self.rules().and_then(|r| r.service_unit(tool.id())).map(|u| u.build_cost).filter(|&c| c > 0) {
+        if let Some(price) = self.service(tool.id()).map(|u| u.build_cost).filter(|&c| c > 0) {
             cost = cost / code.build_cost().max(1) * price;
         }
         self.after_build(tool, code, rect);
@@ -626,7 +629,7 @@ impl City {
                     }
                 }
             }
-        } else if let Some(unit) = rules.services.get(tool.id()).and_then(|u| rules.unit(u)) {
+        } else if let Some(unit) = self.service(tool.id()).and_then(|u| rules.unit(&u.id)) {
             // Blocks have one origin; area tools (parks) make every new tile a unit.
             let tiles: Vec<(u32, u32)> = if code.is_block() { vec![(rect.w1, rect.l1)] } else { rect.tiles().collect() };
             for (w, l) in tiles {
@@ -1312,6 +1315,7 @@ impl City {
         self.close_month();
         self.check_goals();
         self.transit_month();
+        self.affairs_month();
         self.mayor_month();
         if self.date.month > 12 {
             self.date.month = 1;

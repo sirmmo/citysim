@@ -1352,3 +1352,227 @@ approval = 0.5
 administration = -0.02
 needs = { workers = 3, power = 1, upkeep = 0.15 }
 emits = { land_value = { amount = 1.5, radius = 6 } }
+
+# ---------------------------------------------------------------- after the government
+# What the City hall, Mayor's office and Neighbourhood office tools build
+# once the event `government_falls` has happened, and what is left of the
+# old offices.
+[[unit]]
+id = "former_mayors_office"
+name = "Former mayor's office"
+description = "The brass plate is gone from the door. A handsome house with nobody's name on it."
+graphic = 351
+relic = true
+salvage = 800
+needs = { upkeep = 0.05 }
+emits = { land_value = { amount = 1.5, radius = 4 } }
+
+[[unit]]
+id = "former_city_hall"
+name = "Former city hall"
+description = "The clock still runs. The chamber is used for concerts, and for arguing about what to do with it."
+graphic = 352
+relic = true
+salvage = 2000
+produce = { ideas = 0.5 }
+needs = { upkeep = 0.1 }
+emits = { land_value = { amount = 3.0, radius = 6 } }
+
+[[unit]]
+id = "former_neighbourhood_office"
+name = "Former neighbourhood office"
+description = "Shutters down, the opening hours still on the door."
+graphic = 353
+relic = true
+salvage = 250
+needs = { upkeep = 0.02 }
+
+[[unit]]
+id = "council_chair"
+name = "Council chair's office"
+description = "Whoever chairs the council this year works here. Less of a mayor, more of a neighbour."
+graphic = 351
+limit = 1
+approval = 2
+needs = { workers = 3, power = 1, upkeep = 0.2 }
+emits = { land_value = { amount = 2.0, radius = 5 } }
+
+[[unit]]
+id = "provisional_council"
+name = "Provisional council"
+description = "The city runs itself from here until somebody says otherwise: fewer clerks, more meetings."
+graphic = 352
+limit = 1
+administration = -0.15
+approval = 1
+needs = { workers = 12, power = 4, water = 2, upkeep = 0.5 }
+emits = { land_value = { amount = 4.0, radius = 8 } }
+
+[[unit]]
+id = "citizens_committee"
+name = "Citizens' committee"
+description = "The street decides for the street, in a room with a kettle."
+graphic = 353
+approval = 1
+needs = { workers = 2, power = 1, upkeep = 0.1 }
+emits = { land_value = { amount = 1.5, radius = 6 } }
+
+# ---------------------------------------------------------------- events
+# Things that happen to the city. Sums are for each thousand residents.
+# After four quiet months one comes up in a month out of four. A question
+# waits three months, then its last choice is taken. `external = true`
+# events never come up by themselves: something outside sets them off.
+[[event]]
+id = "strike"
+name = "Municipal workers ask for a raise"
+text = "The unions of the city's own staff want better pay, and talk of a strike."
+min_population = 800
+[[event.choice]]
+label = "Grant the raise"
+text = "the raise is granted, and the buses run."
+effect = { monthly = -180, months = 12, approval = 3 }
+[[event.choice]]
+label = "Bargain"
+chance = 0.6
+text = "a deal is struck over a long night."
+effect = { money = -750, approval = 1 }
+else_text = "the talks fail, and the city stands still for a week."
+else_effect = { money = -750, approval = -3 }
+[[event.choice]]
+label = "Refuse"
+text = "no raise. The strike lasts a fortnight."
+effect = { approval = -4 }
+
+[[event]]
+id = "festival"
+name = "A summer festival"
+text = "A committee of residents wants a festival in the streets, and asks what the city will give."
+min_population = 300
+[[event.choice]]
+label = "A festival to remember"
+text = "three days of music, and fireworks on the last."
+effect = { money = -1800, approval = 5 }
+[[event.choice]]
+label = "Something modest"
+text = "a stage, some stalls and a good evening."
+effect = { money = -600, approval = 2 }
+[[event.choice]]
+label = "Not this year"
+text = "there is no festival this year."
+effect = { approval = -1 }
+
+[[event]]
+id = "factory_tax_break"
+name = "A factory asks for a tax break"
+text = "The owners of a factory say they will have to let people go unless the city helps."
+requires = ["factory_1", "factory_2", "factory_3", "plant_1", "plant_2", "plant_3"]
+min_population = 600
+[[event.choice]]
+label = "Grant the break"
+text = "the factory keeps everyone on."
+effect = { monthly = -240, months = 24, approval = 2 }
+[[event.choice]]
+label = "Pay for training instead"
+chance = 0.5
+text = "the workers learn new trades and the factory finds new work."
+effect = { money = -900, approval = 3 }
+else_text = "the courses are half empty and the factory lets people go anyway."
+else_effect = { money = -900, approval = -1 }
+[[event.choice]]
+label = "Refuse"
+chance = 0.7
+text = "it was a bluff: nobody is let go."
+effect = { approval = -1 }
+else_text = "the factory lets a shift go, and blames the city."
+else_effect = { approval = -5 }
+
+[[event]]
+id = "park_developer"
+name = "An offer for a park"
+text = "A developer offers good money to build at the edge of a park. The park would still be there, mostly."
+requires = ["park"]
+min_population = 500
+[[event.choice]]
+label = "Take the money"
+text = "the diggers come. So do the letters to the paper."
+effect = { money = 2700, approval = -5 }
+[[event.choice]]
+label = "Refuse"
+text = "the park stays as it is."
+effect = { approval = 2 }
+
+[[event]]
+id = "scandal"
+name = "A scandal at the works department"
+text = "The paper says contracts went to a cousin of somebody. People want to know what the mayor knew."
+min_population = 1500
+[[event.choice]]
+label = "Open an inquiry"
+text = "an inquiry finds sloppy books and no crime."
+effect = { money = -900, approval = 1 }
+[[event.choice]]
+label = "Deny everything"
+chance = 0.5
+text = "the story dies within the week."
+else_text = "more papers surface. It looks worse than it was."
+else_effect = { approval = -8 }
+[[event.choice]]
+label = "No comment"
+text = "the mayor has no comment, and the paper prints that."
+effect = { approval = -3 }
+
+[[event]]
+id = "sports_club"
+name = "The club wants backing"
+text = "The town's club is one good season from the cup, and short of money."
+requires = ["stadium"]
+[[event.choice]]
+label = "Back the club"
+chance = 0.4
+text = "they win the cup! The whole town is in the streets."
+effect = { money = -1500, approval = 7 }
+else_text = "they go out in the semi-final, bravely."
+else_effect = { money = -1500, approval = 1 }
+[[event.choice]]
+label = "Decline"
+text = "the club sells its best player."
+effect = { approval = -2 }
+
+[[event]]
+id = "neighbour_aid"
+name = "A neighbouring town asks for help"
+text = "Floods have hit a town down the valley. They ask whoever can to send crews and money."
+min_population = 500
+[[event.choice]]
+label = "Send help"
+text = "crews and lorries leave the same night."
+effect = { money = -1200, approval = 3 }
+[[event.choice]]
+label = "Send good wishes"
+text = "a letter is sent."
+effect = { approval = -1 }
+
+[[event]]
+id = "power_station_gallery"
+name = "Artists want the old power station"
+text = "A group of artists asks to turn the turbine hall into a gallery."
+requires = ["old_power_station"]
+once = true
+[[event.choice]]
+label = "Fund the gallery"
+text = "the gallery opens, and is in the guide books within a year."
+effect = { money = -2100, approval = 4 }
+[[event.choice]]
+label = "Let them try on their own"
+chance = 0.5
+text = "they manage it with paint and borrowed lamps."
+effect = { approval = 2 }
+else_text = "nothing comes of it."
+
+# Set off from outside: the country's government is gone, the city is not.
+[[event]]
+id = "government_falls"
+name = "The government has fallen"
+text = "The national government is gone, and its laws with it. The city's offices under those laws close; the city goes on, and must run itself."
+external = true
+effect = { approval = -6, obsoletes = { mayors_office = "former_mayors_office", city_hall = "former_city_hall", neighbourhood_office = "former_neighbourhood_office" }, services = { mayors_office = "council_chair", city_hall = "provisional_council", neighbourhood_office = "citizens_committee" } }

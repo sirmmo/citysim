@@ -816,6 +816,34 @@ Unticking the box gives the routes back to the city; yours are kept for
 later. Region borders are not part of this: lines that cross a border carry
 commuters as before.
 
+## Events and decisions
+
+Under GlassBox rules, now and then something happens that asks for a
+decision: the city's staff want a raise, residents want a festival, a
+developer makes an offer for a park, the paper has a story.
+
+- **The question** opens in a window by itself. Each choice says what it does: money at once, money month by month, points of approval. Some are gambles and say their odds.
+- **No answer:** the window can be closed; **Decide** in the city panel opens it again. After three months the last choice is taken.
+- **Sums follow the size of the city.** They are set for a thousand residents; a town under 500 counts as 500.
+- **Approval** from a decision shows under *Recent decisions* and fades by a tenth a month. It never weighs more than 20 points either way.
+- **How often:** after four quiet months, one month in four. Some events need something standing: a factory, a park, a stadium, an old power station.
+- **Disasters > Events come up by themselves** turns them off. **Disasters > Make happen** sets one off now.
+- Under the classic interface and on Android, where there is no window to answer in, events do not come up.
+
+### Events from outside
+
+Some events never come up by themselves: something outside the city sets
+them off. A game that this city is one part of can start it with
+`--event ID`, and so can the MCP server and `opencity-cli simulate --event ID`.
+
+The one that ships: **The government has fallen** (`government_falls`;
+before 1800 **The crown has fallen**, `realm_falls`). The country's
+government is gone, the city is not.
+
+- The mayor's office, the city hall and the neighbourhood offices close at once and stand as relics (to keep, or to pull down for their salvage).
+- The same three tools now build what a city on its own runs itself with: a **Council chair's office**, a **Provisional council** and **Citizens' committees** (before 1800: Consul's house, Commune hall, Parish councils).
+- Approval drops 6 points, and running the city costs more until the new council stands.
+
 ## News and advice
 
 The **📰 News** button in the City panel opens the news window; the number on

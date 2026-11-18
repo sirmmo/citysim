@@ -5,6 +5,7 @@
 //! graphics or audio dependency, so it runs the same in the game, in the
 //! headless CLI and in tests.
 
+pub mod affairs;
 pub mod city;
 pub mod codes;
 pub mod footprint;

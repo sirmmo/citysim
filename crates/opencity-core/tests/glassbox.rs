@@ -2099,12 +2099,13 @@ fn saves_survive_rules_that_gain_units() {
     let ids: Vec<&str> = r.units.iter().map(|u| u.id.as_str()).collect();
     let park = ids.iter().position(|i| *i == "park").unwrap();
     assert_eq!(&ids[park..park + 4], ["park", "high_school", "university", "museum"], "new units follow the old ones");
-    assert_eq!(&ids[ids.len() - 5..ids.len() - 3], ["old_power_station", "capped_landfill"], "relics, in 0.2.77");
-    assert_eq!(&ids[ids.len() - 3..], ["mayors_office", "city_hall", "neighbourhood_office"], "government came last, in 0.2.78");
-    assert_eq!(ids.len(), park + 23, "a unit added to the shipped rules goes at the end, and this test learns its name");
+    assert_eq!(&ids[ids.len() - 11..ids.len() - 9], ["old_power_station", "capped_landfill"], "relics, in 0.2.77");
+    assert_eq!(&ids[ids.len() - 9..ids.len() - 6], ["mayors_office", "city_hall", "neighbourhood_office"], "government, in 0.2.78");
+    assert_eq!(ids[ids.len() - 1], "citizens_committee", "what follows a fallen government came last, in 0.2.79");
+    assert_eq!(ids.len(), park + 29, "a unit added to the shipped rules goes at the end, and this test learns its name");
     let old = rules_named("pre-industrial");
     let old_ids: Vec<&str> = old.units.iter().map(|u| u.id.as_str()).collect();
-    assert_eq!(&old_ids[old_ids.len() - 6..], ["studium", "arena", "theatre", "magistrate", "town_hall", "ward_house"]);
+    assert_eq!(&old_ids[old_ids.len() - 12..old_ids.len() - 6], ["studium", "arena", "theatre", "magistrate", "town_hall", "ward_house"]);
     // From now on a save names its units, and is renumbered on loading
     // under rules that list them otherwise.
     let mut c = City::new(Terrain::flat(40, 24), None, Footprints::builtin(), 3);
@@ -2662,4 +2663,98 @@ fn government_offices_help_run_the_city() {
     // The bill for running the city, a head.
     let bill = |c: &City| -c.glassbox.as_ref().unwrap().ledger.get("Upkeep: Administration").copied().unwrap_or(0.0) / c.population.max(1) as f64;
     assert!(bill(&plain) > 0.0 && bill(&run) < bill(&plain) * 0.85, "{} vs {}", bill(&run), bill(&plain));
+}
+
+/// Events of the rules: a question with choices, an answer taken by
+/// default, and an event from outside that closes the city's offices and
+/// puts others in their place.
+#[test]
+fn events_ask_and_change_what_is_built() {
+    use opencity_core::city::MS_PER_DAY;
+    let r = rules();
+    let mut c = City::new(Terrain::flat(48, 48), None, Footprints::builtin(), 7);
+    c.use_rules(r.clone());
+    c.fund = 100_000;
+    c.affairs.on = false;
+    assert!(c.trigger_event("no_such_event").is_err());
+    c.trigger_event("festival").unwrap();
+    let q = c.question().unwrap();
+    assert_eq!((q.options.len(), q.months_left), (3, 3));
+    // Sums are for a thousand residents; a small town counts as 500.
+    assert_eq!(q.options[0].does, "-$900 · approval +5");
+    let before = c.fund;
+    assert!(c.decide(0).unwrap().contains("fireworks"));
+    assert_eq!((c.fund, c.affairs.mood), (before - 900, 5.0));
+    assert!(c.question().is_none() && c.decide(0).is_err());
+    assert!(c.approval_factors().iter().any(|(n, p)| n == "Recent decisions" && *p == 5.0));
+    // Left unanswered, the last choice is taken after three months.
+    c.trigger_event("festival").unwrap();
+    for _ in 0..95 {
+        c.update(MS_PER_DAY);
+    }
+    assert!(c.question().is_none());
+    assert!(c.news.iter().any(|n| n.text.contains("no festival this year")), "{:?}", c.news);
+    assert!(c.affairs.mood < 4.0, "the first choice fades and the second weighs: {}", c.affairs.mood);
+    // Money month by month.
+    c.trigger_event("strike").unwrap();
+    c.decide(0).unwrap();
+    assert_eq!(c.affairs.flows.len(), 1);
+    let before = c.fund;
+    for _ in 0..31 {
+        c.update(MS_PER_DAY);
+    }
+    assert_eq!(c.affairs.flows[0].months, 11);
+    assert!(c.fund <= before - 90, "{} {}", c.fund, before);
+
+    // From outside: the government falls. Its offices close at once, and
+    // the same tools build what the city runs itself with.
+    c.apply_tool(Tool::Road, (2, 10), (40, 10)).unwrap();
+    c.apply_tool(Tool::CityHall, (4, 11), (4, 11)).unwrap();
+    c.apply_tool(Tool::NeighbourhoodOffice, (12, 11), (12, 11)).unwrap();
+    let unit_at = |c: &City, w, l| c.layer.structure_at(w, l).and_then(|s| s.unit).map(|u| r.units[u as usize].id.clone());
+    assert_eq!(c.service("city_hall").map(|u| u.id.as_str()), Some("city_hall"));
+    c.trigger_event("government_falls").unwrap();
+    assert!(c.question().is_none(), "nothing to choose");
+    c.simulate_round();
+    c.simulate_round();
+    assert_eq!(unit_at(&c, 4, 11).as_deref(), Some("former_city_hall"));
+    assert_eq!(unit_at(&c, 12, 11).as_deref(), Some("former_neighbourhood_office"));
+    assert_eq!(c.service("city_hall").map(|u| u.id.as_str()), Some("provisional_council"));
+    assert_eq!(c.tool_at_limit(Tool::CityHall), None);
+    c.apply_tool(Tool::CityHall, (20, 11), (20, 11)).unwrap();
+    assert_eq!(unit_at(&c, 20, 11).as_deref(), Some("provisional_council"));
+    assert_eq!(c.tool_at_limit(Tool::CityHall).as_deref(), Some("Provisional council"));
+    assert_eq!(c.tool_obsolete(Tool::CityHall), None);
+    // The relic pays when it goes, and all of it survives a save.
+    let before = c.fund;
+    let cost = c.apply_tool(Tool::Destroy, (4, 11), (4, 11)).unwrap().cost as i64;
+    assert_eq!(c.fund, before - cost + 2000);
+    let mut buf = Vec::new();
+    opencity_core::save::save(&c, &mut buf).unwrap();
+    let mut d = opencity_core::save::load(std::io::Cursor::new(buf), Footprints::builtin()).unwrap();
+    d.use_rules(r.clone());
+    assert_eq!(d.service("city_hall").map(|u| u.id.as_str()), Some("provisional_council"));
+    assert_eq!(d.affairs, c.affairs);
+}
+
+/// Left to themselves, events come up now and then, the same for the same seed.
+#[test]
+fn events_come_up_by_themselves() {
+    use opencity_core::city::MS_PER_DAY;
+    let run = || {
+        let mut c = City::new(Terrain::flat(72, 64), None, Footprints::builtin(), 3);
+        c.use_rules(rules());
+        opencity_core::scenario::demo_town(&mut c);
+        c.fund = 500_000;
+        c.mayor.elections = false;
+        for _ in 0..(3 * 372) {
+            c.update(MS_PER_DAY);
+        }
+        c
+    };
+    let (a, b) = (run(), run());
+    assert!((2..=9).contains(&a.affairs.past.len()), "{:?}", a.affairs.past);
+    assert!(!a.affairs.past.contains(&"government_falls".to_string()));
+    assert_eq!(a.affairs, b.affairs);
+    assert_eq!(a.fund, b.fund);
 }

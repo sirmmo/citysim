@@ -346,6 +346,14 @@ pub struct GlassBox {
     /// tick their buildings close ([`OBSOLETE_GRACE`] after the project).
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub obsolete: BTreeMap<String, u64>,
+    /// For units an event made obsolete: what each becomes and the event's
+    /// name (research is looked up in the tech tree instead).
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub retired: BTreeMap<String, (String, String)>,
+    /// Service tools that build another unit since an event said so
+    /// (tool id -> unit id), over the rules' `[services]`.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub services: BTreeMap<String, String>,
     /// Buildings that closed during the last tick: (what they were, what
     /// they are now, how many).
     #[serde(skip)]
@@ -490,6 +498,8 @@ impl GlassBox {
             stances: BTreeMap::new(),
             discoveries: Vec::new(),
             obsolete: BTreeMap::new(),
+            retired: BTreeMap::new(),
+            services: BTreeMap::new(),
             closures: Vec::new(),
             auto_research: false,
             flows: HashMap::new(),
@@ -865,6 +875,12 @@ impl GlassBox {
         rules.techs.iter().find(|t| self.researched.contains(&t.id) && t.obsoletes.contains_key(unit))
     }
 
+    /// What made a unit obsolete, by name: an event or a research project.
+    pub fn obsolete_since(&self, rules: &Ruleset, unit: &str) -> Option<String> {
+        self.obsolete.get(unit)?;
+        self.retired.get(unit).map(|(_, why)| why.clone()).or_else(|| self.obsolete_by(rules, unit).map(|t| t.name.clone()))
+    }
+
     /// Ticks until the buildings of an obsolete unit close; `None` for a
     /// unit that is not obsolete.
     pub fn closes_in(&self, unit: &str) -> Option<u64> {
@@ -882,7 +898,8 @@ impl GlassBox {
         let width = layer.width();
         for unit in due {
             let Some(old) = rules.unit(unit) else { continue };
-            let Some(new) = rules.techs.iter().find_map(|t| t.obsoletes.get(unit)).and_then(|id| rules.unit(id)) else { continue };
+            let becomes = self.retired.get(unit).map(|(b, _)| b).or_else(|| rules.techs.iter().find_map(|t| t.obsoletes.get(unit)));
+            let Some(new) = becomes.and_then(|id| rules.unit(id)) else { continue };
             let at: Vec<(u32, u32)> = layer.structures().filter(|(_, s)| s.unit == Some(old as u16)).map(|(p, _)| p).collect();
             for &(w, l) in &at {
                 if let Some(s) = layer.structure_mut(w, l) {

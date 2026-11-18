@@ -733,6 +733,9 @@ pub struct Ruleset {
     /// Disasters (`[[disaster]]`).
     #[serde(default, rename = "disaster", skip_serializing_if = "Vec::is_empty")]
     pub disasters: Vec<DisasterDef>,
+    /// Events, with or without choices (`[[event]]`).
+    #[serde(default, rename = "event", skip_serializing_if = "Vec::is_empty")]
+    pub events: Vec<EventDef>,
     /// What residents hold against the mayor (`[[complaint]]`).
     #[serde(default, rename = "complaint", skip_serializing_if = "Vec::is_empty")]
     pub complaints: Vec<ComplaintDef>,
@@ -1089,6 +1092,78 @@ impl Ruleset {
     pub fn zone_of_unit(&self, unit: &str) -> Option<usize> {
         self.zones.iter().position(|z| z.densities.iter().any(|d| d.units.iter().any(|u| u == unit)))
     }
+}
+
+/// What an event or one of its choices does (`effect = { … }`).
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields, default)]
+pub struct EffectDef {
+    /// Money at once, for each thousand residents (a city under 500
+    /// counts as 500). Negative: the city pays.
+    pub money: f32,
+    /// Money each month for `months`, for each thousand residents.
+    pub monthly: f32,
+    pub months: u32,
+    /// Points of approval; they fade by a tenth a month.
+    pub approval: f32,
+    /// Units made obsolete and what each becomes, as on a tech.
+    pub obsoletes: BTreeMap<String, String>,
+    /// Months the obsolete buildings keep working (0: they close at once).
+    pub grace: u32,
+    /// Service tools that build another unit from now on
+    /// (`{ city_hall = "provisional_council" }`).
+    pub services: BTreeMap<String, String>,
+}
+
+/// One answer to an event (`[[event.choice]]`).
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ChoiceDef {
+    pub label: String,
+    /// What is said once it is taken.
+    #[serde(default)]
+    pub text: String,
+    #[serde(default)]
+    pub effect: EffectDef,
+    /// A gamble: the odds (0..1) that `effect` and `text` are what
+    /// happens; otherwise `else_effect` and `else_text` are. 0: no gamble.
+    #[serde(default)]
+    pub chance: f32,
+    #[serde(default)]
+    pub else_text: String,
+    #[serde(default)]
+    pub else_effect: EffectDef,
+}
+
+/// Something that happens to the city (`[[event]]`), with or without a
+/// choice to make. The last choice is the one taken when the mayor does
+/// not answer.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct EventDef {
+    pub id: String,
+    pub name: String,
+    pub text: String,
+    /// Never comes up by itself: it is set off from outside (a game the
+    /// city is part of, the Disasters menu, the MCP server).
+    #[serde(default)]
+    pub external: bool,
+    /// How often it is the one that comes up, against the others.
+    #[serde(default = "one")]
+    pub weight: f32,
+    #[serde(default)]
+    pub min_population: u32,
+    /// Units of which the city must have at least one standing.
+    #[serde(default)]
+    pub requires: Vec<String>,
+    /// Comes up by itself no more than once.
+    #[serde(default)]
+    pub once: bool,
+    /// What it does when it happens, before any choice.
+    #[serde(default)]
+    pub effect: EffectDef,
+    #[serde(default, rename = "choice")]
+    pub choices: Vec<ChoiceDef>,
 }
 
 /// A research project (`[[tech]]`): paid from pooled resources, it unlocks
@@ -1516,6 +1591,24 @@ impl Ruleset {
         for (tool, unit) in &self.services {
             if self.unit(unit).is_none() {
                 return err(format!("service {tool}: unknown unit {unit}"));
+            }
+        }
+        for t in &self.techs {
+            for u in t.obsoletes.iter().flat_map(|(a, b)| [a, b]) {
+                if self.unit(u).is_none() {
+                    return err(format!("tech {}: obsoletes names the unknown unit {u}", t.id));
+                }
+            }
+        }
+        for e in &self.events {
+            let effects = std::iter::once(&e.effect).chain(e.choices.iter().flat_map(|c| [&c.effect, &c.else_effect]));
+            for u in e.requires.iter().chain(effects.flat_map(|f| f.obsoletes.iter().flat_map(|(a, b)| [a, b]).chain(f.services.values()))) {
+                if self.unit(u).is_none() {
+                    return err(format!("event {}: unknown unit {u}", e.id));
+                }
+            }
+            if e.choices.iter().any(|c| !(0.0..=1.0).contains(&c.chance)) {
+                return err(format!("event {}: chance is a share between 0 and 1", e.id));
             }
         }
         for r in &self.map_rules {

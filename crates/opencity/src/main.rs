@@ -1,5 +1,7 @@
 //! OpenCity: the game.
 
+#[cfg(not(target_os = "android"))]
+mod affairsui;
 mod audio;
 #[cfg(not(target_os = "android"))]
 mod bake;
@@ -141,6 +143,10 @@ struct Args {
     /// Open the election window (screenshots, docs).
     #[arg(long, hide = true)]
     show_election: bool,
+    /// Make an event of the rules happen when the city opens, by its id
+    /// (`--event government_falls`): for a game this city is part of.
+    #[arg(long, value_name = "ID")]
+    event: Option<String>,
     /// Set the hour of day (screenshots, docs).
     #[arg(long, hide = true)]
     at_hour: Option<f32>,
@@ -719,7 +725,7 @@ impl Game {
             Command::StartScenario(id) => *id != p.scenario,
             Command::Load(path) => *path != self.save_file(),
             Command::Cheat(_) => !p.cheats,
-            Command::SetDisasters(_) | Command::Strike(_) => !p.disaster_menu,
+            Command::SetDisasters(_) | Command::Strike(_) | Command::Event(_) | Command::SetEvents(_) => !p.disaster_menu,
             _ => false,
         }
     }
@@ -1352,6 +1358,17 @@ impl Game {
                     self.say("Nothing for it to strike here");
                 }
             }
+            Command::SetEvents(on) => self.city.affairs.on = on,
+            Command::Event(id) => {
+                if let Err(e) = self.city.trigger_event(&id) {
+                    self.say(e);
+                }
+            }
+            Command::Decide(i) => {
+                if let Err(e) = self.city.decide(i) {
+                    self.say(e);
+                }
+            }
             Command::SaveRegion => {
                 if self.region_store() {
                     self.say("Region saved");
@@ -1589,8 +1606,9 @@ impl Game {
         if let Some(gb) = self.city.glassbox.as_mut() {
             gb.auto_research = auto;
         }
-        // The classic interface has no way to answer a lost vote.
+        // The classic interface has no way to answer a lost vote, or a question.
         if auto {
+            self.city.affairs.on = false;
             self.city.mayor.elections = false;
         }
         let t = get_time();
@@ -1921,6 +1939,11 @@ async fn main() -> Result<()> {
     #[cfg(not(target_os = "android"))]
     if let (true, Some(ui)) = (s.args.show_election, game.egui.as_mut()) {
         ui.open_election();
+    }
+    if let Some(id) = &s.args.event {
+        if let Err(e) = game.city.trigger_event(id) {
+            log::warn!("--event: {e}");
+        }
     }
     if let Some(m) = s.args.month {
         game.city.date.month = m.clamp(1, 12);
