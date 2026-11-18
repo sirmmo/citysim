@@ -2099,7 +2099,8 @@ fn saves_survive_rules_that_gain_units() {
     let ids: Vec<&str> = r.units.iter().map(|u| u.id.as_str()).collect();
     let park = ids.iter().position(|i| *i == "park").unwrap();
     assert_eq!(&ids[park..park + 4], ["park", "high_school", "university", "museum"], "new units follow the old ones");
-    assert_eq!(ids.len(), park + 18, "a unit added to the shipped rules goes at the end, and this test learns its name");
+    assert_eq!(&ids[ids.len() - 2..], ["old_power_station", "capped_landfill"], "relics came last, in 0.2.77");
+    assert_eq!(ids.len(), park + 20, "a unit added to the shipped rules goes at the end, and this test learns its name");
     let old = rules_named("pre-industrial");
     let old_ids: Vec<&str> = old.units.iter().map(|u| u.id.as_str()).collect();
     assert_eq!(&old_ids[old_ids.len() - 3..], ["studium", "arena", "theatre"]);
@@ -2562,4 +2563,56 @@ fn rules_set_when_a_town_turns_on_its_mayor() {
     assert_eq!(old.years_to_election(), Some(5));
     old.mayor.low_months = 4;
     assert_eq!(old.months_to_vote(), Some(20));
+}
+
+/// Research can retire buildings: no more are built, and a year later the
+/// ones standing close and stay as relics that pay something when pulled down.
+#[test]
+fn research_makes_buildings_obsolete() {
+    use opencity_core::glassbox::OBSOLETE_GRACE;
+    let r = rules();
+    let mut c = City::new(Terrain::flat(48, 48), None, Footprints::builtin(), 7);
+    c.use_rules(r.clone());
+    c.fund = 100_000;
+    c.apply_tool(Tool::Road, (2, 10), (40, 10)).unwrap();
+    c.apply_tool(Tool::Dump, (4, 11), (4, 11)).unwrap();
+    c.apply_tool(Tool::CoalPlant, (12, 11), (12, 11)).unwrap();
+    let unit_at = |c: &City, w, l| c.layer.structure_at(w, l).and_then(|s| s.unit).map(|u| r.units[u as usize].id.clone());
+    assert_eq!(unit_at(&c, 4, 11).as_deref(), Some("dump"));
+    {
+        let gb = c.glassbox.as_mut().unwrap();
+        gb.researched.insert("computing".into());
+        gb.pools[r.resource("research").unwrap()] = 10_000.0;
+        assert!(gb.set_research(Some("circular_economy")));
+    }
+    c.simulate_round();
+    let gb = c.glassbox.as_ref().unwrap();
+    assert!(gb.researched.contains("circular_economy"));
+    assert_eq!(gb.obsolete_by(&r, "dump").map(|t| t.id.as_str()), Some("circular_economy"));
+    assert!(gb.closes_in("dump").is_some_and(|t| t > OBSOLETE_GRACE - 5) && gb.closes_in("coal_plant").is_none());
+    assert!(c.messages.iter().any(|m| m.contains("Landfill is obsolete")), "{:?}", c.messages);
+    // No more landfills, but the one standing works for a year.
+    assert!(matches!(c.apply_tool(Tool::Dump, (8, 11), (8, 11)), Err(opencity_core::city::ToolError::Obsolete(_))));
+    assert_eq!(c.tool_obsolete(Tool::Dump).as_deref(), Some("Circular economy"));
+    assert_eq!(unit_at(&c, 4, 11).as_deref(), Some("dump"));
+    for _ in 0..OBSOLETE_GRACE + 2 {
+        c.simulate_round();
+    }
+    assert_eq!(unit_at(&c, 4, 11).as_deref(), Some("capped_landfill"));
+    assert_eq!(unit_at(&c, 12, 11).as_deref(), Some("coal_plant"), "fusion retires coal, not this");
+    assert!(c.messages.iter().any(|m| m.contains("landfill has closed")), "{:?}", c.messages);
+    // A relic pays its salvage when it goes.
+    let gb = c.glassbox.as_mut().unwrap();
+    gb.obsolete.insert("coal_plant".into(), gb.tick);
+    c.simulate_round();
+    assert_eq!(unit_at(&c, 12, 11).as_deref(), Some("old_power_station"));
+    let before = c.fund;
+    let cost = c.apply_tool(Tool::Destroy, (12, 11), (12, 11)).unwrap().cost as i64;
+    assert_eq!(c.fund, before - cost + 1500);
+    assert!(c.layer.structure_at(12, 11).is_none());
+    // Saved and loaded, the countdown is kept.
+    let mut buf = Vec::new();
+    opencity_core::save::save(&c, &mut buf).unwrap();
+    let d = opencity_core::save::load(std::io::Cursor::new(buf), Footprints::builtin()).unwrap();
+    assert!(d.glassbox.unwrap().obsolete.contains_key("dump"));
 }

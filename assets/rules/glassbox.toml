@@ -1290,3 +1290,28 @@ graphic = 348
 produce = { taxes = 3.2 }
 needs = { tourists = 80, shoppers = 40, workers = 35, power = 25, water = 8, waste = 6, car = 30 }
 emits = { land_value = { amount = 2.0, radius = 8 }, "Noise.level" = { amount = 6.0, radius = 5 } }
+
+# ---------------------------------------------------------------- relics
+# What is left of buildings that research made obsolete (see `obsoletes` in
+# techs/modern.toml). Nothing builds them. `salvage` is paid when one is
+# pulled down.
+[[unit]]
+id = "old_power_station"
+name = "Old power station"
+description = "The boilers are cold and the chimney is a landmark. People come to see the turbine hall."
+graphic = 300
+relic = true
+salvage = 1500
+produce = { ideas = 0.5, taxes = 0.3 }
+needs = { tourists = 10, upkeep = 0.15 }
+emits = { land_value = { amount = 3.0, radius = 6 } }
+
+[[unit]]
+id = "capped_landfill"
+name = "Capped landfill"
+description = "A hill of old rubbish under clay and grass. It no longer smells; nothing can be built on it until it is cleared."
+graphic = 383
+relic = true
+produce = { taxes = 0.01 }
+needs = { upkeep = 0.05 }
+emits = { land_value = { amount = 1.0, radius = 3 } }

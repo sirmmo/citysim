@@ -253,7 +253,7 @@ impl Server {
                     "current": gb.research,
                     "projects": rules.techs.iter().map(|t| json!({
                         "id": t.id, "name": t.name, "category": t.category, "tier": t.tier,
-                        "cost": t.cost, "requires": t.requires, "unlocks": t.unlocks, "bonus": t.bonus, "excludes": t.excludes,
+                        "cost": t.cost, "requires": t.requires, "unlocks": t.unlocks, "bonus": t.bonus, "excludes": t.excludes, "obsoletes": t.obsoletes,
                         "state": if gb.researched.contains(&t.id) { "done" } else if gb.research.as_deref() == Some(t.id.as_str()) { "in progress" }
                             else if gb.ruled_out(&rules, &t.id) { "ruled out" } else if gb.can_research(&rules, &t.id) { "available" } else { "locked" },
                         "progress": gb.research_progress(&rules, &t.id),

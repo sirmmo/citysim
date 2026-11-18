@@ -225,7 +225,7 @@ fn fields(section: &str) -> &'static [&'static str] {
         "policy.stance" => {
             &["id", "name", "description", "requires", "bonus", "needs", "demand", "kinds", "traffic", "emits", "disasters", "satisfaction", "cost"]
         }
-        "tech" => &["id", "name", "description", "cost", "requires", "unlocks", "category", "tier", "excludes", "bonus"],
+        "tech" => &["id", "name", "description", "cost", "requires", "unlocks", "category", "tier", "excludes", "bonus", "obsoletes", "regional"],
         _ => &[],
     }
 }

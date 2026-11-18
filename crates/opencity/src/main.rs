@@ -1145,6 +1145,11 @@ impl Game {
             Command::ResetCamera => self.camera = OrbitCamera::new(self.city.width(), self.city.length()),
             Command::CloseQuery => self.query = None,
             Command::Turn((w, l)) => self.turn_building(w, l),
+            Command::Dismantle(p) => {
+                if let Err(e) = self.city.apply_tool(Tool::Destroy, p, p) {
+                    self.say(format!("Cannot pull it down: {e}"));
+                }
+            }
             Command::SetTax(t, rate) => {
                 if let Some(gb) = self.city.glassbox.as_mut() {
                     gb.set_tax_rate(&t, rate);
@@ -1540,6 +1545,7 @@ impl Game {
                     self.skin.as_ref().is_none_or(|s| s.allows(t.id()))
                         && self.city.rules().is_none_or(|r| r.allows(t.id()))
                         && self.city.tool_locked_by(t).is_none()
+                        && self.city.tool_obsolete(t).is_none()
                 };
                 // P lays the street of the age: asphalt, else paved, else dirt.
                 let a = match a {

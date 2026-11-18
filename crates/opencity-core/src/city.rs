@@ -89,6 +89,8 @@ pub enum ToolError {
     TerrainLimit,
     #[error("needs research: {0}")]
     Locked(String),
+    #[error("obsolete since {0}")]
+    Obsolete(String),
     #[error("the city voted you out of office")]
     VotedOut,
     #[error("something else is built on the border tile")]
@@ -445,6 +447,29 @@ impl City {
         [Some(tool.id()), unit].into_iter().flatten().find_map(|id| gb.locked_by(rules, id)).map(|t| t.name.clone())
     }
 
+    /// The research project (by name) that made a tool's building obsolete.
+    pub fn tool_obsolete(&self, tool: Tool) -> Option<String> {
+        let gb = self.glassbox.as_ref()?;
+        let rules = gb.rules()?;
+        let unit = rules.services.get(tool.id())?;
+        gb.obsolete_by(rules, unit).map(|t| t.name.clone())
+    }
+
+    /// What pulling down everything in a rectangle pays back (relics and
+    /// other units with a `salvage`).
+    pub fn salvage(&self, rect: Rect) -> u32 {
+        let Some(rules) = self.rules() else { return 0 };
+        self.layer
+            .structures()
+            .filter(|((w, l), s)| {
+                let (sw, sl) = s.size(&self.footprints);
+                *w <= rect.w2 && w + sw > rect.w1 && *l <= rect.l2 && l + sl > rect.l1
+            })
+            .filter_map(|(_, s)| s.unit.and_then(|u| rules.units.get(u as usize)))
+            .map(|u| u.salvage)
+            .sum()
+    }
+
     /// Turns the plant or service at `(w, l)` a quarter clockwise, free of
     /// charge; returns its new facing.
     pub fn turn_building(&mut self, w: u32, l: u32) -> Result<u8, ToolError> {
@@ -520,9 +545,21 @@ impl City {
         if let Some(t) = self.tool_locked_by(tool) {
             return Err(ToolError::Locked(t));
         }
+        if let Some(t) = self.tool_obsolete(tool) {
+            return Err(ToolError::Obsolete(t));
+        }
         let rect = Rect::new(a, b);
         let cost = match tool {
-            Tool::Destroy => self.layer.destroy(rect)?,
+            Tool::Destroy => {
+                let salvage = self.salvage(rect);
+                let cost = self.layer.destroy(rect)?;
+                if salvage > 0 {
+                    self.fund += salvage as i64;
+                    self.book("Salvage", salvage as f64);
+                    self.messages.push(format!("Salvage: ${salvage}"));
+                }
+                cost
+            }
             Tool::Canal => self.dig_canal(rect)?,
             Tool::MetroLine => self.layer.lay_tunnel(rect)?,
             Tool::RaiseTerrain | Tool::LowerTerrain => {
@@ -735,8 +772,20 @@ impl City {
             // Research done: news for the player.
             if let Some(rules) = gb.rules() {
                 for id in &gb.discoveries {
-                    let name = rules.tech(id).map_or(id.as_str(), |t| rules.techs[t].name.as_str());
-                    self.messages.push(format!("Discovered: {name}"));
+                    let Some(t) = rules.tech(id).map(|t| &rules.techs[t]) else { continue };
+                    self.messages.push(format!("Discovered: {}", t.name));
+                    for unit in t.obsoletes.keys() {
+                        let Some(u) = rules.unit(unit).map(|u| &rules.units[u]) else { continue };
+                        if self.layer.structures().any(|(_, s)| s.unit.is_some_and(|i| rules.units[i as usize].id == *unit)) {
+                            self.messages.push(format!("{} is obsolete: no more can be built, and the ones standing close in a year.", u.name));
+                        }
+                    }
+                }
+                for (old, new, n) in &gb.closures {
+                    self.messages.push(match n {
+                        1 => format!("The {} has closed. It stands as a relic ({new}): keep it for its looks or pull it down.", old.to_lowercase()),
+                        _ => format!("{n} buildings ({old}) have closed. They stand as relics ({new}): keep them or pull them down."),
+                    });
                 }
             }
         }

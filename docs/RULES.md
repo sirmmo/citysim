@@ -765,6 +765,7 @@ unlocks = ["tower_2", "tower_3", "mall_3", "highway"]   # unit ids and tool ids
 bonus = { goods = 0.2 }              # 20% more goods once done (optional)
 excludes = ["service_economy"]       # rivals ruled out for good (optional)
 regional = true                      # paid for by the whole region (optional)
+obsoletes = { coal_plant = "old_power_station" }   # units it retires, and what each becomes (optional)
 ```
 
 - **Gates:** `requires` and the cost decide when a project opens. `tier` and
@@ -781,6 +782,13 @@ regional = true                      # paid for by the whole region (optional)
   `excludes`, and every project that excludes it, for good. This makes a
   city choose a doctrine: a service economy or industrial policy, a free
   market or a guild charter.
+- **Obsolete units:** once a project is done (in play, not by a city that
+  picks its own projects), nothing builds the units it `obsoletes`. 1,200
+  ticks later, about a year, every building of such a unit becomes the unit
+  named for it, with nothing in stock. Give that unit `relic = true` (the
+  inspector then offers to pull it down) and, if it is worth something,
+  `salvage = 1500` (paid when it is pulled down; any unit can have one).
+  Put relic units at the end of the rules file, like every new unit.
 - **Bonuses:** a finished project's `bonus` adds that share to the
   production of the resource (and of its kinds) in every building.
 - **Region-wide projects:** with `regional = true` every town of a region
@@ -1012,7 +1020,7 @@ policy_set = "my_policies"         # policies/my_policies.toml (optional)
 [[zone]]                           # id, name, structure, densities, demand, base_demand
 [services]                         # tool id = unit id
 [[unit]]                           # id, name, description, graphic, produce, needs, sends, emits, requires, build_cost
-[[tech]]                           # id, name, description, category, tier, cost, requires, unlocks, bonus, excludes
+[[tech]]                           # id, name, description, category, tier, cost, requires, unlocks, bonus, excludes, obsoletes
 [[tax]]                            # id, name, description, resource, zones, rate, range, demand, satisfaction
 [[policy]]                         # id, name, description
   [[policy.stance]]                # id, name, description, requires, bonus, needs, demand, kinds, traffic, satisfaction, cost

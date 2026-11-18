@@ -101,6 +101,8 @@ pub enum Command {
     SaveRegion,
     /// Turn the plant or service on this tile a quarter clockwise.
     Turn((u32, u32)),
+    /// Pull down the building at a tile (a relic, from its window).
+    Dismantle((u32, u32)),
     /// Run the city on rules from the rules editor (not saved).
     TryRules(Arc<Ruleset>),
     /// Write a rules set's files from the rules editor.
@@ -936,13 +938,14 @@ impl EguiUi {
             None => egui::Button::new(text),
         };
         // Tools waiting for research are shown, greyed out.
-        let locked = match action {
-            Action::Tool(Some(t)) => view.city.tool_locked_by(t),
-            _ => None,
+        let (locked, obsolete) = match action {
+            Action::Tool(Some(t)) => (view.city.tool_locked_by(t), view.city.tool_obsolete(t)),
+            _ => (None, None),
         };
-        let resp = ui.add_enabled_ui(locked.is_none(), |ui| ui.add_sized([166.0, 32.0], button.selected(selected))).inner;
-        let resp = match &locked {
-            Some(tech) => resp.on_disabled_hover_text(format!("Needs research: {tech}")),
+        let why = locked.as_ref().map(|t| format!("Needs research: {t}")).or(obsolete.as_ref().map(|t| format!("Obsolete since {t}")));
+        let resp = ui.add_enabled_ui(why.is_none(), |ui| ui.add_sized([166.0, 32.0], button.selected(selected))).inner;
+        let resp = match &why {
+            Some(why) => resp.on_disabled_hover_text(why),
             None if key.is_empty() => resp,
             None => resp.on_hover_text(format!("Shortcut: {key}")),
         };
@@ -982,7 +985,7 @@ impl EguiUi {
                                 None => egui::Button::new("•"),
                             };
                             let locked = match last.1 {
-                                Action::Tool(Some(t)) => view.city.tool_locked_by(t).is_some(),
+                                Action::Tool(Some(t)) => view.city.tool_locked_by(t).is_some() || view.city.tool_obsolete(t).is_some(),
                                 _ => false,
                             };
                             let name = match last.1 {
@@ -1284,6 +1287,24 @@ impl EguiUi {
                     };
                     if let Some(d) = description {
                         ui.label(RichText::new(d).italics().small());
+                    }
+                    if let (Some(d), Some(gb)) = (def, &city.glassbox) {
+                        if d.relic {
+                            ui.horizontal_wrapped(|ui| {
+                                ui.label(RichText::new("A relic. Keep it, or").small());
+                                let label = if d.salvage > 0 { format!("pull it down for ${}", d.salvage) } else { "pull it down".to_string() };
+                                if ui.small_button(label).on_hover_text("Clears the land. What can be sold of it is paid to the city.").clicked() {
+                                    out.push(Command::Dismantle(origin));
+                                }
+                            });
+                        } else if let Some(left) = gb.closes_in(&d.id) {
+                            let months = (left as f32 / (opencity_core::glassbox::OBSOLETE_GRACE as f32 / 12.0)).ceil().max(1.0);
+                            ui.label(
+                                RichText::new(format!("Obsolete: it closes in {months:.0} months and stays as a relic."))
+                                    .small()
+                                    .color(Color32::from_rgb(230, 170, 60)),
+                            );
+                        }
                     }
                     ui.add_space(2.0);
                     if s.code == StructureCode::Road {

@@ -8,6 +8,13 @@ Release notes in full are on the [releases page](https://github.com/sirmmo/citys
 - **Report to OpenTactics**, in the new OpenTactics window: a link back with the population and the taxes, copied to the clipboard. The city then pays 50% of its income there, plus 100% for every $400 of taxes a month.
 - On the command line: `--holding LINK`. See [PLAYING.md](docs/PLAYING.md#a-city-for-opentactics).
 
+## 0.2.77: Obsolete buildings
+- **Research can retire buildings.** *Nuclear fusion* makes coal power plants obsolete, and the new project *Circular economy* (after Computing, 5,000 research points) does the same to landfills.
+- **A year to adapt:** no more can be built from the day the project is done, and the ones standing work for one more year. Inspecting one shows the months left.
+- **Then they are relics:** an *Old power station* raises land value, gives ideas and takes visitors; a *Capped landfill* no longer smells. Keep a relic, or pull it down from its window: the power station pays $1,500 of scrap.
+- A city that picks its own research (classic interface, Android) keeps its buildings running.
+- For rule writers: `obsoletes` on a tech, `relic` and `salvage` on a unit. See [RULES.md](docs/RULES.md#tech-trees).
+
 ## 0.2.76: Open data for city2graph
 - **A city as open data:** **File > Export open data…** writes the city the way a real one publishes itself, in one zip: building footprints with residents and jobs, street segments from junction to junction, land use, census-like zones, the trips between zones and between buildings, and the bus, tram and metro routes as a GTFS feed.
 - **Ready for [city2graph](https://city2graph.net):** the zip holds a script that loads it all and builds four graphs (morphology, transit, mobility, proximity). Checked with city2graph 1.1.0.

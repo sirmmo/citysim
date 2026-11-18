@@ -202,6 +202,7 @@ tier = 4
 cost = { research = 120000 }
 requires = ["fission", "computing"]
 unlocks = ["fusion_plant"]
+obsoletes = { coal_plant = "old_power_station" }   # a year later the coal plants close and stand as relics
 regional = true
 
 # ---------------------------------------------------------------- culture
@@ -232,3 +233,16 @@ category = "Culture"
 tier = 2
 cost = { research = 2000 }
 unlocks = ["stadium", "mall"]
+
+# ---------------------------------------------------------------- obsolescence
+# A project can retire buildings: `obsoletes = { unit = "what it becomes" }`.
+# No more are built, and a year later the ones standing close.
+[[tech]]
+id = "circular_economy"
+name = "Circular economy"
+description = "Everything thrown away is sorted, burnt or used again. Landfills take no more: a year on they are capped and grassed over. Have recycling centres or incinerators ready."
+category = "Industry"
+tier = 3
+cost = { research = 5000 }
+requires = ["computing"]
+obsoletes = { dump = "capped_landfill" }

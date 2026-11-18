@@ -513,6 +513,13 @@ pub struct UnitDef {
     /// ground, mines on ore).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub yields: Option<YieldDef>,
+    /// What is left of a building research made obsolete (see
+    /// `obsoletes` on a tech): shown as a relic when inspected.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub relic: bool,
+    /// Money paid back when it is pulled down: scrap, stone, the land.
+    #[serde(default, skip_serializing_if = "is_zero_u32")]
+    pub salvage: u32,
 }
 
 /// What a unit's production follows (`follows`).
@@ -1106,6 +1113,12 @@ pub struct TechDef {
     /// (`{ goods = 0.2 }` makes 20% more goods).
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub bonus: BTreeMap<String, f32>,
+    /// Units this project makes obsolete, and the unit each becomes
+    /// (`{ coal_plant = "old_power_station" }`): once it is done no more are
+    /// built, and a year later the ones standing close and turn into
+    /// what is named, a relic to keep or to pull down.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub obsoletes: BTreeMap<String, String>,
     /// A project of the whole region: every town pays into it, what the
     /// others have paid counts, and once one town finishes it they all
     /// have it. A town on its own pays the lot.

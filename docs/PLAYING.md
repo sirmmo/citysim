@@ -606,6 +606,20 @@ Some projects are **rivals**: finishing one rules out the others for good.
 
 Without the window (classic interface, Android), the city researches projects in order by itself. Demo towns start with everything researched.
 
+### Obsolete buildings
+
+Some projects retire a kind of building; the Research window says *makes obsolete* on them.
+
+| Project | Makes obsolete | What is left |
+|---|---|---|
+| Nuclear fusion | Coal power plant | Old power station: a landmark that raises land value, gives ideas and takes visitors. $1,500 of scrap when pulled down. |
+| Circular economy (after Computing) | Landfill | Capped landfill: a grassed hill that no longer smells. Nothing when pulled down, but the land is free again. |
+
+- **From the day the project is done** no more of that building can be built: its tool is greyed out, *Obsolete since …*.
+- **For a year** the ones standing keep working. Inspecting one shows the months left. Build what replaces it in that time: other power plants, or recycling centres and incinerators.
+- **Then they close** and stand as **relics**. A relic needs no staff and makes no power or smoke. Inspect it to pull it down, or keep it for what it gives.
+- A city that researches by itself (classic interface, Android), a demo town, and the other towns of a region that got fusion from a neighbour keep their buildings running.
+
 ## Taxes and policies
 
 The **📜 Policies** window sets:

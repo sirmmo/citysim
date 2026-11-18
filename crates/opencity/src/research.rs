@@ -94,6 +94,9 @@ fn project(ui: &mut egui::Ui, gb: &opencity_core::glassbox::GlassBox, rules: &Ru
     if !t.unlocks.is_empty() {
         parts.push(format!("unlocks {}", t.unlocks.iter().map(|u| unlock_name(rules, u)).collect::<Vec<_>>().join(", ")));
     }
+    if !t.obsoletes.is_empty() {
+        parts.push(format!("makes obsolete {}", t.obsoletes.keys().map(|u| unlock_name(rules, u)).collect::<Vec<_>>().join(", ")));
+    }
     if !t.bonus.is_empty() {
         parts.push(t.bonus.iter().map(|(r, b)| format!("{:+.0}% {}", b * 100.0, name_of(r))).collect::<Vec<_>>().join(", "));
     }

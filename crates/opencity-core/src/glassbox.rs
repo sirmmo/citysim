@@ -194,6 +194,10 @@ pub struct Sensor {
 /// The road tiles a trip starts and ends on.
 type Ends = ((u32, u32), (u32, u32));
 
+/// Ticks an obsolete building keeps working after the research that made
+/// it so: about a year, to build what replaces it.
+pub const OBSOLETE_GRACE: u64 = 1200;
+
 /// Sensors a city can hold.
 pub const MAX_SENSORS: usize = 32;
 
@@ -338,6 +342,14 @@ pub struct GlassBox {
     /// Projects finished during the last tick (for notices).
     #[serde(skip)]
     pub discoveries: Vec<String>,
+    /// Units research made obsolete while the city was played, and the
+    /// tick their buildings close ([`OBSOLETE_GRACE`] after the project).
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub obsolete: BTreeMap<String, u64>,
+    /// Buildings that closed during the last tick: (what they were, what
+    /// they are now, how many).
+    #[serde(skip)]
+    pub closures: Vec<(String, String, u32)>,
     /// The resource network: amount per tick on each link, smoothed.
     #[serde(skip)]
     pub flows: HashMap<Link, f32>,
@@ -477,6 +489,8 @@ impl GlassBox {
             climate: None,
             stances: BTreeMap::new(),
             discoveries: Vec::new(),
+            obsolete: BTreeMap::new(),
+            closures: Vec::new(),
             auto_research: false,
             flows: HashMap::new(),
             churn: [0; 4],
@@ -835,8 +849,57 @@ impl GlassBox {
         if done {
             self.progress.remove(&id);
             self.researched.insert(id.clone());
+            // A city that picks its own projects keeps what it has running.
+            for unit in t.obsoletes.keys().filter(|_| !self.auto_research) {
+                self.obsolete.entry(unit.clone()).or_insert(self.tick + OBSOLETE_GRACE);
+            }
             self.discoveries.push(id);
             self.research = None;
+        }
+    }
+
+    /// The project that made a unit obsolete, once it has: no more of it
+    /// are built.
+    pub fn obsolete_by<'a>(&self, rules: &'a Ruleset, unit: &str) -> Option<&'a TechDef> {
+        self.obsolete.get(unit)?;
+        rules.techs.iter().find(|t| self.researched.contains(&t.id) && t.obsoletes.contains_key(unit))
+    }
+
+    /// Ticks until the buildings of an obsolete unit close; `None` for a
+    /// unit that is not obsolete.
+    pub fn closes_in(&self, unit: &str) -> Option<u64> {
+        self.obsolete.get(unit).map(|due| due.saturating_sub(self.tick))
+    }
+
+    /// Obsolete buildings whose year is up close: each becomes the relic
+    /// its project names, with nothing in stock.
+    fn close_obsolete(&mut self, rules: &Ruleset, layer: &mut BuildingLayer) {
+        self.closures.clear();
+        let due: Vec<&String> = self.obsolete.iter().filter(|(_, at)| **at <= self.tick).map(|(u, _)| u).collect();
+        if due.is_empty() {
+            return;
+        }
+        let width = layer.width();
+        for unit in due {
+            let Some(old) = rules.unit(unit) else { continue };
+            let Some(new) = rules.techs.iter().find_map(|t| t.obsoletes.get(unit)).and_then(|id| rules.unit(id)) else { continue };
+            let at: Vec<(u32, u32)> = layer.structures().filter(|(_, s)| s.unit == Some(old as u16)).map(|(p, _)| p).collect();
+            for &(w, l) in &at {
+                if let Some(s) = layer.structure_mut(w, l) {
+                    s.unit = Some(new as u16);
+                }
+                // The same building, emptied: nothing in stock, nothing owed.
+                if let Some(state) = self.units.get_mut(&(l * width + w)) {
+                    for v in [&mut state.stock, &mut state.received, &mut state.extra, &mut state.needs] {
+                        v.fill(0.0);
+                    }
+                    state.outlets.clear();
+                    (state.age, state.thriving, state.struggling, state.starved) = (0, 0, 0, 0);
+                }
+            }
+            if !at.is_empty() {
+                self.closures.push((rules.units[old].name.clone(), rules.units[new].name.clone(), at.len() as u32));
+            }
         }
     }
 
@@ -2081,6 +2144,7 @@ impl GlassBox {
             }
         }
         self.advance_research(&rules);
+        self.close_obsolete(&rules, layer);
         // Running costs of policies (negative ones earn).
         self.treasury -= self.active_stances(&rules).map(|st| st.cost as f64).sum::<f64>();
         let costs: Vec<(String, f64)> =
