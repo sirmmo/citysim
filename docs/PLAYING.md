@@ -313,7 +313,9 @@ interface** makes it Large or Huge on top of that, and `--ui-scale 1.5`
 Each part of the panel on the right (zones and power, demand, people,
 resources, metrics, the chart, about the city) folds away with a click on
 its title, and the panel scrolls. On a screen under 760 pixels tall the
-parts from the resources down start folded.
+parts from the resources down start folded. The parts you fold or open
+yourself stay that way the next time you play (kept in `ui-folds.json`
+beside the settings file, or in the browser).
 
 The right-hand panel shows:
 - zone sizes and power;

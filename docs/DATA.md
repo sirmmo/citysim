@@ -23,7 +23,7 @@ network analysis and graph neural networks.
 | `zones.geojson` | A grid of zones 8 tiles wide, like census tracts: `zone_id`, `residents`, `jobs`, `buildings`. |
 | `od.csv` | Trips between zones in one tick of the simulation, which exchanges a day's worth: `origin`, `destination`, `flow` (everything), then a column for each purpose (workers, shoppers, goods, tourists…). |
 | `trips.csv` | The same trips between buildings: `origin`, `destination` (ids of `buildings.geojson`; an id that is not there is a gate on the edge of the map), their zones, `purpose`, `flow`, `road_share` (the part that went by road vehicle). |
-| `gtfs.zip` | The bus, tram and metro routes as a GTFS feed: stops, routes, a trip each way, stop times, frequencies through the day and shapes along the streets. |
+| `gtfs.zip` | The bus, tram and metro routes, the railway lines and the ferries as a GTFS feed: stops, routes, a trip each way, stop times, frequencies through the day and shapes along the streets, tracks and water. |
 | `ridership.csv` | People getting on or off at each stop in a tick, averaged over some ticks: `stop_id` (as in the feed), `riders`, and `load` (0 to 1: how much of its vehicles' room the stop takes, on routes drawn by hand). |
 | `city2graph_example.py` | Loads all of it with city2graph. |
 | `README.md` | These notes. |
@@ -36,9 +36,9 @@ equator at the prime meridian, with tiles of 16 metres; `city.json` says
 ## What is real and what is made up
 
 - **From the simulation:** the buildings and who lives and works in them, the streets and their load, the trips of the last tick, the routes with their stops and vehicles.
-- **Set by the export:** footprints stand back 12% of a tile from the edge of their plot, so that buildings do not touch. Vehicles run at 25 km/h (bus), 30 (tram) and 45 (metro) between stops and stand 20 seconds at each. Service runs from 05:30 to midnight; the wait at rush hour is the round trip divided by the route's vehicles (2 minutes at least), one and a half times that by day, twice in the evening.
-- **Routes:** the ones you drew ([PLAYING.md](PLAYING.md#drawing-the-routes-yourself)), or, while routes run themselves, one along each street, track or tunnel that has two stops or more.
-- **Left out:** trains and boats, trips to other cities of a region, and what flows through wires and pipes.
+- **Set by the export:** footprints stand back 12% of a tile from the edge of their plot, so that buildings do not touch. Vehicles run at 25 km/h (bus), 30 (tram), 45 (metro), 60 (train) and 20 (ferry) between stops and stand 20 seconds at each. Each railway line and ferry crossing has two trains or boats. Service runs from 05:30 to midnight; the wait at rush hour is the round trip divided by the route's vehicles (2 minutes at least), one and a half times that by day, twice in the evening.
+- **Routes:** the ones you drew ([PLAYING.md](PLAYING.md#drawing-the-routes-yourself)), or, while routes run themselves, one along each street network, tram line or tunnel that has two stops or more. Railways and ferries: one line along each track, and across each body of water, with two stations or harbours or more.
+- **Left out:** trips to other cities of a region, the seaport's and the airport's traffic, and what flows through wires and pipes.
 
 `od.csv` and `trips.csv` are written under GlassBox rules once the city has
 run a tick. On the command line the export runs one tick itself. The

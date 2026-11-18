@@ -194,6 +194,8 @@ pub struct EguiUi {
     pub districts: crate::districtsui::DistrictsUi,
     show_election: bool,
     show_decision: bool,
+    /// Parts of the city panel the player opened (true) or folded (false), by title.
+    folds: std::collections::BTreeMap<String, bool>,
     /// The question the decision window last opened for (its id and how many events came before).
     asked: Option<(String, usize)>,
     show_goals: bool,
@@ -429,6 +431,7 @@ impl EguiUi {
             districts: Default::default(),
             show_election: false,
             show_decision: false,
+            folds: Self::load_folds(),
             asked: None,
             show_goals: false,
             show_holding: true,
@@ -1121,17 +1124,54 @@ impl EguiUi {
         }
     }
 
+    /// Where the folded parts of the city panel are kept: beside the
+    /// settings file, or in the browser's storage.
+    fn folds_file() -> Option<PathBuf> {
+        #[cfg(target_arch = "wasm32")]
+        return Some(PathBuf::from("ui-folds.json"));
+        #[cfg(not(target_arch = "wasm32"))]
+        opencity_assets::settings::Settings::default_path().map(|p| p.with_file_name("ui-folds.json"))
+    }
+
+    fn load_folds() -> std::collections::BTreeMap<String, bool> {
+        let Some(path) = Self::folds_file() else { return Default::default() };
+        #[cfg(target_arch = "wasm32")]
+        let text = crate::web::storage_read(&path.to_string_lossy()).ok();
+        #[cfg(not(target_arch = "wasm32"))]
+        let text = std::fs::read_to_string(&path).ok();
+        text.and_then(|t| serde_json::from_str(&t).ok()).unwrap_or_default()
+    }
+
+    fn save_folds(&self) {
+        let (Some(path), Ok(text)) = (Self::folds_file(), serde_json::to_string(&self.folds)) else { return };
+        #[cfg(target_arch = "wasm32")]
+        let done = crate::web::storage_write(&path.to_string_lossy(), &text);
+        #[cfg(not(target_arch = "wasm32"))]
+        let done = path.parent().map_or(Ok(()), std::fs::create_dir_all).and_then(|_| std::fs::write(&path, text));
+        if let Err(e) = done {
+            log::warn!("could not remember the folded parts of the city panel: {e}");
+        }
+    }
+
     fn city_panel(&mut self, ctx: &egui::Context, view: &View, out: &mut Vec<Command>) {
         let city = view.city;
         let v = city.values;
         // Every part folds away under its title, and the whole panel scrolls:
         // on a screen that is not tall, the parts further down start folded.
         let tall = ctx.screen_rect().height() >= 760.0;
+        // How the player left each part is kept between sessions.
+        let stored = self.folds.clone();
+        let seen: std::cell::RefCell<Vec<(String, bool)>> = Default::default();
         let part = |ui: &mut egui::Ui, title: &str, open: bool, body: &mut dyn FnMut(&mut egui::Ui)| {
-            egui::CollapsingHeader::new(RichText::new(title).small().color(Color32::GRAY))
-                .id_salt(("city_part", title.split(':').next().unwrap_or(title)))
-                .default_open(open)
+            let key = title.split(':').next().unwrap_or(title);
+            let r = egui::CollapsingHeader::new(RichText::new(title).small().color(Color32::GRAY))
+                .id_salt(("city_part", key))
+                .default_open(stored.get(key).copied().unwrap_or(open))
                 .show(ui, |ui| body(ui));
+            // Only a click is the player's doing (not the default for this screen).
+            if r.header_response.clicked() {
+                seen.borrow_mut().push((key.to_string(), r.openness < 0.5));
+            }
         };
         egui::SidePanel::right("city").resizable(false).exact_width(230.0).show(ctx, |ui| {
             ui.heading("City");
@@ -1307,6 +1347,11 @@ impl EguiUi {
                 });
             });
         });
+        let clicked = seen.into_inner();
+        if !clicked.is_empty() {
+            self.folds.extend(clicked);
+            self.save_folds();
+        }
     }
 
     fn status_bar(&mut self, ctx: &egui::Context, view: &View) {

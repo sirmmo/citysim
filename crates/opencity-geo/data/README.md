@@ -12,7 +12,7 @@ a real city publishes, so the tools made for real cities read them.
 | `zones.geojson` | A grid of zones, like census tracts: `zone_id`, `residents`, `jobs`, `buildings`. |
 | `od.csv` | Trips between zones in one tick of the simulation (a day's worth): `origin`, `destination`, `flow` (everything), then a column for each purpose (workers, shoppers, goods…). |
 | `trips.csv` | The same trips between buildings. Ids are those of `buildings.geojson`; an id that is not there is a gate on the edge of the map. `road_share` is the part that went by road vehicle. |
-| `gtfs.zip` | The bus, tram and metro routes as a GTFS feed, with frequencies and shapes. Only when something runs. |
+| `gtfs.zip` | The bus, tram and metro routes, the railway lines and the ferries as a GTFS feed, with frequencies and shapes. Only when something runs. |
 | `ridership.csv` | People getting on or off at each stop in a tick, averaged over some ticks: `stop_id` (as in the feed), `riders`, and `load` (0 to 1: how much of its vehicles' room the stop takes, on routes drawn by hand). |
 | `city2graph_example.py` | Loads all of it with [city2graph](https://city2graph.net) and builds four graphs. |
 
@@ -25,6 +25,6 @@ since the city was opened, or when it plays by the classic rules, which
 have no trips.
 
 What the timetable is made of: the game knows a route's stops and how many
-vehicles it has. Speeds (bus 25 km/h, tram 30, metro 45 between stops),
+vehicles it has. Speeds (bus 25 km/h, tram 30, metro 45, train 60, ferry 20 between stops),
 20 seconds at each stop and the hours of service are set by the export; the
 wait follows from the length of the route and its vehicles.

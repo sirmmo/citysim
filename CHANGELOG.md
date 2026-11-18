@@ -8,6 +8,10 @@ Release notes in full are on the [releases page](https://github.com/sirmmo/citys
 - **Report to OpenTactics**, in the new OpenTactics window: a link back with the population and the taxes, copied to the clipboard. The city then pays 50% of its income there, plus 100% for every $400 of taxes a month.
 - On the command line: `--holding LINK`. See [PLAYING.md](docs/PLAYING.md#a-city-for-opentactics).
 
+## 0.2.82: Trains and ferries in the open data
+- **The GTFS feed of the open-data export now holds the railways and the ferries**: one line along each track, and across each body of water, with two stations or harbours or more (route types 2 and 4), with stops, times, frequencies and shapes like the rest.
+- **The city panel remembers** which parts you folded or opened, between sessions.
+
 ## 0.2.81: Full buses
 - **Vehicles on routes you draw hold so many riders:** a bus 6 a tick at each stop, a tram 15, a metro train 40. A route's room is that times its vehicles. At a full stop the people left over go by road if they can, or do not go.
 - **The Routes window shows how full** each route's busiest stop is, the room at each stop, and marks full stops.

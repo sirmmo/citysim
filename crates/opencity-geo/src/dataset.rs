@@ -226,13 +226,76 @@ fn csv(header: &str, rows: &[Vec<String>]) -> Vec<u8> {
     s.into_bytes()
 }
 
-/// Speed between stops in km/h, and GTFS `route_type` and colour.
-fn mode_facts(mode: Mode) -> (f64, u32, &'static str) {
-    match mode {
-        Mode::Bus => (25.0, 3, "D9480F"),
-        Mode::Tram => (30.0, 0, "2F9E44"),
-        Mode::Metro => (45.0, 1, "1971C2"),
+/// What runs on a line of the feed.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+enum Kind {
+    Bus,
+    Tram,
+    Metro,
+    Rail,
+    Ferry,
+}
+
+impl Kind {
+    fn of(mode: Mode) -> Self {
+        match mode {
+            Mode::Bus => Kind::Bus,
+            Mode::Tram => Kind::Tram,
+            Mode::Metro => Kind::Metro,
+        }
     }
+
+    /// Its id in stop ids, what a stop of it is called, its speed between
+    /// stops in km/h, and its GTFS `route_type` and colour.
+    fn facts(self) -> (&'static str, &'static str, f64, u32, &'static str) {
+        match self {
+            Kind::Bus => ("bus", "Bus stop", 25.0, 3, "D9480F"),
+            Kind::Tram => ("tram", "Tram stop", 30.0, 0, "2F9E44"),
+            Kind::Metro => ("metro", "Metro stop", 45.0, 1, "1971C2"),
+            Kind::Rail => ("rail", "Station", 60.0, 2, "5F3DC4"),
+            Kind::Ferry => ("ferry", "Harbour", 20.0, 4, "0C8599"),
+        }
+    }
+}
+
+/// A line of the feed: a route of the city's, a railway or a ferry.
+struct Line {
+    id: String,
+    name: String,
+    kind: Kind,
+    vehicles: u32,
+    ring: bool,
+    stops: Vec<(Tile, Tile)>,
+    legs: Vec<Vec<Tile>>,
+}
+
+/// Every line that runs: the bus, tram and metro routes, then the
+/// railways and the ferries (two trains or boats each).
+fn lines(city: &City, services: &[Service]) -> Vec<Line> {
+    let mut out: Vec<Line> = services
+        .iter()
+        .map(|s| Line {
+            id: format!("r{}", s.id),
+            name: s.name.clone(),
+            kind: Kind::of(s.mode),
+            vehicles: s.vehicles,
+            ring: s.ring,
+            stops: s.stops.clone(),
+            legs: s.legs.clone(),
+        })
+        .collect();
+    let (mut trains, mut ferries) = (0, 0);
+    for t in city.trunk_lines() {
+        let (kind, n, word) = if t.ferry {
+            ferries += 1;
+            (Kind::Ferry, ferries, "Ferry")
+        } else {
+            trains += 1;
+            (Kind::Rail, trains, "Train")
+        };
+        out.push(Line { id: format!("{}{n}", kind.facts().0), name: format!("{word} {n}"), kind, vehicles: 2, ring: false, stops: t.stops, legs: t.legs });
+    }
+    out
 }
 
 /// Seconds a vehicle stands at a stop, and at the end of the line.
@@ -260,25 +323,25 @@ fn feed_year(city: &City) -> u32 {
 
 /// The transit lines as a GTFS feed (the files of the zip), or `None` when
 /// nothing runs.
-fn gtfs(city: &City, frame: &Frame, services: &[Service]) -> Option<Vec<(String, Vec<u8>)>> {
+fn gtfs(city: &City, frame: &Frame, services: &[Line]) -> Option<Vec<(String, Vec<u8>)>> {
     if services.is_empty() {
         return None;
     }
     let name = city.meta.name.clone().unwrap_or_else(|| "citysim".into());
     let year = feed_year(city);
-    let mut stops: BTreeMap<(Mode, Tile), (String, String, Tile)> = BTreeMap::new();
-    let mut nth: BTreeMap<Mode, usize> = BTreeMap::new();
+    let mut stops: BTreeMap<(Kind, Tile), (String, String, Tile)> = BTreeMap::new();
+    let mut nth: BTreeMap<Kind, usize> = BTreeMap::new();
     let (mut routes, mut trips, mut times, mut freqs, mut shapes) = (Vec::new(), Vec::new(), Vec::new(), Vec::new(), Vec::new());
     for s in services {
-        let (kph, route_type, colour) = mode_facts(s.mode);
+        let (kind_id, stop_word, kph, route_type, colour) = s.kind.facts();
         for (origin, platform) in &s.stops {
-            stops.entry((s.mode, *origin)).or_insert_with(|| {
-                let n = nth.entry(s.mode).or_default();
+            stops.entry((s.kind, *origin)).or_insert_with(|| {
+                let n = nth.entry(s.kind).or_default();
                 *n += 1;
-                (format!("{}_{}", s.mode.id(), tile_id(*origin)), format!("{} stop {n}", s.mode.name()), *platform)
+                (format!("{kind_id}_{}", tile_id(*origin)), format!("{stop_word} {n}"), *platform)
             });
         }
-        let route_id = format!("r{}", s.id);
+        let route_id = s.id.clone();
         routes.push(vec![route_id.clone(), "citysim".into(), s.name.clone(), String::new(), route_type.to_string(), colour.into(), "FFFFFF".into()]);
         let ride = |leg: &Vec<Tile>| (((leg.len().saturating_sub(1)) as f64 * frame.m / (kph / 3.6)).round() as u32).max(10);
         let one_way: u32 = s.legs.iter().map(ride).sum::<u32>() + DWELL * s.legs.len() as u32;
@@ -296,7 +359,7 @@ fn gtfs(city: &City, frame: &Frame, services: &[Service]) -> Option<Vec<(String,
             } else {
                 legs.truncate(n - 1);
             }
-            let head = &stops[&(s.mode, s.stops[*seq.last().unwrap()].0)].1;
+            let head = &stops[&(s.kind, s.stops[*seq.last().unwrap()].0)].1;
             trips.push(vec![route_id.clone(), "daily".into(), trip_id.clone(), head.clone(), dir.to_string(), trip_id.clone()]);
             let mut t = PERIODS[0].0;
             for (k, &i) in seq.iter().enumerate() {
@@ -307,7 +370,7 @@ fn gtfs(city: &City, frame: &Frame, services: &[Service]) -> Option<Vec<(String,
                 if k > 0 && k + 1 < seq.len() {
                     t += DWELL;
                 }
-                times.push(vec![trip_id.clone(), hms(arrive), hms(t), stops[&(s.mode, s.stops[i].0)].0.clone(), (k + 1).to_string(), "1".into()]);
+                times.push(vec![trip_id.clone(), hms(arrive), hms(t), stops[&(s.kind, s.stops[i].0)].0.clone(), (k + 1).to_string(), "1".into()]);
             }
             let mut dist = 0.0;
             let mut pt = 0;
@@ -512,7 +575,8 @@ pub fn dataset(city: &City) -> Dataset {
 
     // Transit.
     let services = city.services();
-    let feed = gtfs(city, &frame, &services);
+    let all_lines = lines(city, &services);
+    let feed = gtfs(city, &frame, &all_lines);
     let has_gtfs = feed.is_some();
 
     // Trips of the last tick, by building and by zone.
@@ -572,7 +636,7 @@ pub fn dataset(city: &City) -> Dataset {
         ("metro segments", segment_count - streets),
         ("land use areas", land.len()),
         ("zones", zone_features.len()),
-        ("transit routes", services.len()),
+        ("transit routes", all_lines.len()),
         ("trips between buildings", trip_rows.len()),
         ("flows between zones", od_rows.len()),
     ];
@@ -744,6 +808,49 @@ mod tests {
         // No tick yet: no trips to tell of.
         assert!(data.file("od.csv").is_none());
         assert!(data.zip().len() > data.files.iter().map(|(_, b)| b.len()).sum::<usize>());
+    }
+
+    #[test]
+    fn trains_are_in_the_feed() {
+        let mut c = town();
+        c.apply_tool(Tool::Rail, (3, 13), (44, 13)).unwrap();
+        c.apply_tool(Tool::Station, (6, 11), (6, 11)).unwrap();
+        c.apply_tool(Tool::Station, (38, 11), (38, 11)).unwrap();
+        let trunk = c.trunk_lines();
+        assert_eq!(trunk.len(), 1, "{trunk:?}");
+        assert!(!trunk[0].ferry && trunk[0].stops.len() == 2 && trunk[0].legs[0].len() > 20);
+        let data = dataset(&c);
+        let text = String::from_utf8_lossy(data.file("gtfs.zip").unwrap()).to_string();
+        // A railway line beside the bus route, with its own kind of stop.
+        assert!(text.contains("rail1,citysim,Train 1,,2,"), "{text}");
+        assert!(text.contains("rail_6_11,Station 1,") && text.contains("rail_38_11,Station 2,"));
+        assert!(text.contains("rail1,daily,rail1_0,Station 2,0,rail1_0") && text.contains("r1_0,05:30:00,05:30:00,bus_4_9,1,1"));
+        assert_eq!(data.counts.iter().find(|(k, _)| *k == "transit routes").unwrap().1, 2);
+    }
+
+    #[test]
+    fn ferries_are_in_the_feed() {
+        // Two shores and a lake between them, a harbour on each.
+        let mut t = Terrain::flat(64, 24);
+        for w in 22..=42 {
+            for l in 0..=24 {
+                t.set_corner(w, l, -1);
+            }
+        }
+        let mut c = City::new(t, None, Footprints::builtin(), 5);
+        c.fund = 1_000_000;
+        c.apply_tool(Tool::Road, (16, 14), (20, 14)).unwrap();
+        c.apply_tool(Tool::Harbour, (19, 15), (19, 15)).unwrap();
+        c.apply_tool(Tool::Road, (43, 14), (47, 14)).unwrap();
+        c.apply_tool(Tool::Harbour, (43, 15), (43, 15)).unwrap();
+        let trunk = c.trunk_lines();
+        assert_eq!(trunk.len(), 1, "{trunk:?}");
+        assert!(trunk[0].ferry);
+        let data = dataset(&c);
+        let text = String::from_utf8_lossy(data.file("gtfs.zip").unwrap()).to_string();
+        assert!(text.contains("ferry1,citysim,Ferry 1,,4,") && text.contains(",Harbour 1,") && text.contains(",Harbour 2,"), "{text}");
+        // Water is land use, in rows.
+        assert!(features(&data, "landuse.geojson").iter().any(|f| f["properties"]["class"] == "water"));
     }
 
     #[test]

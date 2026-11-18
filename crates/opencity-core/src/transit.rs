@@ -188,6 +188,18 @@ pub struct Service {
     pub legs: Vec<Vec<(u32, u32)>>,
 }
 
+/// A railway line or a ferry crossing as the city runs it: its stations or
+/// harbours in order, and the way between them (see [`City::trunk_lines`]).
+#[derive(Clone, Debug, PartialEq)]
+pub struct TrunkLine {
+    /// By boat, between harbours; otherwise by train, between stations.
+    pub ferry: bool,
+    /// The building's origin tile and the tile its vehicles halt on.
+    pub stops: Vec<((u32, u32), (u32, u32))>,
+    /// The tiles from each stop to the next.
+    pub legs: Vec<Vec<(u32, u32)>>,
+}
+
 /// The stops of each line of a network that no route in `served` reaches,
 /// in an order a route can take: from the stop furthest out, always on to
 /// the nearest.
@@ -655,6 +667,26 @@ impl City {
             let legs: Option<Vec<_>> = (0..hops).map(|i| net.route(self.width(), at(i).platform, at((i + 1) % joined).platform)).collect();
             let Some(legs) = legs else { continue };
             out.push(Service { id: r.id, name: r.name, mode: r.mode, vehicles: r.vehicles, ring: run.ring, stops, legs });
+        }
+        out
+    }
+
+    /// The railway lines and ferry crossings: one for each track or body of
+    /// water with two stations or harbours or more, from one end to the other.
+    pub fn trunk_lines(&self) -> Vec<TrunkLine> {
+        let nets =
+            [(false, Railways::find(&self.layer, &self.terrain, self.footprints())), (true, Railways::water(&self.layer, &self.terrain, self.footprints()))];
+        let mut out = Vec::new();
+        for (ferry, net) in &nets {
+            for origins in undrawn(net, &[]) {
+                let stations: Vec<&crate::rail::Station> = origins.iter().filter_map(|o| net.stations.iter().find(|s| s.origin == *o)).collect();
+                let legs: Vec<Vec<(u32, u32)>> = stations.windows(2).map_while(|p| net.route(self.width(), p[0].platform, p[1].platform)).collect();
+                if legs.is_empty() {
+                    continue;
+                }
+                let stops = stations.iter().take(legs.len() + 1).map(|s| (s.origin, s.platform)).collect();
+                out.push(TrunkLine { ferry: *ferry, stops, legs });
+            }
         }
         out
     }
