@@ -209,6 +209,21 @@ impl City {
         if self.mayor.shock >= 0.5 {
             v.push(("Recent disasters".to_string(), -self.mayor.shock));
         }
+        // Offices the city is glad to have, by how well they work.
+        if let (Some(gb), Some(rules)) = (&self.glassbox, self.rules()) {
+            let mut by_name: std::collections::BTreeMap<&str, f32> = std::collections::BTreeMap::new();
+            for ((w, l), s) in self.layer.structures() {
+                let Some(u) = s.unit.and_then(|u| rules.units.get(u as usize)).filter(|u| u.approval != 0.0) else { continue };
+                *by_name.entry(u.name.as_str()).or_default() += u.approval * gb.unit_state(w, l, self.width()).map_or(0.0, |st| st.satisfaction);
+            }
+            let total: f32 = by_name.values().sum();
+            let scale = if total > 8.0 { 8.0 / total } else { 1.0 };
+            for (name, points) in by_name {
+                if points.abs() >= 0.05 {
+                    v.push((name.to_string(), points * scale));
+                }
+            }
+        }
         if let Some(m) = &self.mafia {
             v.push(("The family is in town".to_string(), -(m.heat * 15.0).min(30.0)));
         }

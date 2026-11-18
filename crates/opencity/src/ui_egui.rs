@@ -298,6 +298,9 @@ const GROUPS: &[Group] = &[
             ("hospital", Action::Tool(Some(Tool::Hospital)), "Hospital", ""),
             ("education", Action::Tool(Some(Tool::School)), "School", ""),
             ("high_school", Action::Tool(Some(Tool::HighSchool)), "High school", ""),
+            ("mayors_office", Action::Tool(Some(Tool::MayorsOffice)), "Mayor's office", ""),
+            ("city_hall", Action::Tool(Some(Tool::CityHall)), "City hall", ""),
+            ("neighbourhood_office", Action::Tool(Some(Tool::NeighbourhoodOffice)), "Neighbourhood office", ""),
             ("university", Action::Tool(Some(Tool::University)), "University", ""),
         ],
         true,
@@ -355,6 +358,9 @@ fn needs_rules(t: Tool) -> bool {
             | Tool::ResortHotel
             | Tool::ObservationTower
             | Tool::AmusementPark
+            | Tool::MayorsOffice
+            | Tool::CityHall
+            | Tool::NeighbourhoodOffice
             | Tool::Mall
             | Tool::Museum
             | Tool::ModernArtMuseum
@@ -942,7 +948,15 @@ impl EguiUi {
             Action::Tool(Some(t)) => (view.city.tool_locked_by(t), view.city.tool_obsolete(t)),
             _ => (None, None),
         };
-        let why = locked.as_ref().map(|t| format!("Needs research: {t}")).or(obsolete.as_ref().map(|t| format!("Obsolete since {t}")));
+        let full = match action {
+            Action::Tool(Some(t)) => view.city.tool_at_limit(t),
+            _ => None,
+        };
+        let why = locked
+            .as_ref()
+            .map(|t| format!("Needs research: {t}"))
+            .or(obsolete.as_ref().map(|t| format!("Obsolete since {t}")))
+            .or(full.as_ref().map(|n| format!("The city has its {} already", n.to_lowercase())));
         let resp = ui.add_enabled_ui(why.is_none(), |ui| ui.add_sized([166.0, 32.0], button.selected(selected))).inner;
         let resp = match &why {
             Some(why) => resp.on_disabled_hover_text(why),

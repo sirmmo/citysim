@@ -89,6 +89,12 @@ pub enum StructureCode {
     ObservationTower = 69,
     /// Amusement park: a big wheel and a roller coaster; tourists, families and noise.
     AmusementPark = 70,
+    /// The mayor's office: where the mayor can be found (one to a city).
+    MayorsOffice = 71,
+    /// City hall: the council and its clerks (one to a city).
+    CityHall = 72,
+    /// Neighbourhood office: the city's counter close to home.
+    NeighbourhoodOffice = 73,
 }
 
 impl StructureCode {
@@ -145,6 +151,9 @@ impl StructureCode {
             68 => ResortHotel,
             69 => ObservationTower,
             70 => AmusementPark,
+            71 => MayorsOffice,
+            72 => CityHall,
+            73 => NeighbourhoodOffice,
             _ => return None,
         })
     }
@@ -177,9 +186,15 @@ impl StructureCode {
         )
     }
 
+    /// The city's own offices.
+    pub const fn is_government(self) -> bool {
+        matches!(self, Self::MayorsOffice | Self::CityHall | Self::NeighbourhoodOffice)
+    }
+
     pub const fn is_public_service(self) -> bool {
         matches!(self, Self::FireDept | Self::PoliceDept | Self::Hospital | Self::School | Self::HighSchool | Self::University | Self::Station | Self::Harbour)
             || self.is_amenity()
+            || self.is_government()
     }
 
     /// Water and waste buildings.
@@ -263,6 +278,9 @@ impl StructureCode {
             ResortHotel => GraphicCode::RESORT_HOTEL,
             ObservationTower => GraphicCode::OBSERVATION_TOWER,
             AmusementPark => GraphicCode::AMUSEMENT_PARK,
+            MayorsOffice => GraphicCode::MAYORS_OFFICE,
+            CityHall => GraphicCode::CITY_HALL,
+            NeighbourhoodOffice => GraphicCode::NEIGHBOURHOOD_OFFICE,
         }
     }
 
@@ -277,6 +295,7 @@ impl StructureCode {
             PumpingStation | WaterTower | WaterTreatment | Waterworks | SewageOutfall | Wetland => StructureType::Water,
             Dump | Recycling | Incinerator | BusStop | TramStop | MetroStation | Airport | Seaport => StructureType::Government,
             FireDept | PoliceDept | Hospital | School | HighSchool | University | Station | Harbour => StructureType::Government,
+            MayorsOffice | CityHall | NeighbourhoodOffice => StructureType::Government,
             Stadium | Mall | Museum | ModernArtMuseum | OperaHouse | ArchaeologyMuseum | ResortHotel | ObservationTower | AmusementPark => {
                 StructureType::Government
             }
@@ -327,6 +346,9 @@ impl StructureCode {
             ResortHotel => 6000,
             ObservationTower => 3500,
             AmusementPark => 12000,
+            MayorsOffice => 2500,
+            CityHall => 6000,
+            NeighbourhoodOffice => 800,
             Test | Part => 0,
         }
     }
@@ -371,6 +393,9 @@ impl StructureCode {
             ResortHotel => 40,
             ObservationTower => 25,
             AmusementPark => 80,
+            MayorsOffice => 20,
+            CityHall => 40,
+            NeighbourhoodOffice => 8,
         }
     }
 
@@ -406,6 +431,9 @@ impl StructureCode {
             ResortHotel => 300,
             ObservationTower => 200,
             AmusementPark => 500,
+            MayorsOffice => 200,
+            CityHall => 300,
+            NeighbourhoodOffice => 100,
             Test => 0,
         }
     }
@@ -448,6 +476,9 @@ impl GraphicCode {
     pub const EPLANT_SOLAR: Self = Self(304);
     pub const EPLANT_FUSION: Self = Self(305);
     pub const AMUSEMENT_PARK: Self = Self(348);
+    pub const MAYORS_OFFICE: Self = Self(351);
+    pub const CITY_HALL: Self = Self(352);
+    pub const NEIGHBOURHOOD_OFFICE: Self = Self(353);
     pub const OBSERVATION_TOWER: Self = Self(347);
     pub const RESORT_HOTEL: Self = Self(346);
     pub const WETLAND: Self = Self(378);
@@ -772,10 +803,13 @@ pub enum Tool {
     ResortHotel,
     ObservationTower,
     AmusementPark,
+    MayorsOffice,
+    CityHall,
+    NeighbourhoodOffice,
 }
 
 impl Tool {
-    pub const ALL: [Tool; 55] = [
+    pub const ALL: [Tool; 58] = [
         Tool::Destroy,
         Tool::ZoneResidential,
         Tool::ZoneCommercial,
@@ -831,6 +865,9 @@ impl Tool {
         Tool::ResortHotel,
         Tool::ObservationTower,
         Tool::AmusementPark,
+        Tool::MayorsOffice,
+        Tool::CityHall,
+        Tool::NeighbourhoodOffice,
     ];
 
     /// Stable identifier, used by skins and GeoJSON rules.
@@ -891,6 +928,9 @@ impl Tool {
             Tool::ResortHotel => "resort_hotel",
             Tool::ObservationTower => "observation_tower",
             Tool::AmusementPark => "amusement_park",
+            Tool::MayorsOffice => "mayors_office",
+            Tool::CityHall => "city_hall",
+            Tool::NeighbourhoodOffice => "neighbourhood_office",
         }
     }
 
@@ -943,6 +983,9 @@ impl Tool {
             Tool::ResortHotel => S::ResortHotel,
             Tool::ObservationTower => S::ObservationTower,
             Tool::AmusementPark => S::AmusementPark,
+            Tool::MayorsOffice => S::MayorsOffice,
+            Tool::CityHall => S::CityHall,
+            Tool::NeighbourhoodOffice => S::NeighbourhoodOffice,
             // Metro tunnels run underground, under whatever stands there.
             Tool::Destroy | Tool::RaiseTerrain | Tool::LowerTerrain | Tool::Canal | Tool::MetroLine => return None,
         })

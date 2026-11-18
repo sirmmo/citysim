@@ -97,6 +97,9 @@ build = "resort_hotel"
 when = { man_made = "tower", "tower:type" = "observation" }
 build = "observation_tower"
 [[rule]]
+when = { amenity = "townhall" }
+build = "city_hall"
+[[rule]]
 when = { tourism = "theme_park" }
 build = "amusement_park"
 # Amenities: the special museums before the plain one.

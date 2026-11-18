@@ -91,6 +91,8 @@ pub enum ToolError {
     Locked(String),
     #[error("obsolete since {0}")]
     Obsolete(String),
+    #[error("the city has its {0} already")]
+    Limit(String),
     #[error("the city voted you out of office")]
     VotedOut,
     #[error("something else is built on the border tile")]
@@ -455,6 +457,16 @@ impl City {
         gb.obsolete_by(rules, unit).map(|t| t.name.clone())
     }
 
+    /// The name of a tool's building when the city has as many as its
+    /// rules allow (`limit` on the unit).
+    pub fn tool_at_limit(&self, tool: Tool) -> Option<String> {
+        let rules = self.rules()?;
+        let unit = rules.service_unit(tool.id()).filter(|u| u.limit > 0)?;
+        let index = rules.unit(&unit.id)? as u16;
+        let have = self.layer.structures().filter(|(_, s)| s.unit == Some(index)).count() as u32;
+        (have >= unit.limit).then(|| unit.name.clone())
+    }
+
     /// What pulling down everything in a rectangle pays back (relics and
     /// other units with a `salvage`).
     pub fn salvage(&self, rect: Rect) -> u32 {
@@ -547,6 +559,9 @@ impl City {
         }
         if let Some(t) = self.tool_obsolete(tool) {
             return Err(ToolError::Obsolete(t));
+        }
+        if let Some(name) = self.tool_at_limit(tool) {
+            return Err(ToolError::Limit(name));
         }
         let rect = Rect::new(a, b);
         let cost = match tool {

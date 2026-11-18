@@ -946,6 +946,80 @@ def amusement_park():
     return m
 
 
+def mayors_office():
+    """A 2 x 2 mayor's office: a brick villa with a hipped look, a balcony
+    over the door for speeches (street side +z) and a flag on the roof."""
+    m = Model()
+    m.box(CONCRETE, 0.0, 0.0, 0.0, 2.0, 0.03, 2.0)
+    m.box(BRICK, 0.3, 0.03, 0.3, 1.7, 1.0, 1.55, top=ROOF)
+    m.roof(ROOF, 0.25, 0.25, 1.75, 1.6, 1.0, 1.35)
+    # Door, steps and the balcony above.
+    m.box(WHITE, 0.75, 0.03, 1.55, 1.25, 0.1, 1.8)
+    m.box(DARK, 0.9, 0.1, 1.55, 1.1, 0.5, 1.56)
+    m.box(WHITE, 0.7, 0.58, 1.55, 1.3, 0.62, 1.75)
+    for x in (0.72, 1.28):
+        m.cylinder(WHITE, x, 1.72, 0.025, 0.1, 0.58, n=8)
+    m.box(GLASS, 0.9, 0.66, 1.55, 1.1, 0.92, 1.56)
+    for x in (0.42, 1.42):
+        for y in (0.25, 0.66):
+            m.box(GLASS, x, y, 1.55, x + 0.18, y + 0.24, 1.56)
+    # Flag.
+    m.cylinder(DARK, 1.0, 0.92, 0.015, 1.35, 1.7, n=6)
+    m.box(RED, 1.0, 1.55, 0.91, 1.22, 1.68, 0.93)
+    # Lawn and hedge.
+    m.box(GRASS, 0.05, 0.03, 1.6, 0.65, 0.04, 1.95)
+    m.box(GRASS, 1.35, 0.03, 1.6, 1.95, 0.04, 1.95)
+    return m
+
+
+def city_hall():
+    """A 4 x 3 city hall: a stone block with two wings, a portico on the
+    street (+z) and a clock tower over the middle."""
+    m = Model()
+    m.box(CONCRETE, 0.0, 0.0, 0.0, 4.0, 0.03, 3.0)
+    m.box(STONE, 0.2, 0.03, 0.3, 3.8, 1.0, 2.0, top=CONCRETE)
+    m.box(STONE, 1.3, 0.03, 0.3, 2.7, 1.25, 2.15, top=CONCRETE)
+    # Steps and portico.
+    for i in range(4):
+        m.box(WHITE, 1.2, 0.03, 2.15, 2.8, 0.2 - i * 0.045, 2.5 + i * 0.1)
+    for i in range(5):
+        m.cylinder(WHITE, 1.4 + i * 0.3, 2.4, 0.05, 0.2, 1.05, n=8)
+    m.box(WHITE, 1.25, 1.05, 2.1, 2.75, 1.15, 2.5)
+    m.roof_z(STONE, 1.25, 1.6, 2.75, 2.5, 1.15, 1.45)
+    m.box(DARK, 1.85, 0.2, 2.15, 2.15, 0.8, 2.16)
+    # Clock tower.
+    m.box(STONE, 1.7, 1.25, 0.8, 2.3, 2.1, 1.4, top=CONCRETE)
+    m.cylinder(WHITE, 2.0, 1.41, 0.17, 1.7, 1.71, n=16)
+    m.poly(WHITE, [(1.83, 1.65, 1.405), (2.17, 1.65, 1.405), (2.17, 1.99, 1.405), (1.83, 1.99, 1.405)], [[0, 1, 2, 3]])
+    m.poly(DARK, [(1.99, 1.82, 1.41), (2.01, 1.82, 1.41), (2.01, 1.96, 1.41), (1.99, 1.96, 1.41)], [[0, 1, 2, 3]])
+    m.cone(COPPER, 2.0, 1.1, 0.42, 2.1, 2.6, n=4)
+    # Windows on the wings, two floors.
+    for x in (0.4, 0.75, 2.95, 3.3):
+        for y in (0.22, 0.62):
+            m.box(GLASS, x, y, 2.0, x + 0.2, y + 0.26, 2.01)
+    # Flags on the square.
+    for x, c in ((0.6, RED), (3.4, GREEN)):
+        m.cylinder(DARK, x, 2.6, 0.015, 0.03, 0.9, n=6)
+        m.box(c, x, 0.72, 2.59, x + 0.22, 0.87, 2.61)
+    return m
+
+
+def neighbourhood_office():
+    """A 2 x 1 neighbourhood office: a low shopfront with a glass front, a
+    sign board and a bench outside (street side +z)."""
+    m = Model()
+    m.box(CONCRETE, 0.0, 0.0, 0.0, 2.0, 0.03, 1.0)
+    m.box(WHITE, 0.15, 0.03, 0.1, 1.85, 0.6, 0.75, top=DARK)
+    m.box(GLASS, 0.3, 0.12, 0.75, 1.1, 0.5, 0.76)
+    m.box(DARK, 1.3, 0.03, 0.75, 1.55, 0.5, 0.76)
+    m.box(PIPE, 0.15, 0.6, 0.6, 1.85, 0.75, 0.78)
+    m.box(WHITE, 0.5, 0.64, 0.78, 1.5, 0.71, 0.785)
+    m.box(RUST, 0.4, 0.1, 0.86, 0.9, 0.13, 0.95)
+    m.cylinder(DARK, 1.72, 0.9, 0.012, 0.03, 0.95, n=6)
+    m.box(RED, 1.72, 0.8, 0.89, 1.9, 0.93, 0.91)
+    return m
+
+
 def icons():
     try:
         from PIL import Image, ImageDraw
@@ -1210,6 +1284,33 @@ def icons():
     d.polygon([(32, 28), (22, 58), (26, 58)], fill=ink)
     d.polygon([(32, 28), (42, 58), (38, 58)], fill=ink)
     save_icon("amusement_park", im)
+    # Government, on a slate tile.
+    slate = (150, 165, 190)
+    im, d = tile(slate)
+    d.rectangle((18, 28, 46, 54), fill=(190, 110, 90), outline=ink)
+    d.polygon([(14, 28), (32, 14), (50, 28)], fill=(110, 85, 80), outline=ink)
+    d.rectangle((28, 40, 36, 54), fill=ink)
+    d.rectangle((24, 34, 40, 37), fill=white, outline=ink)
+    d.line((32, 14, 32, 4), fill=ink, width=2)
+    d.rectangle((32, 4, 42, 10), fill=(200, 50, 40))
+    save_icon("mayors_office", im)
+    im, d = tile(slate)
+    d.rectangle((8, 34, 56, 54), fill=(225, 215, 190), outline=ink)
+    d.polygon([(18, 34), (32, 24), (46, 34)], fill=white, outline=ink)
+    for x in (22, 28, 34, 40):
+        d.line((x, 36, x, 54), fill=ink, width=2)
+    d.rectangle((26, 8, 38, 26), fill=(225, 215, 190), outline=ink)
+    d.ellipse((28, 11, 36, 19), fill=white, outline=ink)
+    d.line((32, 15, 32, 12), fill=ink, width=1)
+    d.line((32, 15, 34, 15), fill=ink, width=1)
+    save_icon("city_hall", im)
+    im, d = tile(slate)
+    d.rectangle((10, 30, 54, 52), fill=white, outline=ink)
+    d.rectangle((10, 24, 54, 31), fill=(60, 110, 180), outline=ink)
+    d.rectangle((15, 36, 34, 48), fill=(120, 170, 215), outline=ink)
+    d.rectangle((40, 36, 48, 52), fill=ink)
+    d.line((18, 27, 46, 27), fill=white, width=2)
+    save_icon("neighbourhood_office", im)
     alerts(Image, ImageDraw)
 
 
@@ -1275,6 +1376,9 @@ def main():
     save("amenity/resort_hotel/resort_hotel", resort_hotel(), "Resort hotel", 4, 3, 1.62, "Rooms around a pool, for visitors.")
     save("amenity/observation_tower/observation_tower", observation_tower(), "Observation tower", 2, 2, 4.1, "The view on every postcard.")
     save("amenity/amusement_park/amusement_park", amusement_park(), "Amusement park", 6, 5, 2.5, "A big wheel and a roller coaster.")
+    save("government/mayors_office/mayors_office", mayors_office(), "Mayor's office", 2, 2, 1.7, "Where the mayor can be found.")
+    save("government/city_hall/city_hall", city_hall(), "City hall", 4, 3, 2.6, "The council and its clerks.")
+    save("government/neighbourhood_office/neighbourhood_office", neighbourhood_office(), "Neighbourhood office", 2, 1, 0.95, "The city's counter close to home.")
     save("water/quay/quay", quay(), "Quay", 4, 3, 0.85, "The seaport's quay, dressed by models/composed/seaport.compose.")
     icons()
 

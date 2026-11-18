@@ -520,6 +520,17 @@ pub struct UnitDef {
     /// Money paid back when it is pulled down: scrap, stone, the land.
     #[serde(default, skip_serializing_if = "is_zero_u32")]
     pub salvage: u32,
+    /// The most a city can have of it (0: any number). A city hall is one.
+    #[serde(default, skip_serializing_if = "is_zero_u32")]
+    pub limit: u32,
+    /// Points of approval the mayor has for each one that works, by how
+    /// well it works (all buildings together give 8 at most).
+    #[serde(default, skip_serializing_if = "is_zero_f32")]
+    pub approval: f32,
+    /// What each one that works changes of the `[administration]` bill, as
+    /// a share (`-0.25`: a quarter less); the bill never falls under half.
+    #[serde(default, skip_serializing_if = "is_zero_f32")]
+    pub administration: f32,
 }
 
 /// What a unit's production follows (`follows`).
@@ -1674,6 +1685,9 @@ pub fn structure_code(name: &str) -> Option<StructureCode> {
         "resort_hotel" => ResortHotel,
         "observation_tower" => ObservationTower,
         "amusement_park" => AmusementPark,
+        "mayors_office" => MayorsOffice,
+        "city_hall" => CityHall,
+        "neighbourhood_office" => NeighbourhoodOffice,
         "park" => Park,
         "fire_station" => FireDept,
         "police" => PoliceDept,

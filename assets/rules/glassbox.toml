@@ -649,6 +649,9 @@ archaeology_museum = "archaeology_museum"
 resort_hotel = "resort_hotel"
 observation_tower = "observation_tower"
 amusement_park = "amusement_park"
+mayors_office = "mayors_office"
+city_hall = "city_hall"
+neighbourhood_office = "neighbourhood_office"
 
 # ---------------------------------------------------------------- units
 # Residential: residents produce workers and shoppers; they need power and
@@ -1315,3 +1318,37 @@ relic = true
 produce = { taxes = 0.01 }
 needs = { upkeep = 0.05 }
 emits = { land_value = { amount = 1.0, radius = 3 } }
+
+# ---------------------------------------------------------------- government
+# The city's own offices. `limit` is the most a city can have; `approval`
+# is what the mayor gains from each one that works; `administration` is
+# what each takes off the [administration] bill.
+[[unit]]
+id = "mayors_office"
+name = "Mayor's office"
+description = "Where the mayor can be found, and told. People think better of a mayor with a door to knock on."
+graphic = 351
+limit = 1
+approval = 3
+needs = { workers = 4, power = 1, upkeep = 0.3 }
+emits = { land_value = { amount = 2.0, radius = 5 } }
+
+[[unit]]
+id = "city_hall"
+name = "City hall"
+description = "The council chamber and the clerks under one roof: running the city costs a quarter less."
+graphic = 352
+limit = 1
+administration = -0.25
+needs = { workers = 20, power = 6, water = 2, upkeep = 0.8 }
+emits = { land_value = { amount = 4.0, radius = 8 } }
+
+[[unit]]
+id = "neighbourhood_office"
+name = "Neighbourhood office"
+description = "The city's counter close to home: papers, permits and complaints without a trip to city hall."
+graphic = 353
+approval = 0.5
+administration = -0.02
+needs = { workers = 3, power = 1, upkeep = 0.15 }
+emits = { land_value = { amount = 1.5, radius = 6 } }

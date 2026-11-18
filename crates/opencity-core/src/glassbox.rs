@@ -2133,7 +2133,17 @@ impl GlassBox {
         self.administration_unpaid = false;
         if let Some(a) = &rules.administration {
             let people = rules.population.as_deref().and_then(|p| rules.resource(p)).map_or(0.0, |ri| self.local_total(ri));
-            let cost = a.cost_for(people) as f64;
+            // Offices that work make the bill smaller (a city hall), by how
+            // well they work.
+            let width = layer.width();
+            let offices: f32 = layer
+                .structures()
+                .filter_map(|((w, l), s)| {
+                    let u = rules.units.get(s.unit? as usize).filter(|u| u.administration != 0.0)?;
+                    Some(u.administration * self.units.get(&(l * width + w)).map_or(0.0, |st| st.satisfaction))
+                })
+                .sum();
+            let cost = a.cost_for(people) as f64 * (1.0 + offices).clamp(0.5, 2.0) as f64;
             if cost > 0.0 {
                 if *fund > 0 || self.treasury > cost {
                     self.treasury -= cost;

@@ -8,6 +8,15 @@ Release notes in full are on the [releases page](https://github.com/sirmmo/citys
 - **Report to OpenTactics**, in the new OpenTactics window: a link back with the population and the taxes, copied to the clipboard. The city then pays 50% of its income there, plus 100% for every $400 of taxes a month.
 - On the command line: `--holding LINK`. See [PLAYING.md](docs/PLAYING.md#a-city-for-opentactics).
 
+## 0.2.78: Government buildings
+- **Three offices of the city's own**, in the Services row (GlassBox rules):
+  - **Mayor's office** (one to a city, $2,500): 3 points of approval.
+  - **City hall** (one to a city, $6,000): running the city costs a quarter less.
+  - **Neighbourhood office** (any number, $800): half a point of approval and 2% off the cost of running the city, each.
+- They need a street, staff and power, and give what they give by how well they work. Before 1800 they are the Magistrate's house, the Town hall and the Ward house.
+- GeoJSON: `amenity=townhall` imports as a city hall.
+- For rule writers: `limit`, `approval` and `administration` on a unit. See [RULES.md](docs/RULES.md#tech-trees).
+
 ## 0.2.77: Obsolete buildings
 - **Research can retire buildings.** *Nuclear fusion* makes coal power plants obsolete, and the new project *Circular economy* (after Computing, 5,000 research points) does the same to landfills.
 - **A year to adapt:** no more can be built from the day the project is done, and the ones standing work for one more year. Inspecting one shows the months left.

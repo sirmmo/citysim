@@ -789,6 +789,14 @@ obsoletes = { coal_plant = "old_power_station" }   # units it retires, and what 
   inspector then offers to pull it down) and, if it is worth something,
   `salvage = 1500` (paid when it is pulled down; any unit can have one).
   Put relic units at the end of the rules file, like every new unit.
+- **Government units:** three more keys on a unit, for the city's offices.
+  `limit = 1` is the most a city can have of it (its tool is greyed out
+  after that). `approval = 3` gives the mayor that many points for each one
+  that works, times its satisfaction; all units together give 8 at most.
+  `administration = -0.25` changes the `[administration]` bill by that
+  share for each one that works; the bill stays between half and double.
+  The tools `mayors_office`, `city_hall` and `neighbourhood_office` build
+  the units `[services]` names for them.
 - **Bonuses:** a finished project's `bonus` adds that share to the
   production of the resource (and of its kinds) in every building.
 - **Region-wide projects:** with `regional = true` every town of a region

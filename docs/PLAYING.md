@@ -271,6 +271,15 @@ interface** makes it Large or Huge on top of that, and `--ui-scale 1.5`
 
   Ideas feed the schools (see Research). Before 1800 there are an **Arena**
   and a **Theatre** (after *Spectacles*) and no museums or mall.
+- **Government** (GlassBox rules, in the Services row): the city's own offices. They need a street, staff and power.
+
+  | Office | Size | Cost | How many | Gives |
+  |---|---|---|---|---|
+  | Mayor's office | 2 × 2 | $2,500 | one | 3 points of approval |
+  | City hall | 4 × 3 | $6,000 | one | running the city costs a quarter less |
+  | Neighbourhood office | 2 × 1 | $800 | any number | half a point of approval and 2% off the cost of running the city, each |
+
+  All three raise the value of the land around. What they give goes by how well they are staffed and supplied. Together the offices give at most 8 points of approval, and the cost of running the city never falls under half. A city hall pays for itself from about 500 residents on. Before 1800 they are the **Magistrate's house**, the **Town hall** and the **Ward house**.
 - **Tourism** (GlassBox rules, after the research project *Tourism*).
   Tourists are a resource of their own, apart from the town's shoppers.
   They arrive at the **airport** (80 a tick), the **railway station** (20)
@@ -706,6 +715,7 @@ mayor. Hover it to see what makes it up, in points out of 100.
     ground water (10), noise (8);
   - no fire station, police or hospital within reach (6 each), no school (5).
 - **Debt:** 10 points off while the city's money is below zero.
+- **Offices:** a working mayor's office and neighbourhood offices add points (see Government under Building).
 - **People leaving:** up to 40 points off when the city has lost more than
   one in twenty of the people it had at its best in the last three years.
 - **Disasters:** up to 8 points off per disaster, by what it hit, and 25 for

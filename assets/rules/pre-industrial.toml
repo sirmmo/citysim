@@ -427,6 +427,9 @@ stadium = "arena"
 opera_house = "theatre"
 park = "well"
 dump = "midden"
+mayors_office = "magistrate"
+city_hall = "town_hall"
+neighbourhood_office = "ward_house"
 
 # ---------------------------------------------------------------- units
 # Residential: families eat and work; bigger houses want water and safety.
@@ -815,3 +818,34 @@ graphic = 344
 produce = { ideas = 1, taxes = 0.1 }
 needs = { workers = 6, shoppers = 15, food = 1, upkeep = 0.5 }
 emits = { land_value = { amount = 6.0, radius = 8 } }
+
+# ---------------------------------------------------------------- government
+[[unit]]
+id = "magistrate"
+name = "Magistrate's house"
+description = "Where the town's first citizen hears petitions. People think better of a magistrate with a door to knock on."
+graphic = 351
+limit = 1
+approval = 3
+needs = { workers = 3, food = 1, upkeep = 0.1 }
+emits = { land_value = { amount = 2.0, radius = 5 } }
+
+[[unit]]
+id = "town_hall"
+name = "Town hall"
+description = "The council, the scribes and the town's seal under one roof: running the town costs a quarter less."
+graphic = 352
+limit = 1
+administration = -0.25
+needs = { workers = 10, food = 2, upkeep = 0.3 }
+emits = { land_value = { amount = 4.0, radius = 8 } }
+
+[[unit]]
+id = "ward_house"
+name = "Ward house"
+description = "The ward's elders meet here and settle what need not go to the town hall."
+graphic = 353
+approval = 0.5
+administration = -0.02
+needs = { workers = 2, food = 0.5, upkeep = 0.05 }
+emits = { land_value = { amount = 1.5, radius = 6 } }

@@ -2099,11 +2099,12 @@ fn saves_survive_rules_that_gain_units() {
     let ids: Vec<&str> = r.units.iter().map(|u| u.id.as_str()).collect();
     let park = ids.iter().position(|i| *i == "park").unwrap();
     assert_eq!(&ids[park..park + 4], ["park", "high_school", "university", "museum"], "new units follow the old ones");
-    assert_eq!(&ids[ids.len() - 2..], ["old_power_station", "capped_landfill"], "relics came last, in 0.2.77");
-    assert_eq!(ids.len(), park + 20, "a unit added to the shipped rules goes at the end, and this test learns its name");
+    assert_eq!(&ids[ids.len() - 5..ids.len() - 3], ["old_power_station", "capped_landfill"], "relics, in 0.2.77");
+    assert_eq!(&ids[ids.len() - 3..], ["mayors_office", "city_hall", "neighbourhood_office"], "government came last, in 0.2.78");
+    assert_eq!(ids.len(), park + 23, "a unit added to the shipped rules goes at the end, and this test learns its name");
     let old = rules_named("pre-industrial");
     let old_ids: Vec<&str> = old.units.iter().map(|u| u.id.as_str()).collect();
-    assert_eq!(&old_ids[old_ids.len() - 3..], ["studium", "arena", "theatre"]);
+    assert_eq!(&old_ids[old_ids.len() - 6..], ["studium", "arena", "theatre", "magistrate", "town_hall", "ward_house"]);
     // From now on a save names its units, and is renumbered on loading
     // under rules that list them otherwise.
     let mut c = City::new(Terrain::flat(40, 24), None, Footprints::builtin(), 3);
@@ -2615,4 +2616,50 @@ fn research_makes_buildings_obsolete() {
     opencity_core::save::save(&c, &mut buf).unwrap();
     let d = opencity_core::save::load(std::io::Cursor::new(buf), Footprints::builtin()).unwrap();
     assert!(d.glassbox.unwrap().obsolete.contains_key("dump"));
+}
+
+/// The city's own offices: one mayor's office and one city hall, any number
+/// of neighbourhood offices; they earn approval and cut the administration bill.
+#[test]
+fn government_offices_help_run_the_city() {
+    let r = rules();
+    let town = || {
+        let mut c = City::new(Terrain::flat(72, 64), None, Footprints::builtin(), 3);
+        c.use_rules(r.clone());
+        opencity_core::scenario::demo_town(&mut c);
+        c.fund = 200_000;
+        c
+    };
+    // A free spot whose street side (+l) is a street.
+    let place = |c: &mut City, tool: Tool| -> (u32, u32) {
+        for l in 2..60 {
+            for w in 2..68 {
+                let (sw, sl) = c.footprints().size(tool.structure().unwrap().base_graphic());
+                let street = (w..w + sw).all(|x| c.layer.structure_at(x, l + sl).is_some_and(|s| s.code == StructureCode::Road && s.road == RoadKind::Street));
+                if street && c.apply_tool(tool, (w, l), (w, l)).is_ok() {
+                    return (w, l);
+                }
+            }
+        }
+        panic!("no room for {tool:?}");
+    };
+    let (mut plain, mut run) = (town(), town());
+    place(&mut run, Tool::CityHall);
+    place(&mut run, Tool::MayorsOffice);
+    place(&mut run, Tool::NeighbourhoodOffice);
+    place(&mut run, Tool::NeighbourhoodOffice);
+    assert_eq!(run.tool_at_limit(Tool::CityHall).as_deref(), Some("City hall"));
+    assert_eq!(run.tool_at_limit(Tool::NeighbourhoodOffice), None);
+    assert!(matches!(run.apply_tool(Tool::MayorsOffice, (2, 2), (2, 2)), Err(opencity_core::city::ToolError::Limit(_))));
+    for _ in 0..400 {
+        plain.simulate_round();
+        run.simulate_round();
+    }
+    let points = |c: &City, name: &str| c.approval_factors().iter().find(|(n, _)| n == name).map_or(0.0, |(_, p)| *p);
+    assert!(points(&run, "Mayor's office") > 1.5, "{:?}", run.approval_factors());
+    assert!(points(&run, "Neighbourhood office") > 0.4, "{:?}", run.approval_factors());
+    assert_eq!(points(&plain, "Mayor's office"), 0.0);
+    // The bill for running the city, a head.
+    let bill = |c: &City| -c.glassbox.as_ref().unwrap().ledger.get("Upkeep: Administration").copied().unwrap_or(0.0) / c.population.max(1) as f64;
+    assert!(bill(&plain) > 0.0 && bill(&run) < bill(&plain) * 0.85, "{} vs {}", bill(&run), bill(&plain));
 }
