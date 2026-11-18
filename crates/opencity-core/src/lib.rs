@@ -8,6 +8,7 @@
 pub mod affairs;
 pub mod city;
 pub mod codes;
+pub mod districts;
 pub mod footprint;
 pub mod gbx;
 pub mod glassbox;

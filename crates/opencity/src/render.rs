@@ -1063,6 +1063,26 @@ pub type RouteWay = (u32, Vec<Vec<(u32, u32)>>);
 /// line or tunnels (a band above the ground), with a post at every stop of
 /// the selected one. Routes sharing a street lie side by side. While stops
 /// are being added, the stop under the mouse lights up.
+/// The neighbourhoods on the map, while their window is open: a coloured
+/// tile over each of their tiles, brighter for the one selected.
+#[cfg(not(target_os = "android"))]
+pub fn draw_districts(city: &opencity_core::City, selected: Option<(u32, u32)>) {
+    let all = city.districts();
+    if all.is_empty() {
+        return;
+    }
+    let width = city.width();
+    for (i, d) in city.district_map().into_iter().enumerate() {
+        let Some(d) = d else { continue };
+        let (w, l) = (i as u32 % width, i as u32 / width);
+        let [r, g, b] = crate::districtsui::colour(d as usize);
+        let on = selected == Some(all[d as usize].at);
+        let (x, z) = (w as f32 + 0.5, l as f32 + 0.5);
+        let y = height_at(&city.terrain, x, z).max(0.0) + 0.06;
+        draw_cube(vec3(x, y, z), vec3(0.9, 0.02, 0.9), None, Color::from_rgba(r, g, b, if on { 150 } else { 60 }));
+    }
+}
+
 pub fn draw_routes(city: &opencity_core::City, ways: &[RouteWay], selected: Option<u32>, hover: Option<(u32, u32)>) {
     let Some(transit) = city.transit() else { return };
     let centre = |(w, l): (u32, u32)| (w as f32 + 0.5, l as f32 + 0.5);

@@ -6,7 +6,7 @@ a real city publishes, so the tools made for real cities read them.
 
 | File | What |
 |---|---|
-| `buildings.geojson` | Building footprints. `id`, `class` (residential, commercial, industrial, civic), `kind`, `unit`, `name`, `level`, `residents`, `jobs`, `satisfaction` (0 to 1), `area_m2`, and OpenStreetMap-style tags. |
+| `buildings.geojson` | Building footprints. `id`, `class` (residential, commercial, industrial, civic), `kind`, `unit`, `name`, `level`, `residents`, `jobs`, `satisfaction` (0 to 1), `area_m2`, `neighbourhood` (its name, when it lies in one), and OpenStreetMap-style tags. |
 | `segments.geojson` | Streets, railway tracks and metro tunnels, one line from junction to junction. `id`, `class` (street, highway, dirt_road, paved_street, rail, tram, metro), `length_m`, `traffic` (the game's load on the road, 0 to 255), OpenStreetMap-style tags. |
 | `landuse.geojson` | Parks, wetlands, landfills, empty plots and water. |
 | `zones.geojson` | A grid of zones, like census tracts: `zone_id`, `residents`, `jobs`, `buildings`. |

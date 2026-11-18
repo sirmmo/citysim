@@ -8,6 +8,13 @@ Release notes in full are on the [releases page](https://github.com/sirmmo/citys
 - **Report to OpenTactics**, in the new OpenTactics window: a link back with the population and the taxes, copied to the clipboard. The city then pays 50% of its income there, plus 100% for every $400 of taxes a month.
 - On the command line: `--holding LINK`. See [PLAYING.md](docs/PLAYING.md#a-city-for-opentactics).
 
+## 0.2.80: Neighbourhoods
+- **The land around each neighbourhood office is a neighbourhood** (GlassBox rules): every tile within 8 of it. The new **Neighbourhoods** window lists them with residents, jobs, how content they are and the averages of land value, crime, smoke, noise and service cover; the map shows each in its colour while the window is open.
+- **A name for each**, given by itself and changed by typing.
+- **One policy for each**, holding there only: Business improvement district, Low local rates, Neighbourhood watch ($80 a month), Clean and green streets ($120), Low-traffic neighbourhood ($60). Before 1800: market dues, remitted dues, a night watch, street sweepers.
+- Inspecting a building names its neighbourhood; the open-data export writes it on every building.
+- MCP tool `neighbourhoods`. For rule writers: `district` on a unit and `[[neighbourhood_policy]]`. See [RULES.md](docs/RULES.md#neighbourhoods).
+
 ## 0.2.79: Events and decisions
 - **Things happen, and ask for a decision** (GlassBox rules): the city's staff want a raise, residents want a festival, a factory asks for a tax break, a developer wants a park, the paper has a scandal. Each choice says what it does: money, money month by month, points of approval. Some are gambles.
 - **A question waits three months**, then its last choice is taken. *Decide* in the city panel reopens it. Approval from decisions fades by a tenth a month.

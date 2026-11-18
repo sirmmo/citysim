@@ -382,6 +382,8 @@ pub fn dataset(city: &City) -> Dataset {
     }
     let mut zones: BTreeMap<Tile, Zone> = BTreeMap::new();
 
+    let district_of = city.district_map();
+    let district_names: Vec<String> = city.districts().into_iter().map(|d| d.name).collect();
     // Buildings and land use.
     let (mut buildings, mut land) = (Vec::new(), Vec::new());
     let mut population = 0.0;
@@ -411,6 +413,9 @@ pub fn dataset(city: &City) -> Dataset {
             }
             props.insert("residents".into(), round2(residents).into());
             props.insert("jobs".into(), round2(jobs).into());
+            if let Some(name) = district_of.get((l * width + w) as usize).copied().flatten().and_then(|d| district_names.get(d as usize)) {
+                props.insert("neighbourhood".into(), name.clone().into());
+            }
             if let Some(state) = gb.and_then(|g| g.unit_state(w, l, width)) {
                 props.insert("satisfaction".into(), round2(state.satisfaction as f64).into());
             }

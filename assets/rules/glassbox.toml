@@ -1348,6 +1348,7 @@ id = "neighbourhood_office"
 name = "Neighbourhood office"
 description = "The city's counter close to home: papers, permits and complaints without a trip to city hall."
 graphic = 353
+district = 8          # the tiles this far around it are its neighbourhood
 approval = 0.5
 administration = -0.02
 needs = { workers = 3, power = 1, upkeep = 0.15 }
@@ -1413,6 +1414,7 @@ id = "citizens_committee"
 name = "Citizens' committee"
 description = "The street decides for the street, in a room with a kettle."
 graphic = 353
+district = 8
 approval = 1
 needs = { workers = 2, power = 1, upkeep = 0.1 }
 emits = { land_value = { amount = 1.5, radius = 6 } }
@@ -1576,3 +1578,44 @@ name = "The government has fallen"
 text = "The national government is gone, and its laws with it. The city's offices under those laws close; the city goes on, and must run itself."
 external = true
 effect = { approval = -6, obsoletes = { mayors_office = "former_mayors_office", city_hall = "former_city_hall", neighbourhood_office = "former_neighbourhood_office" }, services = { mayors_office = "council_chair", city_hall = "provisional_council", neighbourhood_office = "citizens_committee" } }
+
+# ---------------------------------------------------------------- neighbourhood policies
+# One for each neighbourhood (the tiles around a unit with a `district`),
+# set in the Neighbourhoods window. `cost` is a month's, for each
+# neighbourhood that has it; `bonus` and `satisfaction` hold for the
+# buildings there; `emits` is what its office leaves on the map.
+[[neighbourhood_policy]]
+id = "business_district"
+name = "Business improvement district"
+description = "A levy on every bill here: 15% more taxes from the neighbourhood, and people a little less content."
+bonus = { taxes = 0.15 }
+satisfaction = -0.04
+
+[[neighbourhood_policy]]
+id = "low_rates"
+name = "Low local rates"
+description = "A fifth off the taxes here, to help a neighbourhood that struggles: people are more content."
+bonus = { taxes = -0.2 }
+satisfaction = 0.05
+
+[[neighbourhood_policy]]
+id = "neighbourhood_watch"
+name = "Neighbourhood watch"
+description = "The office keeps a rota and a telephone: less crime around it, and some police cover."
+cost = 80
+emits = { crime = { amount = -1.5, radius = 8 }, police_safety = { amount = 2.0, radius = 8 } }
+
+[[neighbourhood_policy]]
+id = "clean_streets"
+name = "Clean and green streets"
+description = "Sweepers, planters and paint: the land is worth more and the air a little better."
+cost = 120
+emits = { land_value = { amount = 3.0, radius = 8 }, pollution = { amount = -1.5, radius = 8 } }
+
+[[neighbourhood_policy]]
+id = "quiet_streets"
+name = "Low-traffic neighbourhood"
+description = "Bollards and one-way streets: less noise and cleaner air, and the shops take a little less."
+cost = 60
+bonus = { taxes = -0.05 }
+emits = { "Noise.level" = { amount = -3.0, radius = 8 }, "AirQuality.pm10" = { amount = -2.0, radius = 8 } }

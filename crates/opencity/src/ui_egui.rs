@@ -88,6 +88,8 @@ pub enum Command {
     SetTerms(bool),
     /// Make the campaign promise at this place in the offers.
     Promise(usize),
+    /// A neighbourhood's name or policy.
+    District(crate::districtsui::DistrictCmd),
     /// A change to the transit routes the player draws.
     Route(crate::routesui::RouteCmd),
     /// Voted out: back in office after a campaign, or (true) for life.
@@ -189,6 +191,7 @@ pub struct EguiUi {
     show_budget: bool,
     show_news: bool,
     pub routes: crate::routesui::RoutesUi,
+    pub districts: crate::districtsui::DistrictsUi,
     show_election: bool,
     show_decision: bool,
     /// The question the decision window last opened for (its id and how many events came before).
@@ -423,6 +426,7 @@ impl EguiUi {
             show_budget: false,
             show_news: false,
             routes: Default::default(),
+            districts: Default::default(),
             show_election: false,
             show_decision: false,
             asked: None,
@@ -606,6 +610,9 @@ impl EguiUi {
         }
         if self.show_news {
             crate::news::window(ctx, &mut self.show_news, view.city, &mut out);
+        }
+        if self.districts.open {
+            self.districts.window(ctx, view.city, &mut out);
         }
         if self.routes.open {
             self.routes.window(ctx, view.city, &mut out);
@@ -1182,6 +1189,14 @@ impl EguiUi {
                         if view.city.manual_routes() && ui.button("Routes").on_hover_text("The bus, tram and metro routes you draw").clicked() {
                             self.routes.open = !self.routes.open;
                         }
+                        if view.city.rules().is_some_and(|r| r.units.iter().any(|u| u.district > 0))
+                            && ui
+                                .button("Neighbourhoods")
+                                .on_hover_text("The land around each neighbourhood office: its figures, its name, its policy")
+                                .clicked()
+                        {
+                            self.districts.open = !self.districts.open;
+                        }
                         if let Some(q) = view.city.question() {
                             let label = RichText::new(format!("Decide ({}m)", q.months_left)).color(Color32::from_rgb(240, 190, 80)).strong();
                             if ui.button(label).on_hover_text(format!("{}: waiting for your answer", q.name)).clicked() {
@@ -1341,6 +1356,15 @@ impl EguiUi {
                     };
                     if let Some(d) = description {
                         ui.label(RichText::new(d).italics().small());
+                    }
+                    if let Some(d) = city.district_at(origin.0, origin.1) {
+                        ui.horizontal(|ui| {
+                            ui.label(RichText::new(format!("Neighbourhood: {}", d.name)).small());
+                            if ui.small_button("Open").clicked() {
+                                self.districts.open = true;
+                                self.districts.selected = Some(d.at);
+                            }
+                        });
                     }
                     if let (Some(d), Some(gb)) = (def, &city.glassbox) {
                         if d.relic {

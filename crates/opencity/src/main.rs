@@ -9,6 +9,8 @@ mod bake;
 mod budget;
 mod camera;
 #[cfg(not(target_os = "android"))]
+mod districtsui;
+#[cfg(not(target_os = "android"))]
 mod election;
 mod flows;
 mod goalsui;
@@ -143,6 +145,9 @@ struct Args {
     /// Open the election window (screenshots, docs).
     #[arg(long, hide = true)]
     show_election: bool,
+    /// Open the neighbourhoods window (screenshots, docs).
+    #[arg(long, hide = true)]
+    show_neighbourhoods: bool,
     /// Make an event of the rules happen when the city opens, by its id
     /// (`--event government_falls`): for a game this city is part of.
     #[arg(long, value_name = "ID")]
@@ -1304,6 +1309,16 @@ impl Game {
                 self.say(said.unwrap_or_else(|e| e));
             }
             #[cfg(not(target_os = "android"))]
+            Command::District(cmd) => {
+                use districtsui::DistrictCmd;
+                let done = match cmd {
+                    DistrictCmd::Rename(at, name) => self.city.rename_district(at, &name),
+                    DistrictCmd::Policy(at, policy) => self.city.set_district_policy(at, policy.as_deref()),
+                };
+                if let Err(e) = done {
+                    self.say(e);
+                }
+            }
             Command::Route(cmd) => {
                 use routesui::RouteCmd;
                 let done = match cmd {
@@ -1712,6 +1727,10 @@ impl Game {
         }
         render::draw_sensors(&self.city);
         #[cfg(not(target_os = "android"))]
+        if let Some(ui) = self.egui.as_ref().filter(|ui| ui.districts.open) {
+            render::draw_districts(&self.city, ui.districts.selected);
+        }
+        #[cfg(not(target_os = "android"))]
         if let Some(ui) = self.egui.as_ref().filter(|ui| ui.routes.open && self.city.manual_routes()) {
             // The ways are looked up again when the routes change, and
             // every second for streets built or pulled down meanwhile.
@@ -1939,6 +1958,10 @@ async fn main() -> Result<()> {
     #[cfg(not(target_os = "android"))]
     if let (true, Some(ui)) = (s.args.show_election, game.egui.as_mut()) {
         ui.open_election();
+    }
+    #[cfg(not(target_os = "android"))]
+    if let (true, Some(ui)) = (s.args.show_neighbourhoods, game.egui.as_mut()) {
+        ui.districts.open = true;
     }
     if let Some(id) = &s.args.event {
         if let Err(e) = game.city.trigger_event(id) {

@@ -845,6 +845,7 @@ id = "ward_house"
 name = "Ward house"
 description = "The ward's elders meet here and settle what need not go to the town hall."
 graphic = 353
+district = 8
 approval = 0.5
 administration = -0.02
 needs = { workers = 2, food = 0.5, upkeep = 0.05 }
@@ -906,6 +907,7 @@ id = "parish_council"
 name = "Parish council"
 description = "Each parish settles its own quarrels."
 graphic = 353
+district = 8
 approval = 1
 needs = { workers = 1, food = 0.5, upkeep = 0.03 }
 emits = { land_value = { amount = 1.5, radius = 6 } }
@@ -969,3 +971,32 @@ name = "The crown has fallen"
 text = "The realm the town answered to is no more. Its offices in town close; the town goes on as a commune."
 external = true
 effect = { approval = -6, obsoletes = { magistrate = "old_magistrates_house", town_hall = "old_town_hall", ward_house = "old_ward_house" }, services = { mayors_office = "consuls_house", city_hall = "commune_hall", neighbourhood_office = "parish_council" } }
+
+# ---------------------------------------------------------------- neighbourhood policies
+[[neighbourhood_policy]]
+id = "market_dues"
+name = "Market dues"
+description = "A due on every stall and workshop of the ward: 15% more taxes from it, and grumbling."
+bonus = { taxes = 0.15 }
+satisfaction = -0.04
+
+[[neighbourhood_policy]]
+id = "low_dues"
+name = "Dues remitted"
+description = "A fifth off the taxes of a ward that struggles: its people are more content."
+bonus = { taxes = -0.2 }
+satisfaction = 0.05
+
+[[neighbourhood_policy]]
+id = "night_watch"
+name = "Night watch"
+description = "The ward's own men walk its streets after dark."
+cost = 15
+emits = { police_safety = { amount = 3.0, radius = 8 } }
+
+[[neighbourhood_policy]]
+id = "street_sweepers"
+name = "Street sweepers"
+description = "Carts take the muck away each morning: the ward is a better address."
+cost = 20
+emits = { land_value = { amount = 3.0, radius = 8 }, pollution = { amount = -1.5, radius = 8 } }

@@ -531,6 +531,9 @@ pub struct UnitDef {
     /// a share (`-0.25`: a quarter less); the bill never falls under half.
     #[serde(default, skip_serializing_if = "is_zero_f32")]
     pub administration: f32,
+    /// Makes a neighbourhood of the tiles this far around it (0: none).
+    #[serde(default, skip_serializing_if = "is_zero_u32")]
+    pub district: u32,
 }
 
 /// What a unit's production follows (`follows`).
@@ -733,6 +736,9 @@ pub struct Ruleset {
     /// Disasters (`[[disaster]]`).
     #[serde(default, rename = "disaster", skip_serializing_if = "Vec::is_empty")]
     pub disasters: Vec<DisasterDef>,
+    /// Policies for single neighbourhoods (`[[neighbourhood_policy]]`).
+    #[serde(default, rename = "neighbourhood_policy", skip_serializing_if = "Vec::is_empty")]
+    pub district_policies: Vec<DistrictPolicyDef>,
     /// Events, with or without choices (`[[event]]`).
     #[serde(default, rename = "event", skip_serializing_if = "Vec::is_empty")]
     pub events: Vec<EventDef>,
@@ -1092,6 +1098,31 @@ impl Ruleset {
     pub fn zone_of_unit(&self, unit: &str) -> Option<usize> {
         self.zones.iter().position(|z| z.densities.iter().any(|d| d.units.iter().any(|u| u == unit)))
     }
+}
+
+/// A policy the mayor can set for one neighbourhood
+/// (`[[neighbourhood_policy]]`): it holds for the buildings there only.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DistrictPolicyDef {
+    pub id: String,
+    pub name: String,
+    #[serde(default)]
+    pub description: String,
+    /// Money a month for each neighbourhood that has it.
+    #[serde(default)]
+    pub cost: f32,
+    /// Extra production of the buildings there, as a share per resource
+    /// (`{ taxes = 0.15 }`).
+    #[serde(default)]
+    pub bonus: BTreeMap<String, f32>,
+    /// Added to the satisfaction of the homes, shops and works there.
+    #[serde(default)]
+    pub satisfaction: f32,
+    /// What the neighbourhood's office leaves on the map while the policy
+    /// holds, as a unit's `emits`.
+    #[serde(default)]
+    pub emits: BTreeMap<String, Emission>,
 }
 
 /// What an event or one of its choices does (`effect = { … }`).
@@ -1599,6 +1630,17 @@ impl Ruleset {
                     return err(format!("tech {}: obsoletes names the unknown unit {u}", t.id));
                 }
             }
+        }
+        for p in &self.district_policies {
+            if let Some(r) = p.bonus.keys().find(|r| self.resource(r).is_none()) {
+                return err(format!("neighbourhood policy {}: unknown resource {r}", p.id));
+            }
+            if let Some(l) = p.emits.keys().find(|l| self.layer(l).is_none()) {
+                return err(format!("neighbourhood policy {}: unknown map {l}", p.id));
+            }
+        }
+        if self.district_policies.len() > 250 {
+            return err("at most 250 neighbourhood policies".to_string());
         }
         for e in &self.events {
             let effects = std::iter::once(&e.effect).chain(e.choices.iter().flat_map(|c| [&c.effect, &c.else_effect]));

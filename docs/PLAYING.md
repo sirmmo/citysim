@@ -816,6 +816,33 @@ Unticking the box gives the routes back to the city; yours are kept for
 later. Region borders are not part of this: lines that cross a border carry
 commuters as before.
 
+## Neighbourhoods
+
+![The Neighbourhoods window, with three neighbourhoods shown on the map](neighbourhoods.png)
+
+Under GlassBox rules, the land around each **neighbourhood office** is a
+neighbourhood: every tile within 8 tiles of it, counted along the grid. A
+tile between two offices belongs to the nearer one. **Neighbourhoods** in
+the city panel opens the window, and while it is open the map shows them,
+each in its colour.
+
+- **Figures:** residents, jobs, how content its homes, shops and works are, and the averages over its tiles of land value and of everything residents can complain of (crime, smoke, noise, cover by fire, police, health and schools).
+- **Name:** each gets one by itself (Old Town, Riverside…). Type another in the window.
+- **Policy:** one for each neighbourhood, or none. It holds there only.
+
+  | Policy | A month | What it does |
+  |---|---|---|
+  | Business improvement district | free | 15% more taxes from the neighbourhood; people a little less content |
+  | Low local rates | free | a fifth off its taxes; people more content |
+  | Neighbourhood watch | $80 | less crime around the office, and some police cover |
+  | Clean and green streets | $120 | land worth more, air a little better |
+  | Low-traffic neighbourhood | $60 | less noise and cleaner air; 5% less taxes |
+
+  What a policy leaves on the map comes from the office, so it is strongest next to it and goes by how well the office is staffed.
+- Inspecting a building names its neighbourhood. When an office is pulled down, its neighbourhood, name and policy go with it.
+- Before 1800 the wards around **ward houses** work the same way, with market dues, remitted dues, a night watch and street sweepers.
+- After *The government has fallen*, citizens' committees make the neighbourhoods.
+
 ## Events and decisions
 
 Under GlassBox rules, now and then something happens that asks for a

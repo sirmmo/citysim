@@ -2758,3 +2758,106 @@ fn events_come_up_by_themselves() {
     assert_eq!(a.affairs, b.affairs);
     assert_eq!(a.fund, b.fund);
 }
+
+/// A neighbourhood is the land around a neighbourhood office: it has a
+/// name, figures of its own and a policy that holds there only.
+#[test]
+fn neighbourhoods_have_figures_and_policies() {
+    use opencity_core::city::MS_PER_DAY;
+    let r = rules();
+    let town = || {
+        let mut c = City::new(Terrain::flat(72, 64), None, Footprints::builtin(), 3);
+        c.use_rules(r.clone());
+        opencity_core::scenario::demo_town(&mut c);
+        c.fund = 200_000;
+        c.affairs.on = false;
+        c.mayor.elections = false;
+        c
+    };
+    let place = |c: &mut City| -> (u32, u32) {
+        for l in 2..60 {
+            for w in 2..68 {
+                let street = (w..w + 2).all(|x| c.layer.structure_at(x, l + 1).is_some_and(|s| s.code == StructureCode::Road && s.road == RoadKind::Street));
+                if street && c.apply_tool(Tool::NeighbourhoodOffice, (w, l), (w, l)).is_ok() {
+                    return (w, l);
+                }
+            }
+        }
+        panic!("no room");
+    };
+    let mut c = town();
+    assert!(c.districts().is_empty());
+    let at = place(&mut c);
+    let d = c.districts();
+    assert_eq!(d.len(), 1);
+    assert!(d[0].tiles > 100 && d[0].buildings >= 1, "{:?}", d[0]);
+    assert_eq!(c.district_at(at.0, at.1).map(|x| x.name), Some(d[0].name.clone()));
+    assert!(c.district_at(70, 62).is_none(), "far from any office");
+    // A name of the mayor's own, and a policy.
+    c.rename_district(at, "  Docklands ").unwrap();
+    assert!(c.rename_district((0, 0), "Nowhere").is_err());
+    assert!(c.set_district_policy(at, Some("no_such_policy")).is_err());
+    c.set_district_policy(at, Some("neighbourhood_watch")).unwrap();
+    assert_eq!((c.districts()[0].name.as_str(), c.districts()[0].policy.as_deref()), ("Docklands", Some("neighbourhood_watch")));
+    // The watch brings crime down there, against the same town without it.
+    let mut plain = town();
+    place(&mut plain);
+    let fund = c.fund;
+    for _ in 0..93 {
+        c.update(MS_PER_DAY);
+        plain.update(MS_PER_DAY);
+    }
+    let grown = &c.districts()[0];
+    assert!(grown.residents > 0.0 && grown.jobs > 0.0 && grown.satisfaction > 0.2, "{grown:?}");
+    let crime = |c: &City| c.districts()[0].maps.iter().find(|(n, _)| n == "Crime").map(|(_, v)| *v).unwrap();
+    let police = |c: &City| c.districts()[0].maps.iter().find(|(n, _)| n == "Police coverage").map(|(_, v)| *v).unwrap();
+    assert!(police(&c) > police(&plain) + 0.2, "{} vs {}", police(&c), police(&plain));
+    assert!(crime(&c) <= crime(&plain), "{} vs {}", crime(&c), crime(&plain));
+    assert!(c.budget().keys().chain(c.glassbox.as_ref().unwrap().ledger.keys()).any(|k| k == "Neighbourhood policies") || c.fund < fund);
+    // What a policy adds to production holds for the buildings of the
+    // neighbourhood: one that covers the town doubles its taxes.
+    let mut wide = (*r).clone();
+    let office = wide.unit("neighbourhood_office").unwrap();
+    wide.units[office].district = 100;
+    wide.district_policies.push(opencity_core::rules::DistrictPolicyDef {
+        id: "double".into(),
+        name: "Double".into(),
+        description: String::new(),
+        cost: 0.0,
+        bonus: [("taxes".to_string(), 1.0)].into(),
+        satisfaction: 0.0,
+        emits: Default::default(),
+    });
+    let wide = Arc::new(wide);
+    let wide_town = || {
+        let mut c = City::new(Terrain::flat(72, 64), None, Footprints::builtin(), 3);
+        c.use_rules(wide.clone());
+        opencity_core::scenario::demo_town(&mut c);
+        c.fund = 200_000;
+        c.affairs.on = false;
+        c.mayor.elections = false;
+        c
+    };
+    let taxes = |c: &City| c.taxes_per_month();
+    let (mut levy, mut flat) = (wide_town(), wide_town());
+    let at2 = place(&mut levy);
+    place(&mut flat);
+    levy.set_district_policy(at2, Some("double")).unwrap();
+    for _ in 0..62 {
+        levy.update(MS_PER_DAY);
+        flat.update(MS_PER_DAY);
+    }
+    assert!(taxes(&flat) > 0.0 && taxes(&levy) > taxes(&flat) * 1.5, "{} vs {}", taxes(&levy), taxes(&flat));
+    // Saved with the city; forgotten when the office goes.
+    let mut buf = Vec::new();
+    opencity_core::save::save(&c, &mut buf).unwrap();
+    let mut d = opencity_core::save::load(std::io::Cursor::new(buf), Footprints::builtin()).unwrap();
+    d.use_rules(r.clone());
+    assert_eq!(d.districts()[0].name, "Docklands");
+    d.apply_tool(Tool::Destroy, at, at).unwrap();
+    assert!(d.districts().is_empty());
+    for _ in 0..32 {
+        d.update(MS_PER_DAY);
+    }
+    assert!(d.districts.is_empty());
+}

@@ -303,6 +303,9 @@ pub struct City {
     /// The mayor's approval rating and the vote that can end the term.
     #[serde(default)]
     pub mayor: crate::mayor::Mayor,
+    /// What the mayor set for the neighbourhoods: names and policies.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub districts: Vec<crate::districts::District>,
     /// Events and the decisions they ask for.
     #[serde(default, skip_serializing_if = "crate::affairs::Affairs::is_default")]
     pub affairs: crate::affairs::Affairs,
@@ -354,6 +357,7 @@ impl City {
             mafia: None,
             mayor: Default::default(),
             affairs: Default::default(),
+            districts: Vec::new(),
             news: VecDeque::new(),
             ledger: BTreeMap::new(),
             last_ledger: BTreeMap::new(),
@@ -699,10 +703,12 @@ impl City {
     }
 
     fn simulate_glassbox(&mut self) {
+        let policies = self.district_policy_map();
         let mut gb = self.glassbox.take().unwrap();
         gb.hour = (self.tides && self.clocked).then(|| self.hour());
         gb.sky = Some(self.sky_at(gb.tick));
         gb.approval = Some(self.mayor.approval);
+        gb.district_policy = policies;
         let trips = gb.tick(&mut self.layer, &self.terrain, &self.footprints, &mut self.fund, &mut self.rng);
         // Road traffic comes from the trips (`GlassBox::congestion`).
         // A sample of the trips becomes visible vehicles.
@@ -1316,6 +1322,7 @@ impl City {
         self.check_goals();
         self.transit_month();
         self.affairs_month();
+        self.districts_month();
         self.mayor_month();
         if self.date.month > 12 {
             self.date.month = 1;

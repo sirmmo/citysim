@@ -509,6 +509,27 @@ fallout = { layer = "radiation", amount = 60, radius = 9 }   # left on a map lay
 - **Shipped:** the modern rules have fire, flood, epidemic and the nuclear accident. Before 1800
   there are great fires (wider and more frequent), floods and plague.
 
+### Neighbourhoods
+
+A unit with `district = 8` makes a neighbourhood of the tiles within 8 of
+its middle (counted along the grid); a tile within reach of two belongs to
+the nearer. The mayor can give each neighbourhood one of these:
+
+```toml
+[[neighbourhood_policy]]
+id = "neighbourhood_watch"
+name = "Neighbourhood watch"
+description = "The office keeps a rota and a telephone."
+cost = 80                            # a month, for each neighbourhood that has it (optional)
+bonus = { taxes = 0.15 }             # more (or less) of what the buildings there make, by resource (optional)
+satisfaction = -0.04                 # added to the satisfaction of its homes, shops and works (optional)
+emits = { crime = { amount = -1.5, radius = 8 } }   # what its office leaves on the map, as a unit's emits (optional)
+```
+
+`bonus` and `satisfaction` hold for buildings whose origin tile lies in
+the neighbourhood. `emits` is added to what the office itself emits, scaled
+like the rest by how well the office works. A rules file can hold 250 of them.
+
 ### Events
 
 ```toml

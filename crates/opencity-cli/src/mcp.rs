@@ -342,6 +342,27 @@ impl Server {
                     })).collect::<Vec<_>>(),
                 }))
             }
+            "neighbourhoods" => {
+                let city = self.city()?;
+                if let Some(at) = a.get("at") {
+                    let at = point(&json!({ "at": at }), "at")?;
+                    if let Some(name) = a.get("name").and_then(Value::as_str) {
+                        city.rename_district(at, name).map_err(|e| anyhow!(e))?;
+                    }
+                    if let Some(policy) = a.get("policy").and_then(Value::as_str) {
+                        city.set_district_policy(at, (!policy.is_empty() && policy != "none").then_some(policy)).map_err(|e| anyhow!(e))?;
+                    }
+                }
+                let rules = city.rules().cloned().context("neighbourhoods need GlassBox rules")?;
+                Ok(json!({
+                    "neighbourhoods": city.districts().iter().map(|d| json!({
+                        "at": d.at, "name": d.name, "office": d.office, "policy": d.policy, "tiles": d.tiles, "buildings": d.buildings,
+                        "residents": d.residents, "jobs": d.jobs, "satisfaction": d.satisfaction,
+                        "averages": d.maps.iter().map(|(n, v)| (n.clone(), json!(v))).collect::<serde_json::Map<String, Value>>(),
+                    })).collect::<Vec<_>>(),
+                    "policies": rules.district_policies.iter().map(|p| json!({ "id": p.id, "name": p.name, "description": p.description, "cost_a_month": p.cost })).collect::<Vec<_>>(),
+                }))
+            }
             "events" => {
                 let city = self.city()?;
                 if let Some(on) = a.get("on").and_then(Value::as_bool) {
@@ -674,6 +695,11 @@ fn tools() -> Value {
             "funding": { "type": "object", "additionalProperties": { "type": "number" } }, "borrow": { "type": "integer", "minimum": 1 }
         }), &[]),
         tool("goals", "The scenario's goals: how far each has come, deadlines, and whether the game is won or lost.", json!({}), &[]),
+        tool("neighbourhoods", "Neighbourhoods (GlassBox): the land around each neighbourhood office (build one with apply_tool `neighbourhood_office`). Lists each with its office tile `at`, name, residents, jobs, satisfaction and the averages of the map layers there, and the policies the rules offer. With `at` ([w, l] of the office): `name` renames it, `policy` sets its policy by id (`none` clears it); a policy holds for that neighbourhood only and may cost money each month.", json!({
+            "at": { "type": "array", "items": { "type": "integer" }, "description": "Tile [w, l] of the neighbourhood's office" },
+            "name": { "type": "string" },
+            "policy": { "type": "string", "description": "Policy id, or none" },
+        }), &[]),
         tool("events", "Events of the rules (GlassBox): things that happen to the city, some asking the mayor to choose. Without arguments: the open `question` with its choices and what each does, what happened so far, and every event of the rules. `choose` (a number) answers the open question; a question left open takes its last choice after three months. `trigger` (an event id) makes an event happen now, whatever its conditions: `external` events (a government falling, which closes the city's offices and makes the same tools build others) only ever happen this way. `on` (true/false) lets events come up by themselves or not.", json!({
             "choose": { "type": "integer", "description": "Which choice of the open question to take, from 0" },
             "trigger": { "type": "string", "description": "Id of the event to make happen now" },

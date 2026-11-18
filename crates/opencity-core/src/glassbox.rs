@@ -194,6 +194,12 @@ pub struct Sensor {
 /// The road tiles a trip starts and ends on.
 type Ends = ((u32, u32), (u32, u32));
 
+/// The neighbourhood policy in force at a tile, if any.
+fn local_policy<'a>(rules: &'a Ruleset, map: &[u8], tile: u32) -> Option<&'a crate::rules::DistrictPolicyDef> {
+    let p = *map.get(tile as usize)?;
+    rules.district_policies.get((p as usize).checked_sub(1)?)
+}
+
 /// Ticks an obsolete building keeps working after the research that made
 /// it so: about a year, to build what replaces it.
 pub const OBSOLETE_GRACE: u64 = 1200;
@@ -262,6 +268,10 @@ pub struct GlassBox {
     /// The mayor's approval rating (0..1), set by the city for the graphs.
     #[serde(skip)]
     pub approval: Option<f32>,
+    /// The neighbourhood policy in force on each tile (index + 1 into the
+    /// rules' list, 0 for none), set by the city; empty when there is none.
+    #[serde(skip)]
+    pub district_policy: Vec<u8>,
     /// Stocks of pooled resources (ideas, research points), by resource.
     #[serde(default)]
     pub pools: Vec<f32>,
@@ -517,6 +527,7 @@ impl GlassBox {
             ground_read: false,
             transit: Default::default(),
             approval: None,
+            district_policy: Vec::new(),
             homeless: 0.0,
             housing: None,
             jobless: 0.0,
@@ -1361,7 +1372,9 @@ impl GlassBox {
             }
             for (r, amount) in &def.produce {
                 let ri = rules.resource(r).unwrap();
-                let up = (1.0 + boost[ri] + if rules.root(ri) != ri { boost[rules.root(ri)] } else { 0.0 }) * unit_tax[*u].get(r).copied().unwrap_or(1.0);
+                let local = local_policy(&rules, &self.district_policy, idx(p.0, p.1)).and_then(|pol| pol.bonus.get(r)).copied().unwrap_or(0.0);
+                let up =
+                    (1.0 + boost[ri] + local + if rules.root(ri) != ri { boost[rules.root(ri)] } else { 0.0 }) * unit_tax[*u].get(r).copied().unwrap_or(1.0);
                 let made = amount * eff * up;
                 add(&mut bal.produced, ri, rules.root(ri), made);
                 for (k, f) in split(&rules, &kind_share, ri) {
@@ -2225,6 +2238,19 @@ impl GlassBox {
                 let rad = e.radius + (r.w2 - r.w1).max(r.l2 - r.l1).div_ceil(2);
                 emit(&mut self.layers[li], width, length, cx, cz, e.amount * eff, rad);
             }
+            // A neighbourhood's office does what its policy says.
+            if rules.units[*u].district > 0 {
+                if let Some(pol) = local_policy(&rules, &self.district_policy, idx(p.0, p.1)) {
+                    for (lname, e) in &pol.emits {
+                        let li = rules.layer(lname).unwrap();
+                        if e.by_road {
+                            emit_by_road(&mut self.layers[li], layer, terrain, r, e.amount * eff, e.radius);
+                        } else {
+                            emit(&mut self.layers[li], width, length, (r.w1 + r.w2) as f32 / 2.0, (r.l1 + r.l2) as f32 / 2.0, e.amount * eff, e.radius);
+                        }
+                    }
+                }
+            }
         }
         // Spills: what a need left unmet leaves on the map at the building
         // (sewage with no treatment plant on its mains).
@@ -2366,6 +2392,9 @@ impl GlassBox {
             s += mood;
             for t in rules.taxes.iter().filter(|t| taxes_zone(t, &rules, unit_zone[*u]) && def.produce.contains_key(&t.resource)) {
                 s += t.mood(self.tax_rate(&rules, &t.id));
+            }
+            if unit_zone[*u].is_some() {
+                s += local_policy(&rules, &self.district_policy, i).map_or(0.0, |pol| pol.satisfaction);
             }
             // A city that cannot pay its clerks is badly run.
             if self.administration_unpaid && unit_zone[*u].is_some() {

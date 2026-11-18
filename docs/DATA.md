@@ -17,7 +17,7 @@ network analysis and graph neural networks.
 | File | What |
 |---|---|
 | `city.json` | Which city this is: name, date, rules, residents, metres per tile, how many of everything. |
-| `buildings.geojson` | Building footprints. `id`, `class` (residential, commercial, industrial, civic), `kind`, `unit`, `name`, `level`, `residents`, `jobs`, `satisfaction` (0 to 1), `area_m2`, and OpenStreetMap-style tags. |
+| `buildings.geojson` | Building footprints. `id`, `class` (residential, commercial, industrial, civic), `kind`, `unit`, `name`, `level`, `residents`, `jobs`, `satisfaction` (0 to 1), `area_m2`, `neighbourhood` (its name, when it lies in one), and OpenStreetMap-style tags. |
 | `segments.geojson` | Streets, railway tracks and metro tunnels, one line from junction to junction. `id`, `class` (street, highway, dirt_road, paved_street, rail, tram, metro), `length_m`, `traffic` (the game's load on the road, 0 to 255), OpenStreetMap-style tags. |
 | `landuse.geojson` | Parks, wetlands, landfills, empty plots and water. |
 | `zones.geojson` | A grid of zones 8 tiles wide, like census tracts: `zone_id`, `residents`, `jobs`, `buildings`. |
