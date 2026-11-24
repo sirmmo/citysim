@@ -78,6 +78,10 @@ parts = ["../kenney/factory/piston-round.obj"]
 size = [0.3, 0.3]
 height = 1.8                      # stretched upright to this, after the fit
 at = [0.6, 0.0, 0.2]
+
+[[slot]]                          # a Quaternius town house in one of two colourways
+parts = ["../quaternius/town/2Story.obj"]
+paints = [{ Main = [0.93, 0.86, 0.72], Bricks = [0.76, 0.62, 0.5] }, { Main = [0.56, 0.69, 0.85] }]
 ```
 
 - **Paths** are relative to the `.compose` file.
@@ -92,8 +96,15 @@ at = [0.6, 0.0, 0.2]
   the same way, which is how the power-line wires are strung north-south.
 - **Height:** `height` stretches the part upright to that many tiles after
   the fit, so a square kit part can stand as a tower or a chimney.
-- **Variants:** with many combinations, `variants` of them are used,
-  spread so they differ in every slot.
+- **Paints:** `paints` are colourways for `.obj` parts coloured by
+  material (the Quaternius town houses): each gives some materials, by
+  name, a new colour, and one is picked per variant like a tint. Parts
+  without those materials (the colour-mapped Kenney kits) are unchanged,
+  so a slot can mix both.
+- **Variants:** with many combinations, `variants` of them are used.
+  Variant `k` is combination `k × step` with `step` near 0.618 of their
+  count and sharing no factor with it, so variants all differ and every
+  part of a slot comes up before any repeats.
 - A `.conf` next to the `.compose` file gives its name and size like any
   model's.
 
@@ -118,8 +129,21 @@ stops (`fire_station.compose`, `hospital.compose`, `nuclear_plant.compose`…).
   lines are City Kit Roads poles wired tile to tile, bridges stand on its
   pillars, trees and parks come from the Nature Kit, and the harbour and
   seaport are dressed with Watercraft Pack cargo and Factory Kit cranes.
-  The services and the nuclear plant keep OpenCity's models. **View >
-  Skin > None** brings back OpenCity's own buildings.
+  The services and the nuclear plant keep OpenCity's models. Some little,
+  family and town houses, apartments (11-15, 17) and small shops (21-24)
+  are a painted Quaternius town house instead, picked per plot
+  (`mix_*.compose`). **View > Skin > None** brings back OpenCity's own
+  buildings.
+
+* **quaternius** (Town, Quaternius town houses): chosen from **View >
+  Skin** (no years, not the default). Homes and shops are the CC0
+  Quaternius Ultimate Textured Building Pack's town houses, painted in nine
+  colourways per plot: cottages and town houses with yards, terraces,
+  apartment houses, blocks round a courtyard and rows of tall houses, at
+  the same scale on small and big plots (`q_*.compose`, written by
+  `scripts/gen-quaternius.py`; the models are trimmed by
+  `scripts/import-quaternius.py`). Works, services and networks are the
+  modern skin's.
 
 * **antiquity-<civ>** (baked, see below): years -1000 to 500, one per culture.
   Towns built from **0 A.D. art**: houses, storehouses, farmsteads, civic

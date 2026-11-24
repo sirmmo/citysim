@@ -1,0 +1,9 @@
+# Apartments (apartment houses): Quaternius buildings, painted, picked per plot.
+# Written by scripts/gen-quaternius.py. CC0 parts.
+variants = 16
+
+[[slot]]
+parts = ["../quaternius/town/4Story.obj", "../quaternius/town/4Story_Center.obj", "../quaternius/town/3Story_Balcony.obj", "../quaternius/town/6Story_Stack.obj"]
+size = [0.94, 0.94]
+at = [0.03, 0.0, 0.03]
+paints = [{ Main = [0.93, 0.86, 0.72], Bricks = [0.76, 0.62, 0.5], Dark = [0.38, 0.28, 0.24] }, { Main = [0.45, 0.62, 0.58], Bricks = [0.34, 0.48, 0.45], Dark = [0.3, 0.3, 0.32] }, { Main = [0.84, 0.5, 0.4], Bricks = [0.64, 0.36, 0.3], Dark = [0.34, 0.36, 0.4] }, { Main = [0.56, 0.69, 0.85], Bricks = [0.42, 0.52, 0.68], Dark = [0.3, 0.3, 0.32] }, { Main = [0.68, 0.61, 0.8], Bricks = [0.52, 0.46, 0.64], Dark = [0.34, 0.36, 0.4] }, { Main = [0.64, 0.83, 0.72], Bricks = [0.48, 0.66, 0.58], Dark = [0.38, 0.28, 0.24] }, { Main = [0.36, 0.38, 0.46], Bricks = [0.26, 0.28, 0.34], Dark = [0.3, 0.3, 0.32] }, { Main = [0.88, 0.76, 0.44], Bricks = [0.7, 0.58, 0.32], Dark = [0.34, 0.36, 0.4] }, { Main = [0.9, 0.66, 0.68], Bricks = [0.72, 0.48, 0.5], Dark = [0.38, 0.28, 0.24] }]

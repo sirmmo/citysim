@@ -1,0 +1,11 @@
+# Quaternius, CC0; colours in sRGB (scripts/import-quaternius.py)
+newmtl Bricks
+Kd 0.3989 0.5347 0.4954
+newmtl Dark
+Kd 0.2595 0.3346 0.3310
+newmtl DarkBrown
+Kd 0.3110 0.2308 0.1897
+newmtl Main
+Kd 0.3355 0.4507 0.4153
+newmtl White
+Kd 0.7134 0.7134 0.7134

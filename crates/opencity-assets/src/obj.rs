@@ -69,17 +69,34 @@ pub fn parse(text: &str) -> Result<ObjMesh, String> {
 }
 
 pub fn parse_with(text: &str, materials: &HashMap<String, [f32; 3]>) -> Result<ObjMesh, String> {
+    parse_named(text, materials).map(|(mesh, _, _)| mesh)
+}
+
+/// Like [`parse_with`], also giving each vertex's material (an index into
+/// the names, in the order `usemtl` first names them; `u32::MAX` for none).
+fn parse_named(text: &str, materials: &HashMap<String, [f32; 3]>) -> Result<(ObjMesh, Vec<u32>, Vec<String>), String> {
     let mut v: Vec<[f32; 3]> = Vec::new();
     let mut vt: Vec<[f32; 2]> = Vec::new();
     let mut mesh = ObjMesh::default();
     let mut color = [1.0f32; 3];
-    let mut corners: HashMap<(usize, Option<usize>, [u32; 3]), u32> = HashMap::new();
+    let (mut names, mut of_vertex, mut current) = (Vec::<String>::new(), Vec::new(), u32::MAX);
+    let mut corners: HashMap<(usize, Option<usize>, [u32; 3], u32), u32> = HashMap::new();
     for (n, line) in text.lines().enumerate() {
         let mut it = line.split_whitespace();
         let err = |m: &str| format!("line {}: {m}", n + 1);
         let num = |s: Option<&str>| s.and_then(|s| s.parse::<f32>().ok());
         match it.next() {
-            Some("usemtl") => color = it.next().and_then(|m| materials.get(m).copied()).unwrap_or([1.0; 3]),
+            Some("usemtl") => {
+                let name = it.next().unwrap_or("");
+                color = materials.get(name).copied().unwrap_or([1.0; 3]);
+                current = match names.iter().position(|n| n == name) {
+                    Some(i) => i as u32,
+                    None => {
+                        names.push(name.to_string());
+                        (names.len() - 1) as u32
+                    }
+                };
+            }
             Some("v") => v.push([
                 num(it.next()).ok_or_else(|| err("bad vertex"))?,
                 num(it.next()).ok_or_else(|| err("bad vertex"))?,
@@ -97,10 +114,11 @@ pub fn parse_with(text: &str, materials: &HashMap<String, [f32; 3]>) -> Result<O
                     };
                     let p = index(parts.next(), v.len()).ok_or_else(|| err("bad face"))?;
                     let t = index(parts.next(), vt.len());
-                    let id = *corners.entry((p, t, color.map(f32::to_bits))).or_insert_with(|| {
+                    let id = *corners.entry((p, t, color.map(f32::to_bits), current)).or_insert_with(|| {
                         mesh.positions.push(v[p]);
                         mesh.uvs.push(t.map_or([0.0, 0.0], |t| vt[t]));
                         mesh.colors.push(color);
+                        of_vertex.push(current);
                         (mesh.positions.len() - 1) as u32
                     });
                     face.push(id);
@@ -112,7 +130,22 @@ pub fn parse_with(text: &str, materials: &HashMap<String, [f32; 3]>) -> Result<O
             _ => {}
         }
     }
-    Ok(mesh)
+    Ok((mesh, of_vertex, names))
+}
+
+/// A parsed `.obj` with each vertex's material, kept so a model used by
+/// many buildings and colourways is read and parsed once.
+struct Parsed {
+    mesh: ObjMesh,
+    of_vertex: Vec<u32>,
+    names: Vec<String>,
+}
+
+type Cache = std::sync::Mutex<HashMap<std::path::PathBuf, std::sync::Arc<Parsed>>>;
+
+fn cache() -> &'static Cache {
+    static CACHE: std::sync::OnceLock<Cache> = std::sync::OnceLock::new();
+    CACHE.get_or_init(Default::default)
 }
 
 /// A building model from an `.obj`: scaled evenly to fit a footprint of
@@ -149,6 +182,36 @@ pub fn to_building(obj: &ObjMesh, texture: Option<std::path::PathBuf>, (w, l): (
 /// Reads and parses an `.obj` file, with the colours of the `.mtl` files
 /// it names (missing ones leave the model white).
 pub fn load(path: &Path) -> Result<ObjMesh, AssetError> {
+    load_painted(path, &HashMap::new())
+}
+
+/// Like [`load`], with some materials' colours replaced (`paint`: material
+/// name -> colour), so one model can be built in several colourways.
+pub fn load_painted(path: &Path, paint: &HashMap<String, [f32; 3]>) -> Result<ObjMesh, AssetError> {
+    let cached = cache().lock().ok().and_then(|c| c.get(path).cloned());
+    let parsed = match cached {
+        Some(p) => p,
+        None => {
+            let p = std::sync::Arc::new(parse_file(path)?);
+            if let Ok(mut c) = cache().lock() {
+                c.insert(path.to_owned(), p.clone());
+            }
+            p
+        }
+    };
+    let mut mesh = parsed.mesh.clone();
+    if !paint.is_empty() {
+        let colours: Vec<Option<[f32; 3]>> = parsed.names.iter().map(|n| paint.get(n).copied()).collect();
+        for (c, &m) in mesh.colors.iter_mut().zip(&parsed.of_vertex) {
+            if let Some(Some(new)) = colours.get(m as usize) {
+                *c = *new;
+            }
+        }
+    }
+    Ok(mesh)
+}
+
+fn parse_file(path: &Path) -> Result<Parsed, AssetError> {
     let text = read_text(path)?;
     let mut materials = HashMap::new();
     for line in text.lines() {
@@ -159,7 +222,8 @@ pub fn load(path: &Path) -> Result<ObjMesh, AssetError> {
             }
         }
     }
-    parse_with(&text, &materials).map_err(|message| AssetError::Parse { path: path.to_owned(), line: 0, message })
+    let (mesh, of_vertex, names) = parse_named(&text, &materials).map_err(|message| AssetError::Parse { path: path.to_owned(), line: 0, message })?;
+    Ok(Parsed { mesh, of_vertex, names })
 }
 
 #[cfg(test)]

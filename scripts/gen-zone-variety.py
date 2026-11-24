@@ -7,13 +7,22 @@ one building repeated. Run from the repository root:
 
     python3 scripts/gen-zone-variety.py
 
+The small shops (21-24) can also be a Quaternius town shop, painted in one of
+the colourways of scripts/gen-quaternius.py.
+
 The skin (assets/skins/modern/skin.toml) points graphics 21-29 and 31-39 at
-these files. Parts are CC0 (Kenney City Kit Commercial and Industrial).
+these files. Parts are CC0 (Kenney City Kit Commercial and Industrial,
+Quaternius Ultimate Textured Building Pack).
 """
+import importlib.util
 import os
 
 OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "assets", "models", "composed")
 COM, IND = "../kenney/city-commercial/", "../kenney/city-industrial/"
+Q = "../quaternius/town/"
+_spec = importlib.util.spec_from_file_location("genq", os.path.join(os.path.dirname(os.path.abspath(__file__)), "gen-quaternius.py"))
+_genq = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(_genq)
 COM_TINTS = [[1, 1, 1], [1.0, 0.82, 0.7], [0.78, 0.88, 1.0], [0.86, 1.0, 0.86], [1.0, 0.95, 0.74]]
 IND_TINTS = [[1, 1, 1], [1.0, 0.86, 0.74], [0.8, 0.88, 0.98], [1.0, 0.96, 0.78]]
 
@@ -25,7 +34,13 @@ def slot(parts, size, at, tints=None, height=None):
     out.append("at = [%s, 0.0, %s]" % at)
     if tints:
         out.append("tints = [" + ", ".join("[%s, %s, %s]" % tuple(t) for t in tints) + "]")
+    if any(p.startswith(Q) for p in parts):
+        out.append("paints = " + _genq.PAINTS)
     return "\n".join(out)
+
+
+def q(*names):
+    return [Q + n + ".obj" for n in names]
 
 
 def com(*letters):
@@ -42,13 +57,13 @@ def whole(parts, w, l, tints, margin=0.03):
 
 # (file, name, width, length, height, what it is, slots)
 MODELS = [
-    ("com_21", "Corner shop", 1, 1, 1.3, "low shops", [whole(com("c", "a", "d"), 1, 1, COM_TINTS)]),
-    ("com_22", "Café", 1, 1, 1.3, "low shops", [whole(com("a", "b", "h"), 1, 1, COM_TINTS)]),
-    ("com_23", "Hardware store", 1, 1, 1.7, "low shops", [whole(com("h", "g", "b", "d"), 1, 1, COM_TINTS)]),
+    ("com_21", "Corner shop", 1, 1, 1.3, "low shops", [whole(com("c", "a", "d") + q("1Story_Sign"), 1, 1, COM_TINTS)]),
+    ("com_22", "Café", 1, 1, 1.3, "low shops", [whole(com("a", "b", "h") + q("2Story_Sign"), 1, 1, COM_TINTS)]),
+    ("com_23", "Hardware store", 1, 1, 1.7, "low shops", [whole(com("h", "g", "b", "d") + q("2Story_Double", "2Story_Sign"), 1, 1, COM_TINTS)]),
     # Two shops side by side on a 2 x 1 plot.
     ("com_24", "Shops", 2, 1, 1.7, "a pair of shops", [
-        slot(com("a", "c", "h", "f"), (0.95, 0.94), (0.03, 0.03), COM_TINTS),
-        slot(com("d", "b", "g", "c"), (0.95, 0.94), (1.02, 0.03), COM_TINTS[1:] + COM_TINTS[:1]),
+        slot(com("a", "c", "h", "f") + q("2Story_Sign"), (0.95, 0.94), (0.03, 0.03), COM_TINTS),
+        slot(com("d", "b", "g", "c") + q("1Story_Sign"), (0.95, 0.94), (1.02, 0.03), COM_TINTS[1:] + COM_TINTS[:1]),
     ]),
     ("com_25", "Department store", 4, 4, 4.3, "a big store", [whole(com("n", "j"), 4, 4, COM_TINTS, 0.06)]),
     ("com_26", "Office block", 2, 2, 3.2, "offices", [whole(com("i", "l"), 2, 2, COM_TINTS, 0.04)]),

@@ -8,6 +8,12 @@ Release notes in full are on the [releases page](https://github.com/sirmmo/citys
 - **Report to OpenTactics**, in the new OpenTactics window: a link back with the population and the taxes, copied to the clipboard. The city then pays 50% of its income there, plus 100% for every $400 of taxes a month.
 - On the command line: `--holding LINK`. See [PLAYING.md](docs/PLAYING.md#a-city-for-opentactics).
 
+## 0.2.83: Town houses
+- **A new skin, Town (Quaternius)**, under **View > Skin**: homes and shops are town houses from the CC0 Quaternius Ultimate Textured Building Pack, painted per plot in nine colourways (walls, brickwork and roofs). Cottages and town houses with yards, terraces, apartment houses, blocks round a courtyard, rows of tall houses, shops with signs and office blocks, all at the same scale on small and big plots. Works, services and networks are the modern skin's. It is not picked automatically yet: the modern skin stays the default.
+- **The modern skin mixes them in:** some little, family and town houses, apartments and small shops are a painted Quaternius town house instead of a Kenney one, picked per plot.
+- **More variety in every composed model:** variants now run through all of a slot's parts before repeating. Before, some compositions only ever showed their first part (every little house was the same Kenney house, in different tints), so buildings may look different in your cities.
+- **Paints in compositions:** a `.compose` slot can list `paints`, colourways that give `.obj` materials new colours by name; colour-mapped parts are unchanged, so one slot can mix kits. See [SKINS.md](docs/SKINS.md).
+
 ## 0.2.82: Trains and ferries in the open data
 - **The GTFS feed of the open-data export now holds the railways and the ferries**: one line along each track, and across each body of water, with two stations or harbours or more (route types 2 and 4), with stops, times, frequencies and shapes like the rest.
 - **The city panel remembers** which parts you folded or opened, between sessions.

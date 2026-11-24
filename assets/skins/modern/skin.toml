@@ -26,11 +26,13 @@ smoke = true
 # several houses, tints, trees and parked cars, picked per plot.
 11 = "models/composed/house_small.compose"
 12 = "models/composed/house_family.compose"
-13 = "models/kenney/city-suburban/building-type-c.obj"
-14 = "models/kenney/city-suburban/building-type-b.obj"
-15 = "models/kenney/city-suburban/building-type-n.obj"
+# 13-15 and 17 are a Kenney or a painted Quaternius house, picked per plot
+# (models/composed/mix_*.compose, scripts/gen-quaternius.py).
+13 = "models/composed/mix_13.compose"
+14 = "models/composed/mix_14.compose"
+15 = "models/composed/mix_15.compose"
 16 = "models/kenney/city-commercial/building-g.obj"
-17 = "models/kenney/city-suburban/building-type-k.obj"
+17 = "models/composed/mix_17.compose"
 18 = "models/kenney/city-commercial/building-l.obj"
 19 = "models/kenney/city-commercial/building-skyscraper-b.obj"
 # Commercial: shop_1..3, store_1..3, mall_1..3.

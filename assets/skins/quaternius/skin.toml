@@ -1,0 +1,99 @@
+name = "Town (Quaternius)"
+description = "Painted brick town houses, terraces, shops and blocks from the CC0 Quaternius building pack; works, services and networks as in the modern skin."
+era = "Modern"
+culture = "Quaternius town houses"
+
+[applies]
+# Chosen from View > Skin only, for now (no years: the modern skin keeps
+# being picked for today's cities).
+default = false
+
+[look]
+vehicles = true
+# Bridges stand on Kenney City Kit Roads pillars.
+bridge_pier = "kenney/city-roads/bridge-pillar"
+skybox = "graphism/texture/sky_day.png"
+smoke = true
+
+# Graphic code -> model. `models/...` is shared art under the data folder:
+# homes and shops are Quaternius Ultimate Textured Building Pack town
+# houses (CC0), painted per plot (models/composed/q_*.compose, written by
+# scripts/gen-quaternius.py); the rest is the modern skin's Kenney art (CC0).
+# Services, the nuclear plant and the park keep OpenCity's models.
+[models]
+# Residential and commercial: Quaternius town houses, shops and blocks.
+11 = "models/composed/q_11.compose"
+12 = "models/composed/q_12.compose"
+13 = "models/composed/q_13.compose"
+14 = "models/composed/q_14.compose"
+15 = "models/composed/q_15.compose"
+16 = "models/composed/q_16.compose"
+17 = "models/composed/q_17.compose"
+18 = "models/composed/q_18.compose"
+19 = "models/composed/q_19.compose"
+21 = "models/composed/q_21.compose"
+22 = "models/composed/q_22.compose"
+23 = "models/composed/q_23.compose"
+24 = "models/composed/q_24.compose"
+25 = "models/composed/q_25.compose"
+26 = "models/composed/q_26.compose"
+27 = "models/composed/q_27.compose"
+28 = "models/composed/q_28.compose"
+29 = "models/composed/q_29.compose"
+# Industrial: workshop_1..3, factory_1..3, plant_1..3.
+31 = "models/composed/ind_31.compose"
+32 = "models/composed/ind_32.compose"
+33 = "models/composed/ind_33.compose"
+34 = "models/composed/ind_34.compose"
+35 = "models/composed/ind_35.compose"
+36 = "models/composed/ind_36.compose"
+37 = "models/composed/ind_37.compose"
+38 = "models/composed/ind_38.compose"
+39 = "models/composed/ind_39.compose"
+# Power plants and services composed from the city kits.
+300 = "models/composed/coal_plant.compose"
+303 = "models/composed/nuclear_plant.compose"
+350 = "models/composed/fire_station.compose"
+360 = "models/composed/police_station.compose"
+370 = "models/composed/hospital.compose"
+390 = "models/composed/school.compose"
+391 = "models/composed/high_school.compose"
+392 = "models/composed/university.compose"
+393 = "models/composed/campus.compose"
+386 = "models/composed/bus_stop.compose"
+387 = "models/composed/tram_stop.compose"
+388 = "models/composed/metro_station.compose"
+# Power lines (170 + connections, see opencity_core::codes::path_graphic):
+# a City Kit Roads pole per tile, wired to the next tile east and south.
+170 = "models/composed/powerline_pole.compose"
+173 = "models/composed/powerline_pole.compose"
+177 = "models/composed/powerline_pole.compose"
+171 = "models/composed/powerline_east.compose"
+175 = "models/composed/powerline_east.compose"
+176 = "models/composed/powerline_east.compose"
+183 = "models/composed/powerline_east.compose"
+172 = "models/composed/powerline_south.compose"
+174 = "models/composed/powerline_south.compose"
+179 = "models/composed/powerline_south.compose"
+182 = "models/composed/powerline_south.compose"
+178 = "models/composed/powerline_corner.compose"
+180 = "models/composed/powerline_corner.compose"
+181 = "models/composed/powerline_corner.compose"
+184 = "models/composed/powerline_corner.compose"
+# Park and trees from the Nature Kit.
+320 = "models/composed/park.compose"
+330 = "models/composed/tree_pine.compose"
+331 = "models/composed/tree_leafy.compose"
+332 = "models/composed/tree_leafy.compose"
+333 = "models/composed/tree_pine.compose"
+334 = "models/composed/tree_pine.compose"
+# Water and waste works composed from Factory Kit parts.
+380 = "models/composed/pumping_station.compose"
+381 = "models/composed/water_tower.compose"
+382 = "models/composed/water_treatment.compose"
+383 = "models/composed/dump.compose"
+384 = "models/composed/recycling.compose"
+385 = "models/composed/incinerator.compose"
+# Harbour and seaport dressed with Watercraft Pack and Factory Kit props.
+396 = "models/composed/harbour.compose"
+398 = "models/composed/seaport.compose"

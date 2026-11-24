@@ -1,13 +1,15 @@
 # Little house: a house from the Kenney suburban kit at the back of the plot,
-# with a tree or nothing on one side of the front yard and a car or nothing
-# on the other (see crates/opencity-assets/src/compose.rs). CC0 parts.
+# or a painted Quaternius town house (scripts/gen-quaternius.py), with a tree
+# or nothing on one side of the front yard and a car or nothing on the other
+# (see crates/opencity-assets/src/compose.rs). CC0 parts.
 variants = 16
 
 [[slot]]
-parts = ["../kenney/city-suburban/building-type-h.obj", "../kenney/city-suburban/building-type-e.obj", "../kenney/city-suburban/building-type-k.obj"]
+parts = ["../kenney/city-suburban/building-type-h.obj", "../kenney/city-suburban/building-type-e.obj", "../kenney/city-suburban/building-type-k.obj", "../quaternius/town/1Story.obj", "../quaternius/town/1Story_GableRoof.obj", "../quaternius/town/1Story_RoundRoof.obj"]
 size = [0.82, 0.64]
 at = [0.09, 0.0, 0.05]
 tints = [[1, 1, 1], [1.0, 0.93, 0.86], [0.9, 0.95, 1.0], [0.95, 1.0, 0.92]]
+paints = [{ Main = [0.93, 0.86, 0.72], Bricks = [0.76, 0.62, 0.5], Dark = [0.38, 0.28, 0.24] }, { Main = [0.45, 0.62, 0.58], Bricks = [0.34, 0.48, 0.45], Dark = [0.3, 0.3, 0.32] }, { Main = [0.84, 0.5, 0.4], Bricks = [0.64, 0.36, 0.3], Dark = [0.34, 0.36, 0.4] }, { Main = [0.56, 0.69, 0.85], Bricks = [0.42, 0.52, 0.68], Dark = [0.3, 0.3, 0.32] }, { Main = [0.68, 0.61, 0.8], Bricks = [0.52, 0.46, 0.64], Dark = [0.34, 0.36, 0.4] }, { Main = [0.64, 0.83, 0.72], Bricks = [0.48, 0.66, 0.58], Dark = [0.38, 0.28, 0.24] }, { Main = [0.36, 0.38, 0.46], Bricks = [0.26, 0.28, 0.34], Dark = [0.3, 0.3, 0.32] }, { Main = [0.88, 0.76, 0.44], Bricks = [0.7, 0.58, 0.32], Dark = [0.34, 0.36, 0.4] }, { Main = [0.9, 0.66, 0.68], Bricks = [0.72, 0.48, 0.5], Dark = [0.38, 0.28, 0.24] }]
 
 [[slot]]
 parts = ["", "../kenney/nature/tree_default.obj", "../kenney/nature/tree_oak.obj", "../kenney/nature/tree_pineRoundC.obj", "../kenney/nature/tree_fat.obj"]

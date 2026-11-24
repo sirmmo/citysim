@@ -37,10 +37,16 @@ pub enum AssetError {
 /// Kenney kits) fitted to a footprint of `w` × `l` tiles, textured with the
 /// `colormap.png` next to it.
 pub fn load_building_model(path: &Path, footprint: (u32, u32)) -> Result<ac3d::Model, AssetError> {
+    load_painted_model(path, footprint, &std::collections::HashMap::new())
+}
+
+/// Like [`load_building_model`], with some `.obj` materials repainted
+/// (material name -> colour); other models ignore `paint`.
+pub fn load_painted_model(path: &Path, footprint: (u32, u32), paint: &std::collections::HashMap<String, [f32; 3]>) -> Result<ac3d::Model, AssetError> {
     if compose::is_composed(path) {
         compose::load_variant(path, footprint, 0)
     } else if path.extension().is_some_and(|e| e.eq_ignore_ascii_case("obj")) {
-        let obj = obj::load(path)?;
+        let obj = obj::load_painted(path, paint)?;
         let tex = path.parent().map(|d| d.join("colormap.png")).filter(|t| read_bytes(t).is_ok());
         Ok(obj::to_building(&obj, tex, footprint))
     } else {

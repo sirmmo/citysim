@@ -45,6 +45,11 @@ Watercraft Pack, City Kits (Suburban, Commercial, Industrial, Roads),
 Factory Kit and Nature Kit by [Kenney](https://www.kenney.nl), released
 under CC0 (public domain). Each folder keeps the kit's `License.txt`.
 
+`assets/models/quaternius/town/` holds the town buildings of the Ultimate
+Textured Building Pack by [Quaternius](https://quaternius.com), released
+under CC0 (public domain), trimmed by `scripts/import-quaternius.py`; the
+folder keeps the pack's `License.txt`.
+
 Also by Kenney, under CC0: the interface sounds in `assets/sound/ui/`
 (Interface Sounds), the sky panorama and smoke puffs in
 `assets/graphism/texture/` (`sky_day.png` from Skyboxes, `smoke_*.png`
