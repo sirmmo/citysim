@@ -1,0 +1,50 @@
+# Uploads citysim to Wavedash (https://wavedash.com) as a new build, by hand only
+# (Actions > Wavedash > Run workflow). Publishing a build stays a separate step:
+# `wavedash publish <BUILD_ID>`, or the Developer Portal.
+# Needs the repository secret WAVEDASH_TOKEN and the repository variable WAVEDASH_GAME_ID_CITYSIM
+# with the game's Wavedash project id.
+name: Wavedash
+
+on:
+  workflow_dispatch:
+    inputs:
+      game:
+        description: Game to upload
+        type: choice
+        options: [all, citysim]
+        default: all
+
+permissions:
+  contents: read
+
+concurrency:
+  group: wavedash
+  cancel-in-progress: false
+
+jobs:
+  push:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4.2.2
+      # As in the Pages workflow (rust-toolchain.toml pins the compiler); tools/wavedash.sh builds
+      # with this cargo when GITHUB_ACTIONS is set, not in the dev container.
+      - name: Rust toolchain
+        run: |
+          rustup show active-toolchain || rustup toolchain install
+          rustup target add wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2.7.8
+        with:
+          key: wasm32
+      - name: Install the Wavedash CLI
+        run: |
+          curl -fsSL https://wavedash.com/cli/install.sh | sh
+          echo "${CARGO_HOME:-$HOME/.cargo}/bin" >> "$GITHUB_PATH"
+      - name: Build and upload
+        run: |
+          wavedash --version
+          sh tools/wavedash.sh "$GAME"
+        env:
+          GAME: ${{ inputs.game }}
+          WAVEDASH_TOKEN: ${{ secrets.WAVEDASH_TOKEN }}
+          WAVEDASH_MESSAGE: Build ${{ github.sha }}
+          WAVEDASH_GAME_ID_CITYSIM: ${{ vars.WAVEDASH_GAME_ID_CITYSIM }}

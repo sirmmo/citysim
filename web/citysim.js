@@ -150,8 +150,10 @@ miniquad_add_plugin({
     };
   },
   on_init: function () {
-    // The game draws its own loading screen from here on.
+    // The game draws its own loading screen from here on (on Wavedash, show
+    // it: wavedash.js).
     var box = document.getElementById("status");
     if (box) { box.classList.add("hidden"); }
+    if (window.WavedashHook) { window.WavedashHook.ready(); }
   }
 });

@@ -15,3 +15,5 @@
 __pycache__/
 # Kenney kit downloads (CC0); the models used are extracted to assets/models/kenney/
 /assets/third-party/
+# The Wavedash build (tools/wavedash.sh)
+/_wavedash/

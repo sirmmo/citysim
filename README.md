@@ -285,3 +285,27 @@ See [docs/MCP.md](docs/MCP.md) for the tools and other clients.
 GPL-2.0-or-later, like OpenCity. Artwork and sounds are OpenCity's (see
 [NOTICE.md](NOTICE.md) and `AUTHORS`). `data/ohm-bologna-center.json` is OpenHistoricalMap
 data (CC0).
+
+## Publishing on Wavedash
+
+citysim is published on [Wavedash](https://wavedash.com) ([docs](https://docs.wavedash.com)) from
+`wavedash.toml`, at the root.
+
+1. **Create the game** in the Wavedash Developer Portal, or with the CLI (`curl -fsSL
+   https://wavedash.com/cli/install.sh | sh`, `wavedash auth login`, then `wavedash project create
+   --title "citysim" --team-id <TEAM_ID>`).
+2. **Set its id**: `game_id` in `wavedash.toml`, or, to keep it out of the repository,
+   `WAVEDASH_GAME_ID_CITYSIM` (or `WAVEDASH_GAME_ID`) in the environment, and the repository
+   variable `WAVEDASH_GAME_ID_CITYSIM` (Settings › Secrets and variables › Actions › Variables).
+3. **Upload a build**: `sh tools/wavedash.sh` builds the browser version into `_wavedash/` the way
+   the Pages workflow builds `site/play/` (in the dev container, as `scripts/web.sh` does; without
+   the offline copy, `sw.js`) and, with the CLI on `PATH` and `WAVEDASH_TOKEN` set, runs `wavedash
+   build push`. Without the CLI (or with `WAVEDASH_DRY_RUN=1`) it only says what it would push. On
+   GitHub: Actions › Wavedash › Run workflow, with the secret `WAVEDASH_TOKEN`.
+4. **Publish it**: `wavedash publish <BUILD_ID>` (the id `build push` printed), or in the Developer
+   Portal.
+
+On Wavedash the game stays behind Wavedash's loading screen until it calls `Wavedash.init()`:
+`web/citysim.js` does it through `web/wavedash.js` once the game starts and draws its own loading
+screen, or when the page reports an error. Elsewhere (GitHub Pages, a local server) there is no
+`Wavedash` object and the calls do nothing.

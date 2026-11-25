@@ -198,7 +198,9 @@ fn web_dist(out: &Path) -> Result<()> {
     let wasm = std::env::var_os("CITYSIM_WASM").map_or_else(|| target.join("wasm32-unknown-unknown/release/opencity.wasm"), PathBuf::from);
     fs::copy(&wasm, out.join("opencity.wasm"))
         .with_context(|| format!("copying {} (build it: cargo build --release --target wasm32-unknown-unknown -p opencity)", wasm.display()))?;
-    for f in ["index.html", "citysim.js", "mq_js_bundle.js", "manifest.webmanifest", "sw.js", "icon-192.png", "icon-512.png", "icon-maskable-512.png"] {
+    for f in
+        ["index.html", "citysim.js", "wavedash.js", "mq_js_bundle.js", "manifest.webmanifest", "sw.js", "icon-192.png", "icon-512.png", "icon-maskable-512.png"]
+    {
         fs::copy(root.join("web").join(f), out.join(f)).with_context(|| format!("copying web/{f}"))?;
     }
     // Each build loads its own game code, whatever the browser kept (the

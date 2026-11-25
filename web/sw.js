@@ -11,7 +11,7 @@ var PACK = "assets.pack";
 var CACHE = "citysim-" + BUILD;
 // Small files are fetched afresh; the two big ones carry their build in
 // the address already.
-var FRESH = ["./", "citysim.js", "mq_js_bundle.js", "manifest.webmanifest",
+var FRESH = ["./", "citysim.js", "wavedash.js", "mq_js_bundle.js", "manifest.webmanifest",
   "icon-192.png", "icon-512.png", "icon-maskable-512.png"];
 
 self.addEventListener("install", function (e) {
