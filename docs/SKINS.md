@@ -27,7 +27,7 @@ keys group it in the new-city dialog.
 | `look.sky`, `look.water` | Background and water colours |
 | `look.tint`, `look.saturation` | Colour treatment of every model and of the terrain |
 | `look.ui_accent`, `look.ui_panel` | egui interface colours |
-| `look.vehicles` | Hide cars, e.g. before 1900 or in a fantasy world |
+| `look.vehicles` | Hide cars and the airliner over airports, e.g. before 1900 or in a fantasy world |
 | `look.bridge_pier` | An `.obj` under `models/` (no extension) stood under bridges, two per tile over water, stretched from the bed to the deck; without it bridges rest on plain columns |
 | `look.skybox` | An equirectangular sky image (path under the data directory) drawn behind the scene and lit by the hour and the weather; none keeps the plain `sky` colour. |
 | `look.smoke` | `true` draws smoke over coal plants, incinerators and industry. |
@@ -152,8 +152,9 @@ stops (`fire_station.compose`, `hospital.compose`, `nuclear_plant.compose`…).
 * **antiquity**: the same era without 3D art, used when nothing is baked.
   Paved roads (*via strata*) and tracks instead of asphalt.
 * **medieval**: years 501 to 1449. Muted palette, no vehicles, no
-  electricity; cobbled streets and dirt lanes. Homes and shops are built
-  from the Quaternius Medieval Village MegaKit (below).
+  electricity; cobbled streets and dirt lanes. Homes, shops, services,
+  amenities and the fields and crafts are built from the Quaternius
+  Medieval Village MegaKit (below).
 * **renaissance**: years 1450 to 1799. Faded warm palette, no vehicles, no
   nuclear plant, cobbled streets and lanes. With the classic rules the coal
   plant becomes a "Watermill" and power lines become a "Mill race".
@@ -161,11 +162,11 @@ stops (`fire_station.compose`, `hospital.compose`, `nuclear_plant.compose`…).
   no highways.
 * **fantasy**: worlds `Eldoria`, `*fantasy*`, `ofm:*`. Vivid palette, magic
   vocabulary ("Mage tower", "Ley line", "Dragon forge"), no vehicles, no
-  highways. Homes and shops are the medieval skin's, in vivid colours.
+  highways. Its buildings are the medieval skin's, in vivid colours, with
+  mage towers, a dragon forge, standing stones and ley lines of its own.
 
-Except for antiquity and the medieval and fantasy homes and shops, these
-reuse OpenCity's modern-looking models, so they are a mood change, not a
-full reskin.
+Except for antiquity, medieval and fantasy, these reuse OpenCity's
+modern-looking models, so they are a mood change, not a full reskin.
 
 ## Medieval village buildings
 
@@ -177,7 +178,8 @@ dormers, chimneys, balconies, awnings and props. Two scripts make the
 buildings and the plots:
 
 ```sh
-python3 -I scripts/build-medieval.py "/path/to/Medieval Village MegaKit[Standard]"
+python3 -I scripts/build-medieval.py "/path/to/Medieval Village MegaKit[Standard]" \
+    --ruins "/path/to/Ultimate Modular Ruins Pack - Aug 2021" --kenney /path/to/kenney_fantasy-town-kit_2.0
 python3 -I scripts/gen-medieval.py
 ```
 
@@ -211,6 +213,76 @@ python3 -I scripts/gen-medieval.py
    skin: lime, ochre and pinkish walls under red, brown or slate roofs for the
    medieval skin; lilac, mint, sky-blue and rose walls under blue, purple,
    teal or gold roofs for the fantasy skin.
+
+### Services, works and the fields and crafts
+
+Every other building either skin can show is made the same way, at the same
+scale, on the footprint of the OpenCity model it replaces (`med_<code>` and
+`fan_<code>`). `build-medieval.py` also assembles a church with its tower
+and spire, a chapel, a turret, a mage tower, a tithe barn, a market hall on
+open arches, an infirmary, a college range, a gatehouse, a galleried
+playhouse, a smithy, a forge hall, a brewhouse, a mill tower and a mill
+house; windows on these big buildings are plain panes. Simple shapes made
+by the script fill the rest: furrowed fields, haystacks, a well, a
+fountain, ponds, a mill race, reed beds, middens, a lime kiln, log piles,
+dye vats, a landing stage, a stone quay, a treadwheel crane, tournament
+stands and the tilt, tents, a maypole, standing stones, waystones and ley
+lines. Statues, columns and ruins come from the CC0 **Quaternius Ultimate
+Modular Ruins Pack**; windmill sails, a water wheel, market stalls, carts,
+lanterns, hedges, rocks and the fantasy trees from the CC0 **Kenney Fantasy
+Town Kit** (`assets/models/kenney/fantasy-town/`, copied with `--kenney`).
+New materials take the per-plot `paints` too: `Banner` (cloth of banners,
+tents and stands), `Crop` (the fields) and `Glow` (fires; magic in the
+fantasy skin).
+
+| Code | Medieval | Fantasy |
+|---|---|---|
+| 31 | Field: a ploughed field | the same |
+| 32 | Smithy | the same |
+| 33 | Dye works by a mill race | the same |
+| 34 | Timber yard and saw pit | the same |
+| 35 | Brewhouse | the same |
+| 36 | Windmill | the same |
+| 37 | Watermill on its race | the same |
+| 38 | Croft: cottage, field, haystacks | the same |
+| 39 | Manor farm: fields, great barn, windmill | the same |
+| 300 | Tithe barn and its yard | Mage tower in a ring of standing stones |
+| 303, 304, 305, 306 | (not built) | Dragon forge, Sun circle, Arcane foundry, Windmill |
+| 320 | Well | Sacred grove |
+| 330-334 | Kenney Nature Kit trees | Kenney Fantasy Town Kit trees |
+| 340 | Tournament lists | Jousting lists |
+| 341 | Market hall with stalls and shops | Grand bazaar |
+| 342 | Reliquary: chapel and statues in a walled garden | Hall of relics |
+| 343 | Painters' guild | Enchanters' gallery |
+| 344 | Playhouse | Bards' playhouse |
+| 345 | Old ruins | Ancient ruins |
+| 346, 347, 348 | (not built) | Elven retreat, Stargazer's tower, Faire |
+| 350 | Watch: tower, guardhouse, well | Water elementalists (with a fountain) |
+| 351 | Magistrate's house | Lord's manor |
+| 352 | Town hall over an open market, with a belfry | Council hall |
+| 353 | Ward house | the same |
+| 360 | Town guard: gatehouse and walled yard | Guard house |
+| 370 | Hospital of St John: infirmaries, chapel, herb garden | Temple of healing |
+| 376, 377, 378 | (not built) | Water garden, Culvert, Reed bed |
+| 380 | Conduit house and cistern | Spring house |
+| 381 | Cistern tower | the same |
+| 382 | Settling ponds | Purifying pools |
+| 383 | Midden | the same |
+| 384 | Rag-and-bone yard | Tinkers' yard |
+| 385 | Lime kiln | Salamander kiln |
+| 386, 387, 388 | Waystone, Horse post, Undercroft | Waystone, Coach post, Delvers' stair |
+| 390 | Cathedral school: church and school | Academy of magic: mage tower and school |
+| 391 | Grammar school | Hall of apprentices |
+| 392 | College: a quadrangle and a chapel | Arcane university |
+| 393 | University: two courts, church, gatehouse | Arcane university |
+| 396 | Quay: landing stage and boat shed | the same |
+| 397 | Carriers' yard: stables and wagons | Griffin roost |
+| 398 | Port: stone quay, treadwheel cranes, warehouse | the same |
+| 170-184 | (no power lines) | Ley line: standing stones and a glowing line |
+
+The tools are named after them (`[labels]` in each `skin.toml`). A skin
+that replaces the wind turbine's model (with a windmill) also stops the
+turbine blades the game draws on OpenCity's own model.
 
 ## 0 A.D. art (antiquity skins)
 

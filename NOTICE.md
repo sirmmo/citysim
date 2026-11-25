@@ -42,7 +42,7 @@ next to the converted files, and they keep the CC BY-SA 3.0 licence.
 
 `assets/models/kenney/` holds models from the Car Kit, Train Kit,
 Watercraft Pack, City Kits (Suburban, Commercial, Industrial, Roads),
-Factory Kit and Nature Kit by [Kenney](https://www.kenney.nl), released
+Factory Kit, Nature Kit and Fantasy Town Kit by [Kenney](https://www.kenney.nl), released
 under CC0 (public domain). Each folder keeps the kit's `License.txt`.
 
 `assets/models/quaternius/town/` holds the town buildings of the Ultimate
@@ -50,10 +50,13 @@ Textured Building Pack by [Quaternius](https://quaternius.com), released
 under CC0 (public domain), trimmed by `scripts/import-quaternius.py`; the
 folder keeps the pack's `License.txt`.
 
-`assets/models/quaternius/medieval/` holds houses, shops, halls and a tower
-put together by `scripts/build-medieval.py` from the pieces of the Medieval
-Village MegaKit (Standard) by [Quaternius](https://quaternius.com), released
-under CC0 (public domain); the folder keeps the kit's `License.txt`.
+`assets/models/quaternius/medieval/` holds houses, shops, services, halls,
+churches and towers put together by `scripts/build-medieval.py` from the
+pieces of the Medieval Village MegaKit (Standard) by
+[Quaternius](https://quaternius.com), with statues, columns and ruins from
+his Ultimate Modular Ruins Pack, both released under CC0 (public domain);
+the folder keeps the kit's `License.txt` and the ruins pack's
+`License-Ruins.txt`.
 
 Also by Kenney, under CC0: the interface sounds in `assets/sound/ui/`
 (Interface Sounds), the sky panorama and smoke puffs in

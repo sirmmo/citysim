@@ -1,0 +1,5 @@
+# Flat colours in sRGB (scripts/build-medieval.py); compositions repaint them by name
+newmtl Vine
+Kd 0.330 0.480 0.200
+newmtl Water
+Kd 0.320 0.470 0.560

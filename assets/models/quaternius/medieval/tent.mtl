@@ -1,0 +1,7 @@
+# Flat colours in sRGB (scripts/build-medieval.py); compositions repaint them by name
+newmtl Banner
+Kd 0.660 0.200 0.160
+newmtl Cloth
+Kd 0.920 0.880 0.780
+newmtl Timber
+Kd 0.330 0.220 0.140

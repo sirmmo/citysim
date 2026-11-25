@@ -1,0 +1,9 @@
+# Flat colours in sRGB (scripts/build-medieval.py); compositions repaint them by name
+newmtl Hay
+Kd 0.840 0.710 0.400
+newmtl Shingles
+Kd 0.470 0.360 0.260
+newmtl Soil
+Kd 0.430 0.330 0.230
+newmtl Timber
+Kd 0.330 0.220 0.140

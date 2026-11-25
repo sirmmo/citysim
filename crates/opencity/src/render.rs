@@ -239,6 +239,12 @@ impl Renderer {
         &self.look
     }
 
+    /// Whether wind turbines get their turning blades: only on OpenCity's own
+    /// model (the mast and hub); a skin's model (a windmill) has its own sails.
+    pub fn turbine_blades(&self) -> bool {
+        self.catalog.get(GraphicCode::EPLANT_WIND).is_none_or(|e| e.model.extension().is_some_and(|x| x.eq_ignore_ascii_case("ac")))
+    }
+
     /// The legacy terrain texture is a 3D texture: 64 slices of 64x64 texels
     /// stacked vertically, indexed by height. We keep the mean colour of each slice.
     fn terrain_palette(path: &Path) -> Vec<[f32; 3]> {
@@ -699,6 +705,10 @@ impl Renderer {
     /// An airliner at each airport, forever taking off down the runway,
     /// circling beside it and landing again.
     fn draw_planes(&mut self, city: &City) {
+        // Not in a skin without engines (the medieval and fantasy skins).
+        if !self.look.vehicles {
+            return;
+        }
         let airports: Vec<((u32, u32), (u32, u32))> =
             city.layer.structures().filter(|(_, s)| s.code == StructureCode::Airport).map(|(p, s)| (p, s.size(city.footprints()))).collect();
         if airports.is_empty() {

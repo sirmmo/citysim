@@ -1,0 +1,17 @@
+# ley_band: Quaternius Medieval Village MegaKit pieces (CC0), assembled by scripts/build-medieval.py
+mtllib ley_band.mtl
+v -5.25 0 -0.12
+v 5.25 0 -0.12
+v 5.25 0 0.12
+v -5.25 0 0.12
+v -5.25 0.12 -0.12
+v -5.25 0.12 0.12
+v 5.25 0.12 0.12
+v 5.25 0.12 -0.12
+usemtl Glow
+f 1 2 3 4
+f 5 6 7 8
+f 1 5 8 2
+f 2 8 7 3
+f 3 7 6 4
+f 4 6 5 1

@@ -4,7 +4,13 @@
 for the medieval and fantasy skins (scripts/gen-medieval.py writes their
 compositions). Run from the repository root:
 
-    python3 -I scripts/build-medieval.py "/path/to/Medieval Village MegaKit[Standard]"
+    python3 -I scripts/build-medieval.py "/path/to/Medieval Village MegaKit[Standard]" \
+        --ruins "/path/to/Ultimate Modular Ruins Pack - Aug 2021" \
+        --kenney /path/to/kenney_fantasy-town-kit_2.0
+
+With --ruins the services get statues, columns and ruins from the Quaternius
+Ultimate Modular Ruins Pack (CC0); --kenney copies the Kenney Fantasy Town
+Kit models the compositions use (CC0) into assets/models/kenney/fantasy-town/.
 
 The kit is modular: walls are 2 m wide and 3 m storeys (3.12 m with the beam
 the next storey stands on), drawn on the line z = 0 with their outside
@@ -20,7 +26,8 @@ The kit's materials are textured trim sheets; here every material is one
 flat colour (sRGB) named so that compositions can repaint it (`paints`):
 Plaster, Timber (beams, posts, floors), Stone (plinths, sills, chimneys,
 steps), Stonework (rubble walls), Tiles (roofs), Shingles (wooden roofs and
-awnings), Paintwork (doors and shutters), Glass, Iron and Vine. The wood
+awnings), Paintwork (doors and shutters), Glass, Iron and Vine; for the
+services also Water, Soil, Crop, Hay, Paving, Banner, Cloth and Glow. The wood
 trim sheet's grey band (stone edges) becomes Stone, by texture coordinate.
 Positions are rounded to 3 decimals, shared corners merged, normals and
 texture coordinates dropped (the renderer shades faces itself).
@@ -45,6 +52,15 @@ COLOURS = {
     "Glass": (0.27, 0.33, 0.40),
     "Iron": (0.20, 0.20, 0.22),
     "Vine": (0.33, 0.48, 0.20),
+    # Made here, for the services and the fields and crafts.
+    "Water": (0.32, 0.47, 0.56),
+    "Soil": (0.43, 0.33, 0.23),
+    "Crop": (0.56, 0.63, 0.27),
+    "Hay": (0.84, 0.71, 0.40),
+    "Paving": (0.70, 0.67, 0.62),
+    "Banner": (0.66, 0.20, 0.16),
+    "Cloth": (0.92, 0.88, 0.78),
+    "Glow": (1.00, 0.56, 0.16),
 }
 
 
@@ -68,9 +84,27 @@ def material(kit_material, v, piece):
     }[kit_material]
 
 
+def ruins_material(kit_material, v, piece):
+    """The flat material of a face of the Quaternius Ultimate Modular Ruins
+    Pack (statues, columns, arches), coloured by material there."""
+    return {
+        "Black": "Iron",
+        "DarkMetal": "Iron",
+        "Metal": "Iron",
+        "Fire": "Glow",
+        "Wood": "Timber",
+        "DarkWood": "Timber",
+        "Flag": "Banner",
+        "Green": "Vine",
+        "Leaf_Texture": "Vine",
+        "Texture_Leaves": "Vine",
+    }.get(kit_material, "Stone")
+
+
 class Kit:
-    def __init__(self, folder):
+    def __init__(self, folder, material_of=material):
         self.dir = os.path.join(folder, "OBJ") if os.path.isdir(os.path.join(folder, "OBJ")) else folder
+        self.material_of = material_of
         self.cache = {}
 
     def piece(self, name):
@@ -90,8 +124,9 @@ class Kit:
                         cur = w[1]
                     elif w[0] == "f":
                         corners = [c.split("/") for c in w[1:]]
-                        mean_v = sum(vt[int(c[1]) - 1] for c in corners) / len(corners)
-                        faces.append((material(cur, mean_v, name), [v[int(c[0]) - 1] for c in corners]))
+                        uv = [vt[int(c[1]) - 1] for c in corners if len(c) > 1 and c[1]]
+                        mean_v = sum(uv) / len(uv) if uv else 0.0
+                        faces.append((self.material_of(cur, mean_v, name), [v[int(c[0]) - 1] for c in corners]))
             if name in FUSSY:
                 # Glazing bars and mouldings too small to see in a city go,
                 # and the panes of each window become one pane.
@@ -100,12 +135,16 @@ class Kit:
                 for z in sorted({round(p[2], 2) for p in glass}):
                     hull = convex_hull([(p[0], p[1]) for p in glass if round(p[2], 2) == z])
                     faces.append(("Glass", [(x, y, z) for x, y in hull]))
+            if name in SMALL:
+                faces = [(m, pts) for m, pts in faces if area(pts) >= SMALL[name]]
             self.cache[name] = faces
         return self.cache[name]
 
 
 # Windows simplified for the city's scale.
 FUSSY = {"Window_Thin_Round1", "Window_Wide_Round1", "Window_Wide_Flat1"}
+# Pieces whose faces smaller than this many square metres are dropped.
+SMALL = {"Roof_Tower_RoundTiles": 0.005}
 
 
 def convex_hull(points):
@@ -146,6 +185,10 @@ def facing_down(pts):
 UNDERSIDES = {"Overhang_Roof_Plaster"}
 
 
+def cross(a, b):
+    return [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]]
+
+
 def area(pts):
     return math.sqrt(sum(c * c for c in normal(pts))) / 2
 
@@ -168,12 +211,12 @@ class Building:
         self.kit = kit
         self.faces = []
 
-    def add(self, name, x=0.0, y=0.0, z=0.0, rot=0, swap=None, scale=(1, 1, 1), keep=None):
+    def add(self, name, x=0.0, y=0.0, z=0.0, rot=0, swap=None, scale=(1, 1, 1), keep=None, only=None):
         """Places a kit piece: scaled, turned by rot about +y, moved to
         (x, y, z), some materials swapped for others; `keep(points)`, given
         a face in the piece's own frame, drops the faces it refuses."""
         for mat, pts in self.kit.piece(name):
-            if keep and not keep(pts):
+            if (keep and not keep(pts)) or (only and mat not in only):
                 continue
             if name not in UNDERSIDES and facing_down(pts):
                 continue
@@ -192,6 +235,64 @@ class Building:
         c = [(x0, y0, z0), (x1, y0, z0), (x1, y0, z1), (x0, y0, z1), (x0, y1, z0), (x1, y1, z0), (x1, y1, z1), (x0, y1, z1)]
         for q in ((0, 1, 2, 3), (4, 7, 6, 5), (0, 4, 5, 1), (1, 5, 6, 2), (2, 6, 7, 3), (3, 7, 4, 0)):
             self.faces.append((mat, [c[i] for i in q]))
+
+    def solid(self, faces, cull=True):
+        """(material, polygon) faces of a convex solid, each turned to look
+        out from the solid's centre (the renderer shades by winding)."""
+        pts = [p for _, f in faces for p in f]
+        c = [sum(p[i] for p in pts) / len(pts) for i in range(3)]
+        for mat, f in faces:
+            n = normal(f)
+            fc = [sum(p[i] for p in f) / len(f) for i in range(3)]
+            if sum(n[i] * (fc[i] - c[i]) for i in range(3)) < 0:
+                f = f[::-1]
+            if not (cull and facing_down(f)):
+                self.faces.append((mat, list(f)))
+
+    def tube(self, mat, p0, p1, r0, r1=None, n=8, cap=None, phase=0.0):
+        """A cylinder, cone or frustum from p0 to p1 (radii r0 and r1) with
+        n sides; its end at p1 in `cap` (or mat)."""
+        r1 = r0 if r1 is None else r1
+        d = [p1[i] - p0[i] for i in range(3)]
+        length = math.sqrt(sum(x * x for x in d))
+        u = [x / length for x in d]
+        a = (1.0, 0.0, 0.0) if abs(u[1]) > 0.9 else (0.0, 1.0, 0.0)
+        s = cross(u, a)
+        sl = math.sqrt(sum(x * x for x in s))
+        s = [x / sl for x in s]
+        t = cross(u, s)
+
+        def ring(c, r):
+            out = []
+            for k in range(n):
+                ang = phase + 2 * math.pi * k / n
+                out.append(tuple(c[i] + r * (s[i] * math.cos(ang) + t[i] * math.sin(ang)) for i in range(3)))
+            return out
+
+        lo, hi = ring(p0, r0), ring(p1, r1)
+        faces = []
+        for k in range(n):
+            j = (k + 1) % n
+            faces.append((mat, [lo[k], lo[j], hi[j]] if r1 == 0 else [lo[k], lo[j], hi[j], hi[k]]))
+        faces.append((mat, lo))
+        if r1 > 0:
+            faces.append((cap or mat, hi))
+        self.solid(faces)
+
+    def beam(self, mat, p0, p1, w):
+        """A square beam w thick from p0 to p1."""
+        self.tube(mat, p0, p1, w / math.sqrt(2), n=4, phase=math.pi / 4)
+
+    def gem(self, x, y, z, r, h, mat="Glow"):
+        """An eight-faced crystal standing on (x, y, z)."""
+        mid = [(x + r, y + h / 2, z), (x, y + h / 2, z + r), (x - r, y + h / 2, z), (x, y + h / 2, z - r)]
+        top, bottom = (x, y + h, z), (x, y, z)
+        self.solid([(mat, [mid[k], mid[(k + 1) % 4], tip]) for k in range(4) for tip in (top, bottom)], cull=False)
+
+    def merge(self, other, rot=0, dx=0.0, dz=0.0):
+        """Another building's faces, turned and moved."""
+        for mat, pts in other.faces:
+            self.faces.append((mat, [(q[0] + dx, q[1], q[2] + dz) for q in (turn(p, rot) for p in pts)]))
 
     def turn_all(self, deg):
         self.faces = [(m, [turn(p, deg) for p in pts]) for m, pts in self.faces]
@@ -288,6 +389,9 @@ class House(Building):
     """Storeys of walls on the kit's grid, a tiled roof, and what goes with them."""
 
     open_front = False
+    # Windows as panes of glass only, without frames or shutters (the big
+    # buildings of the services, seen from afar).
+    plain_windows = False
 
     def wall(self, token, x, y, z, rot, style):
         kind, extra = token[0], token[1:]
@@ -301,8 +405,9 @@ class House(Building):
         self.add(wall, x, y, z, rot, swap, keep=None if self.open_front else outside)
         for name, dx in inserts:
             ox, _, oz = turn((dx, 0, 0), rot)
-            self.add(name, x + ox, y, z + oz, rot)
-        if extra in ("s", "c"):
+            plain = self.plain_windows and name.startswith("Window_")
+            self.add(name, x + ox, y, z + oz, rot, only={"Glass"} if plain else None)
+        if extra in ("s", "c") and not self.plain_windows:
             self.add(SHUTTERS[(kind, extra)], x, y, z, rot)
 
     def storey(self, y, w, zb, zf, sides, style, corners=True, skip_front_sides=False):
@@ -557,20 +662,545 @@ def build_all(kit):
     return out
 
 
+# ---------------------------------------------------------------------------
+# Services, works and the fields and crafts: the same kit, the ruins pack's
+# statues and columns, and simple shapes made here (fields, ponds, mounds,
+# tents, cranes, standing stones).
+
+
+class Hall(House):
+    """A House with plain windows, for the big buildings of the services."""
+
+    plain_windows = True
+
+    def wall(self, token, x, y, z, rot, style):
+        # Plain panels for the close timbering, which costs three times the faces.
+        super().wall("P" + token[1:] if token.startswith("G") else token, x, y, z, rot, style)
+
+
+def tower_block(kit, storeys, tokens=None, spire=1.0, w=4):
+    """A square stone tower of `storeys` under the kit's conical roof,
+    stretched up by `spire`."""
+    b = Hall(kit)
+    for k in range(storeys):
+        if tokens:
+            t = tokens[k % len(tokens)]
+        elif k == 0:
+            t = (["T", "R"], ["P", "T"], ["P", "P"], ["T", "P"])
+        else:
+            t = (["T", "P"], ["P", "P"], ["P", "T"], ["P", "P"])
+        b.storey(k * STOREY, w, -w / 2, w / 2, t, "brick")
+    b.add("Roof_Tower_RoundTiles", 0, storeys * STOREY, 0, 0, None, (w / 4, spire, w / 4))
+    return b
+
+
+def church(kit, w=6, length=12, storeys=2, tower=5, spire=1.7):
+    """A nave of rubble walls and tall windows with its tower and spire at
+    the west end (+z), the door on the side."""
+    b = Hall(kit)
+    zb, zf = -length / 2, length / 2
+    m = length // 2
+    for k in range(storeys):
+        side = ["T"] * m if k == 0 else ["A"] * m
+        right = (["R"] + side[1:]) if k == 0 else side
+        back = ["T", "A", "T"][: w // 2] if w == 6 else ["A"] * (w // 2)
+        b.storey(k * STOREY, w, zb, zf, (["P"] * (w // 2), right, back, side), "brick")
+    b.roof(storeys * STOREY, w, zb, zf)
+    # The belfry (the top storey) has arched openings on every side.
+    plain = (["P", "T"], ["P", "P"], ["P", "P"], ["T", "P"])
+    t = tower_block(kit, tower, [plain] * (tower - 1) + [(["A", "A"], ["A", "A"], ["A", "A"], ["A", "A"])], spire)
+    b.merge(t, 0, 0, zf + 2)
+    return b
+
+
+def long_range(kit, w, length, styles, tokens, door="R", dormers=0, chimneys=0, turn_to_front=True, open_front=False):
+    """A long range of `styles` storeys (ground first), its long side (+x
+    before the turn) to the front."""
+    b = Hall(kit)
+    b.open_front = open_front
+    m = length // 2
+    for k, style in enumerate(styles):
+        if style == "open":
+            b.storey(0, w, -length / 2, length / 2, (["O"] * (w // 2), ["O"] * m, ["O"] * (w // 2), ["O"] * m), "plaster")
+            b.box("Timber", (-w / 2, 2.92, -length / 2), (w / 2, 3.02, length / 2))
+            continue
+        side = [tokens[k][i % len(tokens[k])] for i in range(m)]
+        if k == 0 and door:
+            side[m // 2] = door
+        gable = ["T" if i % 2 else "P" for i in range(w // 2)]
+        b.storey(k * STOREY, w, -length / 2, length / 2, (gable, side, gable, side[::-1]), style)
+    top = len(styles) * STOREY
+    b.roof(top, w, -length / 2, length / 2)
+    for i in range(dormers):
+        b.dormer(top, w, -length / 2 + (i + 1) * length / (dormers + 1))
+    for i in range(chimneys):
+        b.chimney(top, w, -(w / 2 - 1.7), (-1) ** i * (length / 2 - 2.0))
+    if turn_to_front:
+        b.turn_all(-90)
+    return b
+
+
+def arcade_hall(kit, uppers):
+    """A market hall: open arches all round under timbered storeys."""
+    b = Hall(kit)
+    b.open_front = True
+    b.storey(0, 8, -7, 7, (["O"] * 4, ["O"] * 7, ["O"] * 4, ["O"] * 7), "plaster")
+    b.box("Timber", (-4, 2.92, -7), (4, 3.02, 7))
+    b.box("Paving", (-4.2, 0, -7.2), (4.2, 0.06, 7.2))
+    for k in range(uppers):
+        b.storey((k + 1) * STOREY, 8, -7, 7, (["Ws", "G", "G", "Ws"], ["Ws", "G", "Ws", "A", "Ws", "G", "Ws"], ["G", "Ts", "Ts", "G"], ["Ws", "G", "Ws", "A", "Ws", "G", "Ws"]), "upper")
+    top = (uppers + 1) * STOREY
+    b.roof(top, 8, -7, 7)
+    for z in (-4.0, 4.0):
+        b.dormer(top, 8, z)
+        b.dormer(top, 8, z, -1)
+    b.turn_all(-90)
+    return b
+
+
+def gatehouse(kit):
+    """Two round-roofed towers and the gate between them."""
+    b = Hall(kit)
+    for x in (-4, 4):
+        b.merge(tower_block(kit, 3, [(["T", "P"], ["P", "T"], ["P", "P"], ["T", "P"]), (["T", "T"], ["T", "T"], ["T", "T"], ["T", "T"])]), 0, x, 0)
+    c = Hall(kit)
+    c.open_front = True
+    c.storey(0, 4, -2, 2, (["O", "O"], ["-", "-"], ["O", "O"], ["-", "-"]), "brick", corners=False)
+    c.box("Timber", (-2, 2.92, -2), (2, 3.02, 2))
+    c.storey(STOREY, 4, -2, 2, (["T", "T"], ["-", "-"], ["T", "T"], ["-", "-"]), "brick", corners=False)
+    c.roof(2 * STOREY, 4, -2, 2)
+    b.merge(c)
+    return b
+
+
+def playhouse(kit):
+    """A galleried playhouse: three ranges round a yard open to the street,
+    a stage at the back under a cloth."""
+    b = Hall(kit)
+    for x in (-6, 6):
+        r = Hall(kit)
+        r.storey(0, 6, -7, 7, (["W", "D", "W"], ["Ws", "G", "Ws", "G", "Ws", "G", "Ws"], ["P", "G", "P"], ["Ws", "G", "Ws", "G", "Ws", "G", "Ws"]), "plaster")
+        for k in (1,):
+            r.storey(k * STOREY, 6, -7, 7, (["Ws", "G", "Ws"], ["G", "Ws", "G", "Ws", "G", "Ws", "G"], ["G", "G", "G"], ["G", "Ws", "G", "Ws", "G", "Ws", "G"]), "upper")
+        r.roof(2 * STOREY, 6, -7, 7)
+        b.merge(r, 0, x, 0)
+    back = Hall(kit)
+    for k in range(2):
+        back.storey(k * STOREY, 6, -3, 3, (["G", "Ws", "G"], ["-", "-", "-"], ["G", "G", "G"], ["-", "-", "-"]), "upper" if k else "plaster", corners=False)
+    back.roof(2 * STOREY, 6, -3, 3)
+    b.merge(back, 0, 0, -4)
+    b.box("Paving", (-3, 0, -1), (3, 0.05, 7))
+    b.box("Timber", (-2.6, 0, -1), (2.6, 1.1, 1.4))
+    b.box("Banner", (-2.6, 1.1, -0.95), (2.6, 4.2, -0.85))
+    for x in (-2.5, 2.5):
+        b.beam("Timber", (x, 1.1, 1.3), (x, 4.0, 1.3), 0.18)
+    b.box("Banner", (-2.6, 3.9, -0.9), (2.6, 4.05, 1.4))
+    return b
+
+
+def smithy(kit):
+    b = Hall(kit)
+    b.open_front = True
+    b.storey(0, 4, -3, 3, (["O", "O"], ["P", "T", "P"], ["P", "P"], ["P", "T", "P"]), "brick")
+    b.roof(STOREY, 4, -3, 3)
+    b.chimney(STOREY, 4, 0.9, -1.8)
+    b.box("Stone", (-1.6, 0, -2.6), (0.2, 0.9, -1.2))
+    b.box("Glow", (-1.3, 0.9, -2.3), (-0.1, 1.0, -1.5))
+    b.box("Iron", (0.4, 0.6, 0.6), (1.2, 0.85, 0.9))
+    b.box("Timber", (0.6, 0, 0.62), (1.0, 0.6, 0.88))
+    b.add("Prop_Crate", -1.2, 0, 1.6, 20, None, (0.5, 0.5, 0.5))
+    return b
+
+
+def shed(kit, w=6, depth=4.2):
+    """An open shed: posts and a pitched roof of boards along x."""
+    b = Hall(kit)
+    for x in range(-w // 2, w // 2 + 1, 2):
+        for z in (-depth / 2 + 0.1, depth / 2 - 0.1):
+            b.add("Corner_Exterior_Wood", x, 0, z, 0, None, (0.9, 0.92, 0.9))
+    sz = depth / 3.0
+    for x in range(-w // 2 + 1, w // 2, 2):
+        b.add("Roof_Wooden_2x1_Center", x, 2.9, 0, 0, None, (1, 1, sz))
+        b.add("Roof_Wooden_2x1_Center_Mirror", x, 2.9, 0, 0, None, (1, 1, sz))
+    return b
+
+
+def well(b, x=0.0, z=0.0):
+    b.tube("Stone", (x, 0, z), (x, 0.9, z), 1.0, n=12, cap="Water")
+    for dx in (-0.85, 0.85):
+        b.beam("Timber", (x + dx, 0.9, z), (x + dx, 2.4, z), 0.16)
+    b.beam("Timber", (x - 1.0, 2.3, z), (x + 1.0, 2.3, z), 0.12)
+    for sz in (-1, 1):
+        b.beam("Shingles", (x - 1.15, 2.45, z), (x + 1.15, 2.45, z), 0.06)
+        b.solid([("Shingles", [(x - 1.2, 2.45, z), (x + 1.2, 2.45, z), (x + 1.2, 1.95, z + sz * 0.9), (x - 1.2, 1.95, z + sz * 0.9)]), ("Shingles", [(x - 1.2, 2.4, z), (x + 1.2, 2.4, z), (x + 1.2, 1.9, z + sz * 0.9), (x - 1.2, 1.9, z + sz * 0.9)])])
+
+
+def field(b, x0, z0, x1, z1, rows, h=0.45):
+    """A field of furrowed strips along z."""
+    b.box("Soil", (x0, 0, z0), (x1, 0.04, z1))
+    wid = (x1 - x0) / rows
+    for i in range(rows):
+        a, c = x0 + i * wid + 0.08, x0 + (i + 1) * wid - 0.08
+        m = (a + c) / 2
+        b.solid([("Crop", [(a, 0.04, z0 + 0.2), (a, 0.04, z1 - 0.2), (m, h, z1 - 0.2), (m, h, z0 + 0.2)]),
+                 ("Crop", [(c, 0.04, z1 - 0.2), (c, 0.04, z0 + 0.2), (m, h, z0 + 0.2), (m, h, z1 - 0.2)]),
+                 ("Crop", [(a, 0.04, z1 - 0.2), (c, 0.04, z1 - 0.2), (m, h, z1 - 0.2)]),
+                 ("Crop", [(c, 0.04, z0 + 0.2), (a, 0.04, z0 + 0.2), (m, h, z0 + 0.2)])])
+
+
+def rail_fence(b, p0, p1, mat="Timber"):
+    """Posts and two rails from p0 to p1 (on the ground)."""
+    dx, dz = p1[0] - p0[0], p1[1] - p0[1]
+    length = math.hypot(dx, dz)
+    n = max(1, int(length / 2.5))
+    for i in range(n + 1):
+        x, z = p0[0] + dx * i / n, p0[1] + dz * i / n
+        b.beam(mat, (x, 0, z), (x, 1.1, z), 0.14)
+    for y in (0.5, 0.95):
+        b.beam(mat, (p0[0], y, p0[1]), (p1[0], y, p1[1]), 0.08)
+
+
+def stone_wall(b, p0, p1, h=1.4):
+    """A low precinct wall with a coping."""
+    x0, x1 = sorted((p0[0], p1[0]))
+    z0, z1 = sorted((p0[1], p1[1]))
+    b.box("Stonework", (x0 - 0.25, 0, z0 - 0.25), (x1 + 0.25, h, z1 + 0.25))
+    b.box("Stone", (x0 - 0.32, h, z0 - 0.32), (x1 + 0.32, h + 0.15, z1 + 0.32))
+
+
+def haystack(b, x, z, r=1.2):
+    b.tube("Hay", (x, 0, z), (x, 1.3, z), r, n=10)
+    b.tube("Hay", (x, 1.3, z), (x, 2.5, z), r, 0, n=10)
+
+
+def logs(b, x, z, length=4.0):
+    """A pile of logs along x."""
+    for row, count in enumerate((4, 3, 2)):
+        for i in range(count):
+            zz = z + (i - (count - 1) / 2) * 0.5
+            b.tube("Timber", (x - length / 2, 0.25 + row * 0.43, zz), (x + length / 2, 0.25 + row * 0.43, zz), 0.25, n=7, cap="Hay")
+
+
+def barrels(b, x, z, n=3):
+    for i in range(n):
+        bx = x + (i % 2) * 0.8
+        bz = z + (i // 2) * 0.8
+        b.tube("Timber", (bx, 0, bz), (bx, 1.0, bz), 0.38, n=8, cap="Paintwork")
+        b.tube("Iron", (bx, 0.2, bz), (bx, 0.28, bz), 0.4, n=8)
+        b.tube("Iron", (bx, 0.72, bz), (bx, 0.8, bz), 0.4, n=8)
+
+
+def tent(b, x, z, r=2.0, h=2.0, top=2.2):
+    b.tube("Cloth", (x, 0, z), (x, h, z), r, n=10)
+    b.tube("Banner", (x, h, z), (x, h + top, z), r * 1.08, 0, n=10)
+    b.beam("Timber", (x, h + top - 0.2, z), (x, h + top + 0.8, z), 0.08)
+    b.solid([("Banner", [(x, h + top + 0.8, z), (x, h + top + 0.45, z), (x + 0.6, h + top + 0.62, z)]), ("Banner", [(x, h + top + 0.8, z), (x + 0.6, h + top + 0.62, z), (x, h + top + 0.45, z + 0.01)])])
+
+
+def stand(b, x0, x1, z, depth=3.0, rows=3):
+    """Timber stands for watching the lists, under a cloth, facing -z."""
+    for i in range(rows):
+        b.box("Timber", (x0, 0, z + i * depth / rows), (x1, 0.6 + i * 0.6, z + depth))
+    for x in (x0, (x0 + x1) / 2, x1):
+        b.beam("Timber", (x, 0, z + depth), (x, 3.6, z + depth), 0.16)
+        b.beam("Timber", (x, 0, z), (x, 2.8, z), 0.16)
+    b.solid([("Banner", [(x0 - 0.2, 2.8, z - 0.3), (x1 + 0.2, 2.8, z - 0.3), (x1 + 0.2, 3.7, z + depth + 0.2), (x0 - 0.2, 3.7, z + depth + 0.2)]),
+             ("Banner", [(x0 - 0.2, 2.75, z - 0.3), (x1 + 0.2, 2.75, z - 0.3), (x1 + 0.2, 3.65, z + depth + 0.2), (x0 - 0.2, 3.65, z + depth + 0.2)])])
+
+
+def treadwheel_crane(b, x=0.0, z=0.0):
+    """A timber crane on the quay: a treadwheel house turning the jib over
+    the water (-z)."""
+    b.box("Stone", (x - 2.5, 0, z - 2.5), (x + 2.5, 0.5, z + 2.5))
+    for dx in (-1.2, 1.2):
+        for dz in (-1.2, 1.2):
+            b.beam("Timber", (x + dx, 0.5, z + dz), (x + dx * 0.4, 6.0, z + dz * 0.4), 0.25)
+    b.tube("Timber", (x, 0.5, z), (x, 7.0, z), 0.3, n=6)
+    b.beam("Timber", (x, 6.2, z + 1.5), (x, 7.6, z - 6.0), 0.3)
+    b.beam("Timber", (x, 2.5, z - 0.5), (x, 6.4, z - 4.2), 0.2)
+    b.beam("Iron", (x, 7.4, z - 5.8), (x, 4.0, z - 5.8), 0.05)
+    n = 14
+    for k in range(n):
+        a0, a1 = 2 * math.pi * k / n, 2 * math.pi * (k + 1) / n
+        for side in (-0.7, 0.7):
+            p0 = (x + side, 2.9 + 2.2 * math.sin(a0), z + 1.5 + 2.2 * math.cos(a0))
+            p1 = (x + side, 2.9 + 2.2 * math.sin(a1), z + 1.5 + 2.2 * math.cos(a1))
+            b.beam("Timber", p0, p1, 0.18)
+        if k % 2 == 0:
+            b.beam("Timber", (x - 0.7, 2.9 + 2.2 * math.sin(a0), z + 1.5 + 2.2 * math.cos(a0)), (x + 0.7, 2.9 + 2.2 * math.sin(a0), z + 1.5 + 2.2 * math.cos(a0)), 0.12)
+    b.beam("Timber", (x - 0.9, 2.9, z + 1.5), (x + 0.9, 2.9, z + 1.5), 0.2)
+
+
+def stones_ring(b, r, n, h=3.2, glow=True):
+    """A ring of standing stones, a crystal in the middle."""
+    for k in range(n):
+        a = 2 * math.pi * k / n
+        x, z = r * math.cos(a), r * math.sin(a)
+        b.tube("Stone", (x, 0, z), (x, h * (0.85 + 0.15 * (k % 3) / 2), z), 0.55, 0.38, n=4, phase=a)
+    if glow:
+        b.tube("Stone", (0, 0, 0), (0, 0.8, 0), 1.2, 1.0, n=6)
+        b.gem(0, 0.8, 0, 0.6, 2.6)
+
+
+def build_services(kit, ruins):
+    """name -> Building, for the services, works and fields and crafts."""
+    out = {}
+    out["church"] = church(kit)
+    out["chapel"] = church(kit, 4, 8, 2, 3, 1.5)
+    out["turret"] = tower_block(kit, 2)
+    out["mage_tower"] = tower_block(kit, 6, [(["T", "R"], ["P", "T"], ["P", "P"], ["T", "P"]), (["T", "P"], ["P", "T"], ["T", "P"], ["P", "T"]), (["A", "A"], ["A", "A"], ["A", "A"], ["A", "A"])], 2.2)
+    out["mage_tower"].gem(0, 6 * STOREY + 4.86 * 2.2 + 0.2, 0, 0.8, 2.8)
+    out["tithe_barn"] = long_range(kit, 8, 14, ["brick", "brick"], [["P", "T", "P"], ["P", "P", "T"]], dormers=0)
+    out["market_hall"] = arcade_hall(kit, 1)
+    out["infirmary"] = long_range(kit, 6, 14, ["brick", "upper"], [["A", "T"], ["Ws", "G"]], dormers=2, chimneys=2)
+    out["college"] = long_range(kit, 6, 14, ["brick", "brick"], [["T", "A"], ["A", "T"]], dormers=3, chimneys=2)
+    out["gatehouse"] = gatehouse(kit)
+    out["playhouse"] = playhouse(kit)
+    out["smithy"] = smithy(kit)
+    b = long_range(kit, 8, 10, ["open", "brick"], [["P", "O"], ["T", "P"]], door=None, chimneys=0, turn_to_front=False, open_front=True)
+    for x, z in ((-2.5, -3.0), (2.5, -3.0), (0.0, 3.4)):
+        b.chimney(2 * STOREY, 8, x, z)
+    for x in (-2.0, 2.0):
+        b.box("Stone", (x - 1.0, 0, -2.0), (x + 1.0, 1.0, 0.0))
+        b.box("Glow", (x - 0.7, 1.0, -1.7), (x + 0.7, 1.1, -0.3))
+    out["forge_hall"] = b
+    b = shed(kit)
+    for i, x in enumerate((-1.8, 0.0, 1.8)):
+        b.tube("Timber", (x, 0, -0.9), (x, 0.9, -0.9), 0.7, n=10, cap="Banner")
+    for x in (-2.5, 2.5):
+        b.beam("Timber", (x, 0, 1.5), (x, 2.2, 1.5), 0.12)
+    b.beam("Timber", (-2.5, 2.1, 1.5), (2.5, 2.1, 1.5), 0.08)
+    for x in (-1.6, 0.0, 1.6):
+        b.box("Banner", (x - 0.6, 0.9, 1.45), (x + 0.6, 2.05, 1.55))
+    out["dyeworks"] = b
+    b = shed(kit, 4)
+    logs(b, 0.0, 4.0)
+    logs(b, 0.0, -4.4, 5.0)
+    b.box("Soil", (-0.6, 0, -0.6), (0.6, 0.05, 0.6))
+    b.beam("Timber", (-1.6, 0.9, 0), (1.6, 0.9, 0), 0.4)
+    out["timber_yard"] = b
+    b = Hall(kit)
+    b.storey(0, 6, -4, 4, (["W", "R", "W"], ["P", "T", "P", "T"], ["P", "P", "P"], ["T", "P", "T", "P"]), "brick")
+    b.storey(STOREY, 6, -4, 4, (["Ws", "G", "Ws"], ["G", "Ts", "G", "Ts"], ["G", "G", "G"], ["Ts", "G", "Ts", "G"]), "upper")
+    b.roof(2 * STOREY, 6, -4, 4)
+    b.chimney(2 * STOREY, 6, 1.3, -2.0)
+    b.chimney(2 * STOREY, 6, -1.3, 1.5)
+    barrels(b, 3.6, 3.2, 3)
+    out["brewhouse"] = b
+    b = tower_block(kit, 3, [(["T", "R"], ["P", "T"], ["P", "P"], ["T", "P"]), (["T", "P"], ["P", "T"], ["T", "P"], ["P", "T"]), (["P", "W"], ["P", "P"], ["P", "P"], ["P", "P"])], 1.2)
+    out["mill_tower"] = b
+    b = Hall(kit)
+    b.storey(0, 6, -3, 3, (["W", "D", "T"], ["P", "-", "P"], ["P", "T", "P"], ["T", "P", "W"]), "plaster")
+    b.storey(STOREY, 6, -3, 3, (["Ws", "G", "Ws"], ["G", "Ts", "G"], ["G", "P", "G"], ["Ts", "G", "Ts"]), "upper")
+    b.roof(2 * STOREY, 6, -3, 3)
+    b.add("Wall_UnevenBrick_Straight", 3, 0, 0, 90)
+    out["mill_house"] = b
+
+    # Things on the ground.
+    b = Building(kit)
+    field(b, -4.8, -4.8, 4.8, 4.8, 9)
+    out["field"] = b
+    b = Building(kit)
+    field(b, -4.8, -9.8, 4.8, 9.8, 9)
+    out["field_long"] = b
+    b = Building(kit)
+    for x, z, r in ((0, 0, 1.2), (2.6, 0.4, 1.0), (1.2, 2.2, 1.1)):
+        haystack(b, x, z, r)
+    out["haystacks"] = b
+    b = Building(kit)
+    well(b)
+    out["well"] = b
+    b = Building(kit)
+    b.tube("Stone", (0, 0, 0), (0, 0.7, 0), 2.6, 2.6, n=14, cap="Water")
+    b.tube("Stone", (0, 0.7, 0), (0, 1.7, 0), 0.45, 0.35, n=8)
+    b.tube("Stone", (0, 1.7, 0), (0, 2.0, 0), 0.5, 1.2, n=10, cap="Water")
+    b.tube("Stone", (0, 2.0, 0), (0, 2.9, 0), 0.18, 0.12, n=6)
+    b.tube("Water", (0, 2.9, 0), (0, 3.2, 0), 0.25, 0.05, n=6)
+    out["fountain"] = b
+    b = Building(kit)
+    b.box("Water", (-5.0, 0, -3.5), (5.0, 0.12, 3.5))
+    for (x0, z0, x1, z1) in ((-5.4, -3.9, 5.4, -3.5), (-5.4, 3.5, 5.4, 3.9), (-5.4, -3.5, -5.0, 3.5), (5.0, -3.5, 5.4, 3.5)):
+        b.box("Stone", (x0, 0, z0), (x1, 0.35, z1))
+    out["pond"] = b
+    b = Building(kit)
+    for x, z, r, h in ((0, 0, 4.0, 2.2), (4.5, 2.5, 2.8, 1.5), (-3.8, 3.0, 2.4, 1.2)):
+        b.tube("Soil", (x, 0, z), (x, h, z), r, r * 0.35, n=7, phase=x)
+    b.tube("Hay", (2.0, 0, -3.5), (2.0, 0.9, -3.5), 1.6, 0.6, n=6)
+    out["midden"] = b
+    b = Building(kit)
+    b.tube("Stonework", (0, 0, 0), (0, 5.0, 0), 2.6, 1.7, n=10, cap="Iron")
+    b.tube("Stone", (0, 5.0, 0), (0, 6.6, 0), 0.8, 0.7, n=8, cap="Iron")
+    b.box("Stone", (-0.9, 0, 2.2), (0.9, 1.9, 2.6))
+    b.box("Glow", (-0.6, 0.2, 2.6), (0.6, 1.4, 2.65))
+    logs(b, 0.0, 4.6, 3.0)
+    out["kiln"] = b
+    b = Building(kit)
+    b.box("Timber", (-5, 0, -2), (5, 0.9, 2))
+    b.box("Timber", (-1.5, 0, -8), (1.5, 0.8, -2))
+    for x in (-5, 5):
+        for z in (-2, 2):
+            b.beam("Timber", (x, 0, z), (x, 1.6, z), 0.3)
+    for z in (-7.5, -4.5):
+        for x in (-1.5, 1.5):
+            b.beam("Timber", (x, 0.0, z), (x, 1.3, z), 0.3)
+    out["landing"] = b
+    b = Building(kit)
+    treadwheel_crane(b)
+    out["crane"] = b
+    b = Building(kit)
+    b.box("Paving", (-20.5, 0, -15.5), (20.5, 0.12, 15.5))
+    b.box("Stonework", (-20.5, 0, -15.5), (20.5, 0.6, -14.9))
+    for i in range(9):
+        x = -18 + 4.5 * i
+        b.tube("Iron", (x, 0.6, -15.2), (x, 1.1, -15.2), 0.22, n=6)
+    out["quay"] = b
+    b = Building(kit)
+    stand(b, -6, 6, 0)
+    out["stand"] = b
+    b = Building(kit)
+    b.box("Timber", (-14, 0.9, -0.15), (14, 1.2, 0.15))
+    for i in range(15):
+        x = -14 + 2 * i
+        b.beam("Timber", (x, 0, 0), (x, 1.2, 0), 0.15)
+    for x in (-15, 15):
+        b.beam("Timber", (x, 0, 0), (x, 4.5, 0), 0.2)
+        b.box("Banner", (x + 0.1, 2.6, -0.02), (x + 1.3, 4.4, 0.02))
+    out["tilt"] = b
+    b = Building(kit)
+    tent(b, 0, 0)
+    out["tent"] = b
+    b = Building(kit)
+    tent(b, 0, 0, 3.0, 2.6, 3.0)
+    out["pavilion"] = b
+    b = Building(kit)
+    b.tube("Timber", (0, 0, 0), (0, 9.0, 0), 0.18, 0.12, n=6)
+    for k in range(8):
+        a = 2 * math.pi * k / 8
+        b.beam("Banner" if k % 2 else "Cloth", (0, 8.6, 0), (3.2 * math.cos(a), 0.3, 3.2 * math.sin(a)), 0.07)
+    b.tube("Vine", (0, 8.0, 0), (0, 8.6, 0), 0.6, 0.4, n=8)
+    out["maypole"] = b
+    b = Building(kit)
+    stones_ring(b, 6.5, 9)
+    out["stone_circle"] = b
+    b = Building(kit)
+    b.tube("Stone", (0, 0, 0), (0, 2.6, 0), 0.5, 0.34, n=4, phase=0.4)
+    b.gem(0, 2.45, 0, 0.35, 1.1)
+    out["ley_stone"] = b
+    b = Building(kit)
+    b.box("Water", (-1.0, 0, -5.0), (1.0, 0.1, 5.0))
+    for x in (-1.4, 1.0):
+        b.box("Stone", (x, 0, -5.0), (x + 0.4, 0.5, 5.0))
+    out["millrace"] = b
+    b = Building(kit)
+    b.box("Water", (-4.6, 0, -4.6), (4.6, 0.1, 4.6))
+    for k in range(70):
+        x, z = -4.2 + (k * 37 % 84) / 10.0, -4.2 + (k * 53 % 84) / 10.0
+        b.beam("Vine", (x, 0.05, z), (x + 0.1 * math.sin(k), 1.3 + 0.5 * math.sin(k * 1.7), z + 0.1 * math.cos(k)), 0.08)
+    out["reeds"] = b
+    b = shed(kit, 4)
+    barrels(b, -1.4, -1.2, 2)
+    b.add("Prop_Crate", 1.0, 0, -0.8, 15, None, (0.6, 0.6, 0.6))
+    b.add("Prop_Crate", 1.2, 0, 0.6, 50, None, (0.5, 0.5, 0.5))
+    b.tube("Cloth", (-0.2, 0, 1.0), (-0.2, 0.9, 1.0), 0.9, 0.2, n=6)
+    out["rag_shed"] = b
+    b = Building(kit)
+    b.box("Glow", (0, 0.1, -0.12), (10.5, 0.22, 0.12))
+    out["ley_band"] = b
+    b = Building(kit)
+    rail_fence(b, (-5.0, 0.0), (5.0, 0.0))
+    out["rail_fence"] = b
+    b = Building(kit)
+    stone_wall(b, (-5.0, 0.0), (5.0, 0.0))
+    out["wall"] = b
+    b = Building(kit)
+    for x, z in ((-1.5, 0), (1.5, 0)):
+        b.tube("Timber", (x, 0, z), (x, 0.9, z), 0.6, n=8, cap="Water")
+    b.box("Stone", (-2.6, 0, 1.0), (2.6, 0.7, 1.9))
+    b.box("Water", (-2.4, 0.7, 1.1), (2.4, 0.72, 1.8))
+    out["trough"] = b
+    b = Building(kit)
+    b.tube("Stone", (0, 0, 0), (0, 1.4, 0), 0.32, 0.25, n=6, cap="Stone")
+    b.tube("Stone", (0, 1.4, 0), (0, 1.75, 0), 0.25, 0.0, n=6)
+    b.beam("Timber", (1.2, 0, 0.6), (1.2, 2.6, 0.6), 0.12)
+    b.box("Paintwork", (1.25, 1.9, 0.2), (2.4, 2.25, 0.3))
+    b.box("Paintwork", (0.1, 2.25, 0.85), (1.15, 2.55, 0.95))
+    b.box("Timber", (-1.8, 0.45, 1.2), (0.2, 0.55, 1.7))
+    for x in (-1.6, 0.0):
+        b.box("Timber", (x, 0, 1.3), (x + 0.15, 0.45, 1.6))
+    out["waystone"] = b
+
+    if ruins:
+        b = Building(ruins)
+        b.add("Wall_ArchRound_Overgrown_Broken", 0, 0, -3)
+        b.add("Column_Round", -4.5, 0, 1.0)
+        b.add("Column_Round", 4.5, 0, 1.0)
+        b.add("Column_Round_Short", -4.5, 0, 4.0)
+        b.add("Column_Square", 4.5, 0, 4.0)
+        b.add("Wall_Broken", -3.0, 0, 5.5, 20)
+        b.add("Floor_Diamond", 0, 0.1, 1.0)
+        b.add("Floor_Diamond", 0, 0.1, 3.0)
+        out["ruins"] = b
+        b = Building(ruins)
+        b.add("Statue_Stag", 0.5, 0, 0)
+        out["statue_stag"] = b
+        b = Building(ruins)
+        b.add("Statue_Fox", 0, 0, 0)
+        out["statue_fox"] = b
+        b = Building(ruins)
+        for x in (-3.0, 0.0, 3.0):
+            b.add("Column_Round", x, 0, 0)
+        out["columns"] = b
+    return out
+
+
+def copy_kenney(folder):
+    """Copies the Kenney Fantasy Town Kit models the compositions use, with
+    its colour map and licence, into assets/models/kenney/fantasy-town/."""
+    src = os.path.join(folder, "Models", "OBJ format")
+    out = os.path.join(OUT, "..", "..", "kenney", "fantasy-town")
+    os.makedirs(out, exist_ok=True)
+    for name in KENNEY:
+        for ext in (".obj", ".mtl"):
+            shutil.copyfile(os.path.join(src, name + ext), os.path.join(out, name + ext))
+    shutil.copyfile(os.path.join(src, "Textures", "colormap.png"), os.path.join(out, "colormap.png"))
+    shutil.copyfile(os.path.join(folder, "License.txt"), os.path.join(out, "License.txt"))
+    print("copied %d Kenney Fantasy Town Kit models" % len(KENNEY))
+
+
+# Kenney Fantasy Town Kit models used as they are (colour-mapped).
+KENNEY = ["windmill", "watermill", "stall-red", "stall-green", "cart", "cart-high", "banner-red",
+          "banner-green", "lantern", "hedge-large", "fence", "tree", "tree-high", "tree-crooked", "tree-high-crooked", "tree-high-round",
+          "rock-large", "rock-wide", "pillar-stone"]
+
+
 def main():
-    kit = Kit(sys.argv[1])
+    import argparse
+
+    ap = argparse.ArgumentParser(description="Builds the medieval buildings from the Quaternius Medieval Village MegaKit.")
+    ap.add_argument("megakit", help="the Medieval Village MegaKit folder")
+    ap.add_argument("--ruins", help="the Ultimate Modular Ruins Pack folder (statues, columns, arches)")
+    ap.add_argument("--kenney", help="the Kenney Fantasy Town Kit folder, copied for the compositions")
+    ap.add_argument("--only", nargs="*", help="build only these")
+    args = ap.parse_args()
+    kit = Kit(args.megakit)
+    ruins = Kit(args.ruins, ruins_material) if args.ruins else None
     os.makedirs(OUT, exist_ok=True)
-    only = sys.argv[2:]
     total = 0
-    for name, b in build_all(kit).items():
-        if only and name not in only:
+    buildings = build_all(kit)
+    buildings.update(build_services(kit, ruins))
+    for name, b in buildings.items():
+        if args.only and name not in args.only:
             continue
         faces, size = b.write(name)
         total += os.path.getsize(os.path.join(OUT, name + ".obj"))
         print("%-18s %5d faces  %.1f x %.1f x %.1f m" % (name, faces, size[0], size[2], size[1]))
-    lic = os.path.join(sys.argv[1], "License_Standard.txt")
+    lic = os.path.join(args.megakit, "License_Standard.txt")
     if os.path.exists(lic):
         shutil.copyfile(lic, os.path.join(OUT, "License.txt"))
+    if args.ruins and os.path.exists(os.path.join(args.ruins, "License.txt")):
+        shutil.copyfile(os.path.join(args.ruins, "License.txt"), os.path.join(OUT, "License-Ruins.txt"))
+    if args.kenney:
+        copy_kenney(args.kenney)
     print("%.0f KB of models in %s" % (total / 1024, os.path.normpath(OUT)))
 
 

@@ -1,0 +1,10 @@
+# Trees (fantasy skin): a Kenney Fantasy Town Kit tree. Quaternius Medieval Village MegaKit pieces put
+# together by scripts/build-medieval.py, with Quaternius ruins and Kenney
+# props. Written by scripts/gen-medieval.py. CC0 parts.
+variants = 16
+
+[[slot]]
+parts = ["../kenney/fantasy-town/tree-high.obj", "../kenney/fantasy-town/tree-high-crooked.obj", "../kenney/fantasy-town/tree-high-round.obj"]
+size = [0.370, 0.370]
+at = [0.315, 0.0, 0.315]
+rotations = [0, 90, 180, 270]

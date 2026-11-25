@@ -1,0 +1,28 @@
+# Quay (medieval skin): a landing stage and a boat shed. Quaternius Medieval Village MegaKit pieces put
+# together by scripts/build-medieval.py, with Quaternius ruins and Kenney
+# props. Written by scripts/gen-medieval.py. CC0 parts.
+variants = 16
+
+[[slot]]
+parts = ["../quaternius/medieval/landing.obj"]
+size = [0.981, 0.967]
+at = [0.110, 0.0, -0.133]
+paints = [{ Plaster = [0.95, 0.9, 0.78], Timber = [0.33, 0.22, 0.14], Tiles = [0.78, 0.34, 0.18], Stonework = [0.6, 0.57, 0.52], Paintwork = [0.42, 0.28, 0.18], Banner = [0.62, 0.22, 0.18], Crop = [0.56, 0.63, 0.27], Glow = [1.0, 0.56, 0.16] }, { Plaster = [0.97, 0.95, 0.9], Timber = [0.24, 0.18, 0.13], Tiles = [0.66, 0.26, 0.16], Stonework = [0.64, 0.62, 0.58], Paintwork = [0.3, 0.4, 0.28], Banner = [0.3, 0.44, 0.3], Crop = [0.82, 0.7, 0.36], Glow = [1.0, 0.56, 0.16] }, { Plaster = [0.93, 0.8, 0.56], Timber = [0.36, 0.24, 0.15], Tiles = [0.42, 0.44, 0.5], Stonework = [0.66, 0.6, 0.5], Paintwork = [0.52, 0.24, 0.18], Banner = [0.74, 0.6, 0.3], Crop = [0.46, 0.56, 0.24], Glow = [1.0, 0.56, 0.16] }, { Plaster = [0.94, 0.8, 0.74], Timber = [0.28, 0.2, 0.15], Tiles = [0.84, 0.48, 0.24], Stonework = [0.59, 0.56, 0.54], Paintwork = [0.28, 0.36, 0.48], Banner = [0.3, 0.38, 0.56], Crop = [0.74, 0.62, 0.3], Glow = [1.0, 0.56, 0.16] }, { Plaster = [0.86, 0.89, 0.9], Timber = [0.3, 0.22, 0.16], Tiles = [0.7, 0.3, 0.2], Stonework = [0.52, 0.51, 0.49], Paintwork = [0.42, 0.28, 0.18], Banner = [0.58, 0.46, 0.34], Crop = [0.62, 0.66, 0.34], Glow = [1.0, 0.56, 0.16] }, { Plaster = [0.9, 0.84, 0.7], Timber = [0.4, 0.28, 0.17], Tiles = [0.58, 0.42, 0.26], Stonework = [0.64, 0.59, 0.51], Paintwork = [0.36, 0.3, 0.22], Banner = [0.56, 0.2, 0.26], Crop = [0.56, 0.63, 0.27], Glow = [1.0, 0.56, 0.16] }, { Plaster = [0.96, 0.92, 0.83], Timber = [0.2, 0.16, 0.13], Tiles = [0.38, 0.4, 0.46], Stonework = [0.62, 0.61, 0.59], Paintwork = [0.55, 0.36, 0.16], Banner = [0.4, 0.48, 0.26], Crop = [0.82, 0.7, 0.36], Glow = [1.0, 0.56, 0.16] }, { Plaster = [0.9, 0.77, 0.6], Timber = [0.34, 0.23, 0.15], Tiles = [0.74, 0.38, 0.22], Stonework = [0.56, 0.53, 0.48], Paintwork = [0.32, 0.38, 0.3], Banner = [0.66, 0.36, 0.2], Crop = [0.46, 0.56, 0.24], Glow = [1.0, 0.56, 0.16] }, { Plaster = [0.93, 0.88, 0.82], Timber = [0.38, 0.26, 0.18], Tiles = [0.8, 0.44, 0.22], Stonework = [0.61, 0.58, 0.54], Paintwork = [0.46, 0.22, 0.2], Banner = [0.44, 0.34, 0.5], Crop = [0.74, 0.62, 0.3], Glow = [1.0, 0.56, 0.16] }]
+
+[[slot]]
+parts = ["../quaternius/medieval/cottage_timber.obj", "../quaternius/medieval/cottage_stone.obj"]
+size = [0.525, 0.723]
+at = [1.187, 0.0, 1.089]
+paints = [{ Plaster = [0.94, 0.8, 0.74], Timber = [0.28, 0.2, 0.15], Tiles = [0.84, 0.48, 0.24], Stonework = [0.59, 0.56, 0.54], Paintwork = [0.28, 0.36, 0.48], Banner = [0.3, 0.38, 0.56], Crop = [0.56, 0.63, 0.27], Glow = [1.0, 0.56, 0.16] }, { Plaster = [0.86, 0.89, 0.9], Timber = [0.3, 0.22, 0.16], Tiles = [0.7, 0.3, 0.2], Stonework = [0.52, 0.51, 0.49], Paintwork = [0.42, 0.28, 0.18], Banner = [0.58, 0.46, 0.34], Crop = [0.82, 0.7, 0.36], Glow = [1.0, 0.56, 0.16] }, { Plaster = [0.9, 0.84, 0.7], Timber = [0.4, 0.28, 0.17], Tiles = [0.58, 0.42, 0.26], Stonework = [0.64, 0.59, 0.51], Paintwork = [0.36, 0.3, 0.22], Banner = [0.56, 0.2, 0.26], Crop = [0.46, 0.56, 0.24], Glow = [1.0, 0.56, 0.16] }, { Plaster = [0.96, 0.92, 0.83], Timber = [0.2, 0.16, 0.13], Tiles = [0.38, 0.4, 0.46], Stonework = [0.62, 0.61, 0.59], Paintwork = [0.55, 0.36, 0.16], Banner = [0.4, 0.48, 0.26], Crop = [0.74, 0.62, 0.3], Glow = [1.0, 0.56, 0.16] }, { Plaster = [0.9, 0.77, 0.6], Timber = [0.34, 0.23, 0.15], Tiles = [0.74, 0.38, 0.22], Stonework = [0.56, 0.53, 0.48], Paintwork = [0.32, 0.38, 0.3], Banner = [0.66, 0.36, 0.2], Crop = [0.62, 0.66, 0.34], Glow = [1.0, 0.56, 0.16] }, { Plaster = [0.93, 0.88, 0.82], Timber = [0.38, 0.26, 0.18], Tiles = [0.8, 0.44, 0.22], Stonework = [0.61, 0.58, 0.54], Paintwork = [0.46, 0.22, 0.2], Banner = [0.44, 0.34, 0.5], Crop = [0.56, 0.63, 0.27], Glow = [1.0, 0.56, 0.16] }, { Plaster = [0.95, 0.9, 0.78], Timber = [0.33, 0.22, 0.14], Tiles = [0.78, 0.34, 0.18], Stonework = [0.6, 0.57, 0.52], Paintwork = [0.42, 0.28, 0.18], Banner = [0.62, 0.22, 0.18], Crop = [0.82, 0.7, 0.36], Glow = [1.0, 0.56, 0.16] }, { Plaster = [0.97, 0.95, 0.9], Timber = [0.24, 0.18, 0.13], Tiles = [0.66, 0.26, 0.16], Stonework = [0.64, 0.62, 0.58], Paintwork = [0.3, 0.4, 0.28], Banner = [0.3, 0.44, 0.3], Crop = [0.46, 0.56, 0.24], Glow = [1.0, 0.56, 0.16] }, { Plaster = [0.93, 0.8, 0.56], Timber = [0.36, 0.24, 0.15], Tiles = [0.42, 0.44, 0.5], Stonework = [0.66, 0.6, 0.5], Paintwork = [0.52, 0.24, 0.18], Banner = [0.74, 0.6, 0.3], Crop = [0.74, 0.62, 0.3], Glow = [1.0, 0.56, 0.16] }]
+
+[[slot]]
+parts = ["../quaternius/medieval/prop_crates.obj", "../quaternius/medieval/prop_wagon.obj"]
+size = [0.211, 0.383]
+at = [0.394, 0.0, 1.308]
+rotations = [0, 90]
+
+[[slot]]
+parts = ["../kenney/watercraft/boat-row-small.obj"]
+size = [0.785, 0.678]
+at = [1.107, 0.0, -0.189]
+rotations = [0, 30]

@@ -8,6 +8,14 @@ Release notes in full are on the [releases page](https://github.com/sirmmo/citys
 - **Report to OpenTactics**, in the new OpenTactics window: a link back with the population and the taxes, copied to the clipboard. The city then pays 50% of its income there, plus 100% for every $400 of taxes a month.
 - On the command line: `--holding LINK`. See [PLAYING.md](docs/PLAYING.md#a-city-for-opentactics).
 
+## 0.2.86: Medieval services
+- **Period buildings everywhere in the Middle Ages and fantasy skins:** services, amenities, water and waste works, stops, the harbour and port, and the fields and crafts are now put together from the Quaternius Medieval Village MegaKit at the homes' scale, instead of OpenCity's 2000s models: a watch tower, a gatehouse for the town guard, the Hospital of St John with its chapel, a cathedral school with its spire, colleges round quadrangles, a town hall over an open market, tournament lists, a market hall, a playhouse, a reliquary, Roman ruins, a conduit house, settling ponds, a midden, lime kilns, a quay with a treadwheel crane, a carriers' yard, waystones.
+- **Fields and crafts look like it:** ploughed fields, a smithy, dye works, a timber yard, a brewhouse, a windmill, a watermill, a croft and a manor farm with its tithe barn.
+- **The fantasy skin's own:** a mage tower in a ring of standing stones, a dragon forge, a sun circle, an arcane foundry, a stargazer's tower, an elven retreat, a faire, a water garden, and ley lines of standing stones joined by a glowing line.
+- **Period names** for the tools that still had modern ones (Grammar school, College, Market hall, Playhouse, Town hall, Midden, Lime kiln, Waystone…).
+- Props from the CC0 Kenney Fantasy Town Kit (windmill sails, water wheel, stalls, carts, lanterns, hedges, rocks, trees) and statues and columns from the CC0 Quaternius Ultimate Modular Ruins Pack.
+- Skins without motor vehicles no longer show an airliner over airports, and a skin's own wind turbine model (a windmill) no longer gets turbine blades. See [SKINS.md](docs/SKINS.md#services-works-and-the-fields-and-crafts).
+
 ## 0.2.85: Medieval village
 - **Medieval homes and shops:** the Middle Ages skin builds its burgage plots and markets from the CC0 Quaternius Medieval Village MegaKit, put together into whole buildings: timber-framed and stone cottages, houses with jettied upper storeys, tall town houses, a longhouse, shops under arcades and awnings, market stalls, a tavern, an inn, a guild hall and a tower. Each plot is painted in one of nine colourways (plaster, timber, roof tiles, stone, doors and shutters, awnings).
 - **Big plots are little quarters:** two houses back to back, a farmstead round its yard, a row of tall houses with a tower, a market square with its guild hall, a tavern or an inn with its yard, a guild quarter. Every building keeps the same scale on small and big plots.

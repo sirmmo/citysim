@@ -15,6 +15,8 @@ water = [0.20, 0.32, 0.36, 0.65]
 ui_accent = [120, 60, 40]
 ui_panel = [30, 26, 22]
 vehicles = false
+# Bridges stand on Kenney Fantasy Town Kit stone pillars.
+bridge_pier = "kenney/fantasy-town/pillar-stone"
 
 [labels]
 residential = "Burgage plots"
@@ -29,12 +31,35 @@ hospital = "Hospital of St John"
 school = "Cathedral school"
 park = "Well"
 trees = "Wood"
+high_school = "Grammar school"
+university = "College"
+stadium = "Tournament lists"
+mall = "Market hall"
+museum = "Reliquary"
+modern_art_museum = "Painters' guild"
+opera_house = "Playhouse"
+archaeology_museum = "Old ruins"
+mayors_office = "Magistrate's house"
+city_hall = "Town hall"
+neighbourhood_office = "Ward house"
+pumping_station = "Conduit house"
+water_tower = "Cistern tower"
+water_treatment = "Settling ponds"
+dump = "Midden"
+recycling = "Rag-and-bone yard"
+incinerator = "Lime kiln"
+harbour = "Quay"
+seaport = "Port with treadwheel cranes"
+bus_stop = "Waystone"
+tram_stop = "Horse post"
+metro_station = "Undercroft"
+airport = "Carriers' yard"
 
-# Graphic code -> model. Homes and shops are put together from the CC0
-# Quaternius Medieval Village MegaKit (models/quaternius/medieval/, built by
-# scripts/build-medieval.py) and painted per plot in muted colourways
-# (models/composed/med_*.compose, written by scripts/gen-medieval.py).
-# Everything else keeps OpenCity's models.
+# Graphic code -> model. Homes, shops, services and the fields and crafts
+# are put together from the CC0 Quaternius Medieval Village MegaKit
+# (models/quaternius/medieval/, built by scripts/build-medieval.py) and
+# painted per plot in muted colourways (models/composed/med_*.compose,
+# written by scripts/gen-medieval.py).
 [models]
 11 = "models/composed/med_11.compose"
 12 = "models/composed/med_12.compose"
@@ -54,3 +79,51 @@ trees = "Wood"
 27 = "models/composed/med_27.compose"
 28 = "models/composed/med_28.compose"
 29 = "models/composed/med_29.compose"
+
+# Services, works, amenities and the fields and crafts, from the same kit,
+# Quaternius ruins and Kenney Fantasy Town Kit props (gen-medieval.py).
+31 = "models/composed/med_31.compose"
+32 = "models/composed/med_32.compose"
+33 = "models/composed/med_33.compose"
+34 = "models/composed/med_34.compose"
+35 = "models/composed/med_35.compose"
+36 = "models/composed/med_36.compose"
+37 = "models/composed/med_37.compose"
+38 = "models/composed/med_38.compose"
+39 = "models/composed/med_39.compose"
+300 = "models/composed/med_300.compose"
+320 = "models/composed/med_320.compose"
+340 = "models/composed/med_340.compose"
+341 = "models/composed/med_341.compose"
+342 = "models/composed/med_342.compose"
+343 = "models/composed/med_343.compose"
+344 = "models/composed/med_344.compose"
+345 = "models/composed/med_345.compose"
+350 = "models/composed/med_350.compose"
+351 = "models/composed/med_351.compose"
+352 = "models/composed/med_352.compose"
+353 = "models/composed/med_353.compose"
+360 = "models/composed/med_360.compose"
+370 = "models/composed/med_370.compose"
+380 = "models/composed/med_380.compose"
+381 = "models/composed/med_381.compose"
+382 = "models/composed/med_382.compose"
+383 = "models/composed/med_383.compose"
+384 = "models/composed/med_384.compose"
+385 = "models/composed/med_385.compose"
+386 = "models/composed/med_386.compose"
+387 = "models/composed/med_387.compose"
+388 = "models/composed/med_388.compose"
+390 = "models/composed/med_390.compose"
+391 = "models/composed/med_391.compose"
+392 = "models/composed/med_392.compose"
+393 = "models/composed/med_393.compose"
+396 = "models/composed/med_396.compose"
+397 = "models/composed/med_397.compose"
+398 = "models/composed/med_398.compose"
+# Trees from the Kenney Nature Kit, as in the modern skin.
+330 = "models/composed/tree_pine.compose"
+331 = "models/composed/tree_leafy.compose"
+332 = "models/composed/tree_leafy.compose"
+333 = "models/composed/tree_pine.compose"
+334 = "models/composed/tree_pine.compose"

@@ -1,0 +1,32 @@
+# Bards' playhouse (fantasy skin): a galleried playhouse. Quaternius Medieval Village MegaKit pieces put
+# together by scripts/build-medieval.py, with Quaternius ruins and Kenney
+# props. Written by scripts/gen-medieval.py. CC0 parts.
+variants = 16
+
+[[slot]]
+parts = ["../quaternius/medieval/playhouse.obj"]
+size = [1.929, 1.502]
+at = [1.036, 0.0, 0.849]
+paints = [{ Plaster = [0.82, 0.72, 0.96], Timber = [0.3, 0.18, 0.3], Tiles = [0.28, 0.38, 0.8], Stonework = [0.64, 0.6, 0.76], Paintwork = [0.88, 0.66, 0.15], Banner = [0.9, 0.3, 0.6], Crop = [0.48, 0.72, 0.26], Glow = [0.35, 0.9, 1.0] }, { Plaster = [0.7, 0.94, 0.8], Timber = [0.22, 0.24, 0.3], Tiles = [0.56, 0.3, 0.72], Stonework = [0.57, 0.68, 0.72], Paintwork = [0.82, 0.2, 0.25], Banner = [0.95, 0.75, 0.15], Crop = [0.92, 0.78, 0.26], Glow = [0.8, 0.4, 1.0] }, { Plaster = [0.66, 0.84, 0.99], Timber = [0.3, 0.2, 0.14], Tiles = [0.84, 0.28, 0.3], Stonework = [0.6, 0.64, 0.78], Paintwork = [0.2, 0.58, 0.3], Banner = [0.2, 0.7, 0.55], Crop = [0.7, 0.52, 0.86], Glow = [0.4, 1.0, 0.55] }, { Plaster = [0.99, 0.74, 0.82], Timber = [0.32, 0.16, 0.22], Tiles = [0.18, 0.58, 0.58], Stonework = [0.72, 0.6, 0.68], Paintwork = [0.25, 0.36, 0.84], Banner = [0.6, 0.25, 0.85], Crop = [0.36, 0.66, 0.42], Glow = [1.0, 0.75, 0.25] }, { Plaster = [0.99, 0.92, 0.58], Timber = [0.36, 0.22, 0.12], Tiles = [0.24, 0.58, 0.36], Stonework = [0.74, 0.66, 0.52], Paintwork = [0.68, 0.2, 0.68], Banner = [0.9, 0.25, 0.2], Crop = [0.95, 0.6, 0.3], Glow = [0.35, 0.9, 1.0] }, { Plaster = [0.97, 0.96, 0.92], Timber = [0.18, 0.2, 0.38], Tiles = [0.92, 0.58, 0.2], Stonework = [0.62, 0.66, 0.74], Paintwork = [0.15, 0.46, 0.74], Banner = [0.2, 0.45, 0.9], Crop = [0.48, 0.72, 0.26], Glow = [0.8, 0.4, 1.0] }, { Plaster = [0.99, 0.8, 0.56], Timber = [0.28, 0.14, 0.12], Tiles = [0.46, 0.28, 0.66], Stonework = [0.76, 0.62, 0.54], Paintwork = [0.2, 0.62, 0.56], Banner = [0.95, 0.55, 0.1], Crop = [0.92, 0.78, 0.26], Glow = [0.4, 1.0, 0.55] }, { Plaster = [0.76, 0.96, 0.96], Timber = [0.2, 0.26, 0.24], Tiles = [0.82, 0.36, 0.58], Stonework = [0.58, 0.72, 0.72], Paintwork = [0.92, 0.46, 0.1], Banner = [0.35, 0.8, 0.3], Crop = [0.7, 0.52, 0.86], Glow = [1.0, 0.75, 0.25] }, { Plaster = [0.92, 0.82, 0.99], Timber = [0.26, 0.18, 0.12], Tiles = [0.24, 0.5, 0.86], Stonework = [0.68, 0.64, 0.82], Paintwork = [0.88, 0.25, 0.15], Banner = [0.85, 0.2, 0.45], Crop = [0.36, 0.66, 0.42], Glow = [0.35, 0.9, 1.0] }]
+
+[[slot]]
+parts = ["../kenney/fantasy-town/lantern.obj"]
+size = [0.041, 0.043]
+at = [0.379, 0.0, 2.779]
+
+[[slot]]
+parts = ["../kenney/fantasy-town/lantern.obj"]
+size = [0.041, 0.043]
+at = [3.579, 0.0, 2.779]
+
+[[slot]]
+parts = ["../quaternius/medieval/prop_wagon.obj", "../quaternius/medieval/prop_crates.obj"]
+size = [0.211, 0.383]
+at = [0.244, 0.0, 0.408]
+rotations = [90, 0]
+
+[[slot]]
+parts = ["../quaternius/medieval/tent.obj"]
+size = [0.391, 0.411]
+at = [3.454, 0.0, 0.294]
+paints = [{ Plaster = [0.99, 0.74, 0.82], Timber = [0.32, 0.16, 0.22], Tiles = [0.18, 0.58, 0.58], Stonework = [0.72, 0.6, 0.68], Paintwork = [0.25, 0.36, 0.84], Banner = [0.6, 0.25, 0.85], Crop = [0.48, 0.72, 0.26], Glow = [0.35, 0.9, 1.0] }, { Plaster = [0.99, 0.92, 0.58], Timber = [0.36, 0.22, 0.12], Tiles = [0.24, 0.58, 0.36], Stonework = [0.74, 0.66, 0.52], Paintwork = [0.68, 0.2, 0.68], Banner = [0.9, 0.25, 0.2], Crop = [0.92, 0.78, 0.26], Glow = [0.8, 0.4, 1.0] }, { Plaster = [0.97, 0.96, 0.92], Timber = [0.18, 0.2, 0.38], Tiles = [0.92, 0.58, 0.2], Stonework = [0.62, 0.66, 0.74], Paintwork = [0.15, 0.46, 0.74], Banner = [0.2, 0.45, 0.9], Crop = [0.7, 0.52, 0.86], Glow = [0.4, 1.0, 0.55] }, { Plaster = [0.99, 0.8, 0.56], Timber = [0.28, 0.14, 0.12], Tiles = [0.46, 0.28, 0.66], Stonework = [0.76, 0.62, 0.54], Paintwork = [0.2, 0.62, 0.56], Banner = [0.95, 0.55, 0.1], Crop = [0.36, 0.66, 0.42], Glow = [1.0, 0.75, 0.25] }, { Plaster = [0.76, 0.96, 0.96], Timber = [0.2, 0.26, 0.24], Tiles = [0.82, 0.36, 0.58], Stonework = [0.58, 0.72, 0.72], Paintwork = [0.92, 0.46, 0.1], Banner = [0.35, 0.8, 0.3], Crop = [0.95, 0.6, 0.3], Glow = [0.35, 0.9, 1.0] }, { Plaster = [0.92, 0.82, 0.99], Timber = [0.26, 0.18, 0.12], Tiles = [0.24, 0.5, 0.86], Stonework = [0.68, 0.64, 0.82], Paintwork = [0.88, 0.25, 0.15], Banner = [0.85, 0.2, 0.45], Crop = [0.48, 0.72, 0.26], Glow = [0.8, 0.4, 1.0] }, { Plaster = [0.82, 0.72, 0.96], Timber = [0.3, 0.18, 0.3], Tiles = [0.28, 0.38, 0.8], Stonework = [0.64, 0.6, 0.76], Paintwork = [0.88, 0.66, 0.15], Banner = [0.9, 0.3, 0.6], Crop = [0.92, 0.78, 0.26], Glow = [0.4, 1.0, 0.55] }, { Plaster = [0.7, 0.94, 0.8], Timber = [0.22, 0.24, 0.3], Tiles = [0.56, 0.3, 0.72], Stonework = [0.57, 0.68, 0.72], Paintwork = [0.82, 0.2, 0.25], Banner = [0.95, 0.75, 0.15], Crop = [0.7, 0.52, 0.86], Glow = [1.0, 0.75, 0.25] }, { Plaster = [0.66, 0.84, 0.99], Timber = [0.3, 0.2, 0.14], Tiles = [0.84, 0.28, 0.3], Stonework = [0.6, 0.64, 0.78], Paintwork = [0.2, 0.58, 0.3], Banner = [0.2, 0.7, 0.55], Crop = [0.36, 0.66, 0.42], Glow = [0.35, 0.9, 1.0] }]

@@ -1711,7 +1711,7 @@ impl Game {
             let a = self.renderer.atmosphere.sky;
             render::draw_smoke(&self.city, &cam, self.camera.target, get_time(), [&white, &black], ((a.x + a.y + a.z) / 3.0).clamp(0.25, 1.0));
         }
-        {
+        if self.renderer.turbine_blades() {
             let a = self.renderer.atmosphere.sky;
             // Without the weather on the map they turn at an even pace.
             let wind = if self.day_night { self.city.sky()[1] } else { 1.0 };
