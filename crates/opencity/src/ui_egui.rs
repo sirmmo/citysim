@@ -942,6 +942,15 @@ impl EguiUi {
                     ui.separator();
                     ui.label(RichText::new(&s.name).small()).on_hover_text(&s.description);
                 }
+                // The version of the game running, at the far right.
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    let version = env!("CARGO_PKG_VERSION");
+                    let hover = match option_env!("GITHUB_SHA") {
+                        Some(sha) => format!("citysim {version}, build {}", &sha[..sha.len().min(7)]),
+                        None => format!("citysim {version}"),
+                    };
+                    ui.label(RichText::new(format!("v{version}")).small().weak()).on_hover_text(hover);
+                });
             });
         });
     }

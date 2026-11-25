@@ -8,6 +8,10 @@ Release notes in full are on the [releases page](https://github.com/sirmmo/citys
 - **Report to OpenTactics**, in the new OpenTactics window: a link back with the population and the taxes, copied to the clipboard. The city then pays 50% of its income there, plus 100% for every $400 of taxes a month.
 - On the command line: `--holding LINK`. See [PLAYING.md](docs/PLAYING.md#a-city-for-opentactics).
 
+## 0.2.84: Which version is this?
+- **The version you are running** is at the far right of the menu bar (`v0.2.84`); in the browser its hover also names the build.
+- The website's deploy no longer fails now and then with *No artifacts named github-pages*: it builds and deploys in two jobs.
+
 ## 0.2.83: Town houses
 - **A new skin, Town (Quaternius)**, under **View > Skin**: homes and shops are town houses from the CC0 Quaternius Ultimate Textured Building Pack, painted per plot in nine colourways (walls, brickwork and roofs). Cottages and town houses with yards, terraces, apartment houses, blocks round a courtyard, rows of tall houses, shops with signs and office blocks, all at the same scale on small and big plots. Works, services and networks are the modern skin's. It is not picked automatically yet: the modern skin stays the default.
 - **The modern skin mixes them in:** some little, family and town houses, apartments and small shops are a painted Quaternius town house instead of a Kenney one, picked per plot.
