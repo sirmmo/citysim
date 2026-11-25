@@ -152,17 +152,65 @@ stops (`fire_station.compose`, `hospital.compose`, `nuclear_plant.compose`…).
 * **antiquity**: the same era without 3D art, used when nothing is baked.
   Paved roads (*via strata*) and tracks instead of asphalt.
 * **medieval**: years 501 to 1449. Muted palette, no vehicles, no
-  electricity; cobbled streets and dirt lanes.
+  electricity; cobbled streets and dirt lanes. Homes and shops are built
+  from the Quaternius Medieval Village MegaKit (below).
 * **renaissance**: years 1450 to 1799. Faded warm palette, no vehicles, no
   nuclear plant, cobbled streets and lanes. With the classic rules the coal
   plant becomes a "Watermill" and power lines become a "Mill race".
 * **industrial**: 1800-1945. Grey skies, coal age names, no nuclear plant,
   no highways.
 * **fantasy**: worlds `Eldoria`, `*fantasy*`, `ofm:*`. Vivid palette, magic
-  vocabulary ("Mage tower", "Ley line", "Dragon forge"), no vehicles, no highways.
+  vocabulary ("Mage tower", "Ley line", "Dragon forge"), no vehicles, no
+  highways. Homes and shops are the medieval skin's, in vivid colours.
 
-Except for antiquity, these reuse OpenCity's modern-looking models, so they
-are a mood change, not a full reskin.
+Except for antiquity and the medieval and fantasy homes and shops, these
+reuse OpenCity's modern-looking models, so they are a mood change, not a
+full reskin.
+
+## Medieval village buildings
+
+The medieval and fantasy skins draw their homes and shops (11-19, 21-29)
+with buildings put together from the CC0 **Quaternius Medieval Village
+MegaKit**. The kit is modular, not whole houses: 2 m wall panels with doors
+and windows, corner posts, jettied storeys, roofs sized to the walls, gables,
+dormers, chimneys, balconies, awnings and props. Two scripts make the
+buildings and the plots:
+
+```sh
+python3 -I scripts/build-medieval.py "/path/to/Medieval Village MegaKit[Standard]"
+python3 -I scripts/gen-medieval.py
+```
+
+1. **`build-medieval.py`** puts the pieces together on the kit's grid
+   (walls 2 m wide on lines facing out, 3 m storeys, a roof over each box of
+   walls) into one trimmed `.obj` + `.mtl` per building in
+   `assets/models/quaternius/medieval/`, door to +z like every citysim
+   building: one-storey cottages (`cottage_timber`, `cottage_stone`,
+   `cottage_wide`, `cottage_long`), two-storey houses with a storey jettied
+   over the street or a stone ground floor (`house_jetty`, `house_stone`,
+   `house_wide`), three-storey town houses (`townhouse_narrow`,
+   `townhouse_wide`), a `longhouse`, a `tower`, shops under an arcade or an
+   awning (`shop_arcade`, `shop_corner`), a market `stall`, a `tavern`, an
+   `inn`, a `guildhall`, and yard props (`prop_wagon`, `prop_crates`,
+   `prop_fence`). The kit's textured trim sheets become flat colours, one per
+   material: `Plaster`, `Timber`, `Stone`, `Stonework` (rubble walls),
+   `Tiles`, `Shingles` (wooden roofs, awnings and stalls), `Paintwork` (doors
+   and shutters), `Glass`, `Iron`. Faces nobody sees from above (the inside
+   of the walls, undersides) are left out, and glazing bars are dropped.
+2. **`gen-medieval.py`** writes the compositions `med_11` ... `med_29`
+   (medieval) and `fan_11` ... `fan_29` (fantasy) in `assets/models/composed/`.
+   Every building keeps the kit's scale (10.5 m to a tile) on any plot: a
+   slot's parts share a width, so `size` fits them all alike. Small plots hold
+   a house, with a yard, a tree, a wagon or crates beside it; big ones are
+   quarters: two houses back to back (16), a farmstead round its yard (18), a
+   row of tall houses and a tower (19), market stalls (21), shops and a stall
+   (24), a market square with its guild hall, tavern and tower (25), a tavern
+   or an inn with its yard (26, 27), a guild hall with houses behind it (28)
+   and a guild quarter (29). The `paints` repaint `Plaster`, `Timber`,
+   `Tiles`, `Stonework`, `Paintwork` and `Shingles` in nine colourways per
+   skin: lime, ochre and pinkish walls under red, brown or slate roofs for the
+   medieval skin; lilac, mint, sky-blue and rose walls under blue, purple,
+   teal or gold roofs for the fantasy skin.
 
 ## 0 A.D. art (antiquity skins)
 

@@ -50,6 +50,11 @@ Textured Building Pack by [Quaternius](https://quaternius.com), released
 under CC0 (public domain), trimmed by `scripts/import-quaternius.py`; the
 folder keeps the pack's `License.txt`.
 
+`assets/models/quaternius/medieval/` holds houses, shops, halls and a tower
+put together by `scripts/build-medieval.py` from the pieces of the Medieval
+Village MegaKit (Standard) by [Quaternius](https://quaternius.com), released
+under CC0 (public domain); the folder keeps the kit's `License.txt`.
+
 Also by Kenney, under CC0: the interface sounds in `assets/sound/ui/`
 (Interface Sounds), the sky panorama and smoke puffs in
 `assets/graphism/texture/` (`sky_day.png` from Skyboxes, `smoke_*.png`

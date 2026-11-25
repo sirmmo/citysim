@@ -1,0 +1,27 @@
+# Timber house (medieval skin): a timber-framed house with its yard, from Quaternius Medieval Village MegaKit
+# pieces (scripts/build-medieval.py), painted per plot. Written by
+# scripts/gen-medieval.py. CC0 parts.
+variants = 16
+
+[[slot]]
+parts = ["../quaternius/medieval/house_jetty.obj", "../quaternius/medieval/cottage_timber.obj"]
+size = [0.525, 0.723]
+at = [0.057, 0.0, 0.189]
+paints = [{ Plaster = [0.95, 0.9, 0.78], Timber = [0.33, 0.22, 0.14], Tiles = [0.78, 0.34, 0.18], Stonework = [0.6, 0.57, 0.52], Paintwork = [0.42, 0.28, 0.18], Shingles = [0.62, 0.22, 0.18] }, { Plaster = [0.97, 0.95, 0.9], Timber = [0.24, 0.18, 0.13], Tiles = [0.66, 0.26, 0.16], Stonework = [0.64, 0.62, 0.58], Paintwork = [0.3, 0.4, 0.28], Shingles = [0.3, 0.44, 0.3] }, { Plaster = [0.93, 0.8, 0.56], Timber = [0.36, 0.24, 0.15], Tiles = [0.42, 0.44, 0.5], Stonework = [0.66, 0.6, 0.5], Paintwork = [0.52, 0.24, 0.18], Shingles = [0.74, 0.6, 0.3] }, { Plaster = [0.94, 0.8, 0.74], Timber = [0.28, 0.2, 0.15], Tiles = [0.84, 0.48, 0.24], Stonework = [0.59, 0.56, 0.54], Paintwork = [0.28, 0.36, 0.48], Shingles = [0.3, 0.38, 0.56] }, { Plaster = [0.86, 0.89, 0.9], Timber = [0.3, 0.22, 0.16], Tiles = [0.7, 0.3, 0.2], Stonework = [0.52, 0.51, 0.49], Paintwork = [0.42, 0.28, 0.18], Shingles = [0.58, 0.46, 0.34] }, { Plaster = [0.9, 0.84, 0.7], Timber = [0.4, 0.28, 0.17], Tiles = [0.58, 0.42, 0.26], Stonework = [0.64, 0.59, 0.51], Paintwork = [0.36, 0.3, 0.22], Shingles = [0.56, 0.2, 0.26] }, { Plaster = [0.96, 0.92, 0.83], Timber = [0.2, 0.16, 0.13], Tiles = [0.38, 0.4, 0.46], Stonework = [0.62, 0.61, 0.59], Paintwork = [0.55, 0.36, 0.16], Shingles = [0.4, 0.48, 0.26] }, { Plaster = [0.9, 0.77, 0.6], Timber = [0.34, 0.23, 0.15], Tiles = [0.74, 0.38, 0.22], Stonework = [0.56, 0.53, 0.48], Paintwork = [0.32, 0.38, 0.3], Shingles = [0.66, 0.36, 0.2] }, { Plaster = [0.93, 0.88, 0.82], Timber = [0.38, 0.26, 0.18], Tiles = [0.8, 0.44, 0.22], Stonework = [0.61, 0.58, 0.54], Paintwork = [0.46, 0.22, 0.2], Shingles = [0.44, 0.34, 0.5] }]
+
+[[slot]]
+parts = ["", "../quaternius/medieval/prop_crates.obj", "../quaternius/medieval/prop_wagon.obj"]
+size = [0.211, 0.383]
+at = [0.694, 0.0, 0.548]
+rotations = [0, 90]
+
+[[slot]]
+parts = ["../quaternius/medieval/prop_fence.obj", ""]
+size = [0.387, 0.011]
+at = [0.596, 0.0, 0.969]
+
+[[slot]]
+parts = ["../kenney/nature/tree_default.obj", "../kenney/nature/tree_oak.obj", "../kenney/nature/tree_fat.obj", "../kenney/nature/tree_default_fall.obj", ""]
+size = [0.340, 0.340]
+at = [0.620, 0.0, 0.130]
+rotations = [0, 90, 180, 270]

@@ -1,0 +1,15 @@
+# Flat colours in sRGB (scripts/build-medieval.py); compositions repaint them by name
+newmtl Glass
+Kd 0.270 0.330 0.400
+newmtl Paintwork
+Kd 0.420 0.280 0.180
+newmtl Plaster
+Kd 0.950 0.900 0.780
+newmtl Shingles
+Kd 0.470 0.360 0.260
+newmtl Stonework
+Kd 0.560 0.530 0.480
+newmtl Tiles
+Kd 0.780 0.340 0.180
+newmtl Timber
+Kd 0.330 0.220 0.140

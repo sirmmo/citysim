@@ -1,0 +1,3 @@
+# Flat colours in sRGB (scripts/build-medieval.py); compositions repaint them by name
+newmtl Paintwork
+Kd 0.420 0.280 0.180

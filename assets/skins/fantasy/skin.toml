@@ -32,3 +32,28 @@ hospital = "Temple of healing"
 school = "Academy of magic"
 park = "Sacred grove"
 trees = "Enchanted forest"
+
+# Graphic code -> model. Homes and shops are put together from the CC0
+# Quaternius Medieval Village MegaKit (models/quaternius/medieval/, built by
+# scripts/build-medieval.py) and painted per plot in vivid colourways
+# (models/composed/fan_*.compose, written by scripts/gen-medieval.py).
+# Everything else keeps OpenCity's models.
+[models]
+11 = "models/composed/fan_11.compose"
+12 = "models/composed/fan_12.compose"
+13 = "models/composed/fan_13.compose"
+14 = "models/composed/fan_14.compose"
+15 = "models/composed/fan_15.compose"
+16 = "models/composed/fan_16.compose"
+17 = "models/composed/fan_17.compose"
+18 = "models/composed/fan_18.compose"
+19 = "models/composed/fan_19.compose"
+21 = "models/composed/fan_21.compose"
+22 = "models/composed/fan_22.compose"
+23 = "models/composed/fan_23.compose"
+24 = "models/composed/fan_24.compose"
+25 = "models/composed/fan_25.compose"
+26 = "models/composed/fan_26.compose"
+27 = "models/composed/fan_27.compose"
+28 = "models/composed/fan_28.compose"
+29 = "models/composed/fan_29.compose"

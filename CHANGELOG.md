@@ -8,6 +8,12 @@ Release notes in full are on the [releases page](https://github.com/sirmmo/citys
 - **Report to OpenTactics**, in the new OpenTactics window: a link back with the population and the taxes, copied to the clipboard. The city then pays 50% of its income there, plus 100% for every $400 of taxes a month.
 - On the command line: `--holding LINK`. See [PLAYING.md](docs/PLAYING.md#a-city-for-opentactics).
 
+## 0.2.85: Medieval village
+- **Medieval homes and shops:** the Middle Ages skin builds its burgage plots and markets from the CC0 Quaternius Medieval Village MegaKit, put together into whole buildings: timber-framed and stone cottages, houses with jettied upper storeys, tall town houses, a longhouse, shops under arcades and awnings, market stalls, a tavern, an inn, a guild hall and a tower. Each plot is painted in one of nine colourways (plaster, timber, roof tiles, stone, doors and shutters, awnings).
+- **Big plots are little quarters:** two houses back to back, a farmstead round its yard, a row of tall houses with a tower, a market square with its guild hall, a tavern or an inn with its yard, a guild quarter. Every building keeps the same scale on small and big plots.
+- **The fantasy skin** uses the same buildings in vivid colours: lilac, mint and sky-blue walls under blue, purple and teal roofs.
+- Works, services and networks keep their models in both skins. See [SKINS.md](docs/SKINS.md#medieval-village-buildings).
+
 ## 0.2.84: Which version is this?
 - **The version you are running** is at the far right of the menu bar (`v0.2.84`); in the browser its hover also names the build.
 - The website's deploy no longer fails now and then with *No artifacts named github-pages*: it builds and deploys in two jobs.
