@@ -2,6 +2,9 @@
 
 Release notes in full are on the [releases page](https://github.com/sirmmo/citysim/releases).
 
+## 0.2.88: On Wavedash
+- **The browser version can be published on [Wavedash](https://wavedash.com):** it tells Wavedash when it has loaded (and does nothing anywhere else), and `tools/wavedash.sh` builds a self-contained upload and sends it as a new build. A hand-run Wavedash workflow does the same from GitHub Actions. See the README.
+
 ## 0.2.87: City builder
 - **City builder mode**, a new choice in the New City dialog under GlassBox rules: as in the Anno and Pharaoh games, every plot starts as a tent and grows as far as its needs are met, through the whole ladder of homes or shops, from a hut to an insula or from a little house to a tower. The density you paint no longer matters for homes and shops; buildings still need their resources to run, and fall back down, or empty, when they stop getting them.
 - **Tents:** newcomers camp on their plot, a canvas tent or two by a campfire, from the CC0 Kenney Survival Kit. A tent needs nothing and becomes a hut (or a little house) once there is food (or power) to spare for one.
