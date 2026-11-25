@@ -19,11 +19,11 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  deploy:
+  # Two jobs: the deploy job only starts once the uploaded site is listed as
+  # one of the run's artifacts (in one job, deploy-pages sometimes looked for
+  # it too soon and failed with "No artifacts named github-pages").
+  build:
     runs-on: ubuntu-24.04
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4.2.2
       - name: Rust toolchain
@@ -41,5 +41,13 @@ jobs:
       - uses: actions/upload-pages-artifact@v3.0.1
         with:
           path: site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-24.04
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
       - id: deployment
         uses: actions/deploy-pages@v4.0.5
