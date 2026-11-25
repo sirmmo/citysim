@@ -324,6 +324,11 @@ pub struct GlassBox {
     /// Disasters switched off by the player.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub disasters_off: bool,
+    /// City builder mode, chosen with the new city: plots of the zones
+    /// whose densities form a ladder start as tents and climb it as far as
+    /// their needs are met, whatever density was painted.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub builder: bool,
     /// Season and weather factors on the odds of disasters that destroy,
     /// flood (near water) and sicken (set by the city each day).
     #[serde(skip)]
@@ -499,6 +504,7 @@ impl GlassBox {
             culture_in: Vec::new(),
             tax_rates: BTreeMap::new(),
             disasters_off: false,
+            builder: false,
             ledger: BTreeMap::new(),
             funding: BTreeMap::new(),
             events: Vec::new(),
@@ -1087,10 +1093,11 @@ impl GlassBox {
                 }
                 DisasterEffect::Damage => {
                     let Some(u) = s.unit else { continue };
-                    let zone = rules.zone_for(s.code).and_then(|z| rules.zones[z].densities.get(s.density as usize));
-                    let k = zone.and_then(|z| z.units.iter().position(|x| rules.unit(x) == Some(u as usize)));
-                    let ok = match k {
-                        Some(k) if k > 0 => set_unit(layer, terrain, footprints, rng, w, l, rules.unit(&zone.unwrap().units[k - 1]), k as u8, &rules),
+                    let zone = rules.zone_for(s.code);
+                    let chain = zone.map(|z| rules.chain(z, s.density, self.builder)).unwrap_or_default();
+                    let k = chain.iter().position(|x| rules.unit(x) == Some(u as usize));
+                    let ok = match (k, zone) {
+                        (Some(k), Some(z)) if k > 0 => set_rung(layer, terrain, footprints, rng, (w, l), &rules, z, &chain, k - 1, self.builder),
                         _ => set_unit(layer, terrain, footprints, rng, w, l, None, 0, &rules),
                     };
                     if ok {
@@ -1428,7 +1435,7 @@ impl GlassBox {
             .filter_map(|(i, (p, u, _))| {
                 let st = &self.units[&idx(p.0, p.1)];
                 (st.thriving + 1 >= g.patience && st.age + 1 >= g.grace).then_some(())?;
-                Some((i, rules.next_unit(*u, layer.structure_at(p.0, p.1)?.density)?))
+                Some((i, rules.next_unit(*u, layer.structure_at(p.0, p.1)?.density, self.builder)?))
             })
             .collect();
         // What each unit's grid supply left unused (unit, resource): what a
@@ -2811,7 +2818,20 @@ impl GlassBox {
                     };
                     t.cmp.holds(v, t.value)
                 });
-                if ok && set_unit(layer, terrain, footprints, rng, w, l, Some(unit), 1, rules) {
+                if !ok {
+                    continue;
+                }
+                // On a city builder ladder the unit stands on its own rung.
+                let plot = layer.structure_at(w, l).and_then(|s| Some((rules.zone_for(s.code)?, s.density)));
+                let rung = plot.filter(|&(z, _)| rules.climbs(z, self.builder)).and_then(|(z, d)| {
+                    let chain = rules.chain(z, d, true);
+                    Some((z, chain.iter().position(|x| *x == zr.create)?, chain))
+                });
+                let placed = match rung {
+                    Some((z, k, chain)) => set_rung(layer, terrain, footprints, rng, (w, l), rules, z, &chain, k, true),
+                    None => set_unit(layer, terrain, footprints, rng, w, l, Some(unit), 1, rules),
+                };
+                if placed {
                     self.churn[0] += 1;
                 }
             }
@@ -2866,6 +2886,9 @@ impl GlassBox {
                             .is_some_and(|v| *v > 0.01)
                     })
             };
+            // What each density's buildings grow through (in city builder
+            // mode a ladder zone's are one ladder, whatever was painted).
+            let chains: Vec<Vec<&str>> = (0..z.densities.len()).map(|d| rules.chain(zi, d as u8, self.builder)).collect();
             // New buildings on empty plots.
             if self.demand[zi] > 0.5 && !saturated {
                 let mut plots: Vec<(u32, u32)> =
@@ -2882,11 +2905,11 @@ impl GlassBox {
                         continue;
                     }
                     let density = layer.structure_at(w, l).map_or(0, |s| s.density as usize).min(z.densities.len() - 1);
-                    let unit = rules.unit(&z.densities[density].units[0]).unwrap();
-                    if !self.unlocked(rules, &rules.units[unit].id) {
+                    let chain = &chains[density];
+                    if !self.unlocked(rules, chain[0]) {
                         continue;
                     }
-                    if set_unit(layer, terrain, footprints, rng, w, l, Some(unit), 1, rules) {
+                    if set_rung(layer, terrain, footprints, rng, (w, l), rules, zi, chain, 0, self.builder) {
                         placed += 1;
                         self.churn[0] += 1;
                     }
@@ -2907,8 +2930,8 @@ impl GlassBox {
                 if st.age > 2 * g.grace && st.struggling == 0 {
                     self.vacated.remove(&key); // the plot works now
                 }
-                let d = &z.densities[(density as usize).min(z.densities.len() - 1)];
-                let Some(k) = d.units.iter().position(|id| rules.unit(id) == Some(u as usize)) else { continue };
+                let d = &chains[(density as usize).min(z.densities.len() - 1)];
+                let Some(k) = d.iter().position(|id| rules.unit(id) == Some(u as usize)) else { continue };
                 // Long neglect shrinks a building, but only low satisfaction
                 // empties a plot. Buildings grow only while their zone is
                 // in demand (people want to move in).
@@ -2923,14 +2946,13 @@ impl GlassBox {
                     })
                 };
                 // Nor into one research has not unlocked yet.
-                let next_fits = k + 1 < d.units.len() && fits(rules.unit(&d.units[k + 1]).unwrap()) && self.unlocked(rules, &d.units[k + 1]);
+                let next_fits = k + 1 < d.len() && fits(rules.unit(d[k + 1]).unwrap()) && self.unlocked(rules, d[k + 1]);
                 // Nor into one that needs more than its networks have to
                 // spare (no water left, no workers looking for a job).
-                let extra = if up && next_fits { self.growth_needs(rules, u as usize, rules.unit(&d.units[k + 1]).unwrap(), key) } else { Vec::new() };
+                let extra = if up && next_fits { self.growth_needs(rules, u as usize, rules.unit(d[k + 1]).unwrap(), key) } else { Vec::new() };
                 let supplied = extra.iter().all(|e| e.2);
                 let changed = if up && next_fits && supplied && rng.r#gen::<f32>() < g.chance {
-                    let next = rules.unit(&d.units[k + 1]).unwrap();
-                    let ok = set_unit(layer, terrain, footprints, rng, p.0, p.1, Some(next), k as u8 + 2, rules);
+                    let ok = set_rung(layer, terrain, footprints, rng, p, rules, zi, d, k + 1, self.builder);
                     self.churn[2] += ok as u32;
                     if ok {
                         // What it will take is no longer spare for the next one.
@@ -2950,8 +2972,7 @@ impl GlassBox {
                     ok
                 } else if down && rng.r#gen::<f32>() < g.chance {
                     if k > 0 {
-                        let prev = rules.unit(&d.units[k - 1]).unwrap();
-                        let ok = set_unit(layer, terrain, footprints, rng, p.0, p.1, Some(prev), k as u8, rules);
+                        let ok = set_rung(layer, terrain, footprints, rng, p, rules, zi, d, k - 1, self.builder);
                         self.churn[3] += ok as u32;
                         ok
                     } else {
@@ -3147,6 +3168,32 @@ fn emit_by_road(values: &mut [f32], layer: &BuildingLayer, terrain: &Terrain, r:
     for (i, v) in got {
         values[i] += v * sign;
     }
+}
+
+/// Sets a zone building to rung `k` of its chain (see [`Ruleset::chain`]):
+/// that unit, at level `k + 1`. One that climbs its zone's whole ladder
+/// (city builder mode) also takes the density its unit stands for, so the
+/// density says what stands there rather than what was painted.
+#[allow(clippy::too_many_arguments)]
+fn set_rung(
+    layer: &mut BuildingLayer,
+    terrain: &Terrain,
+    footprints: &Footprints,
+    rng: &mut impl Rng,
+    (w, l): (u32, u32),
+    rules: &Ruleset,
+    zone: usize,
+    chain: &[&str],
+    k: usize,
+    builder: bool,
+) -> bool {
+    let ok = set_unit(layer, terrain, footprints, rng, w, l, rules.unit(chain[k]), k as u8 + 1, rules);
+    if ok && rules.climbs(zone, builder) {
+        if let Some(s) = layer.structure_mut(w, l) {
+            s.density = rules.density_of(zone, chain[k]);
+        }
+    }
+    ok
 }
 
 /// Changes the unit (and model) of the structure at `(w, l)`; `None` empties the plot.

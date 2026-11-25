@@ -120,6 +120,13 @@ seaport and water and waste works are compositions too
 `incinerator.compose`), and so are its services, power plants and transit
 stops (`fire_station.compose`, `hospital.compose`, `nuclear_plant.compose`…).
 
+The tent where a plot starts in city builder mode (graphic code 40) is a
+composition in the base catalog itself (`graphism.conf` names
+`models/composed/tent.compose`), so every skin shows it unless it maps 40
+to a model of its own: a canvas tent or two by a campfire, with crates, a
+barrel or a bedroll, from the CC0 **Kenney Survival Kit**
+(`assets/models/kenney/survival/`).
+
 ## Shipped examples
 
 * **modern** (Modern, Kenney city kits): years 1946 on, and every city with

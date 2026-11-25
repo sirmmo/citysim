@@ -99,6 +99,10 @@ struct Args {
     /// GlassBox game rules for a new city (e.g. "glassbox"); default: classic OpenCity rules.
     #[arg(long)]
     game_rules: Option<String>,
+    /// With --game-rules: play the new city in city builder mode (plots
+    /// start as tents and grow as far as their needs are met).
+    #[arg(long, requires = "game_rules")]
+    builder: bool,
     /// Draw this GlassBox map layer over the city (screenshots).
     #[arg(long, hide = true)]
     overlay: Option<String>,
@@ -1098,10 +1102,13 @@ impl Game {
         match cmd {
             Command::Act(a) => return self.handle_action(a),
             Command::SetSpeed(s) => self.city.speed = s,
-            Command::NewCity(params, skin, rules) => match new_city_with(params, &self.base_catalog) {
+            Command::NewCity(params, skin, rules, builder) => match new_city_with(params, &self.base_catalog) {
                 Ok(mut c) => {
                     if let Some(r) = rules.and_then(|id| self.rulesets.iter().find(|r| r.id == id).cloned()) {
                         c.use_rules(r);
+                    }
+                    if let Some(g) = c.glassbox.as_mut() {
+                        g.builder = builder;
                     }
                     self.overlay = None;
                     // The chosen era/culture dresses the new city (None: modern look).
@@ -1856,6 +1863,9 @@ async fn main() -> Result<()> {
         match rulesets.iter().find(|r| &r.id == id) {
             Some(r) => city.use_rules(r.clone()),
             None => log::warn!("unknown rules {id}"),
+        }
+        if let Some(g) = city.glassbox.as_mut().filter(|_| s.args.builder) {
+            g.builder = true;
         }
     }
     attach_saved_rules(&mut city, &rulesets);

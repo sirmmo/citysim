@@ -1,0 +1,32 @@
+# Tent (city builder mode): newcomers camping on their plot, a canvas tent
+# or two by a campfire with their crates and bedrolls. Kenney Survival Kit
+# parts (CC0), kept at the kit's scale (0.86 tiles to a kit unit).
+variants = 12
+
+[[slot]]
+parts = ["../kenney/survival/tent-canvas.obj"]
+size = [0.48, 0.49]
+at = [0.06, 0.0, 0.08]
+rotations = [0, 90, 270]
+
+[[slot]]
+parts = ["", "../kenney/survival/tent-canvas.obj", "../kenney/survival/tent.obj"]
+size = [0.34, 0.35]
+at = [0.6, 0.0, 0.06]
+rotations = [0, 270]
+
+[[slot]]
+parts = ["../kenney/survival/campfire-pit.obj"]
+size = [0.24, 0.22]
+at = [0.4, 0.0, 0.64]
+
+[[slot]]
+parts = ["../kenney/survival/box.obj", "../kenney/survival/barrel.obj", "../kenney/survival/bedroll.obj", ""]
+size = [0.2, 0.2]
+at = [0.74, 0.0, 0.58]
+rotations = [0, 30]
+
+[[slot]]
+parts = ["../kenney/survival/resource-wood.obj", ""]
+size = [0.17, 0.07]
+at = [0.12, 0.0, 0.74]

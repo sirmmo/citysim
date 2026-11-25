@@ -615,17 +615,32 @@ impl City {
     }
 
     /// Zoning cost per tile at the current density, under GlassBox rules.
-    fn zone_cost(&self, code: StructureCode) -> Option<u32> {
+    pub fn zone_cost(&self, code: StructureCode) -> Option<u32> {
         let rules = self.rules()?;
         let z = rules.zone_for(code)?;
-        rules.zones[z].densities.get(self.zone_density as usize).map(|d| d.cost)
+        rules.zones[z].densities.get(self.painted_density(code) as usize).map(|d| d.cost)
+    }
+
+    /// Whether the city was started in city builder mode (GlassBox rules):
+    /// plots start as tents and grow as far as their needs are met.
+    pub fn builder(&self) -> bool {
+        self.glassbox.as_ref().is_some_and(|g| g.builder)
+    }
+
+    /// The density the zone tools paint for a zone: the chosen one, or the
+    /// lowest where the city builder ladder makes it moot.
+    pub fn painted_density(&self, code: StructureCode) -> u8 {
+        match self.rules().and_then(|r| Some((r, r.zone_for(code)?))) {
+            Some((r, z)) => r.painted_density(z, self.zone_density, self.builder()),
+            None => self.zone_density,
+        }
     }
 
     /// GlassBox bookkeeping after a build: zone density, service units.
     fn after_build(&mut self, tool: Tool, code: StructureCode, rect: Rect) {
         let Some(rules) = self.rules().cloned() else { return };
         if code.is_zone() {
-            let density = self.zone_density;
+            let density = self.painted_density(code);
             for (w, l) in rect.tiles() {
                 if let Some(s) = self.layer.structure_mut(w, l) {
                     if s.code == code && s.unit.is_none() {

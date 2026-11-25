@@ -382,6 +382,10 @@ densities = [
   { id = "medium", name = "Medium density", cost = 5, units = ["town_house", "merchant_house", "row_houses"] },
   { id = "high", name = "High density", cost = 10, units = ["tenement", "courtyard_house", "insula"] },
 ]
+# City builder mode: a plot starts as a tent and climbs the densities above
+# as one ladder, hut to insula, as far as its needs are met.
+ladder = true
+builder_start = "tent"
 
 [[zone]]
 id = "commercial"
@@ -397,6 +401,7 @@ densities = [
   { id = "medium", name = "Medium density", cost = 5, units = ["covered_market", "tavern", "coaching_inn"] },
   { id = "high", name = "High density", cost = 10, units = ["caravanserai", "market_square", "exchange"] },
 ]
+ladder = true                   # city builder mode: stall to exchange in turn
 
 [[zone]]
 id = "industrial"
@@ -413,6 +418,8 @@ densities = [
   { id = "medium", name = "Quarries & mines", cost = 6, units = ["quarry", "mine", "stone_works"] },
   { id = "high", name = "Workshops", cost = 12, units = ["foundry", "stables", "craft_hall"] },
 ]
+# No ladder: fields, mines and workshops are kinds, not levels, and grow
+# where they are painted in city builder mode too.
 
 # ---------------------------------------------------------------- services
 [services]
@@ -911,6 +918,19 @@ district = 8
 approval = 1
 needs = { workers = 1, food = 0.5, upkeep = 0.03 }
 emits = { land_value = { amount = 1.5, radius = 6 } }
+
+# City builder mode: where a residential plot starts (the zone's
+# builder_start). It needs nothing; it becomes a hut once the market has
+# food to spare for one.
+[[unit]]
+id = "tent"
+name = "Tent"
+description = "Newcomers camping on their plot until a hut goes up."
+graphic = 40
+produce = { residents = 2, workers = 1, shoppers = 1 }
+sends = ["workers", "shoppers"]
+outlets = { workers = 1, shoppers = 0.5 }
+requires = { pollution = { max = 25 } }
 
 # ---------------------------------------------------------------- events
 # Sums are for each thousand residents (see rules/glassbox.toml).

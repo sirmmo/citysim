@@ -2,11 +2,11 @@
 
 Release notes in full are on the [releases page](https://github.com/sirmmo/citysim/releases).
 
-## Unreleased: Cities for OpenTactics
-- **Run a city for an OpenTactics game:** a link from OpenTactics (`play/#holding=…`) founds a city named after the one there, on land shaped by its neighbours: sea, mountains and forest along the edges they lie on.
-- **No racing ahead of the war:** each OpenTactics day allows 3 months of city time; then the city waits, saying *Waiting for day N+1 in OpenTactics*, and you can still build. A newer link carries on from the city's own save.
-- **Report to OpenTactics**, in the new OpenTactics window: a link back with the population and the taxes, copied to the clipboard. The city then pays 50% of its income there, plus 100% for every $400 of taxes a month.
-- On the command line: `--holding LINK`. See [PLAYING.md](docs/PLAYING.md#a-city-for-opentactics).
+## 0.2.87: City builder
+- **City builder mode**, a new choice in the New City dialog under GlassBox rules: as in the Anno and Pharaoh games, every plot starts as a tent and grows as far as its needs are met, through the whole ladder of homes or shops, from a hut to an insula or from a little house to a tower. The density you paint no longer matters for homes and shops; buildings still need their resources to run, and fall back down, or empty, when they stop getting them.
+- **Tents:** newcomers camp on their plot, a canvas tent or two by a campfire, from the CC0 Kenney Survival Kit. A tent needs nothing and becomes a hut (or a little house) once there is food (or power) to spare for one.
+- Fields, mines and workshops, and modern industry, still grow as painted: the density choice of the zone tools is theirs alone in this mode.
+- The mode is saved with the city (older saves load as before), and `--builder` starts one from the command line with `--game-rules`. Rules files turn it on per zone with `ladder = true` and `builder_start = "tent"`. See [RULES.md](docs/RULES.md).
 
 ## 0.2.86: Medieval services
 - **Period buildings everywhere in the Middle Ages and fantasy skins:** services, amenities, water and waste works, stops, the harbour and port, and the fields and crafts are now put together from the Quaternius Medieval Village MegaKit at the homes' scale, instead of OpenCity's 2000s models: a watch tower, a gatehouse for the town guard, the Hospital of St John with its chapel, a cathedral school with its spire, colleges round quadrangles, a town hall over an open market, tournament lists, a market hall, a playhouse, a reliquary, Roman ruins, a conduit house, settling ponds, a midden, lime kilns, a quay with a treadwheel crane, a carriers' yard, waystones.
@@ -79,6 +79,10 @@ Release notes in full are on the [releases page](https://github.com/sirmmo/citys
 - **Ready for [city2graph](https://city2graph.net):** the zip holds a script that loads it all and builds four graphs (morphology, transit, mobility, proximity). Checked with city2graph 1.1.0.
 - On the command line: `opencity-cli export-data city.ocsave.json -o folder`. For AI assistants: the MCP tool `export_data`.
 - Coordinates are longitude and latitude; a city that was not imported from a map lies on the equator with tiles of 16 metres. Timetable speeds and hours are set by the export. See [DATA.md](docs/DATA.md).
+- **Cities for OpenTactics** (left under "Unreleased" until 0.2.87). **Run a city for an OpenTactics game:** a link from OpenTactics (`play/#holding=…`) founds a city named after the one there, on land shaped by its neighbours: sea, mountains and forest along the edges they lie on.
+- **No racing ahead of the war:** each OpenTactics day allows 3 months of city time; then the city waits, saying *Waiting for day N+1 in OpenTactics*, and you can still build. A newer link carries on from the city's own save.
+- **Report to OpenTactics**, in the new OpenTactics window: a link back with the population and the taxes, copied to the clipboard. The city then pays 50% of its income there, plus 100% for every $400 of taxes a month.
+- On the command line: `--holding LINK`. See [PLAYING.md](docs/PLAYING.md#a-city-for-opentactics).
 
 ## 0.2.75: A city panel for small screens
 - **The parts of the city panel fold away:** click a title (Zones and power, Demand, People, Resources, Metrics, Last 20 years, About the city) to fold or open it.

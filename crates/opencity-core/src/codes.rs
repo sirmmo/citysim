@@ -521,6 +521,9 @@ impl GraphicCode {
     pub const VEHICLE_STD: Self = Self(400);
     pub const VEHICLE_PICKUP: Self = Self(440);
     pub const VEHICLE_SPORT: Self = Self(441);
+    /// A tent: where a plot starts in city builder mode (the `tent` unit of
+    /// the shipped rules).
+    pub const TENT: Self = Self(40);
     pub const MAX: u16 = 491;
 
     pub const fn offset(self, n: u16) -> Self {

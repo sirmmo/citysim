@@ -131,12 +131,16 @@ mod tests {
     #[test]
     fn loads_shipped_catalog() {
         let c = Catalog::load(&data_dir()).unwrap();
-        assert_eq!(c.models.len(), 113);
+        assert_eq!(c.models.len(), 114);
         let coal = c.get(GraphicCode::EPLANT_COAL).unwrap();
         assert_eq!((coal.footprint.width, coal.footprint.length), (5, 3));
         assert!(coal.model.is_file());
         let family = c.get(GraphicCode(13)).unwrap();
         assert_eq!(family.name.as_deref(), Some("USA family's house"));
+        // The city builder tent: a composed model on one tile.
+        let tent = c.get(GraphicCode::TENT).unwrap();
+        assert_eq!((tent.footprint.width, tent.footprint.length), (1, 1));
+        assert!(tent.model.is_file());
     }
 
     #[test]

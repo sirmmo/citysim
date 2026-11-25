@@ -2099,13 +2099,15 @@ fn saves_survive_rules_that_gain_units() {
     let ids: Vec<&str> = r.units.iter().map(|u| u.id.as_str()).collect();
     let park = ids.iter().position(|i| *i == "park").unwrap();
     assert_eq!(&ids[park..park + 4], ["park", "high_school", "university", "museum"], "new units follow the old ones");
-    assert_eq!(&ids[ids.len() - 11..ids.len() - 9], ["old_power_station", "capped_landfill"], "relics, in 0.2.77");
-    assert_eq!(&ids[ids.len() - 9..ids.len() - 6], ["mayors_office", "city_hall", "neighbourhood_office"], "government, in 0.2.78");
-    assert_eq!(ids[ids.len() - 1], "citizens_committee", "what follows a fallen government came last, in 0.2.79");
-    assert_eq!(ids.len(), park + 29, "a unit added to the shipped rules goes at the end, and this test learns its name");
+    assert_eq!(&ids[ids.len() - 12..ids.len() - 10], ["old_power_station", "capped_landfill"], "relics, in 0.2.77");
+    assert_eq!(&ids[ids.len() - 10..ids.len() - 7], ["mayors_office", "city_hall", "neighbourhood_office"], "government, in 0.2.78");
+    assert_eq!(ids[ids.len() - 2], "citizens_committee", "what follows a fallen government, in 0.2.79");
+    assert_eq!(ids[ids.len() - 1], "tent", "the city builder's start came last");
+    assert_eq!(ids.len(), park + 30, "a unit added to the shipped rules goes at the end, and this test learns its name");
     let old = rules_named("pre-industrial");
     let old_ids: Vec<&str> = old.units.iter().map(|u| u.id.as_str()).collect();
-    assert_eq!(&old_ids[old_ids.len() - 12..old_ids.len() - 6], ["studium", "arena", "theatre", "magistrate", "town_hall", "ward_house"]);
+    assert_eq!(&old_ids[old_ids.len() - 13..old_ids.len() - 7], ["studium", "arena", "theatre", "magistrate", "town_hall", "ward_house"]);
+    assert_eq!(old_ids[old_ids.len() - 1], "tent");
     // From now on a save names its units, and is renumbered on loading
     // under rules that list them otherwise.
     let mut c = City::new(Terrain::flat(40, 24), None, Footprints::builtin(), 3);
@@ -2908,4 +2910,110 @@ fn routes_take_what_their_vehicles_hold() {
     assert!(load1 >= 0.95, "one train is full: {load1} {riders1} {one:?}");
     assert!(riders6 > riders1 * 1.5, "more trains carry more: {riders6} vs {riders1}");
     assert!(load6 < load1, "{load6} {six:?}");
+}
+
+/// City builder mode: plots start as tents and climb their zone's whole
+/// ladder as far as their needs are met, past the density painted. Without
+/// it, a low-density plot stays within the low-density units.
+#[test]
+fn city_builder_plots_grow_from_tents_past_the_painted_density() {
+    let r = rules_named("pre-industrial");
+    let (res, ind) = (r.zone_for(StructureCode::Residential).unwrap(), r.zone_for(StructureCode::Industrial).unwrap());
+    let id = |u: usize| r.units[u].id.as_str();
+    // The ladder: tent, then the low units, then the medium and high ones.
+    let ladder = r.chain(res, 0, true);
+    assert_eq!(&ladder[..5], ["tent", "hut", "cottage", "family_house", "town_house"]);
+    assert_eq!(r.chain(res, 0, false), ["hut", "cottage", "family_house"]);
+    assert_eq!(r.chain(ind, 1, true), r.chain(ind, 1, false), "fields, mines and workshops are kinds, not a ladder");
+    let unit = |name: &str| r.unit(name).unwrap();
+    assert_eq!(r.next_unit(unit("tent"), 0, true).map(id), Some("hut"));
+    assert_eq!(r.next_unit(unit("family_house"), 0, true).map(id), Some("town_house"));
+    assert_eq!(r.next_unit(unit("family_house"), 0, false), None);
+    assert_eq!(r.zone_of_unit("tent"), Some(res));
+    let low = &r.zones[res].densities[0].units;
+    let town = |builder: bool| {
+        let mut c = City::new(Terrain::flat(48, 48), None, Footprints::builtin(), 11);
+        c.fund = 10_000_000;
+        c.use_rules(r.clone());
+        c.glassbox.as_mut().unwrap().builder = builder;
+        assert_eq!(c.builder(), builder);
+        c.research_all();
+        c.apply_tool(Tool::CoalPlant, (2, 2), (2, 2)).unwrap(); // the granary
+        for l in [8, 16, 24] {
+            c.apply_tool(Tool::PavedStreet, (2, l), (44, l)).unwrap();
+        }
+        for l in [12, 20] {
+            c.apply_tool(Tool::DirtRoad, (2, l), (44, l)).unwrap();
+        }
+        c.apply_tool(Tool::DirtRoad, (7, 2), (7, 8)).unwrap();
+        for w in [2, 23, 44] {
+            c.apply_tool(Tool::PavedStreet, (w, 8), (w, 24)).unwrap();
+        }
+        // A midden for the family houses, and wells along the homes.
+        c.apply_tool(Tool::Dump, (22, 5), (22, 5)).unwrap();
+        for w in [12, 18, 30, 38] {
+            c.apply_tool(Tool::Park, (w, 7), (w, 7)).unwrap();
+        }
+        c.zone_density = 0;
+        c.apply_tool(Tool::ZoneResidential, (2, 9), (26, 11)).unwrap();
+        c.apply_tool(Tool::ZoneIndustrial, (2, 13), (38, 15)).unwrap(); // fields
+        c.apply_tool(Tool::ZoneCommercial, (21, 17), (44, 19)).unwrap();
+        // Medium chosen: in city builder mode homes are painted low anyway.
+        c.zone_density = 1;
+        c.apply_tool(Tool::ZoneIndustrial, (39, 13), (44, 15)).unwrap();
+        c.apply_tool(Tool::ZoneResidential, (3, 17), (20, 19)).unwrap();
+        assert_eq!(c.layer.structure_at(4, 18).unwrap().density, if builder { 0 } else { 1 });
+        assert_eq!(c.layer.structure_at(40, 14).unwrap().density, 1, "industry takes the density chosen");
+        c.zone_density = 0;
+        for w in [6, 16, 26, 36] {
+            c.apply_tool(Tool::Park, (w, 21), (w, 21)).unwrap(); // wells
+        }
+        c.apply_tool(Tool::FireDept, (10, 22), (10, 22)).unwrap();
+        c
+    };
+    let homes = |c: &City| -> Vec<(String, u8, u8)> {
+        c.layer
+            .structures()
+            .filter(|(_, s)| s.code == StructureCode::Residential)
+            .filter_map(|(_, s)| Some((id(s.unit? as usize).to_string(), s.level, s.density)))
+            .collect()
+    };
+    for builder in [true, false] {
+        let mut c = town(builder);
+        for _ in 0..30 {
+            c.simulate_round();
+        }
+        let first = homes(&c);
+        assert!(!first.is_empty(), "plots develop (builder: {builder})");
+        // Tents in city builder mode; otherwise the first unit of the density.
+        assert!(first.iter().all(|(u, level, d)| *u == r.chain(res, *d, builder)[0] && *level == 1), "{first:?}");
+        assert_eq!(first.iter().any(|(u, _, _)| u == "tent"), builder, "{first:?}");
+        for _ in 0..770 {
+            c.simulate_round();
+        }
+        let last = homes(&c);
+        let grown: Vec<_> = last.iter().filter(|(u, _, _)| !low.contains(u) && u != "tent").collect();
+        println!("builder {builder}: {} homes, past the low density: {grown:?}", last.len());
+        if builder {
+            assert!(!grown.is_empty(), "homes climb past the low density's last unit: {last:?}");
+            // The level is the rung of the ladder; the density, what stands there.
+            for (u, level, density) in &last {
+                let k = ladder.iter().position(|x| x == u).unwrap();
+                assert_eq!(*level as usize, k + 1, "{u}");
+                assert_eq!(*density, r.density_of(res, u), "{u}");
+            }
+        } else {
+            // Low plots keep to the low units.
+            assert!(last.iter().filter(|(_, _, d)| *d == 0).all(|(u, _, _)| low.contains(u)), "{last:?}");
+            assert!(last.iter().all(|(u, _, _)| u != "tent"), "no tents outside city builder mode");
+        }
+    }
+    // The mode is saved with the city; older saves (without it) load as before.
+    let c = town(true);
+    let back: City = serde_json::from_str(&serde_json::to_string(&c).unwrap()).unwrap();
+    assert!(back.builder());
+    let mut plain = serde_json::to_value(town(false)).unwrap();
+    assert!(plain["glassbox"].get("builder").is_none(), "off is not written");
+    plain["glassbox"].as_object_mut().unwrap().remove("builder");
+    assert!(!serde_json::from_value::<City>(plain).unwrap().builder());
 }

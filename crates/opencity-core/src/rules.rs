@@ -612,6 +612,17 @@ pub struct ZoneDef {
     /// one in twenty), picked by where they stand.
     #[serde(default, skip_serializing_if = "is_zero_f32")]
     pub round_the_clock: f32,
+    /// City builder mode: the densities are one ladder (the low units,
+    /// then the medium ones, then the high ones) that every plot climbs as
+    /// far as its needs are met, whatever density was painted. Leave it
+    /// off for densities that are kinds rather than levels (fields, mines,
+    /// workshops): those grow as painted in either mode.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub ladder: bool,
+    /// City builder mode: the unit a new plot of a ladder zone starts as
+    /// (a tent), below the first unit of the ladder.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub builder_start: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -1090,18 +1101,53 @@ impl Ruleset {
         self.policies.iter().find(|p| p.id == id)
     }
 
-    /// The unit a zone building grows into at its plot's density, if any.
-    pub fn next_unit(&self, unit: usize, density: u8) -> Option<usize> {
+    /// The unit a zone building grows into at its plot's density, if any
+    /// (`builder`: in city builder mode, up its zone's ladder).
+    pub fn next_unit(&self, unit: usize, density: u8, builder: bool) -> Option<usize> {
         let id = &self.units.get(unit)?.id;
-        let z = &self.zones[self.zone_of_unit(id)?];
-        let d = &z.densities[(density as usize).min(z.densities.len() - 1)];
-        let k = d.units.iter().position(|u| u == id)?;
-        self.unit(d.units.get(k + 1)?)
+        let chain = self.chain(self.zone_of_unit(id)?, density, builder);
+        let k = chain.iter().position(|u| u == id)?;
+        self.unit(chain.get(k + 1)?)
     }
 
-    /// Zone of a unit id, by the densities that list it.
+    /// Zone of a unit id, by the densities that list it (or its city
+    /// builder start).
     pub fn zone_of_unit(&self, unit: &str) -> Option<usize> {
-        self.zones.iter().position(|z| z.densities.iter().any(|d| d.units.iter().any(|u| u == unit)))
+        self.zones.iter().position(|z| z.builder_start.as_deref() == Some(unit) || z.densities.iter().any(|d| d.units.iter().any(|u| u == unit)))
+    }
+
+    /// Whether a zone's buildings climb its whole ladder: city builder
+    /// mode, in a zone whose densities are levels.
+    pub fn climbs(&self, zone: usize, builder: bool) -> bool {
+        builder && self.zones[zone].ladder
+    }
+
+    /// The units a building of a zone grows through, level by level: those
+    /// of its plot's density or, when it [climbs](Self::climbs), its start
+    /// unit and then every density's units, low to high.
+    pub fn chain(&self, zone: usize, density: u8, builder: bool) -> Vec<&str> {
+        let z = &self.zones[zone];
+        if self.climbs(zone, builder) {
+            z.builder_start.iter().chain(z.densities.iter().flat_map(|d| &d.units)).map(String::as_str).collect()
+        } else {
+            z.densities[(density as usize).min(z.densities.len() - 1)].units.iter().map(String::as_str).collect()
+        }
+    }
+
+    /// The density a unit of a zone stands for: the first that lists it
+    /// (the lowest for its start unit).
+    pub fn density_of(&self, zone: usize, unit: &str) -> u8 {
+        self.zones[zone].densities.iter().position(|d| d.units.iter().any(|u| u == unit)).unwrap_or(0) as u8
+    }
+
+    /// The density the zone tools paint for a zone: the chosen one, or the
+    /// lowest (the cheapest) where buildings climb the whole ladder.
+    pub fn painted_density(&self, zone: usize, chosen: u8, builder: bool) -> u8 {
+        if self.climbs(zone, builder) {
+            0
+        } else {
+            chosen
+        }
     }
 }
 
@@ -1627,6 +1673,17 @@ impl Ruleset {
             for t in &z.demand {
                 if self.resource(&t.resource).is_none() {
                     return err(format!("zone {}: unknown resource {}", z.id, t.resource));
+                }
+            }
+            if let Some(u) = &z.builder_start {
+                if !z.ladder {
+                    return err(format!("zone {}: builder_start needs ladder = true", z.id));
+                }
+                if self.unit(u).is_none() {
+                    return err(format!("zone {}: unknown builder_start unit {u}", z.id));
+                }
+                if self.zones.iter().any(|o| o.densities.iter().any(|d| d.units.contains(u))) {
+                    return err(format!("zone {}: builder_start unit {u} is already listed by a density", z.id));
                 }
             }
         }

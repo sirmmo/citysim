@@ -19,8 +19,9 @@ use crate::ui::Action;
 pub enum Command {
     Act(Action),
     SetSpeed(Speed),
-    /// New map, with the skin to dress it in (`None`: classic modern look).
-    NewCity(MapParams, Option<String>, Option<String>),
+    /// New map, with the skin to dress it in (`None`: classic modern look),
+    /// the rules, and whether it is played in city builder mode.
+    NewCity(MapParams, Option<String>, Option<String>, bool),
     /// Zone density for the zone tools (GlassBox rules).
     SetDensity(u8),
     /// Map layer drawn over the city (GlassBox rules).
@@ -176,6 +177,8 @@ pub struct EguiUi {
     new_skin: Option<String>,
     /// Rules set for the new city (`None`: classic OpenCity rules).
     new_rules: Option<String>,
+    /// City builder mode for the new city (GlassBox rules only).
+    new_builder: bool,
     path: String,
     import_date: String,
     import_rules: String,
@@ -412,6 +415,7 @@ impl EguiUi {
             new_era: None,
             new_skin: None,
             new_rules: Some("glassbox".into()),
+            new_builder: false,
             path: String::new(),
             import_date: String::new(),
             import_rules: String::new(),
@@ -982,9 +986,7 @@ impl EguiUi {
         let selected = view.active == Some(action);
         let tex = self.icon(ctx, view.catalog, view.skin, icon);
         let cost = match (action, view.city.rules()) {
-            (Action::Tool(Some(t)), Some(rules)) if t.structure().is_some_and(|c| c.is_zone()) => {
-                rules.zone_for(t.structure().unwrap()).and_then(|z| rules.zones[z].densities.get(view.city.zone_density as usize)).map(|d| d.cost)
-            }
+            (Action::Tool(Some(t)), Some(_)) if t.structure().is_some_and(|c| c.is_zone()) => view.city.zone_cost(t.structure().unwrap()),
             (Action::Tool(Some(t)), Some(_)) if view.city.service(t.id()).is_some_and(|u| u.build_cost > 0) => view.city.service(t.id()).map(|u| u.build_cost),
             _ => tool_cost(action),
         };
@@ -1095,11 +1097,20 @@ impl EguiUi {
                     }
                     if group == "Zones" {
                         if let Some(rules) = view.city.rules() {
-                            let names: Vec<&str> = rules.zones.first().map(|z| z.densities.iter().map(|d| d.name.as_str()).collect()).unwrap_or_default();
+                            // In city builder mode homes and shops climb
+                            // their whole ladder: the choice is left to the
+                            // zones whose densities are kinds (if any).
+                            let builder = view.city.builder();
+                            let zone = (0..rules.zones.len()).find(|&z| !rules.climbs(z, builder));
+                            let names: Vec<&str> = zone.map(|z| rules.zones[z].densities.iter().map(|d| d.name.as_str()).collect()).unwrap_or_default();
                             ui.horizontal_wrapped(|ui| {
                                 for (i, name) in names.iter().enumerate() {
                                     let short = name.split_whitespace().next().unwrap_or(name);
-                                    if ui.selectable_label(view.city.zone_density == i as u8, short).on_hover_text(*name).clicked() {
+                                    let hover = match zone.filter(|_| builder) {
+                                        Some(z) => format!("{name}: {} only; the other zones grow as far as their needs are met", rules.zones[z].name),
+                                        None => name.to_string(),
+                                    };
+                                    if ui.selectable_label(view.city.zone_density == i as u8, short).on_hover_text(hover).clicked() {
                                         out.push(Command::SetDensity(i as u8));
                                     }
                                 }
@@ -1550,6 +1561,10 @@ impl EguiUi {
                         self.new_rules = rules_for_age(view.rulesets, view.skins, self.new_skin.as_deref(), self.new_rules.take());
                     }
                     rules_picker(ui, view.rulesets, &mut self.new_rules);
+                    if self.new_rules.is_some() {
+                        ui.checkbox(&mut self.new_builder, "City builder")
+                            .on_hover_text("Plots start as tents and grow as far as their needs are met: the density you paint no longer matters.");
+                    }
                     ui.separator();
                     let m = &mut self.new_map;
                     egui::Grid::new("newcity").num_columns(2).show(ui, |ui| {
@@ -1602,7 +1617,12 @@ impl EguiUi {
                     });
                     ui.horizontal(|ui| {
                         if ui.button("Create").clicked() {
-                            out.push(Command::NewCity(self.new_map.clone(), self.new_skin.clone(), self.new_rules.clone()));
+                            out.push(Command::NewCity(
+                                self.new_map.clone(),
+                                self.new_skin.clone(),
+                                self.new_rules.clone(),
+                                self.new_builder && self.new_rules.is_some(),
+                            ));
                             close = true;
                         }
                         if ui.button("Cancel").clicked() {
@@ -1995,7 +2015,7 @@ fn unit_details(ui: &mut egui::Ui, city: &City, gb: &opencity_core::glassbox::Gl
     });
     // What keeps it from growing: needs of the next level nothing can supply.
     let density = city.layer.structure_at(origin.0, origin.1).map_or(0, |s| s.density);
-    if let Some(next) = rules.next_unit(unit, density) {
+    if let Some(next) = rules.next_unit(unit, density, city.builder()) {
         let key = origin.1 * city.width() + origin.0;
         let short: Vec<String> =
             gb.growth_needs(rules, unit, next, key).into_iter().filter(|n| !n.2).map(|n| rules.resources[n.0].name.to_lowercase()).collect();
@@ -2152,7 +2172,10 @@ fn kind_line(view: &View, s: &opencity_core::Structure) -> String {
         if let Some(z) = rules.zone_for(s.code) {
             let zone = &rules.zones[z];
             if let Some(d) = zone.densities.get(s.density as usize) {
-                let level = d.units.iter().position(|x| x == id).map_or(String::new(), |i| format!(" · level {} of {}", i + 1, d.units.len()));
+                // Its level on what it grows through: the plot's density,
+                // or in city builder mode the zone's whole ladder.
+                let chain = rules.chain(z, s.density, view.city.builder());
+                let level = chain.iter().position(|x| x == id).map_or(String::new(), |i| format!(" · level {} of {}", i + 1, chain.len()));
                 return format!("{} · {}{level}", zone.name, d.name);
             }
             return zone.name.clone();

@@ -140,6 +140,24 @@ Growth is damped so that buildings do not flicker between states:
 | `saturation` | 0.1 | a zone stops developing new plots while this share of its settled buildings fail |
 | `neglect` | 120 | ticks a building may stay starved before it shrinks a level, whatever its satisfaction (0: never) |
 
+**City builder mode** is chosen with a new city (**City builder** in the New
+City dialog, or `--builder` with `--game-rules`) and saved with it. Plots
+start as tents and grow as far as their needs are met, as in the Anno and
+Pharaoh games: the density you paint no longer matters for the zones whose
+densities are levels. Two zone keys say how:
+
+| `[[zone]]` key | Effect in city builder mode |
+|---|---|
+| `ladder = true` | the zone's densities are one ladder (the low units, then the medium ones, then the high ones) that every plot climbs, with all the checks above, and falls back down; the zone tools paint its lowest (cheapest) density |
+| `builder_start = "tent"` | the unit a new plot starts as, below the first unit of the ladder (it needs `ladder`, and no density may list it) |
+
+Zones without `ladder` (densities that are kinds, such as fields, mines and
+workshops) grow as painted, and the density choice of the zone tools is
+left to them. Both shipped rules set `ladder` on homes and shops, and start
+homes as a `tent` (graphic 40: a Kenney Survival Kit camp) that needs
+nothing and makes a couple of residents and workers. Outside city builder
+mode both keys are ignored.
+
 **Administration** is what running the city costs, apart from its services:
 so much per inhabitant and tick, more per head as the city grows. Unpaid
 (the treasury is empty), every zone building loses `unpaid` satisfaction.
@@ -1098,7 +1116,7 @@ policy_set = "my_policies"         # policies/my_policies.toml (optional)
 [[network]]                        # id, name, structures, through_buildings
 [[network.vehicle]]                # id, name, model, ways, speed, carries, share, direct, meshes
 [[layer]]                          # id, name, diffusion, decay, colour, max
-[[zone]]                           # id, name, structure, densities, demand, base_demand
+[[zone]]                           # id, name, structure, densities, demand, base_demand, round_the_clock, ladder, builder_start
 [services]                         # tool id = unit id
 [[unit]]                           # id, name, description, graphic, produce, needs, sends, emits, requires, build_cost
 [[tech]]                           # id, name, description, category, tier, cost, requires, unlocks, bonus, excludes, obsoletes

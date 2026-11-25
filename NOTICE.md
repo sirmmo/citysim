@@ -42,7 +42,7 @@ next to the converted files, and they keep the CC BY-SA 3.0 licence.
 
 `assets/models/kenney/` holds models from the Car Kit, Train Kit,
 Watercraft Pack, City Kits (Suburban, Commercial, Industrial, Roads),
-Factory Kit, Nature Kit and Fantasy Town Kit by [Kenney](https://www.kenney.nl), released
+Factory Kit, Nature Kit, Fantasy Town Kit and Survival Kit by [Kenney](https://www.kenney.nl), released
 under CC0 (public domain). Each folder keeps the kit's `License.txt`.
 
 `assets/models/quaternius/town/` holds the town buildings of the Ultimate

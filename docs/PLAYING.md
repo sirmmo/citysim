@@ -10,6 +10,7 @@ game see [RULES.md](RULES.md); for the documentation index see
   - **Map:** width, length, relief, water, shape, rivers, trees and seed (🎲 picks a random one). Rivers run from the high ground down to the sea, a lake or the edge of the map; roads, tracks and power lines cross them, and a road or track over water is a **bridge**, at three times the price of the tile. Boats pass under bridges.
   - **Era:** Antiquity, Middle Ages, Renaissance, Industrial age or Modern, plus a culture for antiquity.
   - **Rules:** **Classic** is OpenCity's original growth rules. **GlassBox** is the data-driven engine. Cities before 1800 default to the pre-industrial GlassBox rules.
+  - **City builder** (GlassBox rules): plots start as tents and grow as far as their needs are met, as in the Anno and Pharaoh games. The density you paint no longer matters for homes and shops: a tent becomes a hut (or a little house) once there is food (or power) to spare for one, then a cottage, a family house, a town house and up, and falls back down when what it needs stops coming. Fields, mines and workshops (and modern industry) still grow as painted. The choice is saved with the city.
 
 ![A road bridge over a river, with the banks sloping down to the water](rivers.png)
 
@@ -110,7 +111,7 @@ interface** makes it Large or Huge on top of that, and `--ui-scale 1.5`
   them, with their prices. A row shows the tool in use. Bulldozer and
   Inspect stay at the bottom.
 - **Zones** grow when they have a road nearby and power (in the modern rules), and are close to the other two zone types.
-  - Under GlassBox rules, pick a **density** (low, medium, high) before zoning. Denser zones cost more and grow bigger buildings.
+  - Under GlassBox rules, pick a **density** (low, medium, high) before zoning. Denser zones cost more and grow bigger buildings. In a **City builder** city the choice is only for industry: homes and shops are zoned at the lowest price and grow from there.
 - **Roads** come in four kinds that connect to each other. Each era offers its own.
 
   | Road | Cost | Speed | Capacity | Notes |

@@ -576,6 +576,10 @@ densities = [
   { id = "medium", name = "Medium density", cost = 10, units = ["townhouse_1", "townhouse_2", "townhouse_3"] },
   { id = "high", name = "High density", cost = 20, units = ["tower_1", "tower_2", "tower_3"] },
 ]
+# City builder mode: a plot starts as a tent and climbs the densities above
+# as one ladder, house to tower, as far as its needs are met.
+ladder = true
+builder_start = "tent"
 
 [[zone]]
 id = "commercial"
@@ -592,6 +596,7 @@ densities = [
   { id = "medium", name = "Medium density", cost = 10, units = ["store_1", "store_2", "store_3"] },
   { id = "high", name = "High density", cost = 20, units = ["mall_1", "mall_2", "mall_3"] },
 ]
+ladder = true                   # city builder mode: shop, store, mall in turn
 
 [[zone]]
 id = "industrial"
@@ -609,6 +614,8 @@ densities = [
   { id = "medium", name = "Medium density", cost = 15, units = ["factory_1", "factory_2", "factory_3"] },
   { id = "high", name = "High density", cost = 25, units = ["plant_1", "plant_2", "plant_3"] },
 ]
+# No ladder: heavy industry goes where it is painted, in city builder mode
+# too, so a workshop next to the houses never grows into a refinery.
 
 # ---------------------------------------------------------------- services
 [services]
@@ -1418,6 +1425,19 @@ district = 8
 approval = 1
 needs = { workers = 2, power = 1, upkeep = 0.1 }
 emits = { land_value = { amount = 1.5, radius = 6 } }
+
+# City builder mode: where a residential plot starts (the zone's
+# builder_start). It needs nothing; it becomes a little house once the
+# grid has power to spare for one.
+[[unit]]
+id = "tent"
+name = "Tent"
+description = "Newcomers camping on their plot until a house goes up."
+graphic = 40
+produce = { residents = 2, workers = 1, shoppers = 1 }
+sends = ["workers", "shoppers"]
+outlets = { workers = 1, shoppers = 0.5 }
+requires = { pollution = { max = 30 } }
 
 # ---------------------------------------------------------------- events
 # Things that happen to the city. Sums are for each thousand residents.
