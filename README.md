@@ -309,3 +309,15 @@ On Wavedash the game stays behind Wavedash's loading screen until it calls `Wave
 `web/citysim.js` does it through `web/wavedash.js` once the game starts and draws its own loading
 screen, or when the page reports an error. Elsewhere (GitHub Pages, a local server) there is no
 `Wavedash` object and the calls do nothing.
+
+## Publishing on itch.io
+
+The same builds go to [itch.io](https://itch.io) with
+[butler](https://itch.io/docs/butler/), each to its own page as an HTML5 build: `citysim` at https://sirmmo.itch.io/citysim.
+`sh tools/itch.sh [game]` builds them as for Wavedash and runs `butler push <build>
+sirmmo/<page>:html5`; without butler, or with `ITCH_DRY_RUN=1`, it only says what it would push.
+In CI, Actions > Itch > Run workflow does the same, with the repository secret `BUTLER_API_KEY`
+(an API key from https://itch.io/user/settings/api-keys). Each page must exist on itch.io before
+its first push (Dashboard > Create new project, kind HTML); after the first upload, tick "This
+file will be played in the browser" on it once.
+
